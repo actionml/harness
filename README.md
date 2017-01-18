@@ -36,7 +36,7 @@ All REST APIs will have Access Control Lists based on who is allowed to access t
 
     POST /datasets/<dataset-id>/events {JSON body for PIO event}
         Response: HTTP code
-    GET /engines/<engine-id>/queries {JSON body for PIO query}
+    POST /engines/<engine-id>/queries {JSON body for PIO query}
         Response: HTTP code
         Body: JSON for PIO PredictedResults
 
@@ -52,7 +52,7 @@ All REST APIs will have Access Control Lists based on who is allowed to access t
         Response: HTTP code
         Body: returns the command-id to poll for information about command progress
         Action: will launch batch training of an <engine-id>
-    GET /commands/<command-id> {JSON body command status for asynch/long-lived commands}
+    GET /commands/<command-id> {JSON response body command status for asynch/long-lived commands}
         Response: HTTP code
     
 # Java SDK API
