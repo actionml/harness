@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/actionml/pio-kappa.svg?branch=master)](https://travis-ci.org/actionml/pio-kappa)
+
 # pio-kappa
 PredictionIO-Kappa migration
 
