@@ -62,14 +62,11 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
         Action: will launch batch training of an <engine-id>
     GET /commands/<command-id> 
         Response Body: response body command status for asynch/long-lived command
-        
-## SSL Support
+      
+      
+# [Security](security.md)  
 
-Uses [http-akka SSL support](http://doc.akka.io/docs/akka-http/current/scala/http/server-side-https-support.html).
-
-## OAuth2 Authentication
-
-We will use OAuth2 authorization framework. OAuth2 defines 4 grant types: "authorization code", "implicit", "password credentials", and "client credentials". Since we need server-to-server auth, then we will use ["client credentials" grant type](https://tools.ietf.org/html/rfc6749#section-4.4) Thus our rest service will be a "resource server" and "authorization server". We will use the [Nulab library](https://github.com/nulab/scala-oauth2-provider) for the implementation.  
+pio-kappa optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.
     
 # Java SDK API
 
