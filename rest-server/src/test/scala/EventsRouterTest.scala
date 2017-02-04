@@ -38,6 +38,14 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
       |  "event" : "my_event",
       |  "entityType" : "user",
       |  "entityId" : "uid",
+      |  "properties" : {
+      |    "prop1" : 1,
+      |    "prop2" : "value2",
+      |    "prop3" : [1, 2, 3],
+      |    "prop4" : true,
+      |    "prop5" : ["a", "b", "c"],
+      |    "prop6" : 4.56
+      |  },
       |  "eventTime" : "2004-12-13T21:39:45.618-07:00"
       |}
     """.stripMargin
@@ -68,7 +76,7 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
   }
 
   class BaseModule extends Module{
-    bind[ActorSystem] to ActorSystem("ActionMLRestServer") destroyWith(_.terminate())
+    bind[ActorSystem] to ActorSystem("test") destroyWith(_.terminate())
     bind[RestServer] to new RestServer
     bind[EventsRouter] to new EventsRouter
     bind[EventService] to new MockEventService

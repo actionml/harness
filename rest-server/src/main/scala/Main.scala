@@ -24,7 +24,7 @@ class BaseModule extends Module{
 
   bind[AppConfig] to AppConfig.apply
 
-  bind[ActorSystem] to ActorSystem("RestServer") destroyWith(_.terminate())
+  bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
 
   bind[RestServer] to new RestServer
 

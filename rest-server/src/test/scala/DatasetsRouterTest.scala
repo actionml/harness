@@ -74,7 +74,7 @@ class DatasetsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest 
   }
 
   class BaseModule extends Module{
-    bind[ActorSystem] to ActorSystem("ActionMLRestServer") destroyWith(_.terminate())
+    bind[ActorSystem] to ActorSystem("test") destroyWith(_.terminate())
     bind[RestServer] to new RestServer
     bind[DatasetsRouter] to new DatasetsRouter
     bind[DatasetService] to new MockDatasetService

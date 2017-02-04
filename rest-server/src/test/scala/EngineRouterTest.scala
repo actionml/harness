@@ -97,7 +97,7 @@ class EngineRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
   }
 
   class BaseModule extends Module {
-    bind[ActorSystem] to ActorSystem("TestRestServer") destroyWith (_.terminate())
+    bind[ActorSystem] to ActorSystem("test") destroyWith (_.terminate())
     bind[RestServer] to new RestServer
     bind[EnginesRouter] to new EnginesRouter
     bind[EngineService] to new MockEngineService

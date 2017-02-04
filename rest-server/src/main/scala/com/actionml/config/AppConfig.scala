@@ -11,17 +11,21 @@ import net.ceedubs.ficus.readers.EnumerationReader._
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 19:09
   */
-case class AppConfig(restServer: RestServerConfig)
+case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfig)
 case class RestServerConfig(
   host: String,
   port: Int
+)
+case class ActorSystemConfig(
+  name: String
 )
 
 object AppConfig{
   val config = ConfigFactory.load()
 
   def apply: AppConfig = new AppConfig(
-    restServer = config.as[RestServerConfig]("restServer")
+    restServer = config.as[RestServerConfig]("rest-server"),
+    actorSystem = config.as[ActorSystemConfig]("actor-system")
   )
 
 
