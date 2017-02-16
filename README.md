@@ -25,9 +25,9 @@ defined input/query objects
  
 **Libraries used**
 
- - akka-http, scala
- - [Asynch HTTP Client](https://github.com/AsyncHttpClient/async-http-client#async-http-client-asynchttpclient-on-twitter-) (if possible)
- - existing [PIO Java client SDK](https://github.com/apache/incubator-predictionio-sdk-java)
+ - akka-http, akka-actors, scala
+ - [Asynch HTTP Client](https://github.com/AsyncHttpClient/async-http-client#async-http-client-asynchttpclient-on-twitter-), which replaces previous PIO SDKs and supports SSL with S2S Auth
+ - Example existing [PIO Java client SDK](https://github.com/apache/incubator-predictionio-sdk-java)
 
 ![PIO Kappa Architecture](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=910&h=739)
 
@@ -36,6 +36,8 @@ defined input/query objects
 The pio-kappa core is made from a component called a router, which maintains REST endpoints that can be attached in runtime. It is meant as a core piece for microservices to use in presenting a REST interface and also support SSL and S2S Auth. It may be more desirable in a larger system to use other forms of Auth or implement SSL in load balancing or proxies but it is supplied for extra security and where these systems are not needed.
 
 The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the microservice. 
+
+**Note**: for a first step the Router may be linked to microservices, rather than being updated while running through it's private REST API.
 
 # Kappa Learning
 
