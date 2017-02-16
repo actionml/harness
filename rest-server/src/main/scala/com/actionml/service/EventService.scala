@@ -18,11 +18,11 @@ trait EventService extends ActorInjectable
 class EmptyEventService(implicit inj: Injector) extends EventService{
   override def receive: Receive = {
     case GetEvent(datasetId, eventId) ⇒
-      log.info("Get entity, {}, {}", datasetId, eventId)
+      log.info("Get event, {}, {}", datasetId, eventId)
       sender() ! None
 
     case CreateEvent(datasetId, event) ⇒
-      log.info("Create new entity, {}, {}", datasetId, event)
+      log.info("Receive new event & stored, {}, {}", datasetId, event)
       sender() ! None
   }
 }
