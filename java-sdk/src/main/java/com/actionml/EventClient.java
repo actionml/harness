@@ -2,6 +2,8 @@ package com.actionml;
 
 import akka.http.javadsl.model.*;
 import akka.japi.Pair;
+import com.actionml.entity.Event;
+import com.actionml.entity.EventId;
 import org.joda.time.DateTime;
 
 import java.io.IOException;

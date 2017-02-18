@@ -1,5 +1,6 @@
-package com.actionml;
+package com.actionml.entity;
 
+import com.actionml.DateTimeAdapter;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
