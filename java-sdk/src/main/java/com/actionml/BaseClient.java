@@ -7,8 +7,11 @@ import akka.http.javadsl.Http;
 import akka.http.javadsl.model.*;
 import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.japi.Pair;
+import akka.japi.function.Function;
 import akka.stream.ActorMaterializer;
+import akka.stream.ActorMaterializerSettings;
 import akka.stream.Materializer;
+import akka.stream.Supervision;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
@@ -18,13 +21,9 @@ import scala.util.Try;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -46,7 +45,14 @@ abstract class BaseClient {
 
     BaseClient(String host, Integer port) {
         system = ActorSystem.create("pio-kappa-sdk-client");
-        materializer = ActorMaterializer.create(system);
+        Function<Throwable, Supervision.Directive> decider = exc -> {
+            System.err.println(exc);
+            return Supervision.resume();
+        };
+        materializer = ActorMaterializer.create(
+                ActorMaterializerSettings.create(system).withSupervisionStrategy(decider),
+                system);
+
         this.host = host;
         this.port = port;
 
@@ -58,7 +64,7 @@ abstract class BaseClient {
                 materializer);
     }
 
-    Materializer getMaterializer() {
+    public Materializer getMaterializer() {
         return materializer;
     }
 
@@ -185,7 +191,7 @@ abstract class BaseClient {
         if (response.status() == StatusCodes.CREATED) {
             stage = response.entity()
                     .getDataBytes()
-                    .runFold(ByteString.empty(), ByteString::concat, this.getMaterializer())
+                    .runFold(ByteString.empty(), ByteString::concat, this.materializer)
                     .thenApply(byteString -> parser.parse(byteString.utf8String()));
         } else {
             CompletableFuture<JsonElement> fut = new CompletableFuture<>();

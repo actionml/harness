@@ -27,8 +27,7 @@ public class Event {
     /**
      * Instantiate an event object.
      */
-    public Event() {
-    }
+    public Event() {}
 
     /**
      * Returns the name of the event.
