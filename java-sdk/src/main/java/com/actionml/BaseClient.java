@@ -96,6 +96,10 @@ abstract class BaseClient {
         return single(createPost(uri, json)).thenCompose(this::extractJson);
     }
 
+    public CompletionStage<JsonElement> post(Uri uri, String id, String json) {
+        return post(uri.addPathSegment(id), json);
+    }
+
     public CompletionStage<List<Pair<Long, CompletionStage<JsonElement>>>> multiPost(Uri uri, List<String> jsonList) {
         List<HttpRequest> requestList = jsonList.stream()
                 .map(json -> createPost(uri, json))
@@ -103,8 +107,8 @@ abstract class BaseClient {
         return multi(requestList).thenApply(this::extractJson);
     }
 
-    public CompletionStage<JsonElement> delete(Uri uri) {
-        return single(createDelete(uri)).thenCompose(this::extractJson);
+    public CompletionStage<JsonElement> delete(Uri uri, String id) {
+        return single(createDelete(uri.addPathSegment(id))).thenCompose(this::extractJson);
     }
 
     public CompletionStage<List<Pair<Long, CompletionStage<JsonElement>>>> multiDelete(Uri uri, List<String> ids) {
