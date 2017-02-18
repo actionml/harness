@@ -55,12 +55,12 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
     println("ValidateClient", maybeCredential, request.grantType)
     val grantType = request.grantType
     maybeCredential match {
-      case Some(ClientCredential(clientId, Some(clientSecret))) => oauthClientsDal.validate(
+      case Some(ClientCredential(clientId, Some(clientSecret))) ⇒ oauthClientsDal.validate(
         clientId = clientId,
         clientSecret = clientSecret,
         grantType = grantType
       )
-      case _ => Future.successful(false)
+      case _ ⇒ Future.successful(false)
     }
   }
 
@@ -71,21 +71,21 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
     println("FindUser: ", maybeCredential, request)
     request match {
 
-      case request: PasswordRequest =>
+      case request: PasswordRequest ⇒
         println("PasswordRequest", request.username, request.password)
         accountsDal.authenticate(request.username, request.password)
 
-      case _: ClientCredentialsRequest =>
+      case _: ClientCredentialsRequest ⇒
         println("ClientCredentialsRequest")
         maybeCredential match {
-          case Some(ClientCredential(clientId, Some(clientSecret))) => oauthClientsDal.findClientCredentials(
+          case Some(ClientCredential(clientId, Some(clientSecret))) ⇒ oauthClientsDal.findClientCredentials(
             clientId = clientId,
             clientSecret = clientSecret
           )
-          case _ => Future.failed[Option[Account]](new InvalidRequest())
+          case _ ⇒ Future.failed[Option[Account]](new InvalidRequest())
         }
 
-      case _ => Future.successful(None)
+      case _ ⇒ Future.successful(None)
 
     }
   }
@@ -93,21 +93,21 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
   override def createAccessToken(authInfo: AuthInfo[Account]): Future[AccessToken] = {
     println("CreateAccessToken", authInfo)
     authInfo match {
-      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) => (for {
+      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) ⇒ (for {
         maybeClient <- oauthClientsDal.findByClientId(clientId)
         toAccessToken <- oauthAccessTokensDal.create(authInfo.user, maybeClient.get).map(toAccessToken) if maybeClient.isDefined
-      } yield toAccessToken).recover { case _ => throw new InvalidRequest() }
-      case _ => Future.failed[AccessToken](new InvalidRequest())
+      } yield toAccessToken).recover { case _ ⇒ throw new InvalidRequest() }
+      case _ ⇒ Future.failed[AccessToken](new InvalidRequest())
     }
   }
 
   override def getStoredAccessToken(authInfo: AuthInfo[Account]): Future[Option[AccessToken]] = {
     authInfo match {
-      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) => oauthAccessTokensDal.findByAuthorized(
+      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) ⇒ oauthAccessTokensDal.findByAuthorized(
         account = account,
         clientId = clientId
       ).map(_.map(toAccessToken))
-      case _ => Future.successful(None)
+      case _ ⇒ Future.successful(None)
     }
   }
 
@@ -116,50 +116,50 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
     refreshToken: String
   ): Future[AccessToken] = {
     authInfo match {
-      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) => (for {
+      case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) ⇒ (for {
         maybeClient <- oauthClientsDal.findByClientId(clientId)
         toAccessToken <- oauthAccessTokensDal.refresh(authInfo.user, maybeClient.get).map(toAccessToken) if maybeClient.isDefined
-      } yield toAccessToken).recover { case _ => throw new InvalidClient() }
+      } yield toAccessToken).recover { case _ ⇒ throw new InvalidClient() }
 
-      case _ => Future.failed[AccessToken](new InvalidRequest())
+      case _ ⇒ Future.failed[AccessToken](new InvalidRequest())
     }
 
   }
 
   override def findAuthInfoByCode(code: String): Future[Option[AuthInfo[Account]]] = {
     oauthAuthorizationCodesDal.findByCode(code).flatMap {
-      case Some(authAuthorizationCode) => getAuthInfo(
+      case Some(authAuthorizationCode) ⇒ getAuthInfo(
         accountId = authAuthorizationCode.accountId,
         clientId = authAuthorizationCode.oauthClientId
       )
 
-      case None => Future.failed(new InvalidRequest())
+      case None ⇒ Future.failed(new InvalidRequest())
     }
   }
 
   override def deleteAuthCode(code: String): Future[Unit] = {
-    oauthAuthorizationCodesDal.delete(code).map(_ => {})
+    oauthAuthorizationCodesDal.delete(code).map(_ ⇒ {})
   }
 
   override def findAuthInfoByRefreshToken(refreshToken: String): Future[Option[AuthInfo[Account]]] = {
     oauthAccessTokensDal.findByRefreshToken(refreshToken, accessTokenExpireSeconds).flatMap {
-      case Some(authAccessToken) => getAuthInfo(
+      case Some(authAccessToken) ⇒ getAuthInfo(
         accountId = authAccessToken.accountId,
         clientId = authAccessToken.oauthClientId
       )
 
-      case None => Future.failed(new InvalidRequest())
+      case None ⇒ Future.failed(new InvalidRequest())
     }
   }
 
   override def findAuthInfoByAccessToken(accessToken: AccessToken): Future[Option[AuthInfo[Account]]] = {
     oauthAccessTokensDal.findByAccessToken(accessToken.token).flatMap {
-      case Some(authAccessToken) => getAuthInfo(
+      case Some(authAccessToken) ⇒ getAuthInfo(
         accountId = authAccessToken.accountId,
         clientId = authAccessToken.oauthClientId
       )
 
-      case None => Future.failed(new InvalidRequest())
+      case None ⇒ Future.failed(new InvalidRequest())
     }
   }
 

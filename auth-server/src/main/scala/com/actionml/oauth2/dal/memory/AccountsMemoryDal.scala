@@ -24,14 +24,14 @@ class AccountsMemoryDal extends AccountsDal{
   private def digestString(s: String): String = {
     val md = MessageDigest.getInstance("SHA-1")
     md.update(s.getBytes)
-    md.digest.foldLeft("") { (s, b) =>
+    md.digest.foldLeft("") { (s, b) ⇒
       s + "%02x".format(if (b < 0) b + 256 else b)
     }
   }
 
   override def authenticate(name: String, password: String): Future[Option[Account]] = Future.successful {
     val hashedPassword = digestString(password)
-    storage.values.find(account => account.name == name && account.password == hashedPassword)
+    storage.values.find(account ⇒ account.name == name && account.password == hashedPassword)
   }
 
   override def findByAccountId(id: String): Future[Option[Account]] = Future.successful {

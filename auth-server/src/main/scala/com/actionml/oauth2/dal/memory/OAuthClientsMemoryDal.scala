@@ -1,8 +1,8 @@
 package com.actionml.oauth2.dal.memory
 
+import com.actionml.oauth2.dal.{AccountsDal, OAuthClientsDal}
+import com.actionml.oauth2.entities.{Account, OAuthClient}
 import org.joda.time.DateTime
-import ru.pavlenov.oauth2.dal.{AccountsDal, OAuthClientsDal}
-import ru.pavlenov.oauth2.entities.{Account, OAuthAuthorizationCode, OAuthClient}
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -11,8 +11,7 @@ import scala.concurrent.Future
 import scalaoauth2.provider.OAuthGrantType
 
 /**
-  * ⓭ + 32
-  * Какой сам? by Pavlenov Semen 22.01.17.
+  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
 class OAuthClientsMemoryDal(implicit inj: Injector) extends OAuthClientsDal with AkkaInjectable{
 
@@ -37,7 +36,7 @@ class OAuthClientsMemoryDal(implicit inj: Injector) extends OAuthClientsDal with
     storage.get(clientId)
       .filter(_.clientSecret == clientSecret)
       .filter(_.grantType == grantType || grantType == OAuthGrantType.REFRESH_TOKEN)
-      .exists(_ => true)
+      .exists(_ ⇒ true)
   }
 
   override def findByClientId(clientId: String): Future[Option[OAuthClient]] = Future.successful {
@@ -52,8 +51,8 @@ class OAuthClientsMemoryDal(implicit inj: Injector) extends OAuthClientsDal with
       .filter(_.clientSecret == clientSecret)
       .map(_.ownerId)
       .map(accountsDal.findByAccountId) match {
-        case Some(eventualMaybeAccount) => eventualMaybeAccount
-        case _ => Future.successful(None)
+        case Some(eventualMaybeAccount) ⇒ eventualMaybeAccount
+        case _ ⇒ Future.successful(None)
       }
   }
 }

@@ -1,14 +1,13 @@
 package com.actionml.oauth2.dal.memory
 
-import ru.pavlenov.oauth2.dal.OAuthAuthorizationCodesDal
-import ru.pavlenov.oauth2.entities.{Account, OAuthAccessToken, OAuthAuthorizationCode, OAuthClient}
+import com.actionml.oauth2.dal.OAuthAuthorizationCodesDal
+import com.actionml.oauth2.entities.OAuthAuthorizationCode
 
 import scala.collection.mutable
 import scala.concurrent.Future
 
 /**
-  * ⓭ + 29
-  * Какой сам? by Pavlenov Semen 22.01.17.
+  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
 class OAuthAuthorizationCodesMemoryDal extends OAuthAuthorizationCodesDal{
 
