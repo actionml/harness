@@ -1,4 +1,5 @@
 import akka.actor.ActorSystem
+import akka.event.{Logging, LoggingAdapter}
 import com.actionml.config.AppConfig
 import com.actionml.http.{HttpServer, OAuthRoutes}
 import com.actionml.oauth2.OAuth2DataHandler
@@ -26,6 +27,8 @@ class BaseModule extends Module {
   bind[AppConfig] to AppConfig.apply
 
   bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
+
+  binding identifiedBy 'log to ((logSource: Class[_]) ⇒ Logging(inject[ActorSystem], logSource))
 
   bind[AccountsDal] to new AccountsMemoryDal
   bind[OAuthClientsDal] to new OAuthClientsMemoryDal

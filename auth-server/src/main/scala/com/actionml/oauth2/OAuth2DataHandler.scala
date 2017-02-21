@@ -1,5 +1,6 @@
 package com.actionml.oauth2
 
+import akka.event.LoggingAdapter
 import com.actionml.oauth2.dal.{AccountsDal, OAuthAccessTokensDal, OAuthAuthorizationCodesDal, OAuthClientsDal}
 import com.actionml.oauth2.entities.{Account, OAuthAccessToken}
 import scaldi.Injector
@@ -15,6 +16,8 @@ import scalaoauth2.provider._
   */
 
 class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] with AkkaInjectable{
+
+  private val log: LoggingAdapter = inject[(Class[_]) ⇒ LoggingAdapter].apply(this.getClass)
 
   val accountsDal: AccountsDal = inject[AccountsDal]
   val oauthClientsDal: OAuthClientsDal = inject[OAuthClientsDal]
@@ -52,7 +55,7 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
     maybeCredential: Option[ClientCredential],
     request: AuthorizationRequest
   ): Future[Boolean] = {
-    println("ValidateClient", maybeCredential, request.grantType)
+    log.info("ValidateClient - ClientCredential: {}, GrantType: {}", maybeCredential, request.grantType)
     val grantType = request.grantType
     maybeCredential match {
       case Some(ClientCredential(clientId, Some(clientSecret))) ⇒ oauthClientsDal.validate(
@@ -68,15 +71,15 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
     maybeCredential: Option[ClientCredential],
     request: AuthorizationRequest
   ): Future[Option[Account]] = {
-    println("FindUser: ", maybeCredential, request)
+    log.info("FindUser: {}, {}", maybeCredential, request)
     request match {
 
       case request: PasswordRequest ⇒
-        println("PasswordRequest", request.username, request.password)
+        log.info("PasswordRequest {}, {}", request.username, request.password)
         accountsDal.authenticate(request.username, request.password)
 
       case _: ClientCredentialsRequest ⇒
-        println("ClientCredentialsRequest")
+        log.info("ClientCredentialsRequest")
         maybeCredential match {
           case Some(ClientCredential(clientId, Some(clientSecret))) ⇒ oauthClientsDal.findClientCredentials(
             clientId = clientId,
@@ -91,7 +94,7 @@ class OAuth2DataHandler(implicit inj: Injector) extends DataHandler[Account] wit
   }
 
   override def createAccessToken(authInfo: AuthInfo[Account]): Future[AccessToken] = {
-    println("CreateAccessToken", authInfo)
+    log.info("CreateAccessToken {}", authInfo)
     authInfo match {
       case AuthInfo(account, Some(clientId), maybeScope, maybeRedirectUri) ⇒ (for {
         maybeClient <- oauthClientsDal.findByClientId(clientId)

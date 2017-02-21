@@ -25,6 +25,6 @@ class OAuthRoutes(implicit inj: Injector) extends Directives with OAuth2RoutePro
     }
   }
 
-  val routes: Route = accessTokenRoute ~ protectedRoute
+  val routes: Route = oauthRoute ~ protectedRoute
 
 }
