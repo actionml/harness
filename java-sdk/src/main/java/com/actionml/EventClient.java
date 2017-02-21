@@ -42,7 +42,7 @@ public class EventClient extends RestClient {
     }
 
     CompletionStage<List<Pair<Long, CompletionStage<EventId>>>> createEvents(List<Event> events) {
-        List<String> jsonList = events.stream().map(event -> event.toJsonString()).collect(Collectors.toList());
+        List<String> jsonList = events.stream().map(Event::toJsonString).collect(Collectors.toList());
         return this.multiPost(uri, jsonList).thenApply(pairs ->
             pairs.stream().map(pair ->
                 pair.copy(pair.first(), pair.second().thenApply(jsonElement -> toPojo(jsonElement, EventId.class)))
