@@ -9,7 +9,7 @@ import java.util.concurrent.CompletionStage;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         18.02.17 17:47
  */
-public class DatasetClient extends BaseClient {
+public class DatasetClient extends RestClient {
 
     private Uri uri = Uri.create("/datasets");
 
