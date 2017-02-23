@@ -14,14 +14,15 @@ import net.ceedubs.ficus.readers.EnumerationReader._
 case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfig)
 case class RestServerConfig(
   host: String,
-  port: Int
+  port: Int,
+  ssl: Boolean
 )
 case class ActorSystemConfig(
   name: String
 )
 
 object AppConfig{
-  val config = ConfigFactory.load()
+  private val config = ConfigFactory.load()
 
   def apply: AppConfig = new AppConfig(
     restServer = config.as[RestServerConfig]("rest-server"),

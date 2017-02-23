@@ -29,5 +29,5 @@ libraryDependencies ++= Seq(
   "org.scaldi" %% "scaldi-akka" % "0.5.8",
   "joda-time" % "joda-time" % "2.9.7",
 
-  "org.scalatest"     %% "scalatest" % scalaTestVersion % "test"
+  "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
 )
