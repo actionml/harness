@@ -6,7 +6,6 @@ import akka.http.javadsl.HostConnectionPool;
 import akka.http.javadsl.Http;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
-import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.japi.Pair;
 import akka.japi.function.Function;
 import akka.stream.ActorMaterializer;
@@ -19,8 +18,6 @@ import akka.stream.javadsl.Source;
 import com.google.gson.*;
 import scala.util.Try;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -38,48 +35,48 @@ public class BaseClient {
 
     protected final JsonParser parser = new JsonParser();
     protected final GsonBuilder gsonBuilder = new GsonBuilder();
+
     {
         gsonBuilder.registerTypeAdapter(org.joda.time.DateTime.class, new DateTimeAdapter());
     }
+
     protected final Gson gson = gsonBuilder.create();
 
     public BaseClient(String host, Integer port) {
         system = ActorSystem.create("actionml-sdk-client");
         Function<Throwable, Supervision.Directive> decider = exc -> {
-            System.err.println(exc);
+            System.err.println(exc.getMessage());
             return Supervision.resume();
         };
         materializer = ActorMaterializer.create(
                 ActorMaterializerSettings.create(system).withSupervisionStrategy(decider),
-                system);
+                system
+        );
 
         this.host = host;
         this.port = port;
 
-        ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
+//        ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
+//        poolClientFlow = Http.get(system).cachedHostConnectionPool(
+//                ConnectHttp.toHostHttps(host, port),
+//                settings,
+//                system.log(),
+//                materializer);
+
         poolClientFlow = Http.get(system).cachedHostConnectionPool(
-                ConnectHttp.toHostHttps(host, port),
-                settings,
-                system.log(),
+                ConnectHttp.toHost(host, port),
                 materializer);
     }
 
-    protected CompletionStage<List<Pair<Long, CompletionStage<HttpResponse>>>> multi(List<HttpRequest> requests) {
-        return Source.from(requests).zipWithIndex()
-                .map(pair -> pair.copy(pair.first(), (Long) pair.second()))
-                .via(poolClientFlow)
-                .runFold(new ArrayList<>(), (storage, pair) -> {
-                    CompletableFuture<HttpResponse> future = new CompletableFuture<>();
-                    Long index = pair.second();
-                    Try<HttpResponse> tryResponse = pair.first();
-                    if (tryResponse.isSuccess()) {
-                        future.complete(tryResponse.get());
-                    } else {
-                        future.completeExceptionally(tryResponse.failed().get());
-                    }
-                    storage.add(Pair.create(index, future));
-                    return storage;
-                }, materializer);
+    protected CompletionStage<Pair<Long, HttpResponse>> extractResponse(Pair<Try<HttpResponse>, Long> pair){
+            CompletableFuture<Pair<Long, HttpResponse>> future = new CompletableFuture<>();
+            Try<HttpResponse> tryResponse = pair.first();
+            if (tryResponse.isSuccess()) {
+                future.complete(Pair.create(pair.second(), tryResponse.get()));
+            } else {
+                future.completeExceptionally(tryResponse.failed().get());
+            }
+            return future;
     }
 
     protected CompletionStage<HttpResponse> single(HttpRequest request) {
@@ -96,6 +93,10 @@ public class BaseClient {
                     }
                     return future;
                 });
+    }
+
+    protected JsonElement toJsonElement(String json) {
+        return parser.parse(json);
     }
 
     protected <T> T toPojo(JsonElement jsonElement, Class<T> classOfT) throws JsonSyntaxException {

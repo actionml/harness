@@ -1,12 +1,16 @@
 package com.actionml;
 
-import akka.http.javadsl.model.*;
+import akka.http.javadsl.model.HttpRequest;
+import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
+import akka.stream.javadsl.Source;
 import com.actionml.entity.Event;
 import com.actionml.entity.EventId;
+import com.google.gson.JsonElement;
 import org.joda.time.DateTime;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
@@ -22,32 +26,40 @@ public class EventClient extends RestClient {
 
     EventClient(String datasetId, String host, Integer port) {
         super(host, port);
-        uri = Uri.create("/datasets/").addPathSegment(datasetId).addPathSegment("events");
+        uri = Uri.create("/datasets").addPathSegment(datasetId).addPathSegment("events");
     }
 
     CompletionStage<Event> getEvent(String eventId) {
         return this.get(uri, eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
-    CompletionStage<List<Pair<Long, CompletionStage<Event>>>> getEvents(List<String> eventIds) {
-        return this.multiGet(uri, eventIds).thenApply(pairs ->
-                pairs.stream().map(pair ->
-                        pair.copy(pair.first(), pair.second().thenApply(jsonElement -> toPojo(jsonElement, Event.class)))
-                ).collect(Collectors.toList())
-        );
+    protected HttpRequest createPost(String json) {
+        return createPost(uri, json);
     }
 
     CompletionStage<EventId> createEvent(Event event) {
         return this.post(uri, event.toJsonString()).thenApply(jsonElement -> toPojo(jsonElement, EventId.class));
     }
 
-    CompletionStage<List<Pair<Long, CompletionStage<EventId>>>> createEvents(List<Event> events) {
-        List<String> jsonList = events.stream().map(Event::toJsonString).collect(Collectors.toList());
-        return this.multiPost(uri, jsonList).thenApply(pairs ->
-            pairs.stream().map(pair ->
-                pair.copy(pair.first(), pair.second().thenApply(jsonElement -> toPojo(jsonElement, EventId.class)))
-            ).collect(Collectors.toList())
-        );
+    CompletionStage<List<Pair<Long, EventId>>> createEvents(List<Event> events) {
+        return Source.from(events)
+                .map(Event::toJsonString)
+                .map(this::createPost)
+                .zipWithIndex()
+                .map(pair -> pair.copy(pair.first(), (Long) pair.second()))
+                .via(this.poolClientFlow)
+                .mapAsync(1, this::extractResponse)
+                .mapAsync(1, this::extractJson)
+                .map(this::toEventId)
+                .map(param -> param)
+                .runFold(new ArrayList<>(), (acc, eventId) -> {
+                    acc.add(eventId);
+                    return acc;
+                }, this.materializer);
+    }
+
+    protected Pair<Long, EventId> toEventId(Pair<Long, JsonElement> pair) {
+        return Pair.create(pair.first(), toPojo(pair.second(), EventId.class));
     }
 
     private Event buildEvent(String id, DateTime eventTime) {
@@ -69,9 +81,10 @@ public class EventClient extends RestClient {
     /**
      * Sends a set user properties request. Implicitly creates the user if it's not already there.
      * Properties could be empty.
-     * @param uid ID of the user
+     *
+     * @param uid        ID of the user
      * @param properties a map of all the properties to be associated with the user, could be empty
-     * @param eventTime timestamp of the event
+     * @param eventTime  timestamp of the event
      * @return ID of this event
      */
     public CompletionStage<EventId> setUser(String uid, Map<String, Object> properties, DateTime eventTime) {
@@ -90,9 +103,9 @@ public class EventClient extends RestClient {
     /**
      * Unsets properties of a user. The list must not be empty.
      *
-     * @param uid ID of the user
+     * @param uid        ID of the user
      * @param properties a list of all the properties to unset
-     * @param eventTime timestamp of the event
+     * @param eventTime  timestamp of the event
      * @return ID of this event
      */
     public CompletionStage<EventId> unsetUser(String uid, List<String> properties, DateTime eventTime) throws IOException {
@@ -117,7 +130,7 @@ public class EventClient extends RestClient {
     /**
      * Deletes a user.
      *
-     * @param uid ID of the user
+     * @param uid       ID of the user
      * @param eventTime timestamp of the event
      * @return ID of this event
      */
@@ -152,9 +165,9 @@ public class EventClient extends RestClient {
      * Sets properties of a item. Implicitly creates the item if it's not already there.
      * Properties could be empty.
      *
-     * @param iid ID of the item
+     * @param iid        ID of the item
      * @param properties a map of all the properties to be associated with the item, could be empty
-     * @param eventTime timestamp of the event
+     * @param eventTime  timestamp of the event
      * @return ID of this event
      */
     public CompletionStage<EventId> setItem(String iid, Map<String, Object> properties, DateTime eventTime) {
@@ -174,9 +187,9 @@ public class EventClient extends RestClient {
     /**
      * Unsets properties of a item. The list must not be empty.
      *
-     * @param iid ID of the item
+     * @param iid        ID of the item
      * @param properties a list of all the properties to unset
-     * @param eventTime timestamp of the event
+     * @param eventTime  timestamp of the event
      * @return ID of this event
      */
     public CompletionStage<EventId> unsetItem(String iid, List<String> properties, DateTime eventTime) throws IOException {
@@ -201,7 +214,7 @@ public class EventClient extends RestClient {
     /**
      * Deletes a item.
      *
-     * @param iid ID of the item
+     * @param iid       ID of the item
      * @param eventTime timestamp of the event
      * @return ID of this event
      */
@@ -227,11 +240,11 @@ public class EventClient extends RestClient {
     /**
      * Records a user-action-on-item event.
      *
-     * @param action name of the action performed
-     * @param uid ID of the user
-     * @param iid ID of the item
+     * @param action     name of the action performed
+     * @param uid        ID of the user
+     * @param iid        ID of the item
      * @param properties a map of properties associated with this action
-     * @param eventTime timestamp of the event
+     * @param eventTime  timestamp of the event
      * @return ID of this event
      */
     public CompletionStage<EventId> userActionItem(String action, String uid, String iid, Map<String, Object> properties, DateTime eventTime) {
