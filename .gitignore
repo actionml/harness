@@ -73,3 +73,7 @@ fabric.properties
 /rest-server/project/project/
 /rest-server/project/target/
 .idea/
+
+# Mac hidden files
+.DS_Store
+
