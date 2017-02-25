@@ -12,7 +12,7 @@ import scaldi.Injector
   */
 trait QueryService extends ActorInjectable
 
-class EmptyEventService(implicit inj: Injector) extends QueryService{
+class EmptyQueryService(implicit inj: Injector) extends QueryService{
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.info("Get prediction, {}, {}", engineId, query)

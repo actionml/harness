@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import com.actionml.config.AppConfig
 import com.actionml.http.RestServer
-import com.actionml.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter}
+import com.actionml.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
 import com.actionml.service._
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -31,9 +31,11 @@ class BaseModule extends Module{
   bind[DatasetsRouter] to new DatasetsRouter
   bind[EventsRouter] to new EventsRouter
   bind[EnginesRouter] to new EnginesRouter
+  bind[QueriesRouter] to new QueriesRouter
 
   bind[DatasetService] to new EmptyDatasetService
   bind[EventService] to new EmptyEventService
   bind[EngineService] to new EmptyEngineService
+  bind[QueryService] to new EmptyQueryService
 
 }
