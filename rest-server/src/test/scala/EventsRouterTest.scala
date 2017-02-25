@@ -32,7 +32,7 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
 
   private val routes = inject[EventsRouter].route
 
-  private val json =
+  private val validJson =
     """
       |{
       |  "event" : "my_event",
@@ -49,16 +49,45 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
       |  "eventTime" : "2004-12-13T21:39:45.618-07:00"
       |}
     """.stripMargin
-  private val httpEntity = HttpEntity(MediaTypes.`application/json`, json)
+
+  private val invalidJson =
+    """
+      |{
+      |  "event" : "my_event",
+      |  "entityType" : "user"
+      |}
+    """.stripMargin
+
+  private val validJsonEntity = HttpEntity(MediaTypes.`application/json`, validJson)
+  private val invalidJsonEntity = HttpEntity(MediaTypes.`application/json`, invalidJson)
+  private val emptyEntity = HttpEntity("")
 
   "EventsRouter" should "create new event" in {
-    Put(s"/datasets/$existDatasetId/events", httpEntity) ~> routes ~> check {
+
+    // Send valid json, expect Created 201
+    Post(s"/datasets/$existDatasetId/events", validJsonEntity) ~> routes ~> check {
       status shouldBe Created
       contentType shouldBe ContentTypes.`application/json`
       responseAs[EventId] should be(EventId(genEventID))
     }
 
-    Put(s"/datasets/$notExistDatasetId/events", httpEntity) ~> Route.seal(routes) ~> check {
+    // Send invalid json, expect BadRequest 400
+    Post(s"/datasets/$existDatasetId/events", invalidJsonEntity) ~> Route.seal(routes) ~> check {
+      status shouldBe BadRequest
+    }
+
+    // Send empty, expect UnsupportedMediaType 415
+    Post(s"/datasets/$existDatasetId/events", emptyEntity) ~> Route.seal(routes) ~> check {
+      status shouldBe UnsupportedMediaType
+    }
+
+    // Send GET, expect MethodNotAllowed 405
+    Get(s"/datasets/$existDatasetId/events", validJsonEntity) ~> Route.seal(routes) ~> check {
+      status shouldBe MethodNotAllowed
+    }
+
+    // Send to unknown dataset, expect NotFound 404
+    Post(s"/datasets/$notExistDatasetId/events", validJsonEntity) ~> Route.seal(routes) ~> check {
       status shouldBe NotFound
     }
   }
@@ -70,7 +99,7 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
       responseAs[Event] should be(existEvent)
     }
 
-    Get(s"/datasets/$notExistDatasetId/events/$existEventId", httpEntity) ~> Route.seal(routes) ~> check {
+    Get(s"/datasets/$notExistDatasetId/events/$existEventId", validJsonEntity) ~> Route.seal(routes) ~> check {
       status shouldBe NotFound
     }
   }
@@ -86,21 +115,17 @@ class EventsRouterTest extends FlatSpec with Matchers with ScalatestRouteTest wi
     override def receive: Receive = {
 
       case GetEvent(datasetId, eventId) ⇒
-        log.info("Create new entity, {}, {}", datasetId, eventId)
         sender() ! send(datasetId, existEvent)
 
       case CreateEvent(datasetId, event) ⇒
-        log.info("Create new entity, {}, {}", datasetId, event)
         sender() ! send(datasetId, EventId(genEventID))
 
     }
 
     private def send(datasetId: String, msg: Any): Option[Any] = {
       if (datasetId == existDatasetId) {
-        log.info("Dataset OK")
         Some(msg)
       } else {
-        log.info("Dataset ERROR")
         None
       }
     }
