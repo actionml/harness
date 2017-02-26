@@ -1,6 +1,5 @@
 package com.actionml;
 
-import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
 import akka.stream.javadsl.Source;
@@ -22,23 +21,22 @@ import java.util.stream.Collectors;
  */
 public class EventClient extends RestClient {
 
-    private Uri uri;
-
     EventClient(String datasetId, String host, Integer port) {
-        super(host, port);
-        uri = Uri.create("/datasets").addPathSegment(datasetId).addPathSegment("events");
+        super(host, port, Uri.create("/datasets").addPathSegment(datasetId).addPathSegment("events"));
     }
 
+    /**
+     * Get exist Event
+     *
+     * @param eventId ID event
+     * @return Event
+     */
     CompletionStage<Event> getEvent(String eventId) {
-        return this.get(uri, eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
+        return this.get(eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
-    protected HttpRequest createPost(String json) {
-        return createPost(uri, json);
-    }
-
-    CompletionStage<EventId> createEvent(Event event) {
-        return this.post(uri, event.toJsonString()).thenApply(jsonElement -> toPojo(jsonElement, EventId.class));
+    public CompletionStage<EventId> createEvent(Event event) {
+        return this.create(event.toJsonString()).thenApply(this::toEventId);
     }
 
     CompletionStage<List<Pair<Long, EventId>>> createEvents(List<Event> events) {
@@ -58,8 +56,12 @@ public class EventClient extends RestClient {
                 }, this.materializer);
     }
 
+    protected EventId toEventId(JsonElement jsonElement) {
+        return toPojo(jsonElement, EventId.class);
+    }
+
     protected Pair<Long, EventId> toEventId(Pair<Long, JsonElement> pair) {
-        return Pair.create(pair.first(), toPojo(pair.second(), EventId.class));
+        return Pair.create(pair.first(), toEventId(pair.second()));
     }
 
     private Event buildEvent(String id, DateTime eventTime) {

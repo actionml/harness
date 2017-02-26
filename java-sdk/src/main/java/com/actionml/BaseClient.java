@@ -4,8 +4,7 @@ import akka.actor.ActorSystem;
 import akka.http.javadsl.ConnectHttp;
 import akka.http.javadsl.HostConnectionPool;
 import akka.http.javadsl.Http;
-import akka.http.javadsl.model.HttpRequest;
-import akka.http.javadsl.model.HttpResponse;
+import akka.http.javadsl.model.*;
 import akka.japi.Pair;
 import akka.japi.function.Function;
 import akka.stream.ActorMaterializer;
@@ -68,31 +67,43 @@ public class BaseClient {
                 materializer);
     }
 
-    protected CompletionStage<Pair<Long, HttpResponse>> extractResponse(Pair<Try<HttpResponse>, Long> pair){
-            CompletableFuture<Pair<Long, HttpResponse>> future = new CompletableFuture<>();
-            Try<HttpResponse> tryResponse = pair.first();
-            if (tryResponse.isSuccess()) {
-                future.complete(Pair.create(pair.second(), tryResponse.get()));
-            } else {
-                future.completeExceptionally(tryResponse.failed().get());
-            }
-            return future;
-    }
-
-    protected CompletionStage<HttpResponse> single(HttpRequest request) {
+    public CompletionStage<HttpResponse> single(HttpRequest request) {
         return Source.single(Pair.create(request, 0L))
                 .via(poolClientFlow)
                 .runWith(Sink.head(), materializer)
-                .thenCompose(pair -> {
-                    CompletableFuture<HttpResponse> future = new CompletableFuture<>();
-                    Try<HttpResponse> tryResponse = pair.first();
-                    if (tryResponse.isSuccess()) {
-                        future.complete(tryResponse.get());
-                    } else {
-                        future.completeExceptionally(tryResponse.failed().get());
-                    }
-                    return future;
-                });
+                .thenCompose(this::extractResponse)
+                .thenApply(Pair::second);
+    }
+
+    protected HttpRequest createGet(Uri uri) {
+        return createRequest(HttpMethods.GET, uri);
+    }
+
+    protected HttpRequest createPost(Uri uri, String json) {
+        return createRequest(HttpMethods.POST, uri, json);
+    }
+
+    protected HttpRequest createDelete(Uri uri) {
+        return createRequest(HttpMethods.DELETE, uri);
+    }
+
+    protected HttpRequest createRequest(HttpMethod method, Uri uri, String json) {
+        return createRequest(method, uri).withEntity(ContentTypes.APPLICATION_JSON, json);
+    }
+
+    protected HttpRequest createRequest(HttpMethod method, Uri uri) {
+        return HttpRequest.create().withMethod(method).withUri(uri);
+    }
+
+    protected CompletionStage<Pair<Long, HttpResponse>> extractResponse(Pair<Try<HttpResponse>, Long> pair) {
+        CompletableFuture<Pair<Long, HttpResponse>> future = new CompletableFuture<>();
+        Try<HttpResponse> tryResponse = pair.first();
+        if (tryResponse.isSuccess()) {
+            future.complete(Pair.create(pair.second(), tryResponse.get()));
+        } else {
+            future.completeExceptionally(tryResponse.failed().get());
+        }
+        return future;
     }
 
     protected JsonElement toJsonElement(String json) {
@@ -109,6 +120,8 @@ public class BaseClient {
 
     void close() {
         System.out.println("Shutting down client");
-        Http.get(system).shutdownAllConnectionPools().whenComplete((s, f) -> system.terminate());
+        Http.get(system)
+                .shutdownAllConnectionPools()
+                .whenComplete((s, f) -> system.terminate());
     }
 }

@@ -2,6 +2,7 @@ package com.actionml;
 
 import akka.http.javadsl.model.Uri;
 import com.actionml.entity.DatasetId;
+import com.google.gson.JsonElement;
 
 import java.util.concurrent.CompletionStage;
 
@@ -11,20 +12,16 @@ import java.util.concurrent.CompletionStage;
  */
 public class DatasetClient extends RestClient {
 
-    private Uri uri = Uri.create("/datasets");
-
     DatasetClient(String host, Integer port) {
-        super(host, port);
+        super(host, port, Uri.create("/datasets"));
     }
 
     public CompletionStage<DatasetId> createDataset() {
-        return this.post(uri, "{}")
-                .thenApply(jsonElement -> toPojo(jsonElement, DatasetId.class));
+        return this.create().thenApply(this::toDatasetId);
     }
 
     public CompletionStage<DatasetId> createDataset(String datasetId) {
-        return this.post(uri, datasetId, "{}")
-                .thenApply(jsonElement -> toPojo(jsonElement, DatasetId.class));
+        return this.create(datasetId, "{}").thenApply(this::toDatasetId);
     }
 
     public CompletionStage<DatasetId> createDataset(DatasetId datasetId) {
@@ -32,8 +29,7 @@ public class DatasetClient extends RestClient {
     }
 
     public CompletionStage<DatasetId> getDataset(String datasetId) {
-        return this.get(uri, datasetId)
-                .thenApply(jsonElement -> toPojo(jsonElement, DatasetId.class));
+        return this.get(datasetId).thenApply(this::toDatasetId);
     }
 
     public CompletionStage<DatasetId> getDataset(DatasetId datasetId) {
@@ -41,11 +37,14 @@ public class DatasetClient extends RestClient {
     }
 
     public CompletionStage<DatasetId> deleteDataset(String datasetId) {
-        return this.delete(uri, datasetId)
-                .thenApply(jsonElement -> toPojo(jsonElement, DatasetId.class));
+        return this.delete(datasetId).thenApply(this::toDatasetId);
     }
 
     public CompletionStage<DatasetId> deleteDataset(DatasetId datasetId) {
         return deleteDataset(datasetId.getDatasetId());
+    }
+
+    protected DatasetId toDatasetId(JsonElement jsonElement) {
+        return toPojo(jsonElement, DatasetId.class);
     }
 }

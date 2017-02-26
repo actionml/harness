@@ -14,57 +14,88 @@ import java.util.concurrent.CompletionStage;
  */
 abstract class RestClient extends BaseClient{
 
-    RestClient(String host, Integer port) {
+    // Resource location
+    protected final Uri uri;
+
+    RestClient(String host, Integer port, Uri uri) {
         super(host, port);
+        this.uri = uri;
     }
 
-    public CompletionStage<JsonElement> get(Uri uri, String id) {
-        return single(createGet(uri.addPathSegment(id))).thenCompose(this::extractJson);
+    /**
+     * Get exist resource
+     *
+     * @param id ID Resource
+     * @return Resource as JsonElement
+     */
+    public CompletionStage<JsonElement> get(String id) {
+        return single(createGet(id)).thenCompose(this::extractJson);
     }
 
-    public CompletionStage<JsonElement> put(Uri uri, String json) {
-        return single(createPut(uri, json)).thenCompose(this::extractJson);
+    /**
+     * Create new resource
+     *
+     * @return ID resource
+     */
+    public CompletionStage<JsonElement> create() {
+        return single(createPost("{}")).thenCompose(this::extractJson);
     }
 
-    public CompletionStage<JsonElement> post(Uri uri, String json) {
-        return single(createPost(uri, json)).thenCompose(this::extractJson);
+    /**
+     * Create new resource
+     *
+     * @param json Resource as json string
+     * @return ID resource
+     */
+    public CompletionStage<JsonElement> create(String json) {
+        return single(createPost(json)).thenCompose(this::extractJson);
     }
 
-    public CompletionStage<JsonElement> post(Uri uri, String id, String json) {
-        return post(uri.addPathSegment(id), json);
+    /**
+     * Create new resource with preset ID
+     *
+     * @param json Resource as json string
+     * @return ID resource
+     */
+    public CompletionStage<JsonElement> create(String id, String json) {
+        return single(createPost(id, json)).thenCompose(this::extractJson);
     }
 
-    public CompletionStage<JsonElement> delete(Uri uri, String id) {
-        return single(createDelete(uri.addPathSegment(id))).thenCompose(this::extractJson);
+    /**
+     * Update exist resource
+     *
+     * @param id ID Resource
+     * @param json Resource as json
+     * @return ID Resource
+     */
+    public CompletionStage<JsonElement> update(String id, String json) {
+        return single(createPost(id, json)).thenCompose(this::extractJson);
     }
 
-    protected HttpRequest createPost(Uri uri, String json) {
-        return createRequest(HttpMethods.POST, uri, json);
+    /**
+     * Remove exist resource
+     *
+     * @param id ID Resource
+     * @return ID Resource
+     */
+    public CompletionStage<JsonElement> delete(String id) {
+        return single(createDelete(id)).thenCompose(this::extractJson);
     }
 
-    protected HttpRequest createPut(Uri uri, String json) {
-        return createRequest(HttpMethods.PUT, uri, json);
+    protected HttpRequest createGet(String id) {
+        return createGet(uri.addPathSegment(id));
     }
 
-    protected HttpRequest createDelete(Uri uri) {
-        return createRequest(HttpMethods.DELETE, uri);
+    protected HttpRequest createPost(String id, String json) {
+        return createPost(uri.addPathSegment(id), json);
     }
 
-    private HttpRequest createGet(Uri uri) {
-        return createRequest(HttpMethods.GET, uri);
+    protected HttpRequest createPost(String json) {
+        return createPost(uri, json);
     }
 
-    private HttpRequest createRequest(HttpMethod method, Uri uri, String json) {
-        return HttpRequest.create()
-            .withMethod(method)
-            .withEntity(ContentTypes.APPLICATION_JSON, json)
-            .withUri(uri);
-    }
-
-    private HttpRequest createRequest(HttpMethod method, Uri uri) {
-        return HttpRequest.create()
-                .withMethod(method)
-                .withUri(uri);
+    protected HttpRequest createDelete(String id) {
+        return createDelete(uri.addPathSegment(id));
     }
 
     protected CompletionStage<Pair<Long, JsonElement>> extractJson(Pair<Long, HttpResponse> pair) {
@@ -72,18 +103,17 @@ abstract class RestClient extends BaseClient{
     }
 
     protected CompletionStage<JsonElement> extractJson(HttpResponse response) {
-        CompletionStage<JsonElement> stage;
-        if (response.status() == StatusCodes.CREATED) {
-            stage = response.entity()
+        CompletableFuture<JsonElement> future = new CompletableFuture<>();
+        if (response.status() == StatusCodes.CREATED || response.status() == StatusCodes.OK) {
+            future = response.entity()
                     .getDataBytes()
                     .runFold(ByteString.empty(), ByteString::concat, this.materializer)
-                    .thenApply(byteString -> parser.parse(byteString.utf8String()));
+                    .thenApply(ByteString::utf8String)
+                    .thenApply(parser::parse).toCompletableFuture();
         } else {
-            CompletableFuture<JsonElement> fut = new CompletableFuture<>();
-            fut.completeExceptionally(new Exception("" + response.status() + response.entity().toString()));
-            stage = fut;
+            future.completeExceptionally(new Exception("" + response.status() + response.entity().toString()));
         }
-        return stage;
+        return future;
     }
 
 }
