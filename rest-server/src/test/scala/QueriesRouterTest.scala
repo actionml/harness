@@ -3,15 +3,16 @@ import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, MediaTypes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.actionml.entity.Event
+import com.actionml.entity.PredictionResult
 import com.actionml.http.RestServer
 import com.actionml.http.routes.QueriesRouter
 import com.actionml.service._
+import io.circe.generic.auto._
 import de.heikoseeberger.akkahttpcirce.CirceSupport
-import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.ScalaFutures
-import scaldi.{Injector, Module}
+import org.scalatest.{FlatSpec, Matchers}
 import scaldi.akka.AkkaInjectable
+import scaldi.{Injector, Module}
 
 /**
   *
@@ -36,17 +37,7 @@ class QueriesRouterTest extends FlatSpec with Matchers with ScalatestRouteTest w
       |}
     """.stripMargin
 
-  private val prediction =
-    """
-      |{
-      |  "itemScores":[
-      |    {"item":"22","score":4.072304374729956},
-      |    {"item":"62","score":4.058482414005789},
-      |    {"item":"75","score":4.046063009943821},
-      |    {"item":"68","score":3.8153661512945325}
-      |  ]
-      |}
-    """.stripMargin
+  private val prediction = PredictionResult()
 
   private val queryEntity = HttpEntity(MediaTypes.`application/json`, query)
   private val emptyEntity = HttpEntity("")
@@ -57,7 +48,7 @@ class QueriesRouterTest extends FlatSpec with Matchers with ScalatestRouteTest w
     Post(s"/engines/$existEngineId/queries", queryEntity) ~> routes ~> check {
       status shouldBe OK
       contentType shouldBe ContentTypes.`application/json`
-      responseAs[String] should be(prediction)
+      responseAs[PredictionResult] should be(prediction)
     }
 
     // Send empty, expect UnsupportedMediaType 415

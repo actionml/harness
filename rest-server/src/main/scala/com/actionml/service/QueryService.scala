@@ -1,7 +1,7 @@
 package com.actionml.service
 
 import com.actionml.ActorInjectable
-import io.circe.Json
+import com.actionml.entity.PredictionQuery
 import scaldi.Injector
 
 /**
@@ -21,4 +21,4 @@ class EmptyQueryService(implicit inj: Injector) extends QueryService{
 }
 
 sealed trait QueryAction
-case class GetPrediction(engineId: String, query: Json) extends QueryAction
+case class GetPrediction(engineId: String, query: PredictionQuery) extends QueryAction

@@ -5,8 +5,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
+import com.actionml.entity.{PredictionQuery, PredictionResult}
 import com.actionml.service._
-import io.circe.Json
+import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -38,9 +39,9 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter {
     }
   }
 
-  private def getPrediction(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { query =>
+  private def getPrediction(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[PredictionQuery])) { query =>
     completeByCond(StatusCodes.OK, StatusCodes.NotFound) {
-      (queryService ? GetPrediction(engineId, query)).mapTo[Option[String]].map(_.map(_.asJson))
+      (queryService ? GetPrediction(engineId, query)).mapTo[Option[PredictionResult]].map(_.map(_.asJson))
     }
   }
 
