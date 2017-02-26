@@ -3,7 +3,7 @@ import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, MediaTypes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.actionml.entity.Event
+import com.actionml.entity.{Event, EventId}
 import com.actionml.http.RestServer
 import com.actionml.http.routes.EventsRouter
 import com.actionml.service._

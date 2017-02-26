@@ -1,6 +1,6 @@
 package com.actionml.entity
 
-import io.circe._
+import io.circe.Json
 
 /**
   *
@@ -37,3 +37,5 @@ case class Event(
   // Must be in ISO 8601 format (e.g.2004-12-13T21:39:45.618Z, or 2014-09-09T16:17:42.937-08:00).
   eventTime: Option[String] = None
 )
+
+case class EventId(eventId: String)

@@ -11,8 +11,6 @@ import scaldi.Injector
   * 28.01.17 14:49
   */
 
-case class EventId(eventId: String)
-
 trait EventService extends ActorInjectable
 
 class EmptyEventService(implicit inj: Injector) extends EventService{
