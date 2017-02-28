@@ -14,7 +14,8 @@ import net.ceedubs.ficus.readers.EnumerationReader._
 case class AppConfig(restServer: HttpServerConfig, actorSystem: ActorSystemConfig)
 case class HttpServerConfig(
   host: String,
-  port: Int
+  port: Int,
+  ssl: Boolean
 )
 case class ActorSystemConfig(
   name: String
