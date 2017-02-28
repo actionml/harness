@@ -1,8 +1,13 @@
 package com.actionml;
 
 import akka.http.javadsl.model.*;
+import akka.http.javadsl.model.FormData;
+import akka.http.javadsl.model.HttpMethods;
+import akka.http.javadsl.model.HttpRequest;
+import akka.http.javadsl.model.Uri;
 import akka.http.javadsl.model.headers.Authorization;
 import akka.http.javadsl.model.headers.BasicHttpCredentials;
+import akka.http.scaladsl.model.*;
 import akka.util.ByteString;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
@@ -20,38 +25,39 @@ public class AuthClient extends BaseClient {
 
     private final String clientId;
     private final String clientSecret;
+    private final Uri uri = Uri.create("/oauth");
 
-    AuthClient(String host, Integer port, String clientId, String clientSecret) {
+    public AuthClient(String host, Integer port, String clientId, String clientSecret) {
         super(host, port);
         this.clientId = clientId;
         this.clientSecret = clientSecret;
     }
 
-    public CompletionStage<JsonElement> getAccessToken(Uri uri) {
+    public CompletionStage<JsonElement> getAccessToken() {
 
         Authorization authorization = Authorization.basic(clientId, clientSecret);
         HttpRequest request = HttpRequest.create()
                 .addHeader(authorization)
                 .withMethod(HttpMethods.POST)
                 .withEntity(FormData.create(ImmutableMap.of("grant_type", "client_credentials")).toEntity())
-                .withUri(uri);
+                .withUri(uri.addPathSegment("access_token"));
 
         return this.single(request).thenCompose(this::extractJson);
     }
 
-    private CompletionStage<JsonElement> extractJson(HttpResponse response) {
-        CompletionStage<JsonElement> stage;
-        if (response.status() == StatusCodes.OK) {
-            stage = response.entity()
-                    .getDataBytes()
-                    .runFold(ByteString.empty(), ByteString::concat, this.materializer)
-                    .thenApply(byteString -> parser.parse(byteString.utf8String()));
-        } else {
-            CompletableFuture<JsonElement> fut = new CompletableFuture<>();
-            fut.completeExceptionally(new Exception("Error: " + response.status() + " " + response.entity().toString()));
-            stage = fut;
-        }
-        return stage;
+    public CompletionStage<JsonElement> refreshToken(String refreshToken) {
+
+        Authorization authorization = Authorization.basic(clientId, clientSecret);
+        HttpRequest request = HttpRequest.create()
+                .addHeader(authorization)
+                .withMethod(HttpMethods.POST)
+                .withEntity(FormData.create(ImmutableMap.of(
+                        "grant_type", "client_credentials",
+                        "refresh_token", refreshToken
+                )).toEntity())
+                .withUri(uri.addPathSegment("refresh_token"));
+
+        return this.single(request).thenCompose(this::extractJson);
     }
 
 }

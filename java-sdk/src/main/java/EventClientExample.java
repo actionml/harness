@@ -1,5 +1,4 @@
-package com.actionml;
-
+import com.actionml.EventClient;
 import com.actionml.entity.Event;
 
 import java.io.BufferedReader;
@@ -14,7 +13,7 @@ import java.util.stream.Collectors;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 18:46
  */
-public class JavaClient {
+public class EventClientExample {
 
     public static void main(String[] args) {
 

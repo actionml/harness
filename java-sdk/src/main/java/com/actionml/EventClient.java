@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  */
 public class EventClient extends RestClient {
 
-    EventClient(String datasetId, String host, Integer port) {
+    public EventClient(String datasetId, String host, Integer port) {
         super(host, port, Uri.create("/datasets").addPathSegment(datasetId).addPathSegment("events"));
     }
 
@@ -39,7 +39,7 @@ public class EventClient extends RestClient {
         return this.create(event.toJsonString()).thenApply(this::toEventId);
     }
 
-    CompletionStage<List<Pair<Long, EventId>>> createEvents(List<Event> events) {
+    public CompletionStage<List<Pair<Long, EventId>>> createEvents(List<Event> events) {
         return Source.from(events)
                 .map(Event::toJsonString)
                 .map(this::createPost)

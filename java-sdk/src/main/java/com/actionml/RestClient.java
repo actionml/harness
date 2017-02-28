@@ -102,18 +102,4 @@ abstract class RestClient extends BaseClient{
         return extractJson(pair.second()).thenApply(jsonElement -> Pair.create(pair.first(), jsonElement));
     }
 
-    protected CompletionStage<JsonElement> extractJson(HttpResponse response) {
-        CompletableFuture<JsonElement> future = new CompletableFuture<>();
-        if (response.status() == StatusCodes.CREATED || response.status() == StatusCodes.OK) {
-            future = response.entity()
-                    .getDataBytes()
-                    .runFold(ByteString.empty(), ByteString::concat, this.materializer)
-                    .thenApply(ByteString::utf8String)
-                    .thenApply(parser::parse).toCompletableFuture();
-        } else {
-            future.completeExceptionally(new Exception("" + response.status() + response.entity().toString()));
-        }
-        return future;
-    }
-
 }

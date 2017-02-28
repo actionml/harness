@@ -14,6 +14,7 @@ import akka.stream.Supervision;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import akka.util.ByteString;
 import com.google.gson.*;
 import scala.util.Try;
 
@@ -106,11 +107,25 @@ public class BaseClient {
         return future;
     }
 
-    protected JsonElement toJsonElement(String json) {
+    protected CompletionStage<JsonElement> extractJson(HttpResponse response) {
+        CompletableFuture<JsonElement> future = new CompletableFuture<>();
+        if (response.status() == StatusCodes.CREATED || response.status() == StatusCodes.OK) {
+            future = response.entity()
+                    .getDataBytes()
+                    .runFold(ByteString.empty(), ByteString::concat, this.materializer)
+                    .thenApply(ByteString::utf8String)
+                    .thenApply(parser::parse).toCompletableFuture();
+        } else {
+            future.completeExceptionally(new Exception("" + response.status() + response.entity().toString()));
+        }
+        return future;
+    }
+
+    public JsonElement toJsonElement(String json) {
         return parser.parse(json);
     }
 
-    protected <T> T toPojo(JsonElement jsonElement, Class<T> classOfT) throws JsonSyntaxException {
+    public <T> T toPojo(JsonElement jsonElement, Class<T> classOfT) throws JsonSyntaxException {
         return gson.fromJson(jsonElement, classOfT);
     }
 
@@ -118,7 +133,7 @@ public class BaseClient {
         return materializer;
     }
 
-    void close() {
+    public void close() {
         System.out.println("Shutting down client");
         Http.get(system)
                 .shutdownAllConnectionPools()
