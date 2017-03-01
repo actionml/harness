@@ -35,11 +35,11 @@ public class EventClient extends RestClient {
         return this.get(eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
-    public CompletionStage<EventId> createEvent(Event event) {
-        return this.create(event.toJsonString()).thenApply(this::toEventId);
+    public CompletionStage<Boolean> createEvent(Event event) {
+        return this.create(event.toJsonString()).thenApply(this::toBoolean);
     }
 
-    public CompletionStage<List<Pair<Long, EventId>>> createEvents(List<Event> events) {
+    public CompletionStage<List<Pair<Long, Boolean>>> createEvents(List<Event> events) {
         return Source.from(events)
                 .map(Event::toJsonString)
                 .map(this::createPost)
@@ -48,20 +48,19 @@ public class EventClient extends RestClient {
                 .via(this.poolClientFlow)
                 .mapAsync(1, this::extractResponse)
                 .mapAsync(1, this::extractJson)
-                .map(this::toEventId)
-                .map(param -> param)
-                .runFold(new ArrayList<>(), (acc, eventId) -> {
-                    acc.add(eventId);
+                .map(this::toBoolean)
+                .runFold(new ArrayList<>(), (acc, pair) -> {
+                    acc.add(pair);
                     return acc;
                 }, this.materializer);
     }
 
-    protected EventId toEventId(JsonElement jsonElement) {
-        return toPojo(jsonElement, EventId.class);
+    protected Boolean toBoolean(JsonElement jsonElement) {
+        return jsonElement.getAsBoolean();
     }
 
-    protected Pair<Long, EventId> toEventId(Pair<Long, JsonElement> pair) {
-        return Pair.create(pair.first(), toEventId(pair.second()));
+    protected Pair<Long, Boolean> toBoolean(Pair<Long, JsonElement> pair) {
+        return Pair.create(pair.first(), toBoolean(pair.second()));
     }
 
     private Event buildEvent(String id, DateTime eventTime) {
@@ -89,7 +88,7 @@ public class EventClient extends RestClient {
      * @param eventTime  timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> setUser(String uid, Map<String, Object> properties, DateTime eventTime) {
+    public CompletionStage<Boolean> setUser(String uid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event("$set");
         return createEvent(event);
     }
@@ -98,7 +97,7 @@ public class EventClient extends RestClient {
      * Sets properties of a user. Same as {@link #setUser(String, Map, DateTime)}
      * except event time is not specified and recorded as the time when the function is called.
      */
-    public CompletionStage<EventId> setUser(String uid, Map<String, Object> properties) {
+    public CompletionStage<Boolean> setUser(String uid, Map<String, Object> properties) {
         return setUser(uid, properties, new DateTime());
     }
 
@@ -110,7 +109,7 @@ public class EventClient extends RestClient {
      * @param eventTime  timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> unsetUser(String uid, List<String> properties, DateTime eventTime) throws IOException {
+    public CompletionStage<Boolean> unsetUser(String uid, List<String> properties, DateTime eventTime) throws IOException {
         if (properties.isEmpty()) {
             throw new IllegalStateException("property list cannot be empty");
         }
@@ -125,7 +124,7 @@ public class EventClient extends RestClient {
      * unsetUser(String, List&lt;String&gt;, DateTime)}
      * except event time is not specified and recorded as the time when the function is called.
      */
-    public CompletionStage<EventId> unsetUser(String uid, List<String> properties) throws IOException {
+    public CompletionStage<Boolean> unsetUser(String uid, List<String> properties) throws IOException {
         return unsetUser(uid, properties, new DateTime());
     }
 
@@ -136,7 +135,7 @@ public class EventClient extends RestClient {
      * @param eventTime timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> deleteUser(String uid, DateTime eventTime) {
+    public CompletionStage<Boolean> deleteUser(String uid, DateTime eventTime) {
         Event event = buildUserEvent(uid, eventTime).event("$delete");
         return createEvent(event);
     }
@@ -147,7 +146,7 @@ public class EventClient extends RestClient {
      * @param uid ID of the user
      * @return ID of this event
      */
-    public CompletionStage<EventId> deleteUser(String uid) {
+    public CompletionStage<Boolean> deleteUser(String uid) {
         return deleteUser(uid, new DateTime());
     }
 
@@ -172,7 +171,7 @@ public class EventClient extends RestClient {
      * @param eventTime  timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> setItem(String iid, Map<String, Object> properties, DateTime eventTime) {
+    public CompletionStage<Boolean> setItem(String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildItemEvent(iid, properties, eventTime).event("$set");
         return createEvent(event);
     }
@@ -182,7 +181,7 @@ public class EventClient extends RestClient {
      * setItem(String, Map&lt;String, Object&gt;, DateTime)}
      * except event time is not specified and recorded as the time when the function is called.
      */
-    public CompletionStage<EventId> setItem(String iid, Map<String, Object> properties) {
+    public CompletionStage<Boolean> setItem(String iid, Map<String, Object> properties) {
         return setItem(iid, properties, new DateTime());
     }
 
@@ -194,7 +193,7 @@ public class EventClient extends RestClient {
      * @param eventTime  timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> unsetItem(String iid, List<String> properties, DateTime eventTime) throws IOException {
+    public CompletionStage<Boolean> unsetItem(String iid, List<String> properties, DateTime eventTime) throws IOException {
         if (properties.isEmpty()) {
             throw new IllegalStateException("property list cannot be empty");
         }
@@ -209,7 +208,7 @@ public class EventClient extends RestClient {
      * unsetItem(String, List&lt;String&gt;, DateTime)}
      * except event time is not specified and recorded as the time when the function is called.
      */
-    public CompletionStage<EventId> unsetItem(String iid, List<String> properties) throws IOException {
+    public CompletionStage<Boolean> unsetItem(String iid, List<String> properties) throws IOException {
         return unsetItem(iid, properties, new DateTime());
     }
 
@@ -220,7 +219,7 @@ public class EventClient extends RestClient {
      * @param eventTime timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> deleteItem(String iid, DateTime eventTime) {
+    public CompletionStage<Boolean> deleteItem(String iid, DateTime eventTime) {
         Event event = buildItemEvent(iid, eventTime).event("$delete");
         return createEvent(event);
     }
@@ -231,7 +230,7 @@ public class EventClient extends RestClient {
      * @param iid ID of the item
      * @return ID of this event
      */
-    public CompletionStage<EventId> deleteItem(String iid) {
+    public CompletionStage<Boolean> deleteItem(String iid) {
         return deleteItem(iid, new DateTime());
     }
 
@@ -249,12 +248,12 @@ public class EventClient extends RestClient {
      * @param eventTime  timestamp of the event
      * @return ID of this event
      */
-    public CompletionStage<EventId> userActionItem(String action, String uid, String iid, Map<String, Object> properties, DateTime eventTime) {
+    public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event(action).targetEntityType("item").targetEntityId(iid);
         return createEvent(event);
     }
 
-    public CompletionStage<EventId> userActionItem(String action, String uid, String iid, Map<String, Object> properties) {
+    public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties) {
         return userActionItem(action, uid, iid, properties, new DateTime());
     }
 

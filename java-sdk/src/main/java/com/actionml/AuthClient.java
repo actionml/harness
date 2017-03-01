@@ -1,21 +1,14 @@
 package com.actionml;
 
-import akka.http.javadsl.model.*;
 import akka.http.javadsl.model.FormData;
 import akka.http.javadsl.model.HttpMethods;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.Uri;
 import akka.http.javadsl.model.headers.Authorization;
-import akka.http.javadsl.model.headers.BasicHttpCredentials;
-import akka.http.scaladsl.model.*;
-import akka.util.ByteString;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static com.sun.deploy.net.protocol.ProtocolType.HTTP;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)

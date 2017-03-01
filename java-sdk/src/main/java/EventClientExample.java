@@ -35,7 +35,7 @@ public class EventClientExample {
             client.createEvents(events).whenComplete((eventIds, throwable) -> {
                 long duration = System.currentTimeMillis() - start;
                 if (throwable == null) {
-                    System.out.println("Receive eventIds: " + eventIds.size() + ", " + duration + " ms.");
+                    System.out.println("Receive eventIds: " + eventIds.size() + ", " + duration + " ms. " + (eventIds.size() / (duration / 1000)) + " per second");
                 } else {
                     System.err.println(throwable.getMessage());
                 }

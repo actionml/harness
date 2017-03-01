@@ -1,11 +1,11 @@
 package com.actionml;
 
-import akka.http.javadsl.model.*;
+import akka.http.javadsl.model.HttpRequest;
+import akka.http.javadsl.model.HttpResponse;
+import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
-import akka.util.ByteString;
 import com.google.gson.JsonElement;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**

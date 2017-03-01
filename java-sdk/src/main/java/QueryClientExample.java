@@ -1,14 +1,5 @@
-import com.actionml.EventClient;
 import com.actionml.QueryClient;
-import com.actionml.entity.Event;
 import com.actionml.entity.Query;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)

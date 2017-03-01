@@ -46,6 +46,7 @@ public class BaseClient {
         system = ActorSystem.create("actionml-sdk-client");
         Function<Throwable, Supervision.Directive> decider = exc -> {
             System.err.println(exc.getMessage());
+            exc.printStackTrace();
             return Supervision.resume();
         };
         materializer = ActorMaterializer.create(
