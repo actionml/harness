@@ -1,7 +1,7 @@
 package com.actionml.http.routes
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.StatusCode
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Route}
 import akka.util.Timeout
@@ -25,7 +25,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Ci
   implicit protected val actorSystem: ActorSystem = inject[ActorSystem]
   implicit protected val executor: ExecutionContext = actorSystem.dispatcher
   implicit val timeout = Timeout(5 seconds)
-
+  val route: Route
   protected val putOrPost: Directive[Unit] = post | put
 
   def completeByCond(
@@ -37,6 +37,12 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Ci
       case None => complete(ifEmptyStatus, ifEmptyStatus.defaultMessage())
     }
 
-  val route: Route
+  def completeByCond(
+    ifDefinedStatus: StatusCode
+  )(ifDefinedResource: Future[Either[Int, Json]]): Route =
+    onSuccess(ifDefinedResource) {
+      case Right(json) => complete(ifDefinedStatus, json)
+      case Left(errcode) => complete(StatusCodes.BadRequest, "Code error: " + errcode)
+    }
 
 }

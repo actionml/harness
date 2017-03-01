@@ -56,8 +56,8 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
     log.debug("Create event: {}, {}", datasetId, event)
-    completeByCond(StatusCodes.Created, StatusCodes.NotFound) {
-      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(errcode ⇒ Some(errcode.asJson))
+    completeByCond(StatusCodes.Created) {
+      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
     }
   }
 
