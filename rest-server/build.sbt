@@ -15,10 +15,15 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.8",
   "org.slf4j" % "log4j-over-slf4j" % "1.7.22",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
   "de.heikoseeberger" %% "akka-http-circe" % "1.12.0",
+  "de.heikoseeberger" %% "akka-http-jackson" % "1.12.0",
+
+  "org.mongodb" %% "casbah" % "3.1.1",
+  "org.json4s" %% "json4s-jackson" % "3.5.0",
 
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,

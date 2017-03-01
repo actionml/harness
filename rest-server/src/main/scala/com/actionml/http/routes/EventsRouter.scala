@@ -5,8 +5,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.entity.{Event, EventId}
+import com.actionml.entity.Event
 import com.actionml.service._
+import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
@@ -53,10 +54,10 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
     )
   }
 
-  private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Event])) { event =>
-    log.info("Create event: {}, {}", datasetId, event)
+  private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
+    log.debug("Create event: {}, {}", datasetId, event)
     completeByCond(StatusCodes.Created, StatusCodes.NotFound) {
-      (eventService ? CreateEvent(datasetId, event)).mapTo[Option[EventId]].map(_.map(_.asJson))
+      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(errcode ⇒ Some(errcode.asJson))
     }
   }
 

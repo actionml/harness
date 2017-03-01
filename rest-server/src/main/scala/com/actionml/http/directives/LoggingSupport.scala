@@ -24,11 +24,7 @@ trait LoggingSupport {
       case Complete(resp) =>
         val responseTimestamp: Long = System.nanoTime
         val elapsedTime: Long = (responseTimestamp - requestTimestamp) / 1000000
-        val loggingString =
-          s"""
-             |Complete: ${req.method}:${req.uri} -> ${resp.status}:${elapsedTime}ms.
-             |${req.entity}
-             |${resp.entity}""".stripMargin
+        val loggingString = s"Complete: ${req.method}:${req.uri} -> ${resp.status} [${elapsedTime} ms.]"
         LogEntry(loggingString, level)
       case Rejected(reason) =>
         LogEntry(s"Rejected Reason: ${reason.mkString(",")}", level)

@@ -1,7 +1,7 @@
 package com.actionml.service
 
 import com.actionml.ActorInjectable
-import com.actionml.entity.Event
+import com.actionml.cb.CBEngine
 import scaldi.Injector
 
 /**
@@ -12,6 +12,22 @@ import scaldi.Injector
   */
 
 trait EventService extends ActorInjectable
+
+class CBEventService(implicit inj: Injector) extends EventService{
+
+  private val engine = inject[CBEngine]
+
+  override def receive: Receive = {
+    case GetEvent(datasetId, eventId) ⇒
+      log.debug("Get event, {}, {}", datasetId, eventId)
+      sender() ! None
+
+    case CreateEvent(datasetId, event) ⇒
+      log.debug("Receive new event & stored, {}, {}", datasetId, event)
+      val (cbEvent, errcode) = engine.parseAndValidateInput(event)
+      sender() ! Either.cond(errcode == 0, engine.input(cbEvent), errcode)
+  }
+}
 
 class EmptyEventService(implicit inj: Injector) extends EventService{
   override def receive: Receive = {
@@ -27,4 +43,4 @@ class EmptyEventService(implicit inj: Injector) extends EventService{
 
 sealed trait EventAction
 case class GetEvent(datasetId: String, eventId: String) extends EventAction
-case class CreateEvent(datasetId: String, event: Event) extends EventAction
+case class CreateEvent(datasetId: String, event: String) extends EventAction

@@ -1,6 +1,7 @@
 package com.actionml.service
 
 import com.actionml.ActorInjectable
+import com.actionml.cb.CBEngine
 import com.actionml.entity.PredictionQuery
 import scaldi.Injector
 
@@ -12,13 +13,25 @@ import scaldi.Injector
   */
 trait QueryService extends ActorInjectable
 
+class CBQueryService(implicit inj: Injector) extends QueryService{
+
+  private val engine = inject[CBEngine]
+
+  override def receive: Receive = {
+    case GetPrediction(engineId, query) ⇒
+      log.debug("Get prediction, {}, {}", engineId, query)
+      val (cbQuery, errcode) = engine.parseAndValidateQuery(query)
+      sender() ! Either.cond(errcode == 0, engine.query(cbQuery), errcode)
+  }
+}
+
 class EmptyQueryService(implicit inj: Injector) extends QueryService{
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
-      log.info("Get prediction, {}, {}", engineId, query)
+      log.debug("Get prediction, {}, {}", engineId, query)
       sender() ! None
   }
 }
 
 sealed trait QueryAction
-case class GetPrediction(engineId: String, query: PredictionQuery) extends QueryAction
+case class GetPrediction(engineId: String, query: String) extends QueryAction

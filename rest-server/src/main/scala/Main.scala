@@ -1,5 +1,8 @@
 import akka.actor.ActorSystem
+import com.actionml.cb.{CBDataset, CBEngine, CBEngineParams, CBEvent}
 import com.actionml.config.AppConfig
+import com.actionml.core.storage.{Mongo, Store}
+import com.actionml.core.template.{Dataset, Engine, Params}
 import com.actionml.http.RestServer
 import com.actionml.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
 import com.actionml.service._
@@ -34,8 +37,14 @@ class BaseModule extends Module{
   bind[QueriesRouter] to new QueriesRouter
 
   bind[DatasetService] to new EmptyDatasetService
-  bind[EventService] to new EmptyEventService
+  bind[EventService] to new CBEventService
   bind[EngineService] to new EmptyEngineService
-  bind[QueryService] to new EmptyQueryService
+  bind[QueryService] to new CBQueryService
+
+  bind[Store] to new Mongo
+  bind[CBDataset] to new CBDataset("test-resource", inject[Store])
+
+  bind[CBEngineParams] to new CBEngineParams
+  bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])
 
 }
