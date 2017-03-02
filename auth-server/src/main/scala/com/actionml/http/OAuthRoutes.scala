@@ -1,4 +1,4 @@
-package com.actionml.http
+package com.actionml.router.http
 
 import akka.http.scaladsl.model.StatusCodes.OK
 import akka.http.scaladsl.server.{Directives, Route}

@@ -1,4 +1,4 @@
-package com.actionml.http
+package com.actionml.router.http
 
 import java.io.InputStream
 import java.security.{KeyStore, SecureRandom}
@@ -7,7 +7,7 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
-import com.actionml.config.AppConfig
+import com.actionml.router.config.AppConfig
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable

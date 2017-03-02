@@ -1,7 +1,7 @@
-package com.actionml.service
+package com.actionml.router.service
 
 import com.actionml.ActorInjectable
-import com.actionml.cb.CBEngine
+import com.actionml.templates.cb.CBEngine
 import scaldi.Injector
 
 /**

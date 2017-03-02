@@ -1,4 +1,4 @@
-package com.actionml.http.directives
+package com.actionml.router.http.directives
 
 import akka.event.Logging.LogLevel
 import akka.event.{Logging, LoggingAdapter}

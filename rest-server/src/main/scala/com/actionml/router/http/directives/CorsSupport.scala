@@ -1,4 +1,4 @@
-package com.actionml.http.directives
+package com.actionml.router.http.directives
 
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model.HttpResponse

@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
-import com.actionml.config.AppConfig
-import com.actionml.http.{HttpServer, OAuthRoutes}
+import com.actionml.router.config.AppConfig
+import com.actionml.router.http.{HttpServer, OAuthRoutes}
 import com.actionml.oauth2.OAuth2DataHandler
 import com.actionml.oauth2.dal.memory.{AccountsMemoryDal, OAuthAccessTokensMemoryDal, OAuthAuthorizationCodesMemoryDal, OAuthClientsMemoryDal}
 import com.actionml.oauth2.dal.{AccountsDal, OAuthAccessTokensDal, OAuthAuthorizationCodesDal, OAuthClientsDal}

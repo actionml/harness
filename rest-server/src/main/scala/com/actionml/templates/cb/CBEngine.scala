@@ -1,4 +1,4 @@
-package com.actionml.cb
+package com.actionml.templates.cb
 
 import com.actionml.core.template.{Engine, Params, Query, QueryResult}
 import com.typesafe.scalalogging.LazyLogging

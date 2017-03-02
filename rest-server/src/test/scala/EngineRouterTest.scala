@@ -4,9 +4,9 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, MediaTypes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.actionml.entity.{Engine, EngineId}
-import com.actionml.http.RestServer
-import com.actionml.http.routes.EnginesRouter
-import com.actionml.service._
+import com.actionml.router.http.RestServer
+import com.actionml.router.http.routes.EnginesRouter
+import com.actionml.router.service._
 import de.heikoseeberger.akkahttpcirce.CirceSupport
 import io.circe.generic.auto._
 import org.scalatest.concurrent.ScalaFutures

@@ -1,12 +1,12 @@
-package com.actionml.http
+package com.actionml.router.http
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
-import com.actionml.config.AppConfig
-import com.actionml.http.directives.{CorsSupport, LoggingSupport}
-import com.actionml.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
+import com.actionml.router.config.AppConfig
+import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
+import com.actionml.router.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
 import akka.http.scaladsl.server.Directives._
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable

@@ -1,4 +1,4 @@
-package com.actionml.http.routes
+package com.actionml.router.http.routes
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}

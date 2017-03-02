@@ -47,6 +47,14 @@ The Kappa style learning algorithm takes in unbounded streams of data and increm
 
 All REST APIs will have Access Control Lists based on who is allowed to access the endpoint and resourse-id. All APIs will respond with an appropriate HTTP code, some (UPDATE/POST requests) will respond with a JSON  body as described. All data not defined in the URI will be in JSON request and response body.
 
+Integral to REST is the notion of a "resource", which can be though of as a collection of items that can be addressed by a resource-id. Since with REST all resource-ids must be URI encoded following the rules for vanilla 
+URI fragments. The resources defined in PIO-Kappa are:
+
+ - **datasets**: a collection of datasets that store events
+ - **events**: sub-collections that make up a particular dataset. They are addressed liek `/datasets/<dataset-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved event like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
+ - **engine**: the engine is the instance of a template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
+ - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status since the command may take very long to complete.
+
 ## Input and Query
 
 See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries.
@@ -54,28 +62,62 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
     POST /datasets/<dataset-id>/events
         Request Body: JSON for PIO event
         Response Body: na
+        
     POST /engines/<engine-id>/queries
         Request Body: JSON for PIO query
         Response Body: JSON for PIO PredictedResults
 
-## Commands
+## Commands for Admin
 
-    POST /datasets/<dataset-id>
-        Request Body: JSON for PIO dataset description
-        Response Body: JSON describing Dataset created
-        Action: sets up an empty dataset with the id specified if `_new` is passed in a dataset-id will be generated and returned to id the dataset.
+    PUT /datasets/<dataset-id>
+        Action: returns 404 since writing an entire dataset is not supported
+          
+    POST /datasets/
+        Request Body: JSON for PIO dataset description describing Dataset
+          created, must include in the JSON `"resource-id": "<some-string>"
+          the resource-id is returned. If there is no `resource-id` one will be generated and returned
+        Action: sets up a new empty dataset with the id specified.
+        
     DELETE /datasets/<dataset-id>
-        Action: deletes the dataset including the dataset-id/empty dataset and removes all data
+        Action: deletes the dataset including the dataset-id/empty dataset
+          and removes all data
+          
     POST /engines/<engine-id> 
         Request Body: JSON for engine configuration engine.json file
-        Response Body: description of engine-instance created
-    POST /commands/batch-train/engines/<engine-id>
-        Request Body: na
-        Response Body: returns the command-id to poll via GET for information about command progress
-        Action: will launch batch training of an <engine-id>
+        Response Body: description of engine-instance created. 
+          Success/failure indicated in the HTTP return code
+        Action: creates or modifies an existing engine
+        
+    DELETE /engines/<engine-id>
+        Action: removes the specified engine but none of the associated 
+          resources like dataset but may delete model(s). Todo: this last
+          should be avoided but to delete models separately requires a new
+          resource type.
+
+    POST /commands/list?engines
+    POST /commands/list?datasets
+        Request Body: none?
+        Response Body: list and stats for the resources requested
+        Action: gets a list and info, used for discovery of all resources 
+          known by the system. This command is synchronous so no need
+          to poll for updates
+        
+## Commands for Lambda Admin
+
+in addition to the commands above, Lambda style learners require not only setup but batch training. So some additional commands are needed:
+
+    POST /commands/batch-train
+        Request Body: description of which engine to train and any params
+        Response Body: returns the command-id to poll via GET for
+          information about command progress
+        Action: will launch batch training of an <engine-id>. This 
+          command is asynchronous so needs to be polled for status
+          
+    Delete /commands/<command-id>
+        Action: attempts to kill the command by id and removes it
+
     GET /commands/<command-id> 
         Response Body: response body command status for asynch/long-lived command
-      
       
 # [Security](security.md)  
 

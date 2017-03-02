@@ -1,4 +1,4 @@
-package com.actionml.cb
+package com.actionml.templates.cb
 
 import com.actionml.core.storage.Store
 import com.actionml.core.template.Dataset

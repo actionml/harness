@@ -1,4 +1,4 @@
-package com.actionml.config
+package com.actionml.router.config
 
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._

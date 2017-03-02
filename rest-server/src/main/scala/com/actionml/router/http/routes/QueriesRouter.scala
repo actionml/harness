@@ -1,12 +1,12 @@
-package com.actionml.http.routes
+package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.cb.CBQueryResult
-import com.actionml.service._
+import com.actionml.templates.cb.CBQueryResult
+import com.actionml.router.service._
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
