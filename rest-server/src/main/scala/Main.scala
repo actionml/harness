@@ -4,7 +4,7 @@ import com.actionml.router.config.AppConfig
 import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.template.{Dataset, Engine, Params}
 import com.actionml.router.http.RestServer
-import com.actionml.router.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
+import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -31,6 +31,7 @@ class BaseModule extends Module{
 
   bind[RestServer] to new RestServer
 
+  bind[CheckRouter] to new CheckRouter
   bind[DatasetsRouter] to new DatasetsRouter
   bind[EventsRouter] to new EventsRouter
   bind[EnginesRouter] to new EnginesRouter

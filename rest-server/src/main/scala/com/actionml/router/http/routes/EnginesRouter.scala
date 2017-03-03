@@ -7,7 +7,6 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import com.actionml.router.service._
 import io.circe.Json
-import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 

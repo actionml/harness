@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
-import com.actionml.router.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
+import com.actionml.router.http.routes._
 import akka.http.scaladsl.server.Directives._
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -26,12 +26,13 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
   private val config = inject[AppConfig].restServer
 
+  private val check = inject[CheckRouter]
   private val datasets = inject[DatasetsRouter]
   private val events = inject[EventsRouter]
   private val engines = inject[EnginesRouter]
   private val queries = inject[QueriesRouter]
 
-  private val route: Route = events.route ~ datasets.route ~ engines.route ~ queries.route
+  private val route: Route = check.route ~ events.route ~ datasets.route ~ engines.route ~ queries.route
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
 //    if (config.ssl) {

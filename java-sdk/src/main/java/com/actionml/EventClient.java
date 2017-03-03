@@ -4,7 +4,6 @@ import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
 import akka.stream.javadsl.Source;
 import com.actionml.entity.Event;
-import com.actionml.entity.EventId;
 import com.google.gson.JsonElement;
 import org.joda.time.DateTime;
 
