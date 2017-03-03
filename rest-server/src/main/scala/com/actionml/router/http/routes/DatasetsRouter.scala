@@ -5,10 +5,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.router.service.{CreateDataset, DatasetService, DeleteDataset}
-import io.circe.generic.auto._
-import io.circe.syntax._
 import cats.syntax.either._
+import com.actionml.router.service.{CreateDataset, DatasetService, DeleteDataset}
+import io.circe.syntax._
 import scaldi.Injector
 
 import scala.language.postfixOps
