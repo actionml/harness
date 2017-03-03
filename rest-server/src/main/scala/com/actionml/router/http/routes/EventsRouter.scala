@@ -11,6 +11,7 @@ import com.actionml.templates.cb.CBEvent
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
+import cats.syntax.either._
 import scaldi.Injector
 
 import scala.language.postfixOps

@@ -8,6 +8,7 @@ import akka.pattern.ask
 import com.actionml.router.service.{CreateDataset, DatasetService, DeleteDataset}
 import io.circe.generic.auto._
 import io.circe.syntax._
+import cats.syntax.either._
 import scaldi.Injector
 
 import scala.language.postfixOps

@@ -8,6 +8,7 @@ import akka.pattern.ask
 import com.actionml.router.service._
 import io.circe.Json
 import io.circe.syntax._
+import cats.syntax.either._
 import scaldi.Injector
 
 /**

@@ -3,6 +3,7 @@ package com.actionml
 import akka.actor.{Actor, ActorLogging}
 import io.circe.{Decoder, Encoder}
 import io.circe.syntax._
+import cats.syntax.either._
 
 import org.joda.time.DateTime
 import scaldi.akka.AkkaInjectable
