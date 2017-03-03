@@ -1,0 +1,11 @@
+{
+  "id": "engine-1",
+  "dataset": "dataset-1",
+  "maxIter": 100,
+  "regParam": 0.0,
+  "stepSize": 0.1,
+  "bitPrecision": 24,
+  "modelName": "model.vw",
+  "namespace": "n",
+  "maxClasses": 3
+}
