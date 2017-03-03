@@ -1,7 +1,6 @@
 package com.actionml.router.service
 
 import com.actionml.router.ActorInjectable
-import com.actionml.entity.Engine
 import scaldi.Injector
 
 /**
@@ -35,6 +34,6 @@ class EmptyEngineService(implicit inj: Injector) extends EngineService{
 
 sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
-case class CreateEngine(engine: Engine) extends EngineAction
-case class UpdateEngine(engineId: String, engine: Engine) extends EngineAction
+case class CreateEngine(engine: String) extends EngineAction
+case class UpdateEngine(engineId: String, engine: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction

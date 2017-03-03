@@ -5,15 +5,15 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.templates.cb.CBQueryResult
+import cats.syntax.either._
 import com.actionml.router.service._
+import com.actionml.templates.cb.CBQueryResult
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
 import scala.language.postfixOps
-import scala.util.Left
 
 /**
   *
