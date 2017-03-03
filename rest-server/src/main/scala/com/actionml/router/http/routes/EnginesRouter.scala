@@ -5,8 +5,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.entity.{Engine, EngineId}
 import com.actionml.router.service._
+import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
@@ -54,22 +54,22 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
   private def getEngine(engineId: String, log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)
     complete((engineService ? GetEngine(engineId))
-      .mapTo[Option[Engine]]
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson))
     )
   }
 
-  private def createEngine(log: LoggingAdapter): Route = (putOrPost & entity(as[Engine])) { engine =>
+  private def createEngine(log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
     log.info("Create event: {}", engine)
-    completeByCond(StatusCodes.Created, StatusCodes.NotFound) {
-      (engineService ? CreateEngine(engine)).mapTo[Option[EngineId]].map(_.map(_.asJson))
+    completeByCond(StatusCodes.Created) {
+      (engineService ? CreateEngine(engine.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
     }
   }
 
-  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & entity(as[Engine])) { engine =>
+  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
     log.info("Update engine: {}, {}", engineId, engine)
-    complete((engineService ? UpdateEngine(engineId, engine))
-      .mapTo[Option[Boolean]]
+    complete((engineService ? UpdateEngine(engineId, engine.toString()))
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson))
     )
   }
@@ -77,7 +77,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
   private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
     log.info("Update engine: {}", engineId)
     complete((engineService ? DeleteEngine(engineId))
-      .mapTo[Option[Boolean]]
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson))
     )
   }

@@ -5,7 +5,6 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.entity.Dataset
 import com.actionml.router.service.{CreateDataset, DatasetService, DeleteDataset}
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -48,21 +47,21 @@ class DatasetsRouter(implicit inj: Injector) extends BaseRouter {
   private def createDataset(log: LoggingAdapter) = putOrPost {
     log.info("Create empty dataset")
     complete(StatusCodes.Created, (datasetService ? CreateDataset)
-      .mapTo[Option[Dataset]]
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson)))
   }
 
   private def createDataset(datasetId: String, log: LoggingAdapter) = putOrPost {
     log.info("Create empty dataset: {}", datasetId)
     complete(StatusCodes.Created, (datasetService ? CreateDataset(datasetId))
-      .mapTo[Option[Dataset]]
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson)))
   }
 
   private def deleteDataset(datasetId: String, log: LoggingAdapter) = delete {
     log.info("Delete dataset: {}", datasetId)
     complete((datasetService ? DeleteDataset(datasetId))
-      .mapTo[Option[Dataset]]
+      .mapTo[Either[Int, Boolean]]
       .map(_.map(_.asJson)))
   }
 

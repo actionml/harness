@@ -1,6 +1,6 @@
 package com.actionml.router.service
 
-import com.actionml.ActorInjectable
+import com.actionml.router.ActorInjectable
 import scaldi.Injector
 
 /**

@@ -5,8 +5,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.entity.Event
 import com.actionml.router.service._
+import com.actionml.router._
+import com.actionml.templates.cb.CBEvent
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -49,7 +50,7 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.info("Get event: {}, {}", datasetId, eventId)
     complete((eventService ? GetEvent(datasetId, eventId))
-      .mapTo[Option[Event]]
+      .mapTo[Option[CBEvent]]
       .map(_.map(_.asJson))
     )
   }
