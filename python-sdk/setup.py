@@ -10,7 +10,7 @@ __license__ = "Apache License, Version 2.0"
 
 setup(
     name='ActionML',
-    version="0.0.1",
+    version="0.0.2",
     author=__author__,
     author_email=__email__,
     packages=['actionml'],
@@ -40,7 +40,7 @@ setup(
                          learning algorithms
                        - without worrying about scalability
                        Detailed documentation is available on our
-                       `documentation site <http://actionml.com/docs>`_.
+                       `documentation site <a href="http://actionml.com/docs">docs</a>`.
                        This module provides convenient access of the
                        ActionML API to Python programmers so that they
                        can focus on their application logic.

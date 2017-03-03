@@ -216,7 +216,7 @@ class EventClient(BaseClient):
 
         data["creationTime"] = time_to_string_if_valid(creation_time)
 
-        path = "dataset/%s/events" % (self.dataset_id,)
+        path = "/datasets/%s/events" % (self.dataset_id,)
 
         request = AsyncRequest("POST", path, **data)
         request.set_rfunc(self._acreate_resp)
@@ -452,7 +452,7 @@ class EventClient(BaseClient):
             action, uid, iid, properties, event_time).get_response()
 
 
-class EngineClient(BaseClient):
+class QueryClient(BaseClient):
     """Client for extracting prediction results from an ActionML Engine
   Instance.
   :param url: the url of the ActionML Engine Instance.
@@ -467,11 +467,12 @@ class EngineClient(BaseClient):
     Default value is 5.
   """
 
-    def __init__(self, url="http://localhost:8000", threads=1,
+    def __init__(self, engine_id: str, url: str="http://localhost:8080", threads=1,
                  qsize=0, timeout=5):
-        super(EngineClient, self).__init__(url, threads, qsize, timeout)
+        self.engine_id = engine_id
+        super(QueryClient, self).__init__(url, threads, qsize, timeout)
 
-    def asend_query(self, data):
+    def asend_query(self, data: dict):
         """Asynchronously send a request to the engine instance with data as the
     query.
     :param data: the query: It is coverted to an json object using json.dumps
@@ -480,7 +481,7 @@ class EngineClient(BaseClient):
       AsyncRequest object. You can call the get_response() method using this
       object to get the final resuls or status of this asynchronous request.
     """
-        path = "/queries.json"
+        path = "/engines/{}/queries".format(self.engine_id)
         request = AsyncRequest("POST", path, **data)
         request.set_rfunc(self._aget_resp)
         self._connection.make_request(request)
@@ -495,6 +496,16 @@ class EngineClient(BaseClient):
         return self.asend_query(data).get_response()
 
 
+class CommandClient(BaseClient):
+
+    def __init__(self, url: str="http://localhost:8080", threads=1, qsize=0, timeout=5):
+        super(CommandClient, self).__init__(url, threads, qsize, timeout)
+
+    def aget_list(self, resource: str):
+        path = "/commands/list?"
+
+
+
 class FileExporter(object):
     """File exporter to write events to JSON file for batch import
   :param file_name: the destination file name
@@ -505,13 +516,14 @@ class FileExporter(object):
     """
         self._file = open(file_name, 'w')
 
-    def create_event(self, event, entity_type, entity_id,
+    def create_event(self, event_id, event, entity_type, entity_id,
                      target_entity_type=None, target_entity_id=None, properties=None,
-                     event_time=None):
+                     event_time=None, creation_time=None):
         """Create an event and write to the file.
     (please refer to EventClient's create_event())
     """
         data = {
+            "eventId": event_id,
             "event": event,
             "entityType": entity_type,
             "entityId": entity_id,
@@ -526,11 +538,9 @@ class FileExporter(object):
         if properties is not None:
             data["properties"] = properties
 
-        et = time_to_string_if_valid(event_time)
-        # EventServer uses milliseconds, but python datetime class uses micro. Hence
-        # need to skip the last three digits.
-        et_str = et.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + et.strftime("%z")
-        data["eventTime"] = et_str
+        data["eventTime"] = time_to_string_if_valid(event_time)
+
+        data["creationTime"] = time_to_string_if_valid(creation_time)
 
         j = json.dumps(data)
         self._file.write(j + "\n")
