@@ -2,7 +2,7 @@ name := "pio-kappa-rest-server"
 
 version := "1.0"
 
-scalaVersion := "2.12.1"
+scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.17"
 lazy val akkaHttpVersion = "10.0.3"
