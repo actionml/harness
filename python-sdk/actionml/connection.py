@@ -31,7 +31,6 @@ except NameError:
 # some constants
 MAX_RETRY = 1  # 0 means no retry
 
-
 # logger
 logger = None
 DEBUG_LOG = False
@@ -81,14 +80,14 @@ class AsyncRequest(object):
         self.qpath = "%s?%s" % (self.path, urlencode(self.params))
         self._response = None
         # response function to be called to handle the response
-        self.rfunc = None
+        self.response_handler = None
 
     def __str__(self):
         return "%s %s %s %s" % (self.method, self.path, self.params,
                                 self.qpath)
 
-    def set_rfunc(self, func):
-        self.rfunc = func
+    def set_response_handler(self, handler):
+        self.response_handler = handler
 
     def set_response(self, response):
         """ store the response
@@ -97,23 +96,24 @@ class AsyncRequest(object):
         self.response_q.put(response)
 
     def get_response(self):
-        """Get the response. Blocking.
-        :returns: self.rfunc's return type.
+        """
+        Get the response. Blocking.
+        :returns: self.response_handler's return type.
         """
         if self._response is None:
             tmp_response = self.response_q.get(True)  # NOTE: blocking
-            if self.rfunc is None:
+            if self.response_handler is None:
                 self._response = tmp_response
             else:
-                self._response = self.rfunc(tmp_response)
+                self._response = self.response_handler(tmp_response)
 
         return self._response
 
 
 class AsyncResponse(object):
-    """Store the response of asynchronous request
-    When get the response, user should check if error is None (which means no
-    Exception happens).
+    """
+    Store the response of asynchronous request
+    When get the response, user should check if error is None (which means no Exception happens).
     If error is None, then should check if the status is expected.
     """
 
@@ -153,51 +153,53 @@ class AsyncResponse(object):
     def set_error(self, error):
         self.error = error
 
+
 class AsyncResponse(object):
-  """Store the response of asynchronous request
-  When get the response, user should check if error is None (which means no
-  Exception happens).
-  If error is None, then should check if the status is expected.
-  """
+    """
+    Store the response of asynchronous request
+    When get the response, user should check if error is None (which means no Exception happens).
+    If error is None, then should check if the status is expected.
+    """
 
-  def __init__(self):
-    #: exception object if any happens
-    self.error = None
+    def __init__(self):
+        #: exception object if any happens
+        self.error = None
 
-    self.version = None
-    self.status = None
-    self.reason = None
-    #: Response header. str
-    self.headers = None
-    #: Response body. str
-    self.body = None
-    #: Jsonified response body. Remains None if conversion is unsuccessful.
-    self.json_body = None
-    #: Point back to the AsyncRequest object
-    self.request = None
+        self.version = None
+        self.status = None
+        self.reason = None
+        #: Response header. str
+        self.headers = None
+        #: Response body. str
+        self.body = None
+        #: Jsonified response body. Remains None if conversion is unsuccessful.
+        self.json_body = None
+        #: Point back to the AsyncRequest object
+        self.request = None
 
-  def __str__(self):
-    return "e:%s v:%s s:%s r:%s h:%s b:%s" % (self.error, self.version,
-                          self.status, self.reason,
-                          self.headers, self.body)
+    def __str__(self):
+        return "e:%s v:%s s:%s r:%s h:%s b:%s" % (self.error, self.version,
+                                                  self.status, self.reason,
+                                                  self.headers, self.body)
 
-  def set_resp(self, version, status, reason, headers, body):
-    self.version = version
-    self.status = status
-    self.reason = reason
-    self.headers = headers
-    self.body = body
-    # Try to extract the json.
-    try:
-      self.json_body = json.loads(body.decode('utf8'))
-    except ValueError as ex:
-      self.json_body = None
+    def set_resp(self, version, status, reason, headers, body):
+        self.version = version
+        self.status = status
+        self.reason = reason
+        self.headers = headers
+        self.body = body
+        # Try to extract the json.
+        try:
+            self.json_body = json.loads(body.decode('utf8'))
+        except ValueError as ex:
+            self.json_body = None
 
-  def set_error(self, error):
-    self.error = error
+    def set_error(self, error):
+        self.error = error
 
-  def set_request(self, request):
-    self.request = request
+    def set_request(self, request):
+        self.request = request
+
 
 class ActionMLHttpConnection(object):
     def __init__(self, host, https=True, timeout=5):
