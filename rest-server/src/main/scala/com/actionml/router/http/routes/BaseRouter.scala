@@ -2,8 +2,7 @@ package com.actionml.router.http.routes
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive, Route}
+import akka.http.scaladsl.server.{Directive, Directives, Route}
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.CirceSupport
 import io.circe.Json
@@ -20,7 +19,7 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 16:15
   */
-abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with CirceSupport {
+abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with CirceSupport with Directives {
 
   implicit protected val actorSystem: ActorSystem = inject[ActorSystem]
   implicit protected val executor: ExecutionContext = actorSystem.dispatcher

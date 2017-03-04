@@ -2,7 +2,6 @@ package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import cats.syntax.either._

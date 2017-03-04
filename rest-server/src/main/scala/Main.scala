@@ -36,6 +36,7 @@ class BaseModule extends Module{
   bind[EventsRouter] to new EventsRouter
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
+  bind[CommandsRouter] to new CommandsRouter
 
   bind[DatasetService] to new EmptyDatasetService
   bind[EventService] to new CBEventService
