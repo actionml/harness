@@ -24,6 +24,7 @@ libraryDependencies ++= Seq(
 
   "org.mongodb" %% "casbah" % "3.1.1",
   "org.json4s" %% "json4s-jackson" % "3.5.0",
+  "com.github.scopt" %% "scopt" % "3.5.0",
 
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
