@@ -5,7 +5,7 @@ version := "1.0"
 scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.17"
-lazy val akkaHttpVersion = "10.0.3"
+lazy val akkaHttpVersion = "10.0.4"
 lazy val circeVersion = "0.7.0"
 lazy val scalaTestVersion = "3.0.1"
 
@@ -24,6 +24,7 @@ libraryDependencies ++= Seq(
 
   "org.mongodb" %% "casbah" % "3.1.1",
   "org.json4s" %% "json4s-jackson" % "3.5.0",
+  "com.github.scopt" %% "scopt" % "3.5.0",
 
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
