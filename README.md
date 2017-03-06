@@ -69,8 +69,7 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
 
 ## The Commands
 
-Command are REST resources just like Datasets and Engines so commands can be fired through REST but we also provide a command line interface similar to PIO. It allows you quickly access and control the server and to script interactions. See [Command Line](command_line.md)
-
+Commands are REST resources just like Datasets and Engines so commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
      
 # [Security](security.md)  
 
