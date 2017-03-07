@@ -14,6 +14,8 @@ import java.util.Map;
  */
 public class Event {
 
+    private String eventId;
+
     // mandatory fields
     private String event;
     private String entityType;
@@ -24,6 +26,7 @@ public class Event {
     private String targetEntityId;
     private Map<String, Object> properties = Maps.newHashMap();
     private DateTime eventTime;
+    private DateTime creationTime;
 
     /**
      * Instantiate an event object.
@@ -81,6 +84,11 @@ public class Event {
 
     // builder methods for convenience
 
+    public Event eventId(String eventId) {
+        this.eventId = eventId;
+        return this;
+    }
+
     /**
      * Sets the name of the event.
      */
@@ -130,6 +138,11 @@ public class Event {
         return this;
     }
 
+    public Event creationTime(DateTime creationTime) {
+        this.creationTime = creationTime;
+        return this;
+    }
+
     // toJsonString and toString methods
 
     public String toJsonString() {
@@ -143,5 +156,21 @@ public class Event {
         gsonBuilder.registerTypeAdapter(DateTime.class, new DateTimeAdapter());
         Gson gson = gsonBuilder.create();
         return gson.toJson(this); // works when there are no generic types
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+    public DateTime getCreationTime() {
+        return creationTime;
+    }
+
+    public void setCreationTime(DateTime creationTime) {
+        this.creationTime = creationTime;
     }
 }

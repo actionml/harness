@@ -1,4 +1,4 @@
-package com.actionml.http
+package com.actionml.router.http
 
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, Unauthorized}

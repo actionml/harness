@@ -1,4 +1,4 @@
-package com.actionml.config
+package com.actionml.router.config
 
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
@@ -14,7 +14,8 @@ import net.ceedubs.ficus.readers.EnumerationReader._
 case class AppConfig(restServer: HttpServerConfig, actorSystem: ActorSystemConfig)
 case class HttpServerConfig(
   host: String,
-  port: Int
+  port: Int,
+  ssl: Boolean
 )
 case class ActorSystemConfig(
   name: String
