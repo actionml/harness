@@ -17,20 +17,11 @@
 
 package com.actionml.core.template
 
-import com.actionml.core.storage.Store
 import com.typesafe.scalalogging.LazyLogging
 
-abstract class Dataset[T](r: String, s: Store) extends LazyLogging {
+/** Model for the algorithm, in charge of storage CRUD ops in the store */
+abstract class Model[S](s: S) extends LazyLogging {
 
-  val resourceId = r
   val store = s
-
-  // todo: we may want to use some operators overloading if this fits some Scala idiom well
-  // takes one datum, possibley an Event
-  def append(datum: T): Boolean
-  // takes a collection of data to append to the Dataset
-  def appendAll(data: Seq[T]): Seq[Boolean]
-
-  def parseAndValidateInput(s: String): (T, Int)
 
 }
