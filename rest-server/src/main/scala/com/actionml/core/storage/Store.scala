@@ -1,5 +1,7 @@
 package com.actionml.core.storage
 
-class Store {
+import com.typesafe.scalalogging.LazyLogging
+
+class Store  extends LazyLogging {
 
 }

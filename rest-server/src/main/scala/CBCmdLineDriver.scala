@@ -40,6 +40,8 @@ case class CBCmdLineDriverConfig(
 object CBCmdLineDriver extends App with AkkaInjectable{
 
   override def main(args: Array[String]): Unit = {
+    val debug = true
+    println(args)
     val parser = new OptionParser[CBCmdLineDriverConfig]("scopt") {
       head("scopt", "3.x")
 
@@ -93,25 +95,24 @@ object CBCmdLineDriver extends App with AkkaInjectable{
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
       implicit val formats = Formats
       implicit val defaultFormats = DefaultFormats
-      val (event, errcode) = engine.parseAndValidateInput(line)
+      val (event, errcode) = dataset.parseAndValidateInput(line)
       if( errcode != 0) {
         println("Got and error validating string: " + line)
       } else {
         println("Event #" + i + ": " + event)
         println("Text: " + line)
-        input = input :+ event
+        engine.input(event)
       }
       i += 1
     }
 
-    engine.inputCol(input)
-
     println("The completed input: " + dataset)
-    // training happens automatically for Kappa style
+    // training happens automatically for Kappa style with each input or at short intervals
+    engine.train()
+
     // engine.train() should be triggered explicitly for Lambda
 
     val result = engine.query(CBQuery("pferrel", "group 1"))
     println("Queried and received variant: " + result.variant + " groupId: " + result.groupId)
-    true
   }
 }

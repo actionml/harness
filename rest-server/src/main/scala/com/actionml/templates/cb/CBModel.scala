@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.templates.cb
 
-import com.actionml.core.storage.Store
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.storage.Mongo
+import com.actionml.core.template.Model
 
-abstract class Dataset[T](r: String, s: Store) extends LazyLogging {
-
-  val resourceId = r
-  val store = s
-
-  // todo: we may want to use some operators overloading if this fits some Scala idiom well
-  // takes one datum, possibley an Event
-  def append(datum: T): Boolean
-  // takes a collection of data to append to the Dataset
-  def appendAll(data: Seq[T]): Seq[Boolean]
-
-  def parseAndValidateInput(s: String): (T, Int)
+// Todo: need to get mongo master address and port from config
+/** DAO for persisted Contextual Bandit model classes
+  *
+  */
+class CBModel() extends Model[Mongo](new Mongo) {
 
 }
