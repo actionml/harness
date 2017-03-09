@@ -41,8 +41,8 @@ class BaseModule extends Module{
   bind[EngineService] to new EmptyEngineService
   bind[QueryService] to new CBQueryService
 
-  bind[Store] to new Mongo
-  bind[CBDataset] to new CBDataset("test-resource", inject[Store])
+  bind[Mongo] to new Mongo
+  bind[CBDataset] to new CBDataset("test-resource", inject[Mongo])// Semen: change Store to Mongo, is this correct?
 
   bind[CBEngineParams] to new CBEngineParams
   bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])
