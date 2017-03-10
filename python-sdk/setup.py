@@ -4,7 +4,7 @@ except ImportError:
     from distutils.core import setup
 
 __author__ = "The ActionML Team"
-__email__ = "help@actionml.com"
+__email__ = "support@actionml.com"
 __copyright__ = "Copyright 2017, ActionMl, Inc."
 __license__ = "Apache License, Version 2.0"
 
