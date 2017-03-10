@@ -6,7 +6,7 @@
 //import com.actionml.router.http.RestServer
 //import com.actionml.router.http.routes.EventsRouter
 //import com.actionml.router.service._
-//import com.actionml.templates.cb.{CBEvent, Properties}
+//import com.actionml.templates.cb.{CBEvent, CBGroupInitProperties}
 //import de.heikoseeberger.akkahttpcirce.CirceSupport
 //import org.joda.time.DateTime
 //import org.scalatest.concurrent.ScalaFutures
@@ -27,7 +27,7 @@
 //    event = "EVENT_NAME",
 //    entityType = Some("ENTITY_TYPE"),
 //    entityId = Some("ENTITY_ID"),
-//    properties = Some(Properties(
+//    properties = Some(CBGroupInitProperties(
 //      pageVariants = Seq("PAGE-1"),
 //      testPeriodStart = DateTime.now(),
 //      testPeriodEnd = DateTime.now()

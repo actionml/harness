@@ -11,6 +11,8 @@ lazy val scalaTestVersion = "3.0.1"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+
 libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.8",
   "org.slf4j" % "log4j-over-slf4j" % "1.7.22",
@@ -23,6 +25,8 @@ libraryDependencies ++= Seq(
   "de.heikoseeberger" %% "akka-http-jackson" % "1.12.0",
 
   "org.mongodb" %% "casbah" % "3.1.1",
+  "com.novus" %% "salat-core" % "1.9.9",
+  //"com.novus" %% "salat" % "2.0.0-SNAPSHOT",
   "org.json4s" %% "json4s-jackson" % "3.5.0",
   "com.github.scopt" %% "scopt" % "3.5.0",
 

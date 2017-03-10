@@ -18,11 +18,15 @@
 package com.actionml.templates.cb
 
 import com.actionml.core.storage.{Mongo, Store}
-import com.actionml.core.template.Dataset
+import com.actionml.core.template.{Event, Dataset}
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
 import org.json4s.{DefaultFormats, Formats}
-import com.actionml.templates.cb.CBEvent
+import com.mongodb.casbah.Imports.ObjectId
+import com.mongodb.casbah.Imports._
+import com.novus.salat.dao.SalatDAO
+import com.novus.salat.global._
+import com.mongodb.casbah.commons.conversions.scala._
 
 /** DAO for the Contextual Bandit input data
   * There are 2 types of input events for the CB 1) usage events and 2) property change events. The usage events
@@ -35,31 +39,45 @@ import com.actionml.templates.cb.CBEvent
   *
   * See the discussion of Kappa Learning here: https://github.com/actionml/pio-kappa/blob/master/kappa-learning.md
   *
-  * @param resourceId REST resource-id for input
+  * This dataset contains collections of users, usage events, and groups. Each get input from the datasets POST
+  * endpoint and are parsed and validated but go to different collections, each with different properties. The
+  * users and groups are mutable in Mongo, the events are kept as a stream that is truncated after the model is
+  * updated so not unnecessary old data is stored.
+  *
+  * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   * @param store where they are stored, assumes Mongo for the Contextual Bandit
   */
 class CBDataset(resourceId: String, store: Mongo) extends Dataset[CBEvent](resourceId, store) {
-  // the resourceId is used as a db-id in Mongo, under which will be collections/tables for
-  // useage events (which have a datetime index and a TTL) and mutable tables that reflect state of
-  // input like groups, and even ML type models created by Vowpal Wabbit's Contextual Bandit algo. The later
-  // do not have TTL and reflect the state of the last watermarked model update.
 
   implicit val formats = DefaultFormats //needed for json4s parsing
+  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
   var events = Seq[CBEvent]() // Todo: data will go in a Store eventually
 
-  // todo: we may want to use some operators overloading if this fits some Scala idiom well, but uses a Store so
-  // may end up more complicated.
+  // These should only be called from trusted source like the CLI!
+  def create(name: String = resourceId) = { store.create(name) }
+  def destroy() = { store.destroy(resourceId) }
 
   // add one datum, possibley an CBEvent, to the beginning of the dataset
   def append(datum: CBEvent): Boolean = {
-    datum.event(0).toString match {
-      case "$" =>
-        logger.info(s"Dataset: ${resourceId} got a special event: ${datum.event}")
-        datum.event(0) == "$" // modify the object
-      case _ =>
-        logger.info(s"Dataset: ${resourceId} got a usage event: ${datum.event}")
-        events :+ datum
+    datum match {
+      //case C=> // either group or user updates
+      //  logger.info(s"Dataset: ${resourceId} got a special event: ${datum.event}")
+      //  datum.event(0) == "$" // modify the object
+      case event: CBUsageEvent => // usage data, kept as a stream
+        logger.info(s"Dataset: ${resourceId} got a usage event: ${event.event}")
+        // append to usageEvents collection
+        // Todo: validate fields first
+        val eventObj = MongoDBObject(
+          UsageEventFieldNames.userId -> event.entityId,
+          UsageEventFieldNames.eventName -> event.event,
+          UsageEventFieldNames.item -> event.targetEntityId,
+          UsageEventFieldNames.group -> event.properties.groupId,
+          UsageEventFieldNames.converted -> event.properties.converted,
+          UsageEventFieldNames.eventTime -> new DateTime(event.eventTime)) //sort by this
+
+        store.client.getDB(resourceId).getCollection(CollectionNames.usageEvents).insert(eventObj)
+
         true // store in events collection, return false if there was an error
     }
   }
@@ -69,10 +87,99 @@ class CBDataset(resourceId: String, store: Mongo) extends Dataset[CBEvent](resou
   }
 
   def parseAndValidateInput(json: String): (CBEvent, Int) = {
-    val event = parse(json).extract[CBEvent]
-    // Todo: check for valid CBEvent, parsing only checks for the right attributes, not the value of those
-    (event, 0)
+    val event = parse(json).extract[CBRawEvent]
+    event.event(0).toString match {
+      case "$" => // either group or user updates
+        logger.info(s"Dataset: ${resourceId} got a special event: ${event.event}")
+        (event, 0) // todo: modify the object
+      case _ => // usage data, kept as a stream
+        logger.info(s"Dataset: ${resourceId} got a usage event: ${event.event}")
+        // append to usageEvents collection
+        // Todo: validate fields first
+        (parse(json).extract[CBUsageEvent], 0)
+
+    }
   }
 
-
 }
+
+object CollectionNames {
+  val usageEvents = "usage-events"
+  val users = "users"
+  val groups = "groups"
+}
+
+object UsageEventFieldNames {
+  val userId = "user-id"
+  val eventName = "event-name"
+  val item = "item"
+  val group = "group"
+  val converted = "converted"
+  val eventTime = "event-time"
+  val properties = "properties"
+}
+
+//case class CBGroupInitProperties( p: Map[String, Seq[String]])
+
+/* CBUser Comes in CBEvent partially parsed from the Json:
+{
+  "event" : "$set",
+  "entityType" : "user"
+  "entityId" : "amerritt",
+  "properties" : {
+    "gender": ["male"],
+    "country" : ["Canada"],
+    "otherContextFeatures": ["A", "B"]
+  }
+}
+ */
+case class CBUserUpdateEvent(
+  user: String,
+  properties: Map[String, Seq[String]],
+  eventTime: DateTime)
+
+/* CBUsageEvent some in partially parsed from Json:
+{
+   "event" : "conversion",
+   "entityType" : "user", // ignored
+   "entityId" : "amerritt",
+   "targetEntityType" : "item", // ignored
+   "targetEntityId" : "item-1",
+   "properties" : {
+      "groupId" : "group-1",
+      "converted" : true
+    }
+  "eventTime" : "2014-11-02T09:39:45.618-08:00",
+}
+*/
+case class CBUsageProperties(
+  groupId: String,
+  converted: Boolean)
+
+case class CBUsageEvent(
+    event: String,
+    entityId: String,
+    targetEntityId: String,
+    properties: CBUsageProperties,
+    eventTime: DateTime)
+  extends CBEvent
+
+case class CBGroupInitProperties (
+    testPeriodStart: DateTime, // ISO8601 date
+    pageVariants: Seq[String], //["17","18"]
+    testPeriodEnd: DateTime)
+  extends CBEvent// ISO8601 date
+
+case class CBRawEvent (
+    eventId: String,
+    event: String,
+    entityType: Option[String] = None,
+    entityId: Option[String] = None,
+    targetEntityId: Option[String] = None,
+    properties: Option[Map[String, Any]] = None,
+    //properties: Option[CBGroupInitProperties] = None,
+    eventTime: String, // ISO8601 date
+    creationTime: String) // ISO8601 date
+  extends CBEvent
+
+trait CBEvent extends Event

@@ -17,7 +17,7 @@
 
 package com.actionml.templates.cb
 
-import com.actionml.core.template.{Engine, Params, Query, QueryResult}
+import com.actionml.core.template._
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
@@ -110,19 +110,3 @@ case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
   extends QueryResult
-
-case class Properties (
-    testPeriodStart: DateTime, // ISO8601 date
-    pageVariants: Seq[String], //["17","18"]
-    testPeriodEnd: DateTime) // ISO8601 date
-
-case class CBEvent (
-    eventId: String,
-    event: String,
-    entityType: Option[String] = None,
-    entityId: Option[String] = None,
-    //properties: Option[Map[String, Any]] = None,
-    properties: Option[Properties] = None,
-    eventTime: String, // ISO8601 date
-    creationTime: String) // ISO8601 date
-  extends Query

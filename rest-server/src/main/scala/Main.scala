@@ -1,5 +1,5 @@
 import akka.actor.ActorSystem
-import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams, CBEvent}
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams, CBRawEvent}
 import com.actionml.router.config.AppConfig
 import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.template.{Dataset, Engine, Params}

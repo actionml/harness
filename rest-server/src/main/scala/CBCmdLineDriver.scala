@@ -37,7 +37,7 @@ case class CBCmdLineDriverConfig(
   engineDefJSON: String = ""  // engine.json readFile
 )
 
-object CBCmdLineDriver extends App with AkkaInjectable{
+object CBCmdLineDriver extends App with AkkaInjectable {
 
   override def main(args: Array[String]): Unit = {
     val debug = true
@@ -75,7 +75,7 @@ object CBCmdLineDriver extends App with AkkaInjectable{
     // from then all input goes to the engine, which may or may not put it in the dataset using the store for
     // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
     // and Lambda style learning
-    val store = new Mongo
+    val store = (new Mongo).create("test-resource")
     val dataset = new CBDataset("test-resource", store)
 
     implicit val formats = DefaultFormats
