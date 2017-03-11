@@ -1,6 +1,7 @@
 package com.actionml.router.http.routes
 
-import akka.event.LoggingAdapter
+import java.util.UUID
+
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import io.circe.syntax._
@@ -12,14 +13,48 @@ import scaldi.Injector
 class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
   override val route: Route = rejectEmptyResponse {
-    pathPrefix("commands" / "list" / Segment) { segment ⇒
-      pathEndOrSingleSlash {
-        segment match {
-          case "engines" ⇒ getEngineList
-          case "datasets" ⇒ getDatasetList
+    pathPrefix("commands") {
+      pathPrefix("list") {
+        pathPrefix(Segment) { segment ⇒
+          pathEndOrSingleSlash {
+            segment match {
+              case "engines" ⇒ getEngineList
+              case "datasets" ⇒ getDatasetList
+              case "commands" ⇒ getCommandList
+            }
+          }
+        }
+
+      } ~ pathPrefix("batch-train") {
+        runCommand
+      } ~ pathPrefix(Segment) { commandId ⇒
+        get {
+          checkCommand(commandId)
+        } ~ delete {
+          cancelCommand(commandId)
         }
       }
     }
+  }
+
+  private def checkCommand(commandId: String) = extractLog { log ⇒
+    log.info("Check command status {}", commandId)
+    complete(StatusCodes.OK, UUID.randomUUID().toString)
+  }
+
+  private def cancelCommand(commandId: String) = extractLog { log ⇒
+    log.info("Check command status {}", commandId)
+    complete(StatusCodes.OK, UUID.randomUUID().toString)
+  }
+
+  private def runCommand = (putOrPost & extractLog) { log ⇒
+    log.info("Run command")
+    complete(StatusCodes.OK, UUID.randomUUID().toString)
+  }
+
+  private def getCommandList = (get & extractLog) { log ⇒
+    log.info("Get commands list")
+    complete(StatusCodes.OK, Seq.empty[String].asJson)
   }
 
   private def getEngineList = (get & extractLog) { log ⇒
