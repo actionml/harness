@@ -4,6 +4,7 @@ import java.util.UUID
 
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
+import io.circe.Json
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -39,16 +40,16 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def checkCommand(commandId: String) = extractLog { log ⇒
     log.info("Check command status {}", commandId)
-    complete(StatusCodes.OK, UUID.randomUUID().toString)
+    complete(StatusCodes.OK, """{"status": "ok", "progress": 56}""".asJson)
   }
 
   private def cancelCommand(commandId: String) = extractLog { log ⇒
     log.info("Check command status {}", commandId)
-    complete(StatusCodes.OK, UUID.randomUUID().toString)
+    complete(StatusCodes.OK, true.asJson)
   }
 
-  private def runCommand = (putOrPost & extractLog) { log ⇒
-    log.info("Run command")
+  private def runCommand = (putOrPost & entity(as[Json]) & extractLog) { (json, log) ⇒
+    log.info("Run command {}", json)
     complete(StatusCodes.OK, UUID.randomUUID().toString)
   }
 
