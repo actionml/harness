@@ -110,13 +110,12 @@ class BaseClient(object):
         """
         path = "/"
         request = AsyncRequest("GET", path)
-        request.set_response_handler(self._get_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         result = request.get_response()
         return result
 
     def _add_segment(self, segment: str):
-        print(segment, self.path)
         return self.path + "/" + urllib.parse.quote(segment, "")
 
     def _create_response_handler(self, response):
@@ -125,32 +124,19 @@ class BaseClient(object):
                                   (response.error, response.request))
         elif response.status != httplib.CREATED:
             raise NotCreatedError("request: %s status: %s body: %s" %
-                                  (response.request, response.status,
-                                   response.body))
+                                  (response.request, response.status, response.body))
 
         return response
 
-    def _get_response_handler(self, response):
+    def _ok_response_handler(self, response):
         if response.error is not None:
             raise NotFoundError("Exception happened: %s for request %s" %
                                 (response.error, response.request))
         elif response.status != httplib.OK:
             raise NotFoundError("request: %s status: %s body: %s" %
-                                (response.request, response.status,
-                                 response.body))
+                                (response.request, response.status, response.body))
 
         return response.json_body
-
-    def _delete_response_handler(self, response):
-        if response.error is not None:
-            raise NotFoundError("Exception happened: %s for request %s" %
-                                (response.error, response.request))
-        elif response.status != httplib.OK:
-            raise NotFoundError("request: %s status: %s body: %s" %
-                                (response.request, response.status,
-                                 response.body))
-
-        return response.body
 
 
 class EventClient(BaseClient):
@@ -238,7 +224,7 @@ class EventClient(BaseClient):
         :returns: AsyncRequest object.
         """
         request = AsyncRequest("GET", self._add_segment(event_id))
-        request.set_response_handler(self._get_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
@@ -416,7 +402,7 @@ class DatasetClient(BaseClient):
         :returns: AsyncRequest object.
         """
         request = AsyncRequest("GET", self._add_segment(dataset_id))
-        request.set_response_handler(self._get_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
@@ -463,7 +449,7 @@ class EngineClient(BaseClient):
         :returns: AsyncRequest object.
         """
         request = AsyncRequest("GET", self._add_segment(engine_id))
-        request.set_response_handler(self._get_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
@@ -526,7 +512,7 @@ class QueryClient(BaseClient):
         """
 
         request = AsyncRequest("POST", self.path, **data)
-        request.set_response_handler(self._get_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
@@ -541,12 +527,12 @@ class QueryClient(BaseClient):
 
 class CommandClient(BaseClient):
     def __init__(self, url: str = "http://localhost:8080", threads=1, qsize=0, timeout=5):
-        self.path = "/commands/list/"
+        self.path = "/commands"
         super(CommandClient, self).__init__(url, threads, qsize, timeout)
 
     def async_get_engines_list(self) -> AsyncRequest:
-        request = AsyncRequest("GET", self.path + "engines")
-        request.set_response_handler(self._get_response_handler)
+        request = AsyncRequest("GET", self.path + "/list/engines")
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
@@ -554,13 +540,53 @@ class CommandClient(BaseClient):
         return self.async_get_engines_list().get_response()
 
     def async_get_datasets_list(self) -> AsyncRequest:
-        request = AsyncRequest("GET", self.path + "datasets")
-        request.set_response_handler(self._get_response_handler)
+        request = AsyncRequest("GET", self.path + "/list/datasets")
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
     def get_datasets_list(self) -> object:
         return self.async_get_datasets_list().get_response()
+
+    def async_get_commands_list(self) -> AsyncRequest:
+        request = AsyncRequest("GET", self.path + "/list/commands")
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def get_commands_list(self) -> object:
+        return self.async_get_commands_list().get_response()
+
+    def async_run_command(self, engine_id: str) -> AsyncRequest:
+        data = {}
+        if engine_id is not None:
+            data['engine_id'] = engine_id
+
+        request = AsyncRequest("POST", self.path + "/batch-train", **data)
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def run_command(self, engine_id: str) -> object:
+        return self.async_run_command(engine_id).get_response()
+
+    def async_check_command(self, command_id: str) -> AsyncRequest:
+        request = AsyncRequest("GET", self._add_segment(command_id))
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def check_command(self, command_id: str) -> object:
+        return self.async_check_command(command_id).get_response()
+
+    def async_cancel_command(self, command_id: str) -> AsyncRequest:
+        request = AsyncRequest("DELETE", self._add_segment(command_id))
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def cancel_command(self, command_id: str) -> object:
+        return self.async_cancel_command(command_id).get_response()
 
 
 class FileExporter(object):
