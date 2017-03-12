@@ -19,6 +19,8 @@ package com.actionml.templates.cb
 
 import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.template.{Event, Dataset}
+import com.actionml.router.http.HTTPStatusCodes
+import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
 import org.json4s.{DefaultFormats, Formats}
@@ -49,74 +51,76 @@ import com.mongodb.casbah.commons.conversions.scala._
   */
 class CBDataset(resourceId: String, store: Mongo) extends Dataset[CBEvent](resourceId, store) {
 
-  implicit val formats = DefaultFormats //needed for json4s parsing
+  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
   var events = Seq[CBEvent]() // Todo: data will go in a Store eventually
 
   // These should only be called from trusted source like the CLI!
-  def create(name: String = resourceId) = { store.create(name) }
-  def destroy() = { store.destroy(resourceId) }
+  def create(name: String = resourceId): CBDataset = {
+    store.create(name)
+    this
+  }
 
-  // add one datum, possibley an CBEvent, to the beginning of the dataset
-  def append(datum: CBEvent): Boolean = {
-    datum match {
+  def destroy(): CBDataset = {
+    store.destroy(resourceId)
+    this
+  }
+
+  // add one json, possibly an CBEvent, to the beginning of the dataset
+  def input(json: String): Int = {
+    val (event, status) = parseAndValidateInput(json)
+    if (status == HTTPStatusCodes.ok) persist(event) else status
+    // train()? // kappa train happens here unless using micro-batch method
+  }
+
+  def persist(event: CBEvent): Int = {
+    event match {
       //case C=> // either group or user updates
-      //  logger.info(s"Dataset: ${resourceId} got a special event: ${datum.event}")
-      //  datum.event(0) == "$" // modify the object
+      //  logger.info(s"Dataset: ${resourceId} got a special event: ${json.event}")
+      //  json.event(0) == "$" // modify the object
       case event: CBUsageEvent => // usage data, kept as a stream
         logger.info(s"Dataset: ${resourceId} got a usage event: ${event.event}")
-        // append to usageEvents collection
+        // input to usageEvents collection
         // Todo: validate fields first
         val eventObj = MongoDBObject(
-          UsageEventFieldNames.userId -> event.entityId,
-          UsageEventFieldNames.eventName -> event.event,
-          UsageEventFieldNames.item -> event.targetEntityId,
-          UsageEventFieldNames.group -> event.properties.groupId,
-          UsageEventFieldNames.converted -> event.properties.converted,
-          UsageEventFieldNames.eventTime -> new DateTime(event.eventTime)) //sort by this
+          "user-id" -> event.entityId,
+          "event-name" -> event.event,
+          "item" -> event.targetEntityId,
+          "group" -> event.properties.testGroupId,
+          "converted" -> event.properties.converted,
+          "eventTime" -> new DateTime(event.eventTime)) //sort by this
 
-        store.client.getDB(resourceId).getCollection(CollectionNames.usageEvents).insert(eventObj)
+        store.client.getDB(resourceId).getCollection("usage-events").insert(eventObj)
 
-        true // store in events collection, return false if there was an error
+      case _ =>
+        logger.info("Unrecognized event, this message should never be seen!")
     }
-  }
-  // takes a collection of data to append to the Dataset
-  def appendAll(data: Seq[CBEvent]): Seq[Boolean] = {
-    data.map(append(_))
+    HTTPStatusCodes.ok // Todo: try/catch exceptions and return 400 if persist error
   }
 
   def parseAndValidateInput(json: String): (CBEvent, Int) = {
+    // todo: all parse and extract exceptions should be caught validation of values happens in calling function
+    // should report but ignore the input. HTTPStatusCodes should be ok or badRequest for
+    // malformed data
     val event = parse(json).extract[CBRawEvent]
     event.event(0).toString match {
       case "$" => // either group or user updates
-        logger.info(s"Dataset: ${resourceId} got a special event: ${event.event}")
-        (event, 0) // todo: modify the object
+        event.entityType match {
+          case "user" => // got a user profile update event
+            logger.info(s"Dataset: ${resourceId} got a user update event: ${event.event}")
+            val e = parse(json).extract[CBUserUpdateEvent]
+            if ( e.properties.isDefined ) (e, HTTPStatusCodes.ok) else (e, HTTPStatusCodes.badRequest)
+          case "group" | "testGroup" => // got a group initialize event, uses either new or old name
+            logger.info(s"Dataset: ${resourceId} got a group init event: ${event.event}")
+            (parse(json).extract[CBGroupInitEvent], HTTPStatusCodes.ok)
+        }
       case _ => // usage data, kept as a stream
         logger.info(s"Dataset: ${resourceId} got a usage event: ${event.event}")
-        // append to usageEvents collection
-        // Todo: validate fields first
-        (parse(json).extract[CBUsageEvent], 0)
-
+        (parse(json).extract[CBUsageEvent], HTTPStatusCodes.ok)
     }
-  }
+   }
 
-}
-
-object CollectionNames {
-  val usageEvents = "usage-events"
-  val users = "users"
-  val groups = "groups"
-}
-
-object UsageEventFieldNames {
-  val userId = "user-id"
-  val eventName = "event-name"
-  val item = "item"
-  val group = "group"
-  val converted = "converted"
-  val eventTime = "event-time"
-  val properties = "properties"
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])
@@ -131,29 +135,34 @@ object UsageEventFieldNames {
     "country" : ["Canada"],
     "otherContextFeatures": ["A", "B"]
   }
+  "eventTime" : "2014-11-02T09:39:45.618-08:00",
+  "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
 }
  */
 case class CBUserUpdateEvent(
-  user: String,
-  properties: Map[String, Seq[String]],
-  eventTime: DateTime)
+    entityId: String,
+    properties: Option[Map[String, List[String]]],
+    eventTime: String)
+  extends CBEvent
 
-/* CBUsageEvent some in partially parsed from Json:
+/* CBUsageEvent string
+Some values are ignored since the only "usage event for teh Contextual Bandit is a page-view.
 {
-   "event" : "conversion",
-   "entityType" : "user", // ignored
-   "entityId" : "amerritt",
-   "targetEntityType" : "item", // ignored
-   "targetEntityId" : "item-1",
-   "properties" : {
-      "groupId" : "group-1",
-      "converted" : true
-    }
+  "event" : "page-view-conversion", // value ignored
+  "entityType" : "user", // value ignored
+  "entityId" : "amerritt",
+  "targetEntityType" : "item", // value ignored
+  "targetEntityId" : "item-1",
+  "properties" : {
+    "testGroupId" : "group-1",
+    "converted" : true
+  }
   "eventTime" : "2014-11-02T09:39:45.618-08:00",
+  "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
 }
 */
 case class CBUsageProperties(
-  groupId: String,
+  testGroupId: String,
   converted: Boolean)
 
 case class CBUsageEvent(
@@ -161,24 +170,43 @@ case class CBUsageEvent(
     entityId: String,
     targetEntityId: String,
     properties: CBUsageProperties,
-    eventTime: DateTime)
+    eventTime: String)
   extends CBEvent
 
+/* CBGroupInitEvent
+{
+  "event" : "$set",
+  "entityType" : "group"
+  "entityId" : "group-1",
+  "properties" : {
+    "testPeriodStart": "2016-01-02T09:39:45.618-08:00",
+    "testPeriodEnd": "2016-02-02T09:39:45.618-08:00",
+    "items" : ["item-1", "item-2","item-3", "item-4", "item-5"]
+  },
+  "eventTime" : "2016-01-02T09:39:45.618-08:00" //Optional
+}
+*/
 case class CBGroupInitProperties (
-    testPeriodStart: DateTime, // ISO8601 date
-    pageVariants: Seq[String], //["17","18"]
-    testPeriodEnd: DateTime)
-  extends CBEvent// ISO8601 date
+  testPeriodStart: DateTime, // ISO8601 date
+  pageVariants: Seq[String], //["17","18"]
+  testPeriodEnd: Option[DateTime])
 
+case class CBGroupInitEvent (
+    entityType: String,
+    entityId: String,
+    properties: CBGroupInitProperties,
+    eventTime: String) // ISO8601 date
+  extends CBEvent
+
+// allows us to look at what kind of specialized event to create
 case class CBRawEvent (
     eventId: String,
     event: String,
-    entityType: Option[String] = None,
-    entityId: Option[String] = None,
+    entityType: String,
+    entityId: String,
     targetEntityId: Option[String] = None,
     properties: Option[Map[String, Any]] = None,
-    //properties: Option[CBGroupInitProperties] = None,
-    eventTime: String, // ISO8601 date
+    eventTime: DateTime, // ISO8601 date
     creationTime: String) // ISO8601 date
   extends CBEvent
 

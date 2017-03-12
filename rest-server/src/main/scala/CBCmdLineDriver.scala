@@ -20,6 +20,7 @@
 // driver for running Contextual Bandit as an early scaffold
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
+import com.actionml.router.http.HTTPStatusCodes
 import com.actionml.templates.cb._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -75,7 +76,7 @@ object CBCmdLineDriver extends App with AkkaInjectable {
     // from then all input goes to the engine, which may or may not put it in the dataset using the store for
     // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
     // and Lambda style learning
-    val store = (new Mongo).create("test-resource")
+    val store = (new Mongo).destroy().create("test-resource")
     val dataset = new CBDataset("test-resource", store)
 
     implicit val formats = DefaultFormats
@@ -91,17 +92,14 @@ object CBCmdLineDriver extends App with AkkaInjectable {
     val engine = new CBEngine(dataset, params)
 
     var i = 0
-    var input = Seq[CBEvent]() // Source.fromFile closes the Stream for each .map so use .foreach
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
-      implicit val formats = Formats
-      implicit val defaultFormats = DefaultFormats
-      val (event, errcode) = dataset.parseAndValidateInput(line)
-      if( errcode != 0) {
-        println("Got and error validating string: " + line)
+
+      val errcode = engine.input(line)
+      if( errcode != HTTPStatusCodes.ok) {
+        println(s"Error validating string: ${line} HTTP Status Code: ${errcode}. Data ignored.")
       } else {
-        println("Event #" + i + ": " + event)
+        println(s"Event # ${i}: ${line}")
         println("Text: " + line)
-        engine.input(event)
       }
       i += 1
     }
@@ -112,7 +110,13 @@ object CBCmdLineDriver extends App with AkkaInjectable {
 
     // engine.train() should be triggered explicitly for Lambda
 
-    val result = engine.query(CBQuery("pferrel", "group 1"))
-    println("Queried and received variant: " + result.variant + " groupId: " + result.groupId)
+    val (result, status) = engine.query(
+      """
+      |{
+      |  "pferrel", "group 1"
+      |}
+      """.stripMargin
+    )
+    println(s"Queried and received variant: ${result.variant} groupId: ${result.groupId} status: ${status}")
   }
 }

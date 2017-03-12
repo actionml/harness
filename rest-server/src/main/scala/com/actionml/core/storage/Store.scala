@@ -6,6 +6,6 @@ abstract class Store  extends LazyLogging {
 
   def create(name: String = "test-store"): Store
 
-  def destroy(name: String = "test-store"): Unit
+  def destroy(name: String = "test-store"): Store
 
 }

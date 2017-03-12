@@ -1,6 +1,7 @@
 package com.actionml.router.service
 
 import com.actionml.router.ActorInjectable
+import com.actionml.router.http.HTTPStatusCodes
 import com.actionml.templates.cb.CBEngine
 import scaldi.Injector
 
@@ -24,8 +25,8 @@ class CBEventService(implicit inj: Injector) extends EventService{
 
     case CreateEvent(datasetId, event) ⇒
       log.debug("Receive new event & stored, {}, {}", datasetId, event)
-      val (cbEvent, errcode) = engine.parseAndValidateInput(event)
-      sender() ! Either.cond(errcode == 0, engine.input(cbEvent), errcode)
+      val errcode = engine.input(event)
+      sender() ! Either.cond(errcode == HTTPStatusCodes.ok, errcode, errcode) // Todo: Semen, you will want to refactor
   }
 }
 

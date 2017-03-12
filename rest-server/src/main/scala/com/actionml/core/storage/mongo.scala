@@ -16,10 +16,9 @@ class Mongo(master: String = "localhost", port: Int = 27017) extends Store {
     this
   }
 
-  def destroy(name: String = "test-db"): Unit = {
+  def destroy(name: String = "test-db"): Mongo = {
     try {
       client.dropDatabase(name)
-      true
     } catch {
       case e: UnknownHostException =>
         logger.error(s"Unknown host for address: ${client.address}", e)
@@ -29,6 +28,7 @@ class Mongo(master: String = "localhost", port: Int = 27017) extends Store {
         logger.info(s"Unknown exception destroying the db for: ${name}", e)
         throw e
     }
+    this
   }
 
 }

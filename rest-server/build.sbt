@@ -28,6 +28,7 @@ libraryDependencies ++= Seq(
   "com.novus" %% "salat-core" % "1.9.9",
   //"com.novus" %% "salat" % "2.0.0-SNAPSHOT",
   "org.json4s" %% "json4s-jackson" % "3.5.0",
+  "org.json4s" %% "json4s-ext" % "3.5.0",
   "com.github.scopt" %% "scopt" % "3.5.0",
 
   "io.circe" %% "circe-core" % circeVersion,
