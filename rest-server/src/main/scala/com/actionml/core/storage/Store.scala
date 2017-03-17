@@ -2,6 +2,10 @@ package com.actionml.core.storage
 
 import com.typesafe.scalalogging.LazyLogging
 
-class Store  extends LazyLogging {
+abstract class Store  extends LazyLogging {
+
+  def create(): Store
+
+  def destroy(): Store
 
 }

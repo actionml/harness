@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import com.actionml.router.service._
 import com.actionml.router._
-import com.actionml.templates.cb.CBEvent
+import com.actionml.templates.cb._
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -50,17 +50,19 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.info("Get event: {}, {}", datasetId, eventId)
-    complete((eventService ? GetEvent(datasetId, eventId))
-      .mapTo[Option[CBEvent]]
-      .map(_.map(_.asJson))
-    )
+    complete()
+//    complete((eventService ? GetEvent(datasetId, eventId))
+//      .mapTo[Option[CBRawEvent]]
+//      .map(_.map(_.asJson))
+//    )
   }
 
   private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
     log.debug("Create event: {}, {}", datasetId, event)
-    completeByCond(StatusCodes.Created) {
-      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
-    }
+    complete()
+//    completeByCond(StatusCodes.Created) {
+//      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
+//    }
   }
 
 }
