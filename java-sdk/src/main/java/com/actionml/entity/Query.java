@@ -25,6 +25,10 @@ import org.joda.time.DateTime;
 /**
  * Created by semen on 01.03.17.
  */
+
+// Todo: Semen, the query cannot be this specific, it should probably send a json string for the
+// server to parse since every template will have completely different query, Did you check the PIO Java SDK for
+// Query and QueryResults handling?
 public class Query {
 
     private String user;
