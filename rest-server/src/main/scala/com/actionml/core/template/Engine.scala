@@ -37,9 +37,8 @@ abstract class Engine[E, P, Q, R](d: Dataset[E], p: P) extends LazyLogging {
   val params = p
 
   def train()
-  def input(datum: E, trainNow: Boolean = true): Boolean
-  def inputCol(data: Seq[E], trainNow: Boolean = true): Seq[Boolean]
-  def query(query: Q): R
+  def input(json: String, trainNow: Boolean = true): Int
+  def query(json: String): (R, Int)
 }
 
 trait Query

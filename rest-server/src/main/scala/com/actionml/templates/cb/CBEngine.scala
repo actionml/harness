@@ -17,7 +17,8 @@
 
 package com.actionml.templates.cb
 
-import com.actionml.core.template.{Engine, Params, Query, QueryResult}
+import com.actionml.core.template._
+import com.actionml.router.http.HTTPStatusCodes
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
@@ -31,7 +32,7 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   implicit val defaultFormats = DefaultFormats
 
   def train() = {
-    logger.info(s"All data received[${dataset.events.size}]. Start train")
+    logger.info(s"Start train")
     // get the data
     // get the model
     // update the model with new data
@@ -39,38 +40,21 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     // store the model with timestamp
   }
 
-  def input(datum: CBEvent, trainNow: Boolean = true): Boolean = {
-    logger.info("Got a single CBEvent: " + datum)
-    logger.info("Kappa learning happens every event, starting now.")
+  /** Triggers parse, validation, and persistence of event encoded in the json */
+  def input(json: String, trainNow: Boolean = true): Int = {
+    // first detect a batch of events, then process each, parse and validate then persist if needed
+    // Todo: for now only single events pre input allowed, eventually allow an array of json objects
+    logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    dataset.append(datum)
+    dataset.input(json)
+    // train() // for kappa?
   }
 
-  /** trainNow = false means periodic training occurs triggered by a timer or other method */
-  def inputCol(data: Seq[CBEvent], trainNow: Boolean = false): Seq[Boolean] = {
-    logger.info("Got a Seq of " + data.size + " Events")
-    // Todo: should validate input values and return Seq of Bools indicating that they were validated
-    data.map(input(_, false))
-    // Todo: should this be periodic or with every event?
-    // logger.info("Engine training now.")
-    // train()
-  }
-
-  def parseAndValidateInput(json: String): (CBEvent, Int) = {
-    val event = parse(json).extract[CBEvent]
-    (event, 0)
-  }
-
-  def parseAndValidateQuery(json: String): (CBQuery, Int) = {
-    val query = parse(json).extract[CBQuery]
-    (query, 0)
-  }
-
-
-  def query(query: CBQuery): CBQueryResult = {
-    logger.info(s"Got a query: $query")
+  /** triggers parse, validation of the query then returns the result with HTTP Status Code */
+  def query(json: String): (CBQueryResult, Int) = {
+    logger.info(s"Got a query JSON string: ${json}")
     logger.info("Send query result")
-    CBQueryResult()
+    (CBQueryResult(), HTTPStatusCodes.ok)
   }
 
 }
@@ -93,36 +77,20 @@ Query
   "user": "psmith",
   "testGroupId": "testGroupA"
 }
-
-Results
-{
-  "variant": "variantA",
-  "testGroupId": "testGroupA"
-}
-
 */
 case class CBQuery(
     user: String,
     groupId: String)
   extends Query
 
+/*
+Results
+{
+  "variant": "variantA",
+  "testGroupId": "testGroupA"
+}
+*/
 case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
   extends QueryResult
-
-case class Properties (
-    testPeriodStart: DateTime, // ISO8601 date
-    pageVariants: Seq[String], //["17","18"]
-    testPeriodEnd: DateTime) // ISO8601 date
-
-case class CBEvent (
-    eventId: String,
-    event: String,
-    entityType: Option[String] = None,
-    entityId: Option[String] = None,
-    //properties: Option[Map[String, Any]] = None,
-    properties: Option[Properties] = None,
-    eventTime: String, // ISO8601 date
-    creationTime: String) // ISO8601 date
-  extends Query

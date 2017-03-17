@@ -1,5 +1,5 @@
 import akka.actor.ActorSystem
-import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams, CBEvent}
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams, CBRawEvent}
 import com.actionml.router.config.AppConfig
 import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.template.{Dataset, Engine, Params}
@@ -41,8 +41,7 @@ class BaseModule extends Module{
   bind[EngineService] to new EmptyEngineService
   bind[QueryService] to new CBQueryService
 
-  bind[Mongo] to new Mongo
-  bind[CBDataset] to new CBDataset("test-resource", inject[Mongo])// Semen: change Store to Mongo, is this correct?
+  bind[CBDataset] to new CBDataset("test-resource")// Semen: no longer need the store, private to the dataset now
 
   bind[CBEngineParams] to new CBEngineParams
   bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])
