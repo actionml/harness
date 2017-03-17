@@ -25,6 +25,9 @@ import org.joda.time.DateTime;
 /**
  * Created by semen on 01.03.17.
  */
+
+// Todo: Semen, the query result cannot be this specific, it should probably return a json string for the
+// client to parse since every template will have completely different querey results
 public class QueryResult {
 
     private String variant;
