@@ -52,8 +52,12 @@ public class EventClient extends RestClient {
         return this.get(eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
+    public CompletionStage<Boolean> createEvent(String event) {
+        return this.create(event).thenApply(this::toBoolean);
+    }
+
     public CompletionStage<Boolean> createEvent(Event event) {
-        return this.create(event.toJsonString()).thenApply(this::toBoolean);
+        return this.createEvent(event.toJsonString());
     }
 
     public CompletionStage<List<Pair<Long, Boolean>>> createEvents(List<Event> events) {
