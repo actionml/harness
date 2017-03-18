@@ -5,6 +5,9 @@ import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Route}
 import akka.util.Timeout
+import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.validate.{MissingParams, ParseError, ValidateError, WrongParams}
 import de.heikoseeberger.akkahttpcirce.CirceSupport
 import io.circe.Json
 import scaldi.Injector
@@ -37,12 +40,14 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Ci
       case None => complete(ifEmptyStatus, ifEmptyStatus.defaultMessage())
     }
 
-  def completeByCond(
+  def completeByValidated(
     ifDefinedStatus: StatusCode
-  )(ifDefinedResource: Future[Either[Int, Json]]): Route =
+  )(ifDefinedResource: Future[Validated[ValidateError, Json]]): Route =
     onSuccess(ifDefinedResource) {
-      case Right(json) => complete(ifDefinedStatus, json)
-      case Left(errcode) => complete(StatusCodes.BadRequest, "Code error: " + errcode)
+      case Valid(json) => complete(ifDefinedStatus, json)
+      case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
+      case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
+      case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
     }
 
 }

@@ -20,16 +20,17 @@
 // driver for running Contextual Bandit as an early scaffold
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
-import com.actionml.router.http.HTTPStatusCodes
 import com.actionml.templates.cb._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import scaldi.akka.AkkaInjectable
-import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
+import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.nio.file.{Files, Paths}
 
-import scala.io.Source
+import cats.data.Validated.{Invalid, Valid}
+import com.typesafe.scalalogging.LazyLogging
 
+import scala.io.Source
 import scopt._
 
 case class CBCmdLineDriverConfig(
@@ -38,7 +39,7 @@ case class CBCmdLineDriverConfig(
   engineDefJSON: String = ""  // engine.json readFile
 )
 
-object CBCmdLineDriver extends App with AkkaInjectable {
+object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
   override def main(args: Array[String]): Unit = {
     val parser = new OptionParser[CBCmdLineDriverConfig]("scopt") {
@@ -96,26 +97,25 @@ object CBCmdLineDriver extends App with AkkaInjectable {
 
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
 
-      val errcode = engine.input(line)
-      if (errcode == HTTPStatusCodes.ok) good += 1
-      if (errcode != HTTPStatusCodes.ok) errors += 1
+      engine.input(line) match {
+        case Valid(_) ⇒ good += 1
+        case Invalid(_) ⇒ errors += 1
+      }
       total +=1
 
     }
 
-    println(s"Processed ${total} events, ${errors} were bad in some way")
+    logger.info(s"Processed ${total} events, ${errors} were bad in some way")
     // training happens automatically for Kappa style with each input or at short intervals
     engine.train()
 
     // engine.train() should be triggered explicitly for Lambda
 
-    val (result, status) = engine.query(
-      """
-      |{
-      |  "pferrel", "group 1"
-      |}
-      """.stripMargin
-    )
-    println(s"Queried and received variant: ${result.variant} groupId: ${result.groupId} status: ${status}")
+    val query = """{"user": "pferrel", "group":"group 1" }"""
+    engine.query(query) match {
+      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${result.variant} groupId: ${result.groupId}")
+      case Invalid(error) ⇒ logger.error("Query error {}",error)
+    }
+//    println(s"Queried and received variant: ${result.variant} groupId: ${result.groupId} status: ${status}")
   }
 }
