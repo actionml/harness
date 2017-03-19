@@ -85,9 +85,11 @@ pio-kappa optionally supports SSL and Server to Server Authentication. See the [
 
 ## Java Client Input and Query SDK
 
-PIO-0.10.0 vs PIO-Kappa Java Input and Query SDK API. The PIO 0.10.0 client is [here](https://github.com/apache/incubator-predictionio-sdk-java).
+**PIO-0.10.0** The PIO 0.10.0 client is [here](https://github.com/apache/incubator-predictionio-sdk-java).
 
-The old style Java SDK has 2 clients, [one for input](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EventClient.java) and [one for queries](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java), The PIO-Kappa SDK will have one client for all APIs deriving resource endpoints from resource-ids and the PIO-Kappa server address.
+The old style Java SDK has useful APIs, [one for input](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EventClient.java) and [one for queries](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java), The PIO-Kappa SDK will have one client for all APIs deriving resource endpoints from resource-ids and the PIO-Kappa server address.
+
+**PIO-Kappa**: has a similar Java SDK, [docs are here](java-sdk.md).
 
 ### Input
 
