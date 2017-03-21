@@ -19,7 +19,7 @@ package com.actionml.templates.cb
 
 import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.template.{Event, Dataset}
-import com.actionml.router.http.HTTPStatusCodes
+import akka.http.scaladsl.model._
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
@@ -53,7 +53,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
 
   object CBCollections {
     val users: MongoCollection = store.client.getDB(resourceId).getCollection("users").asScala
-    val usageEvents: MongoCollection = store.client.getDB(resourceId).getCollection("usageEvents").asScala
+    var usageEventGroups: Map[String, MongoCollection] = Map.empty
     val groups: MongoCollection = store.client.getDB(resourceId).getCollection("groups").asScala
   }
 
@@ -72,13 +72,13 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
-  def input(json: String): Int = {
+  def input(json: String): StatusCode = {
     val (event, status) = parseAndValidateInput(json)
-    if (status == HTTPStatusCodes.ok) persist(event) else status
+    if (status == StatusCodes.OK) persist(event) else status
     // train()? // kappa train happens here unless using micro-batch method
   }
 
-  def persist(event: CBEvent): Int = {
+  def persist(event: CBEvent): StatusCode = {
     try {
       event match {
         //case C=> // either group or user updates
@@ -96,7 +96,8 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             "converted" -> event.properties.converted,
             "eventTime" -> new DateTime(event.eventTime)) //sort by this
 
-          CBCollections.usageEvents.insert(eventObj)
+          // keep each event stream in it's own collection
+          CBCollections.usageEventGroups(event.properties.testGroupId).insert(eventObj)
 
         case event: CBUserUpdateEvent => // user profile update, modifies use object
           logger.debug(s"Dataset: ${resourceId} persisting a User Profile Update Event: ${event}")
@@ -121,7 +122,11 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
 
         case event: CBGroupInitEvent => // user profile update, modifies use object
           logger.trace(s"Dataset: ${resourceId} persisting a User Profile Update Event: ${event}")
-          // input to usageEvents collection
+          // create the events collection for the group
+          store.client.getDB(resourceId).getCollection(event.entityId).drop() // drop if reinitializing
+          CBCollections.usageEventGroups = CBCollections.usageEventGroups +
+            (event.entityId -> store.client.getDB(resourceId).getCollection(event.entityId).asScala)
+
           // Todo: validate fields first
           val query = MongoDBObject("groupId" -> event.entityId)
           // replace the old document with the 'apple' instance
@@ -153,22 +158,23 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             case "group" | "testGroup" =>
               logger.trace(s"Dataset: ${resourceId} persisting a Group Delete Event: ${event}")
               CBCollections.groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
+              store.client.getDB(resourceId).getCollection(event.entityId).drop() // remove all events
           }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
       }
-      HTTPStatusCodes.ok // Todo: try/catch exceptions and return 400 if persist error
+      StatusCodes.OK // Todo: try/catch exceptions and return 400 if persist error
     } catch {
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
-        HTTPStatusCodes.badRequest
+        StatusCodes.BadRequest
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
-        HTTPStatusCodes.badRequest
+        StatusCodes.BadRequest
     }
   }
 
-  def parseAndValidateInput(json: String): (CBEvent, Int) = {
+  def parseAndValidateInput(json: String): (CBEvent, StatusCode) = {
     // todo: all parse and extract exceptions should be caught validation of values happens in calling function
     // should report but ignore the input. HTTPStatusCodes should be ok or badRequest for
     // malformed data
@@ -180,38 +186,38 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             case "user" => // got a user profile update event
               val e = parse(json).extract[CBUserUpdateEvent]
               logger.trace(s"Dataset: ${resourceId} parsing a user update event: ${event.event}")
-              if (e.properties.isDefined) (e, HTTPStatusCodes.ok) else (e, HTTPStatusCodes.badRequest)
+              if (e.properties.isDefined) (e, StatusCodes.OK) else (e, StatusCodes.BadRequest)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
-              (parse(json).extract[CBGroupInitEvent], HTTPStatusCodes.ok)
+              (parse(json).extract[CBGroupInitEvent], StatusCodes.OK)
           }
         case "$unset" => // remove properties
           event.entityType match {
             case "user" => // got a user profile update event
               logger.trace(s"Dataset: ${resourceId} parsing a user unset event: ${event.event}")
               val e = parse(json).extract[CBUserUnsetEvent]
-              if (e.properties.isDefined) (e, HTTPStatusCodes.ok) else (e, HTTPStatusCodes.badRequest)
+              if (e.properties.isDefined) (e, StatusCodes.OK) else (e, StatusCodes.BadRequest)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.warn(s"Dataset: ${resourceId} parsed a group unset event: ${event.event} this is undefined and ignored")
-              (event, HTTPStatusCodes.badRequest)
+              (event, StatusCodes.BadRequest)
           }
         case "$delete" => // remove an object
           event.entityType match {
             case "user" | "group" | "testGroup" => // got a user profile update event
               logger.trace(s"Dataset: ${resourceId} parsing an unset event: ${event.event}")
               val e = parse(json).extract[CBDeleteEvent]
-              (e, HTTPStatusCodes.ok)
+              (e, StatusCodes.OK)
           }
 
         case _ => // default is a self describing usage event, kept as a stream
           logger.trace(s"Dataset: ${resourceId} parsing a usage event: ${event.event}")
-          (parse(json).extract[CBUsageEvent], HTTPStatusCodes.ok)
+          (parse(json).extract[CBUsageEvent], StatusCodes.OK)
       }
     } catch {
       case e: MappingException =>
         logger.error(s"Json4s parsing error, malformed event json: ${json} Beware! Trying to recover by " +
           s"ingoring the input.")
-        (CBNullEvent(), HTTPStatusCodes.badRequest)
+        (CBNullEvent(), StatusCodes.BadRequest)
     }
    }
 
