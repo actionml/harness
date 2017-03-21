@@ -23,8 +23,6 @@ class Algorithm[S](s: S, p: Params) {
 
   val store = new Mongo
 
-  def train(s: S): Fut
-
 }
 
 trait Params
