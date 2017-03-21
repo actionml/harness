@@ -113,7 +113,7 @@ object CBCmdLineDriver extends App with AkkaInjectable {
     val (result, status) = engine.query(
       """
       |{
-      |  "pferrel", "group 1"
+      |  "user": "pferrel", "group": "group 1"
       |}
       """.stripMargin
     )
