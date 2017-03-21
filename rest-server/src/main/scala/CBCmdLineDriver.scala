@@ -20,7 +20,7 @@
 // driver for running Contextual Bandit as an early scaffold
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
-import com.actionml.router.http.HTTPStatusCodes
+import akka.http.scaladsl.model._
 import com.actionml.templates.cb._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -97,15 +97,16 @@ object CBCmdLineDriver extends App with AkkaInjectable {
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
 
       val errcode = engine.input(line)
-      if (errcode == HTTPStatusCodes.ok) good += 1
-      if (errcode != HTTPStatusCodes.ok) errors += 1
-      total +=1
+      if (errcode == StatusCodes.OK) good += 1
+      if (errcode != StatusCodes.OK) errors += 1
+      total += 1
+      if (good % 100 == 0) engine.train()
 
     }
+    engine.train() // get any remaining events
 
     println(s"Processed ${total} events, ${errors} were bad in some way")
     // training happens automatically for Kappa style with each input or at short intervals
-    engine.train()
 
     // engine.train() should be triggered explicitly for Lambda
 
