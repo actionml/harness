@@ -16,7 +16,6 @@
  */
 
 import com.actionml.QueryClient;
-import com.actionml.entity.Query;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -30,12 +29,10 @@ public class QueryClientExample {
         String engineId = "DATASET-ID";
         QueryClient client = new QueryClient(engineId, "localhost", 8080);
 
-        Query query = new Query().user("user-1").groupId("group-1");
+        String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
 
         try {
-
             System.out.println("Send query: " + query);
-
             long start = System.currentTimeMillis();
             client.sendQuery(query).whenComplete((queryResult, throwable) -> {
                 long duration = System.currentTimeMillis() - start;
