@@ -17,24 +17,14 @@
 
 package com.actionml.core.template
 
-import akka.http.scaladsl.model.StatusCode
-import com.actionml.core.storage.Store
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.storage.Mongo
 
-abstract class Dataset[T](r: String) extends LazyLogging {
+class Algorithm[S](s: S, p: Params) {
 
-  val resourceId = r
-  val store: Store
-
-  def create(): Dataset[T]
-  def destroy(): Dataset[T]
-  def persist(datum: T): StatusCode
-  // todo: we may want to use some operators overloading if this fits some Scala idiom well
-  // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
-  def input(datum: String): StatusCode
-
-  def parseAndValidateInput(s: String): (T, StatusCode)
+  val store = new Mongo
 
 }
 
-trait Event
+trait Params
+trait Query
+trait QueryResult

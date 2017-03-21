@@ -18,7 +18,7 @@
 package com.actionml.templates.cb
 
 import com.actionml.core.template._
-import com.actionml.router.http.HTTPStatusCodes
+import akka.http.scaladsl.model._
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
@@ -41,20 +41,21 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  def input(json: String, trainNow: Boolean = true): Int = {
+  def input(json: String, trainNow: Boolean = true): StatusCode = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
     dataset.input(json)
+    // Todo: some events may cause immediate model modifications, only the Engine knows
     // train() // for kappa?
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): (CBQueryResult, Int) = {
+  def query(json: String): (CBQueryResult, StatusCode) = {
     logger.info(s"Got a query JSON string: ${json}")
     logger.info("Send query result")
-    (CBQueryResult(), HTTPStatusCodes.ok)
+    (CBQueryResult(), StatusCodes.OK)
   }
 
 }
