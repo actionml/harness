@@ -39,10 +39,10 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Ci
 
   def completeByCond(
     ifDefinedStatus: StatusCode
-  )(ifDefinedResource: Future[Either[Int, Json]]): Route =
+  )(ifDefinedResource: Future[Either[StatusCode, Json]]): Route =
     onSuccess(ifDefinedResource) {
       case Right(json) => complete(ifDefinedStatus, json)
-      case Left(errcode) => complete(StatusCodes.BadRequest, "Code error: " + errcode)
+      case Left(httpCode) => complete(httpCode, "Code error: " + httpCode.reason())
     }
 
 }

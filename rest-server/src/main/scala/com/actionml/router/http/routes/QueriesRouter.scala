@@ -1,7 +1,7 @@
 package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -44,7 +44,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter {
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { query =>
     log.debug("Receive query: {}", query)
     completeByCond(StatusCodes.OK) {
-      (queryService ? GetPrediction(engineId, query.toString())).mapTo[Either[Int, CBQueryResult]].map(_.map(_.asJson))
+      (queryService ? GetPrediction(engineId, query.toString())).mapTo[Either[StatusCode, Json]]
     }
   }
 
