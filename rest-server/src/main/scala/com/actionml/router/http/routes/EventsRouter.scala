@@ -1,7 +1,7 @@
 package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -59,10 +59,9 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
     log.debug("Create event: {}, {}", datasetId, event)
-    complete()
-//    completeByCond(StatusCodes.Created) {
-//      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
-//    }
+    completeByCond(StatusCodes.Created) {
+      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[StatusCode, Json]]
+    }
   }
 
 }
