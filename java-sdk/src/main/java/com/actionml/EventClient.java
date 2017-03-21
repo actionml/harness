@@ -21,7 +21,6 @@ import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
 import akka.stream.javadsl.Source;
 import com.actionml.entity.Event;
-import com.actionml.entity.EventId;
 import com.google.gson.JsonElement;
 import org.joda.time.DateTime;
 
@@ -52,12 +51,12 @@ public class EventClient extends RestClient {
         return this.get(eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
-    public CompletionStage<Boolean> createEvent(String event) {
+    public CompletionStage<Boolean> sendEvent(String event) {
         return this.create(event).thenApply(this::toBoolean);
     }
 
-    public CompletionStage<Boolean> createEvent(Event event) {
-        return this.createEvent(event.toJsonString());
+    public CompletionStage<Boolean> sendEvent(Event event) {
+        return this.sendEvent(event.toJsonString());
     }
 
     public CompletionStage<List<Pair<Long, Boolean>>> createEvents(List<Event> events) {
@@ -111,7 +110,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> setUser(String uid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event("$set");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -137,7 +136,7 @@ public class EventClient extends RestClient {
         // converts the list into a map (to empty string) before creating the event object
         Map<String, Object> propertiesMap = properties.stream().collect(Collectors.toMap(o -> o, s -> ""));
         Event event = buildUserEvent(uid, propertiesMap, eventTime).event("$unset");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -158,7 +157,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> deleteUser(String uid, DateTime eventTime) {
         Event event = buildUserEvent(uid, eventTime).event("$delete");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -194,7 +193,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> setItem(String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildItemEvent(iid, properties, eventTime).event("$set");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -221,7 +220,7 @@ public class EventClient extends RestClient {
         // converts the list into a map (to empty string) before creating the event object
         Map<String, Object> propertiesMap = properties.stream().collect(Collectors.toMap(o -> o, s -> ""));
         Event event = buildItemEvent(iid, propertiesMap, eventTime).event("$unset");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -242,7 +241,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> deleteItem(String iid, DateTime eventTime) {
         Event event = buildItemEvent(iid, eventTime).event("$delete");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -271,7 +270,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event(action).targetEntityType("item").targetEntityId(iid);
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties) {
