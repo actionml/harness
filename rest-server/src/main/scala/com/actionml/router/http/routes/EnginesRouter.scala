@@ -62,9 +62,10 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
 
   private def createEngine(log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
     log.info("Create event: {}", engine)
-    completeByCond(StatusCodes.Created) {
-      (engineService ? CreateEngine(engine.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
-    }
+    complete()
+//    completeByCond(StatusCodes.Created) {
+//      (engineService ? CreateEngine(engine.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
+//    }
   }
 
   private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>

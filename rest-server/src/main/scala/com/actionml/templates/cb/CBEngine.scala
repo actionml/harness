@@ -17,8 +17,10 @@
 
 package com.actionml.templates.cb
 
+import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template._
-import akka.http.scaladsl.model._
+import com.actionml.core.validate.{ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
@@ -28,21 +30,19 @@ import org.json4s.{MappingException, DefaultFormats, Formats}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine(dataset: CBDataset, params: CBEngineParams)
-  extends Engine[CBEvent](dataset, params) with LazyLogging {
+  extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
 
   lazy val algo = new CBAlgorithm(getAlgoParams(params)) // this auto-starts kappa training on dataset in params
 
-  implicit val defaultFormats = DefaultFormats
   implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
-
 
   def train() = {
     logger.trace(s"Only used for Lambda style training")
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  def input(json: String, trainNow: Boolean = true): StatusCode = {
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
@@ -53,18 +53,20 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): (CBQueryResult, StatusCode) = {
-    (CBQueryResult(), StatusCodes.OK)
+  def query(json: String): Validated[ValidateError, CBQueryResult] = {
+    logger.trace(s"Got a query JSON string: ${json}")
+    Valid(CBQueryResult())
   }
 
-  def parseAndValidateQuery(json: String): Option[CBQueryResult] = {
+  def parseAndValidateQuery(json: String): Validated[ValidateError, CBQueryResult] = {
     logger.trace(s"Got a query JSON string: ${json}")
     try{
-      Some(parse(json).extract[CBQueryResult])
+      Valid(parse(json).extract[CBQueryResult])
     } catch {
       case e: MappingException =>
         logger.error(s"Recoverable Error: malformed query: ${json}", e)
-        None
+        Invalid(ParseError(s"Json4s parsing error, malformed query json: ${json}"))
+
     }
   }
 

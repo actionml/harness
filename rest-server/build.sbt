@@ -5,7 +5,7 @@ version := "1.0"
 scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.17"
-lazy val akkaHttpVersion = "10.0.4"
+lazy val akkaHttpVersion = "10.0.5"
 lazy val circeVersion = "0.7.0"
 lazy val scalaTestVersion = "3.0.1"
 
@@ -34,6 +34,7 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
+  "org.typelevel" %% "cats" % "0.9.0",
 
   "com.typesafe" % "config" % "1.3.1",
   "com.iheart" %% "ficus" % "1.4.0",

@@ -5,6 +5,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
+import cats.data.Validated
 import com.actionml.router.service._
 import com.actionml.router._
 import com.actionml.templates.cb._
@@ -12,6 +13,7 @@ import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import cats.syntax.either._
+import com.actionml.core.validate.ValidateError
 import scaldi.Injector
 
 import scala.language.postfixOps
@@ -49,7 +51,7 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
   }
 
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
-    log.info("Get event: {}, {}", datasetId, eventId)
+    log.debug("Get event: {}, {}", datasetId, eventId)
     complete()
 //    complete((eventService ? GetEvent(datasetId, eventId))
 //      .mapTo[Option[CBRawEvent]]
@@ -59,10 +61,9 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
     log.debug("Create event: {}, {}", datasetId, event)
-    complete()
-//    completeByCond(StatusCodes.Created) {
-//      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
-//    }
+    completeByValidated(StatusCodes.Created) {
+      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Validated[ValidateError, Json]]
+    }
   }
 
 }
