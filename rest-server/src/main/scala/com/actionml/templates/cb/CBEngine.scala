@@ -19,25 +19,26 @@ package com.actionml.templates.cb
 
 import com.actionml.core.template._
 import akka.http.scaladsl.model._
+import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
+import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.{MappingException, DefaultFormats, Formats}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine(dataset: CBDataset, params: CBEngineParams)
-  extends Engine[CBEvent, CBEngineParams, CBQuery, CBQueryResult](dataset, params) with LazyLogging{
+  extends Engine[CBEvent](dataset, params) with LazyLogging {
 
-  implicit val formats = Formats
+  lazy val algo = new CBAlgorithm(getAlgoParams(params)) // this auto-starts kappa training on dataset in params
+
   implicit val defaultFormats = DefaultFormats
+  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
+  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+
 
   def train() = {
-    logger.info(s"Start train")
-    // get the data
-    // get the model
-    // update the model with new data
-    // train() should be called periodically to avoid training with every event
-    // store the model with timestamp
+    logger.trace(s"Only used for Lambda style training")
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
@@ -53,9 +54,30 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): (CBQueryResult, StatusCode) = {
-    logger.info(s"Got a query JSON string: ${json}")
-    logger.info("Send query result")
     (CBQueryResult(), StatusCodes.OK)
+  }
+
+  def parseAndValidateQuery(json: String): Option[CBQueryResult] = {
+    logger.trace(s"Got a query JSON string: ${json}")
+    try{
+      Some(parse(json).extract[CBQueryResult])
+    } catch {
+      case e: MappingException =>
+        logger.error(s"Recoverable Error: malformed query: ${json}", e)
+        None
+    }
+  }
+
+  def getAlgoParams(ep: CBEngineParams): CBAlgoParams = {
+    CBAlgoParams(
+      dataset,
+      ep.maxIter,
+      ep.regParam,
+      ep.stepSize,
+      ep.bitPrecision,
+      ep.modelName,
+      ep.namespace,
+      ep.maxClasses)
   }
 
 }
@@ -70,7 +92,7 @@ case class CBEngineParams(
     modelName: String = "model.vw",
     namespace: String = "n",
     maxClasses: Int = 3)
-  extends Params
+  extends EngineParams
 
 /*
 Query

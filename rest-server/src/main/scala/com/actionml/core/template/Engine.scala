@@ -28,18 +28,17 @@ import com.typesafe.scalalogging.LazyLogging
   * @param d dataset to store input
   * @param p engine params, typically for the algorithm
   * @tparam E input case class type, often and Event of some type
-  * @tparam P engine params case class type
-  * @tparam Q engine query case class type
-  * @tparam R engine query result case class type
   */
-abstract class Engine[E, P, Q, R](d: Dataset[E], p: P) extends LazyLogging {
+abstract class Engine[E](d: Dataset[E], p: EngineParams) extends LazyLogging {
 
   val dataset = d
   val params = p
 
   def train()
   def input(json: String, trainNow: Boolean = true): StatusCode
-  def query(json: String): (R, StatusCode)
+  def query(json: String): (QueryResult, StatusCode)
 }
 
-
+trait EngineParams
+trait QueryResult
+trait Query

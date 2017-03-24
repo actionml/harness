@@ -33,7 +33,7 @@ abstract class Dataset[T](r: String) extends LazyLogging {
   // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
   def input(datum: String): StatusCode
 
-  def parseAndValidateInput(s: String): (T, StatusCode)
+  def parseAndValidateInput(s: String): (Option[T], StatusCode)
 
 }
 

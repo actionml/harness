@@ -17,14 +17,13 @@
 
 package com.actionml.core.template
 
-import com.actionml.core.storage.Mongo
+import com.actionml.core.storage.{Store, Mongo}
 
-class Algorithm[S](s: S, p: Params) {
+class Algorithm(s: Store, p: AlgorithmParams) {
 
-  val store = new Mongo
+  val store: Store = s
+  val params: AlgorithmParams = p
 
 }
 
-trait Params
-trait Query
-trait QueryResult
+trait AlgorithmParams
