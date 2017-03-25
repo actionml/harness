@@ -1,7 +1,6 @@
 package com.actionml.router.service
 
 import com.actionml.router.ActorInjectable
-import akka.http.scaladsl.model._
 import com.actionml.templates.cb.CBEngine
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -27,8 +26,7 @@ class CBEventService(implicit inj: Injector) extends EventService{
 
     case CreateEvent(datasetId, event) ⇒
       log.debug("Receive new event & stored, {}, {}", datasetId, event)
-      val errcode = engine.input(event)
-      sender() ! Either.cond(errcode == StatusCodes.OK, true.asJson, errcode) // Todo: Semen, you will want to refactor
+      sender() ! engine.input(event).map(_.asJson) // Todo: Semen, you will want to refactor
   }
 }
 
