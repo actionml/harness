@@ -17,7 +17,8 @@
 
 package com.actionml.core.template
 
-import akka.http.scaladsl.model.StatusCode
+import cats.data.Validated
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -38,8 +39,8 @@ abstract class Engine[E, P, Q, R](d: Dataset[E], p: P) extends LazyLogging {
   val params = p
 
   def train()
-  def input(json: String, trainNow: Boolean = true): StatusCode
-  def query(json: String): (R, StatusCode)
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
+  def query(json: String): Validated[ValidateError, R]
 }
 
 

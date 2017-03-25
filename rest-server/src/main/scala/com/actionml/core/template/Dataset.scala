@@ -17,8 +17,9 @@
 
 package com.actionml.core.template
 
-import akka.http.scaladsl.model.StatusCode
+import cats.data.Validated
 import com.actionml.core.storage.Store
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
 abstract class Dataset[T](r: String) extends LazyLogging {
@@ -28,12 +29,12 @@ abstract class Dataset[T](r: String) extends LazyLogging {
 
   def create(): Dataset[T]
   def destroy(): Dataset[T]
-  def persist(datum: T): StatusCode
+  def persist(datum: T): Validated[ValidateError, Boolean]
   // todo: we may want to use some operators overloading if this fits some Scala idiom well
   // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
-  def input(datum: String): StatusCode
+  def input(datum: String): Validated[ValidateError, Boolean]
 
-  def parseAndValidateInput(s: String): (T, StatusCode)
+  def parseAndValidateInput(s: String): Validated[ValidateError, T]
 
 }
 

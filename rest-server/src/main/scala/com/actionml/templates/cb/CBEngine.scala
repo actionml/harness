@@ -17,8 +17,10 @@
 
 package com.actionml.templates.cb
 
+import cats.data.Validated
+import cats.data.Validated.Valid
 import com.actionml.core.template._
-import akka.http.scaladsl.model._
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.jackson.JsonMethods._
 import org.joda.time.DateTime
@@ -41,7 +43,7 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  def input(json: String, trainNow: Boolean = true): StatusCode = {
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
@@ -52,10 +54,10 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): (CBQueryResult, StatusCode) = {
+  def query(json: String): Validated[ValidateError, CBQueryResult] = {
     logger.info(s"Got a query JSON string: ${json}")
     logger.info("Send query result")
-    (CBQueryResult(), StatusCodes.OK)
+    Valid(CBQueryResult())
   }
 
 }
