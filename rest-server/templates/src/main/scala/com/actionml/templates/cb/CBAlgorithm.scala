@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import akka.actor._
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
-import com.mongodb.casbah.{Imports, MongoCollection}
+import com.mongodb.casbah.MongoCollection
 
 import scala.collection.mutable
 import scala.concurrent.Future
