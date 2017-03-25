@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.template._
-import com.actionml.core.validate.{ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.joda.time.DateTime
-import org.json4s.{MappingException, DefaultFormats, Formats}
+import org.json4s.{DefaultFormats, MappingException}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine(dataset: CBDataset, params: CBEngineParams)

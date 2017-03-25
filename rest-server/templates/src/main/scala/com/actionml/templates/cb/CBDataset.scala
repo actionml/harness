@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event}
-import com.actionml.core.validate.{MissingParams, ParseError, ValidateError, WrongParams}
-import com.actionml.core.storage.{Mongo, Store}
-import com.actionml.core.template.{Event, Dataset}
-import akka.http.scaladsl.model._
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.joda.time.DateTime
-import org.json4s.{MappingException, DefaultFormats, Formats}
-import com.mongodb.casbah.Imports.ObjectId
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.conversions.scala._
 import org.joda.time.DateTime
