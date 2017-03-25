@@ -1,3 +1,20 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.actionml;
 
 import akka.http.javadsl.model.Uri;
@@ -34,8 +51,12 @@ public class EventClient extends RestClient {
         return this.get(eventId).thenApply(jsonElement -> toPojo(jsonElement, Event.class));
     }
 
-    public CompletionStage<Boolean> createEvent(Event event) {
-        return this.create(event.toJsonString()).thenApply(this::toBoolean);
+    public CompletionStage<Boolean> sendEvent(String event) {
+        return this.create(event).thenApply(this::toBoolean);
+    }
+
+    public CompletionStage<Boolean> sendEvent(Event event) {
+        return this.sendEvent(event.toJsonString());
     }
 
     public CompletionStage<List<Pair<Long, Boolean>>> createEvents(List<Event> events) {
@@ -89,7 +110,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> setUser(String uid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event("$set");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -115,7 +136,7 @@ public class EventClient extends RestClient {
         // converts the list into a map (to empty string) before creating the event object
         Map<String, Object> propertiesMap = properties.stream().collect(Collectors.toMap(o -> o, s -> ""));
         Event event = buildUserEvent(uid, propertiesMap, eventTime).event("$unset");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -136,7 +157,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> deleteUser(String uid, DateTime eventTime) {
         Event event = buildUserEvent(uid, eventTime).event("$delete");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -172,7 +193,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> setItem(String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildItemEvent(iid, properties, eventTime).event("$set");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -199,7 +220,7 @@ public class EventClient extends RestClient {
         // converts the list into a map (to empty string) before creating the event object
         Map<String, Object> propertiesMap = properties.stream().collect(Collectors.toMap(o -> o, s -> ""));
         Event event = buildItemEvent(iid, propertiesMap, eventTime).event("$unset");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -220,7 +241,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> deleteItem(String iid, DateTime eventTime) {
         Event event = buildItemEvent(iid, eventTime).event("$delete");
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     /**
@@ -249,7 +270,7 @@ public class EventClient extends RestClient {
      */
     public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties, DateTime eventTime) {
         Event event = buildUserEvent(uid, properties, eventTime).event(action).targetEntityType("item").targetEntityId(iid);
-        return createEvent(event);
+        return sendEvent(event);
     }
 
     public CompletionStage<Boolean> userActionItem(String action, String uid, String iid, Map<String, Object> properties) {

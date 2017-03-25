@@ -67,58 +67,10 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
         Request Body: JSON for PIO query
         Response Body: JSON for PIO PredictedResults
 
-## Commands for Admin
+## The Commands
 
-    PUT /datasets/<dataset-id>
-        Action: returns 404 since writing an entire dataset is not supported
-          
-    POST /datasets/
-        Request Body: JSON for PIO dataset description describing Dataset
-          created, must include in the JSON `"resource-id": "<some-string>"
-          the resource-id is returned. If there is no `resource-id` one will be generated and returned
-        Action: sets up a new empty dataset with the id specified.
-        
-    DELETE /datasets/<dataset-id>
-        Action: deletes the dataset including the dataset-id/empty dataset
-          and removes all data
-          
-    POST /engines/<engine-id> 
-        Request Body: JSON for engine configuration engine.json file
-        Response Body: description of engine-instance created. 
-          Success/failure indicated in the HTTP return code
-        Action: creates or modifies an existing engine
-        
-    DELETE /engines/<engine-id>
-        Action: removes the specified engine but none of the associated 
-          resources like dataset but may delete model(s). Todo: this last
-          should be avoided but to delete models separately requires a new
-          resource type.
-
-    POST /commands/list?engines
-    POST /commands/list?datasets
-        Request Body: none?
-        Response Body: list and stats for the resources requested
-        Action: gets a list and info, used for discovery of all resources 
-          known by the system. This command is synchronous so no need
-          to poll for updates
-        
-## Commands for Lambda Admin
-
-in addition to the commands above, Lambda style learners require not only setup but batch training. So some additional commands are needed:
-
-    POST /commands/batch-train
-        Request Body: description of which engine to train and any params
-        Response Body: returns the command-id to poll via GET for
-          information about command progress
-        Action: will launch batch training of an <engine-id>. This 
-          command is asynchronous so needs to be polled for status
-          
-    Delete /commands/<command-id>
-        Action: attempts to kill the command by id and removes it
-
-    GET /commands/<command-id> 
-        Response Body: response body command status for asynch/long-lived command
-      
+Commands are REST resources just like Datasets and Engines so commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
+     
 # [Security](security.md)  
 
 pio-kappa optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.

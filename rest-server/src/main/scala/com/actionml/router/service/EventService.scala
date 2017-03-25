@@ -2,6 +2,8 @@ package com.actionml.router.service
 
 import com.actionml.router.ActorInjectable
 import com.actionml.templates.cb.CBEngine
+import io.circe.generic.auto._
+import io.circe.syntax._
 import scaldi.Injector
 
 /**
@@ -24,8 +26,7 @@ class CBEventService(implicit inj: Injector) extends EventService{
 
     case CreateEvent(datasetId, event) ⇒
       log.debug("Receive new event & stored, {}, {}", datasetId, event)
-      val (cbEvent, errcode) = engine.parseAndValidateInput(event)
-      sender() ! Either.cond(errcode == 0, engine.input(cbEvent), errcode)
+      sender() ! engine.input(event).map(_.asJson) // Todo: Semen, you will want to refactor
   }
 }
 

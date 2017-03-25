@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package com.actionml;
+package com.actionml.templates.cb
 
-/**
- * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
- *         26.02.17 18:02
- */
-public class ActionMLClient {
+import com.actionml.core.storage.Mongo
+import com.actionml.core.template.Model
 
-    public ActionMLClient(String host, Integer port, String clientId, String clientSecret) {
-
-    }
+// Todo: need to get mongo master address and port from config
+/** DAO for persisted Contextual Bandit model classes
+  *
+  */
+class CBModel() extends Model[Mongo](new Mongo) {
 
 }

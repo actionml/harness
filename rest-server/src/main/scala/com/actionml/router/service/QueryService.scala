@@ -2,6 +2,8 @@ package com.actionml.router.service
 
 import com.actionml.router.ActorInjectable
 import com.actionml.templates.cb.CBEngine
+import io.circe.generic.auto._
+import io.circe.syntax._
 import scaldi.Injector
 
 /**
@@ -19,8 +21,7 @@ class CBQueryService(implicit inj: Injector) extends QueryService{
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
-      val (cbQuery, errcode) = engine.parseAndValidateQuery(query)
-      sender() ! Either.cond(errcode == 0, engine.query(cbQuery), errcode)
+      sender() ! engine.query(query).map(_.asJson)// Todo: Semen you may want to refactor
   }
 }
 

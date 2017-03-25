@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-package com.actionml;
+package com.actionml.core.template
 
-/**
- * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
- *         26.02.17 18:02
- */
-public class ActionMLClient {
+import com.typesafe.scalalogging.LazyLogging
 
-    public ActionMLClient(String host, Integer port, String clientId, String clientSecret) {
+/** Model for the algorithm, in charge of storage CRUD ops in the store */
+abstract class Model[S](s: S) extends LazyLogging {
 
-    }
+  val store = s
 
 }

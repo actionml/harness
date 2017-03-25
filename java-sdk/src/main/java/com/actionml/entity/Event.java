@@ -1,3 +1,20 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.actionml.entity;
 
 import com.actionml.DateTimeAdapter;
@@ -12,6 +29,30 @@ import java.util.Map;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 16:41
  */
+
+/**
+ * Todo: Semen, this looks generic enough since the input events are all of this form
+ * the key differences will be in the properties, which will be Map<String, Object>
+ * where the Object may be any primitive type or an array of primitive types. If all these work
+ * we are ok. So we will want to encode "properties": {"some-property": ["string1","string"]},
+ * a full event might looks like this
+ {
+    "eventId":"5bc96652c06e443a92e21a61dc89c7a3",
+    "event":"$set",
+    "entityType":"some-object-type",
+    "entityId":"25853ac4-d8de-4c87-bf64-3d02de4e5011-62",
+    "properties":{
+        "locations":["here", "there"],
+        "gender":"m",
+        "dead": false,
+        "children": 0
+    },
+    "eventTime":"2016-08-11T09:59:52.693+05:30",
+    "creationTime":"2016-08-11T04:32:04.702Z"
+ }
+ */
+
+//
 public class Event {
 
     private String eventId;

@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-package com.actionml;
+package com.actionml.core.template
 
-/**
- * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
- *         26.02.17 18:02
- */
-public class ActionMLClient {
+import cats.data.Validated
+import com.actionml.core.storage.Store
+import com.actionml.core.validate.ValidateError
+import com.typesafe.scalalogging.LazyLogging
 
-    public ActionMLClient(String host, Integer port, String clientId, String clientSecret) {
+abstract class Dataset[T](r: String) extends LazyLogging {
 
-    }
+  val resourceId: String = r
+  val store: Store
+
+  def create(): Dataset[T]
+  def destroy(): Dataset[T]
+  def persist(datum: T): Validated[ValidateError, Boolean]
+  // todo: we may want to use some operators overloading if this fits some Scala idiom well
+  // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
+  def input(datum: String): Validated[ValidateError, Boolean]
+
+  def parseAndValidateInput(s: String): Validated[ValidateError, T]
 
 }
+
+trait Event

@@ -1,11 +1,9 @@
 import akka.actor.ActorSystem
-import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams, CBEvent}
 import com.actionml.router.config.AppConfig
-import com.actionml.core.storage.{Mongo, Store}
-import com.actionml.core.template.{Dataset, Engine, Params}
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -43,8 +41,7 @@ class BaseModule extends Module{
   bind[EngineService] to new EmptyEngineService
   bind[QueryService] to new CBQueryService
 
-  bind[Store] to new Mongo
-  bind[CBDataset] to new CBDataset("test-resource", inject[Store])
+  bind[CBDataset] to new CBDataset("test-resource")// Semen: no longer need the store, private to the dataset now
 
   bind[CBEngineParams] to new CBEngineParams
   bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])

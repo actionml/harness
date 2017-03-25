@@ -18,18 +18,15 @@
 //package com.actionml.templates.cb
 
 // driver for running Contextual Bandit as an early scaffold
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.Dataset
-import com.actionml.templates.cb._
+import cats.data.Validated.{Invalid, Valid}
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
+import com.typesafe.scalalogging.LazyLogging
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import scaldi.akka.AkkaInjectable
-import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
-import java.nio.file.{Files, Paths}
+import scopt._
 
 import scala.io.Source
-
-import scopt._
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
@@ -37,7 +34,7 @@ case class CBCmdLineDriverConfig(
   engineDefJSON: String = ""  // engine.json readFile
 )
 
-object CBCmdLineDriver extends App with AkkaInjectable{
+object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
   override def main(args: Array[String]): Unit = {
     val parser = new OptionParser[CBCmdLineDriverConfig]("scopt") {
@@ -73,8 +70,9 @@ object CBCmdLineDriver extends App with AkkaInjectable{
     // from then all input goes to the engine, which may or may not put it in the dataset using the store for
     // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
     // and Lambda style learning
-    val store = new Mongo
-    val dataset = new CBDataset("test-resource", store)
+    val dataset = new CBDataset("test-resource")
+      .destroy()
+      .create()
 
     implicit val formats = DefaultFormats
 
@@ -88,30 +86,32 @@ object CBCmdLineDriver extends App with AkkaInjectable{
     // Todo: params will eventually come from some store that is sharable
     val engine = new CBEngine(dataset, params)
 
-    var i = 0
-    var input = Seq[CBEvent]() // Source.fromFile closes the Stream for each .map so use .foreach
+    var errors = 0
+    var total = 0
+    var good = 0
+
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
-      implicit val formats = Formats
-      implicit val defaultFormats = DefaultFormats
-      val (event, errcode) = engine.parseAndValidateInput(line)
-      if( errcode != 0) {
-        println("Got and error validating string: " + line)
-      } else {
-        println("Event #" + i + ": " + event)
-        println("Text: " + line)
-        input = input :+ event
+
+      engine.input(line) match {
+        case Valid(_) ⇒ good += 1
+        case Invalid(_) ⇒ errors += 1
       }
-      i += 1
+      total +=1
+      if (good % 100 == 0) engine.train()
+
     }
+    engine.train() // get any remaining events
 
-    engine.inputCol(input)
+    logger.info(s"Processed ${total} events, ${errors} were bad in some way")
+    // training happens automatically for Kappa style with each input or at short intervals
 
-    println("The completed input: " + dataset)
-    // training happens automatically for Kappa style
     // engine.train() should be triggered explicitly for Lambda
 
-    val result = engine.query(CBQuery("pferrel", "group 1"))
-    println("Queried and received variant: " + result.variant + " groupId: " + result.groupId)
-    true
+    val query = """{"user": "pferrel", "group":"group 1" }"""
+    engine.query(query) match {
+      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${result.variant} groupId: ${result.groupId}")
+      case Invalid(error) ⇒ logger.error("Query error {}",error)
+    }
+//    println(s"Queried and received variant: ${result.variant} groupId: ${result.groupId} status: ${status}")
   }
 }
