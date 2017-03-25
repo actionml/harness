@@ -21,7 +21,9 @@
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
 import akka.http.scaladsl.model._
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.templates.cb._
+import com.typesafe.scalalogging.LazyLogging
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import scaldi.akka.AkkaInjectable
@@ -34,6 +36,8 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.io.Source
 
 import scopt._
+
+import scala.io.Source
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
@@ -104,6 +108,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
         case Invalid(_) ⇒ errors += 1
       }
       total +=1
+      if (good % 100 == 0) engine.train()
 
     }
     engine.train() // get any remaining events
