@@ -31,9 +31,9 @@ import org.json4s.{DefaultFormats, MappingException}
 class CBEngine(dataset: CBDataset, params: CBEngineParams)
   extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
 
-  lazy val algo = new CBAlgorithm(getAlgoParams(params)) // this auto-starts kappa training on dataset in params
+  private lazy val algo = new CBAlgorithm(getAlgoParams(params)) // this auto-starts kappa training on dataset in params
 
-  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
+  private implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
   def train(): Unit = {

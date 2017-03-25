@@ -30,8 +30,8 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
   private val config = inject[AppConfig].restServer
 
-  private val commands = inject[CommandsRouter]
   private val check = inject[CheckRouter]
+  private val commands = inject[CommandsRouter]
   private val datasets = inject[DatasetsRouter]
   private val events = inject[EventsRouter]
   private val engines = inject[EnginesRouter]

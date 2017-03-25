@@ -17,7 +17,10 @@
 
 package com.actionml.router.service
 
+import cats.data.Validated.Invalid
+import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable
+import com.actionml.templates.cb.{CBDataset, CBEngine}
 import scaldi.Injector
 
 /**
@@ -27,6 +30,28 @@ import scaldi.Injector
   * 28.01.17 14:44
   */
 trait DatasetService extends ActorInjectable
+
+class CBDatasetService(implicit inj: Injector) extends DatasetService{
+
+  private val dataset = inject[CBDataset]
+
+  override def receive: Receive = {
+    case CreateDataset ⇒
+      log.info("Create new dataset")
+      // TODO: Not Implemented in dataset
+      sender() ! Invalid(NotImplemented("Not Implemented in dataset"))
+
+    case CreateDataset(datasetId) ⇒
+      log.info("Create new dataset: {}", datasetId)
+      // TODO: Not Implemented in dataset
+      sender() ! Invalid(NotImplemented("Not Implemented in dataset"))
+
+    case DeleteDataset(datasetId) ⇒
+      log.info("Delete exist dataset: {}", datasetId)
+      // TODO: Not Implemented in dataset
+      sender() ! Invalid(NotImplemented("Not Implemented in dataset"))
+  }
+}
 
 class EmptyDatasetService(implicit inj: Injector) extends DatasetService{
   override def receive: Receive = {

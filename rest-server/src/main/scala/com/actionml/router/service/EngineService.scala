@@ -1,6 +1,9 @@
 package com.actionml.router.service
 
+import cats.data.Validated.Invalid
+import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable
+import com.actionml.templates.cb.CBEngine
 import scaldi.Injector
 
 /**
@@ -11,6 +14,30 @@ import scaldi.Injector
   */
 
 trait EngineService extends ActorInjectable
+
+class CBEngineService(implicit inj: Injector) extends EngineService{
+
+  private val engine = inject[CBEngine]
+
+  override def receive: Receive = {
+    case GetEngine(engineId) ⇒
+      log.info("Get engine, {}", engineId)
+      // TODO: Not Implemented in engine
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+
+    case CreateEngine(engineJson) ⇒
+      log.info("Create new engine, {}", engine)
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+
+    case UpdateEngine(engineId, engineJson) ⇒
+      log.info("Update exist engine, {}, {}", engineId, engine)
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+
+    case DeleteEngine(engineId) ⇒
+      log.info("Delete exist engine, {}", engineId)
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+  }
+}
 
 class EmptyEngineService(implicit inj: Injector) extends EngineService{
   override def receive: Receive = {
@@ -34,6 +61,6 @@ class EmptyEngineService(implicit inj: Injector) extends EngineService{
 
 sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
-case class CreateEngine(engine: String) extends EngineAction
-case class UpdateEngine(engineId: String, engine: String) extends EngineAction
+case class CreateEngine(engineJson: String) extends EngineAction
+case class UpdateEngine(engineId: String, engineJson: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction

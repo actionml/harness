@@ -4,9 +4,7 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import cats.syntax.either._
 import com.actionml.router.service.{CreateDataset, DatasetService, DeleteDataset}
-import io.circe.syntax._
 import scaldi.Injector
 
 import scala.language.postfixOps
@@ -45,23 +43,21 @@ class DatasetsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def createDataset(log: LoggingAdapter) = putOrPost {
     log.info("Create empty dataset")
-    complete(StatusCodes.Created, (datasetService ? CreateDataset)
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson)))
+    completeByValidated(StatusCodes.Created) {
+      (datasetService ? CreateDataset).mapTo[Response]
+    }
   }
 
   private def createDataset(datasetId: String, log: LoggingAdapter) = putOrPost {
     log.info("Create empty dataset: {}", datasetId)
-    complete(StatusCodes.Created, (datasetService ? CreateDataset(datasetId))
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson)))
+    complete(StatusCodes.NotFound)
   }
 
   private def deleteDataset(datasetId: String, log: LoggingAdapter) = delete {
     log.info("Delete dataset: {}", datasetId)
-    complete((datasetService ? DeleteDataset(datasetId))
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson)))
+    completeByValidated(StatusCodes.OK) {
+      (datasetService ? DeleteDataset(datasetId)).mapTo[Response]
+    }
   }
 
 }
