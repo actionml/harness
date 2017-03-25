@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-package com.actionml.cb
+package com.actionml.templates.cb
+
+import com.actionml.core.storage.Mongo
+import com.actionml.core.template.Model
 
 // Todo: need to get mongo master address and port from config
 /** DAO for persisted Contextual Bandit model classes

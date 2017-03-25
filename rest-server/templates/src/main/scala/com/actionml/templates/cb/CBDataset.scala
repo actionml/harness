@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package com.actionml.cb
+package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.storage.Mongo
+import com.actionml.core.template.{Dataset, Event}
+import com.actionml.core.validate.{MissingParams, ParseError, ValidateError, WrongParams}
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.conversions.scala._
+import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, MappingException}
+import org.json4s.{DefaultFormats, Formats, MappingException}
+
+import scala.language.reflectiveCalls
 
 /** DAO for the Contextual Bandit input data
   * There are 2 types of input events for the CB 1) usage events and 2) property change events. The usage events
@@ -46,7 +52,8 @@ import org.json4s.{DefaultFormats, MappingException}
   */
 class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
 
-  lazy val store = new Mongo(m = "localhost", p = 27017, n = resourceId)
+  private lazy val config = ConfigFactory.load()
+  lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = resourceId)
   // Todo: need to get port from CLI or config
 
   object CBCollections {
@@ -55,7 +62,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
     val groups: MongoCollection = store.client.getDB(resourceId).getCollection("groups").asScala
   }
 
-  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
+  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
   // These should only be called from trusted source like the CLI!
@@ -79,7 +86,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
     try {
       event match {
         case event: CBUsageEvent => // usage data, kept as a stream
-          logger.debug(s"Dataset: ${resourceId} persisting a usage event: ${event}")
+          logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
           val eventObj = MongoDBObject(
@@ -91,11 +98,14 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             "eventTime" -> new DateTime(event.eventTime)) //sort by this
 
           // keep each event stream in it's own collection
-          CBCollections.usageEventGroups(event.properties.testGroupId).insert(eventObj)
+          CBCollections.usageEventGroups.get(event.properties.testGroupId) match {
+            case Some(collection) ⇒ collection.insert(eventObj)
+            case None ⇒ logger.warn("Collection for group '{}' not found!", event.properties.testGroupId)
+          }
           Valid(true)
 
         case event: CBUserUpdateEvent => // user profile update, modifies use object
-          logger.debug(s"Dataset: ${resourceId} persisting a User Profile Update Event: ${event}")
+          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
           if (event.properties.nonEmpty) {
@@ -167,7 +177,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
         Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}"))
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
-        Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}"))
+        Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}"))
     }
   }
 

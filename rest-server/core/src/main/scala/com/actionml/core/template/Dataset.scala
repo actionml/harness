@@ -24,7 +24,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 abstract class Dataset[T](r: String) extends LazyLogging {
 
-  val resourceId = r
+  val resourceId: String = r
   val store: Store
 
   def create(): Dataset[T]

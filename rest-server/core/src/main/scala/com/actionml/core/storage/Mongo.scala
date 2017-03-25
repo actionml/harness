@@ -3,13 +3,13 @@ package com.actionml.core.storage
 import java.net.UnknownHostException
 
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.{MongoClient, MongoDB}
+import com.mongodb.casbah.MongoClient
 
 class Mongo(m: String = "localhost", p: Int = 27017, n: String = "some-resource-id") extends Store {
 
-  val master = m
-  val port = p
-  val dbName = n
+  val master: String = m
+  val port: Int = p
+  val dbName: String = n
   lazy val client = MongoClient(master, port)
   val store = this
 

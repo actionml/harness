@@ -2,7 +2,7 @@ package com.actionml.core.storage
 
 import com.typesafe.scalalogging.LazyLogging
 
-abstract class Store  extends LazyLogging {
+trait Store extends LazyLogging {
 
   def create(): Store
 

@@ -1,9 +1,9 @@
 import akka.actor.ActorSystem
-import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
 import com.actionml.router.service._
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 

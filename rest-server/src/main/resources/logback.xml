@@ -3,11 +3,12 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %logger{0} - %msg%n</pattern>
+            <pattern>%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %logger{99} - %msg%n</pattern>
         </encoder>
     </appender>
 
     <logger name="com.actionml.router.http" level="DEBUG"/>
+    <logger name="org.mongodb" level="INFO"/>
 
     <root level="TRACE">
         <appender-ref ref="STDOUT" />

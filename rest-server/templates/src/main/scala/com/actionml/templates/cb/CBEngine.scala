@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package com.actionml.cb
+package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
+import com.actionml.core.validate.{ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
@@ -34,7 +36,7 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
-  def train() = {
+  def train(): Unit = {
     logger.trace(s"Only used for Lambda style training")
   }
 

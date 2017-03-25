@@ -18,23 +18,12 @@
 //package com.actionml.templates.cb
 
 // driver for running Contextual Bandit as an early scaffold
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.Dataset
-import akka.http.scaladsl.model._
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.templates.cb._
+import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import scaldi.akka.AkkaInjectable
-import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{Files, Paths}
-
-import cats.data.Validated.{Invalid, Valid}
-import com.typesafe.scalalogging.LazyLogging
-
-import scala.io.Source
-
 import scopt._
 
 import scala.io.Source
