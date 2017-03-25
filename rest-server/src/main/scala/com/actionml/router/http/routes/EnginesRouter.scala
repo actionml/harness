@@ -70,18 +70,20 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
 
   private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
     log.info("Update engine: {}, {}", engineId, engine)
-    complete((engineService ? UpdateEngine(engineId, engine.toString()))
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson))
-    )
+    complete()
+//    complete((engineService ? UpdateEngine(engineId, engine.toString()))
+//      .mapTo[Either[Int, Boolean]]
+//      .map(_.map(_.asJson))
+//    )
   }
 
   private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
     log.info("Update engine: {}", engineId)
-    complete((engineService ? DeleteEngine(engineId))
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson))
-    )
+    complete()
+//    complete((engineService ? DeleteEngine(engineId))
+//      .mapTo[Either[Int, Boolean]]
+//      .map(_.map(_.asJson))
+//    )
   }
 
 }

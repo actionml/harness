@@ -43,8 +43,4 @@ abstract class Engine[E, P, Q, R](d: Dataset[E], p: P) extends LazyLogging {
   def query(json: String): Validated[ValidateError, R]
 }
 
-trait Query
-trait QueryResult
-trait Params
-trait Event
 

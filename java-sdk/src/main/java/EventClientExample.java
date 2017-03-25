@@ -23,14 +23,6 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -73,7 +65,7 @@ public class EventClientExample {
 
 
         log.info("Send event {}", event.toJsonString());
-        client.createEvent(event).whenComplete((response, throwable) -> {
+        client.sendEvent(event).whenComplete((response, throwable) -> {
             log.info("Response: {}", response);
             if (throwable != null) {
                 log.error("Create event error", throwable);

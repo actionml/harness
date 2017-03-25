@@ -49,6 +49,7 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
     dataset.input(json)
+    // Todo: some events may cause immediate model modifications, only the Engine knows
     // train() // for kappa?
   }
 

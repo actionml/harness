@@ -54,7 +54,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
 
   object CBCollections {
     val users: MongoCollection = store.client.getDB(resourceId).getCollection("users").asScala
-    val usageEvents: MongoCollection = store.client.getDB(resourceId).getCollection("usageEvents").asScala
+    var usageEventGroups: Map[String, MongoCollection] = Map.empty
     val groups: MongoCollection = store.client.getDB(resourceId).getCollection("groups").asScala
   }
 
@@ -96,7 +96,8 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             "converted" -> event.properties.converted,
             "eventTime" -> new DateTime(event.eventTime)) //sort by this
 
-          CBCollections.usageEvents.insert(eventObj)
+          // keep each event stream in it's own collection
+          CBCollections.usageEventGroups(event.properties.testGroupId).insert(eventObj)
 
         case event: CBUserUpdateEvent => // user profile update, modifies use object
           logger.debug(s"Dataset: ${resourceId} persisting a User Profile Update Event: ${event}")
@@ -121,7 +122,10 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
 
         case event: CBGroupInitEvent => // user profile update, modifies use object
           logger.trace(s"Dataset: ${resourceId} persisting a User Profile Update Event: ${event}")
-          // input to usageEvents collection
+          // create the events collection for the group
+          store.client.getDB(resourceId).getCollection(event.entityId).drop() // drop if reinitializing
+          CBCollections.usageEventGroups = CBCollections.usageEventGroups +
+            (event.entityId -> store.client.getDB(resourceId).getCollection(event.entityId).asScala)
           // Todo: validate fields first
           val query = MongoDBObject("groupId" -> event.entityId)
           // replace the old document with the 'apple' instance
@@ -153,6 +157,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) {
             case "group" | "testGroup" =>
               logger.trace(s"Dataset: ${resourceId} persisting a Group Delete Event: ${event}")
               CBCollections.groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
+              store.client.getDB(resourceId).getCollection(event.entityId).drop() // remove all events
           }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
