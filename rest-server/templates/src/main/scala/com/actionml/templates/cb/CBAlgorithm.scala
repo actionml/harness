@@ -18,9 +18,11 @@
 package com.actionml.templates.cb
 
 import akka.actor._
+import akka.event.Logging
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
 import com.mongodb.casbah.MongoCollection
+import org.slf4j.event.SubstituteLoggingEvent
 
 import scala.concurrent.Future
 
@@ -43,15 +45,16 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
 
   def init(): Unit = {
     val groups: Map[String, MongoCollection] = p.dataset.CBCollections.usageEventGroups
-    logger.info(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
+    logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
     val exists = trainers.keys.toList
     val diff = groups.filterNot { case (key, _) ⇒
       exists.contains(key)
     }
 
-    logger.info("Exists trainers: {}", exists)
-    logger.info("New trainers: {}", groups)
-    logger.info("Diff trainers: {}", diff)
+    // todo: Semen, not sure of the purpose of this
+    logger.trace("Existing trainers: {}", exists)
+    logger.trace("New trainers: {}", groups)
+    logger.trace("Diff trainers: {}", diff)
 
     diff.foreach { case (trainer, collection) ⇒
       val actor = system.actorOf(SingleGroupTrainer.props(collection), trainer)
@@ -60,7 +63,7 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
   }
 
   def train(groupName: String): Unit = {
-    logger.info("Train trainer {}", groupName)
+    logger.trace("Train trainer {}", groupName)
     trainers(groupName) ! SingleGroupTrainer.Train
   }
 
@@ -103,13 +106,12 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
   override def receive: Receive = {
     case Train ⇒
-      log.info(s"$name Receive 'Train', run job")
+      log.info(s"$name Receive 'Train', run group training")
       startWork()
   }
 
   private def startWork(): Unit = {
     log.info(s"$name Start work")
-    Thread.sleep(15000)
     log.info(s"$name Finish work")
   }
 
