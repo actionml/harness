@@ -9,3 +9,4 @@ sealed trait ValidateError
 final case class ParseError(message: String) extends ValidateError
 final case class MissingParams(message: String) extends ValidateError
 final case class WrongParams(message: String) extends ValidateError
+final case class EventOutOfSequence(message: String) extends ValidateError

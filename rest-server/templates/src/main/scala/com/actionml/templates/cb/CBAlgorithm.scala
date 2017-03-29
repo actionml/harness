@@ -43,7 +43,7 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
 
   // from the Dataset determine which groups are defined and start training on them
 
-  def init(): Unit = {
+  def init(): CBAlgorithm = {
     val groups: Map[String, MongoCollection] = p.dataset.CBCollections.usageEventGroups
     logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
     val exists = trainers.keys.toList
@@ -60,6 +60,7 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
       val actor = system.actorOf(SingleGroupTrainer.props(collection), trainer)
       trainers += trainer → actor
     }
+    this
   }
 
   def train(groupName: String): Unit = {

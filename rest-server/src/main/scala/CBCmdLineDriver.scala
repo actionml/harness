@@ -97,21 +97,14 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
         case Invalid(_) ⇒ errors += 1
       }
       total +=1
-      if (good % 100 == 0) engine.train()
-
     }
-    engine.train() // get any remaining events
 
     logger.info(s"Processed ${total} events, ${errors} were bad in some way")
-    // training happens automatically for Kappa style with each input or at short intervals
-
-    // engine.train() should be triggered explicitly for Lambda
 
     val query = """{"user": "pferrel", "group":"group 1" }"""
     engine.query(query) match {
       case Valid(result) ⇒ logger.info(s"Queried and received variant: ${result.variant} groupId: ${result.groupId}")
       case Invalid(error) ⇒ logger.error("Query error {}",error)
     }
-//    println(s"Queried and received variant: ${result.variant} groupId: ${result.groupId} status: ${status}")
   }
 }

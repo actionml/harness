@@ -29,10 +29,10 @@ abstract class Dataset[T](r: String) extends LazyLogging {
 
   def create(): Dataset[T]
   def destroy(): Dataset[T]
-  def persist(datum: T): Validated[ValidateError, Boolean]
+  def persist(datum: T): Validated[ValidateError, Event]
   // todo: we may want to use some operators overloading if this fits some Scala idiom well
   // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
-  def input(datum: String): Validated[ValidateError, Boolean]
+  def input(datum: String): Validated[ValidateError, Event]
 
   def parseAndValidateInput(s: String): Validated[ValidateError, T]
 
