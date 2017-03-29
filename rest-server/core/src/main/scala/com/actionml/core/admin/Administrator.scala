@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
+package com.actionml.core.admin
 
-package com.actionml.core.storage
+import cats.data.Validated
+import com.actionml.core.storage.Store
+import com.actionml.core.template.Engine
+import com.actionml.core.validate.ValidateError
 
-import com.typesafe.scalalogging.LazyLogging
+/** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
+abstract class Administrator[S <: Store](metaStore: S) {
 
-trait Store extends LazyLogging {
-
-  def create(): Store
-
-  def destroy(): Store
+  def add(engine: Engine): Validated[ValidateError, Boolean]
+  def remove(engine: Engine): Validated[ValidateError, Boolean]
 
 }

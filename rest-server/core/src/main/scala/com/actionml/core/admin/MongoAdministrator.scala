@@ -15,15 +15,23 @@
  * limitations under the License.
  */
 
+package com.actionml.core.admin
 
-package com.actionml.core.storage
+import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.core.storage.Mongo
+import com.actionml.core.template.Engine
+import com.actionml.core.validate.ValidateError
 
-import com.typesafe.scalalogging.LazyLogging
+class MongoAdministrator() extends Administrator( new Mongo ) {
 
-trait Store extends LazyLogging {
 
-  def create(): Store
+  def add(engine: Engine): Validated[ValidateError, Boolean] = {
+    Valid(true)
+  }
 
-  def destroy(): Store
+  def remove(engine: Engine): Validated[ValidateError, Boolean] = {
+    Valid(true)
+  }
 
 }
