@@ -18,6 +18,7 @@
 package com.actionml;
 
 import akka.http.javadsl.model.Uri;
+import akka.japi.Pair;
 import com.google.gson.JsonElement;
 
 import java.util.concurrent.CompletionStage;
@@ -31,7 +32,7 @@ public class QueryClient extends RestClient {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"));
     }
 
-    public CompletionStage<JsonElement> sendQuery(String query) {
+    public CompletionStage<Pair<Integer, String>> sendQuery(String query) {
         return this.create(query);
     }
 

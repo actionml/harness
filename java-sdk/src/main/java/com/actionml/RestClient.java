@@ -45,8 +45,8 @@ abstract class RestClient extends BaseClient{
      * @param id ID Resource
      * @return Resource as JsonElement
      */
-    public CompletionStage<JsonElement> get(String id) {
-        return single(createGet(id)).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> get(String id) {
+        return single(createGet(id)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -54,8 +54,8 @@ abstract class RestClient extends BaseClient{
      *
      * @return ID resource
      */
-    public CompletionStage<JsonElement> create() {
-        return single(createPost("{}")).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> create() {
+        return single(createPost("{}")).thenCompose(this::extractResponse);
     }
 
     /**
@@ -64,8 +64,8 @@ abstract class RestClient extends BaseClient{
      * @param json Resource as json string
      * @return ID resource
      */
-    public CompletionStage<JsonElement> create(String json) {
-        return single(createPost(json)).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> create(String json) {
+        return single(createPost(json)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -74,8 +74,8 @@ abstract class RestClient extends BaseClient{
      * @param json Resource as json string
      * @return ID resource
      */
-    public CompletionStage<JsonElement> create(String id, String json) {
-        return single(createPost(id, json)).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> create(String id, String json) {
+        return single(createPost(id, json)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -85,8 +85,8 @@ abstract class RestClient extends BaseClient{
      * @param json Resource as json
      * @return ID Resource
      */
-    public CompletionStage<JsonElement> update(String id, String json) {
-        return single(createPost(id, json)).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> update(String id, String json) {
+        return single(createPost(id, json)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -95,8 +95,8 @@ abstract class RestClient extends BaseClient{
      * @param id ID Resource
      * @return ID Resource
      */
-    public CompletionStage<JsonElement> delete(String id) {
-        return single(createDelete(id)).thenCompose(this::extractJson);
+    public CompletionStage<Pair<Integer, String>> delete(String id) {
+        return single(createDelete(id)).thenCompose(this::extractResponse);
     }
 
     protected HttpRequest createGet(String id) {
@@ -115,8 +115,8 @@ abstract class RestClient extends BaseClient{
         return createDelete(uri.addPathSegment(id));
     }
 
-    protected CompletionStage<Pair<Long, JsonElement>> extractJson(Pair<Long, HttpResponse> pair) {
-        return extractJson(pair.second()).thenApply(jsonElement -> Pair.create(pair.first(), jsonElement));
+    protected CompletionStage<Pair<Long, Pair<Integer, String>>> extractResponses(Pair<Long, HttpResponse> pair) {
+        return extractResponse(pair.second()).thenApply(response -> Pair.create(pair.first(), response));
     }
 
 }

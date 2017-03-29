@@ -18,6 +18,7 @@
 package com.actionml;
 
 import akka.http.javadsl.model.Uri;
+import akka.japi.Pair;
 import com.actionml.entity.DatasetId;
 import com.google.gson.JsonElement;
 
@@ -33,35 +34,32 @@ public class DatasetClient extends RestClient {
         super(host, port, Uri.create("/datasets"));
     }
 
-    public CompletionStage<DatasetId> createDataset() {
-        return this.create().thenApply(this::toDatasetId);
+    public CompletionStage<Pair<Integer, String>> createDataset() {
+        return this.create();
     }
 
-    public CompletionStage<DatasetId> createDataset(String datasetId) {
-        return this.create(datasetId, "{}").thenApply(this::toDatasetId);
+    public CompletionStage<Pair<Integer, String>> createDataset(String datasetId) {
+        return this.create(datasetId, "{}");
     }
 
-    public CompletionStage<DatasetId> createDataset(DatasetId datasetId) {
+    public CompletionStage<Pair<Integer, String>> createDataset(DatasetId datasetId) {
         return createDataset(datasetId.getDatasetId());
     }
 
-    public CompletionStage<DatasetId> getDataset(String datasetId) {
-        return this.get(datasetId).thenApply(this::toDatasetId);
+    public CompletionStage<Pair<Integer, String>> getDataset(String datasetId) {
+        return this.get(datasetId);
     }
 
-    public CompletionStage<DatasetId> getDataset(DatasetId datasetId) {
+    public CompletionStage<Pair<Integer, String>> getDataset(DatasetId datasetId) {
         return getDataset(datasetId.getDatasetId());
     }
 
-    public CompletionStage<DatasetId> deleteDataset(String datasetId) {
-        return this.delete(datasetId).thenApply(this::toDatasetId);
+    public CompletionStage<Pair<Integer, String>> deleteDataset(String datasetId) {
+        return this.delete(datasetId);
     }
 
-    public CompletionStage<DatasetId> deleteDataset(DatasetId datasetId) {
+    public CompletionStage<Pair<Integer, String>> deleteDataset(DatasetId datasetId) {
         return deleteDataset(datasetId.getDatasetId());
     }
 
-    protected DatasetId toDatasetId(JsonElement jsonElement) {
-        return toPojo(jsonElement, DatasetId.class);
-    }
 }
