@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.{Directive, Route}
 import akka.util.Timeout
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.validate.{MissingParams, ParseError, ValidateError, WrongParams}
+import com.actionml.core.validate._
 import de.heikoseeberger.akkahttpcirce.CirceSupport
 import io.circe.Json
 import scaldi.Injector
@@ -48,6 +48,8 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Ci
       case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
+      case Invalid(error: EventOutOfSequence) ⇒ complete(StatusCodes.BadRequest, error.message)
+      case Invalid(_) ⇒ complete(StatusCodes.NotFound)
     }
 
 }
