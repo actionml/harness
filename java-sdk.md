@@ -121,4 +121,3 @@ The `Event` class should be instantiated in the [same manner](https://github.com
 ### Query
 
 A query Map should be converted into a JSON payload in the [same manner](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java#L93) as the old SDK. A new route will be derived from the PIO-Kappa Server address:port and the `engines` resource-id.
-
