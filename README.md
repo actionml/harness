@@ -75,28 +75,11 @@ Commands are REST resources just like Datasets and Engines so commands can be fi
 
 pio-kappa optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.
     
-# Java SDK API
+# [Java SDK](java-sdk.md)
 
- - Supports all Server REST for Input and Query
- - packages JSON for REST call
- - implements SSL and auth
- - modeled after the PredictionIO Java SDK API where possible
- - written based on [http-akka client](http://doc.akka.io/docs/akka-http/current/java/http/introduction.html#http-client-api)
+The Java SDK is currently source and build instructions. You must include the source and required Java artifacts a shown in the examples then build them into your Java application.
 
-## Java Client Input and Query SDK
-
-PIO-0.10.0 vs PIO-Kappa Java Input and Query SDK API. The PIO 0.10.0 client is [here](https://github.com/apache/incubator-predictionio-sdk-java).
-
-The old style Java SDK has 2 clients, [one for input](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EventClient.java) and [one for queries](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java), The PIO-Kappa SDK will have one client for all APIs deriving resource endpoints from resource-ids and the PIO-Kappa server address.
-
-### Input
-
-The `Event` class should be instantiated in the [same manner](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/Event.java) A new route should be created for input derived from the new REST server address:port and the new `datasets` resource-id.
-
-### Query
-
-A query Map should be converted into a JSON payload in the [same manner](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java#L93) as the old SDK. A new route will be derived from the PIO-Kappa Server address:port and the `engines` resource-id.
-
+# 
 
 # Python CLI and SDK
 
