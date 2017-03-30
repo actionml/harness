@@ -11,6 +11,12 @@
 Using git pull the source for pio-kappa. This includes the Java SDK, the Rest-server, and the contextual bandit template. When we are done the SDK will be a separate artifact that can be linked into a Java project, for now follow these steps:
 
     pull https://github.com/actionml/pio-kappa.git pio-kappa
+
+make sure to get the current `develop` branch
+
+    cd pio-kappa
+    git checkout -b develop
+    git pull origin develop    
     
 Examine `pio-kappa/java-sdk/src/main/java/QueryClientExample.java` and `pio-kappa/java-sdk/src/main/java/QueryClientExample.java` which have working examples for Contextual Bandit input events and queries.
 
