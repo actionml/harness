@@ -17,6 +17,8 @@ lazy val commonSettings = Seq(
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.8",
   libraryDependencies ++= Seq(
+    // https://mvnrepository.com/artifact/org.scala-lang/scala-library
+    "org.scala-lang" % "scala-library" % "2.11.8",
     "ch.qos.logback" % "logback-classic" % "1.2.2",
     "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
