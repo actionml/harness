@@ -1,12 +1,16 @@
-<configuration>
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %yellow([%X{sourceThread}]) %X{akkaSource} %-15logger{0} - %msg%n</pattern>
+            <pattern>%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %logger{99} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <root level="debug">
+    <logger name="com.actionml.router.http" level="DEBUG"/>
+    <logger name="org.mongodb" level="INFO"/>
+
+    <root level="TRACE">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
