@@ -26,7 +26,7 @@ public class QueryClientExample {
 
     public static void main(String[] args) {
 
-        String engineId = "test-resourcef";
+        String engineId = "test-resource";
         QueryClient client = new QueryClient(engineId, "localhost", 8080);
 
         String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";

@@ -22,55 +22,32 @@ Sending Events uses a new style but essentially creates the same json. However i
 
 Using Java 8 functional style conventions an example event sending code looks like this:
 
-    public class EventClientExample {
+    EventClient client = new EventClient(datasetId, "localhost", 8080);
+        
+    Event event = new Event()
+        .eventId("ed15537661f2492cab64615096c93160")
+        .event("$set")
+        .entityType("testGroup")
+        .entityId("9")
+        .properties(ImmutableMap.of(
+            "testPeriodStart", "2016-07-12T00:00:00.000+09:00",
+            "testPeriodEnd", "2016-08-31T00:00:00.000+09:00",
+            "pageVariants", ImmutableList.of("17", "18")
+        ))
+        .eventTime(new DateTime("2016-07-12T16:08:49.677+09:00"))
+        .creationTime(new DateTime("2016-07-12T07:09:58.273Z"));
+        
+        
+    log.info("Send event {}", event.toJsonString());
     
-        static Logger log = LoggerFactory.getLogger(EventClientExample.class);
-    
-        public static void main(String[] args) {
-    
-            String datasetId = "test-resource";
-            
-            // create a client to send events to a dataset
-            EventClient client = new EventClient(datasetId, "localhost", 8080);
-    
-            // some example json events from a running site
-            String fileName = "data/sample-x.json";
-    
-            try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
-    
-                List<String> events = br.lines()//.limit(100)
-                        .collect(Collectors.toList());
-    
-                log.info("Send events: " + events.size());
-    
-                long start = System.currentTimeMillis();
-                
-                // This is the key part of the code 
-                // "client.createEvents(event) it sends the json string 
-                // through the client created above 
-                client.createEvents(events).thenApply(pairs -> {
-                    long duration = System.currentTimeMillis() - start;
-                    Map<String, Long> counting = pairs.stream()
-                            .map(p -> p.second().first().toString())
-                            .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-    
-                    log.info("Finished: " + duration + "ms. Responses: " + pairs.size());
-                    counting.forEach((code, cnt) -> log.info("Status " + code + ": " + cnt));
-                    return pairs.size();
-                }).whenComplete((size, throwable) -> {
-                    log.info("Complete: " + size);
-                    log.info("Close client");
-                    client.close();
-                });
-    
-            } catch (IOException e) {
-                log.error("Oh no!", e);
-                client.close();
-            }
-    
+    client.sendEvent(event).whenComplete((response, throwable) -> {
+        log.info("Response: {}", response);
+        if (throwable != null) {
+            log.error("Create event error", throwable);
         }
-    
-    }
+        client.close();
+    });
+
 
 The important bit here is creating a client:
 
@@ -78,7 +55,52 @@ The important bit here is creating a client:
     
 The datasetId must be a string the uniquely ids the server-side dataset. The id is ignored currently so all data goes into the single dataset. The host address must be the remote pio-kappa server. The port can be changed but is 8080 by default.
 
-Then send a json string
+Use the Event builder:
+
+    Event event = new Event()
+        .eventId("ed15537661f2492cab64615096c93160")
+        .event("$set")
+        ...
+
+and send the event:
+
+    client.sendEvent(event)
+
+**Note**: Checking for errors if extremely important for group initialization events. If these are not received correctly no further input will be processed for the group.
+
+## Sending Queries
+
+Queries are specific to each template so are created directly from JSON strings:
+
+    String engineId = "test-resource";
+    QueryClient client = new QueryClient(engineId, "localhost", 8080);
+    
+    String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
+    
+    try {
+        System.out.println("Send query: " + query);
+        long start = System.currentTimeMillis();
+        client.sendQuery(query).whenComplete((queryResult, throwable) -> {
+            long duration = System.currentTimeMillis() - start;
+            if (throwable == null) {
+                System.out.println("Receive eventIds: " + queryResult.toString() + ", " + duration + " ms.");
+            } else {
+                System.err.println(throwable.getMessage());
+            }
+            client.close();
+        });
+    
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+First create the `QueryClient`
+
+    QueryClient client = new QueryClient(engineId, "localhost", 8080);
+
+Then send the JSON string to the query endpoint for the correct engine
+
+    client.sendQuery(query)
 
 ## Apache PredictionIO-0.10.0 Java Client Input and Query SDK (For comparison only)
 
