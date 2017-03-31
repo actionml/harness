@@ -50,16 +50,15 @@ All REST APIs will have Access Control Lists based on who is allowed to access t
 Integral to REST is the notion of a "resource", which can be though of as a collection of items that can be addressed by a resource-id. Since with REST all resource-ids must be URI encoded following the rules for vanilla 
 URI fragments. The resources defined in PIO-Kappa are:
 
- - **datasets**: a collection of datasets that store events
- - **events**: sub-collections that make up a particular dataset. They are addressed liek `/datasets/<dataset-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved event like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
- - **engine**: the engine is the instance of a template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
+ - **engines**: All data is sent to an engine and queries are made of an engine. Input is validated based on the needs of the dataset, which is constructed to fit requirements of the algorithm.
+ - **events**: a sub-collection of a particular engine. They are addressed like `POST /engines/<engine-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved events like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
  - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status since the command may take very long to complete.
 
 ## Input and Query
 
-See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries.
+See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries. Both reference an engine-id but have different endpoints.
 
-    POST /datasets/<dataset-id>/events
+    POST /engines/<engine-id>/events
         Request Body: JSON for PIO event
         Response Body: na
         
@@ -69,34 +68,15 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
 
 ## The Commands
 
-Commands are REST resources just like Datasets and Engines so commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
+Commands are REST resources just like Engines so Commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
      
 # [Security](security.md)  
 
 pio-kappa optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.
     
-# Java SDK API
+# [Java SDK](java-sdk.md)
 
- - Supports all Server REST for Input and Query
- - packages JSON for REST call
- - implements SSL and auth
- - modeled after the PredictionIO Java SDK API where possible
- - written based on [http-akka client](http://doc.akka.io/docs/akka-http/current/java/http/introduction.html#http-client-api)
-
-## Java Client Input and Query SDK
-
-PIO-0.10.0 vs PIO-Kappa Java Input and Query SDK API. The PIO 0.10.0 client is [here](https://github.com/apache/incubator-predictionio-sdk-java).
-
-The old style Java SDK has 2 clients, [one for input](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EventClient.java) and [one for queries](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java), The PIO-Kappa SDK will have one client for all APIs deriving resource endpoints from resource-ids and the PIO-Kappa server address.
-
-### Input
-
-The `Event` class should be instantiated in the [same manner](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/Event.java) A new route should be created for input derived from the new REST server address:port and the new `datasets` resource-id.
-
-### Query
-
-A query Map should be converted into a JSON payload in the [same manner](https://github.com/apache/incubator-predictionio-sdk-java/blob/develop/client/src/main/java/io/prediction/EngineClient.java#L93) as the old SDK. A new route will be derived from the PIO-Kappa Server address:port and the `engines` resource-id.
-
+The Java SDK is currently source and build instructions. You must include the source and required Java artifacts a shown in the examples then build them into your Java application.
 
 # Python CLI and SDK
 

@@ -21,11 +21,15 @@ import cats.data.Validated
 import com.actionml.core.storage.Store
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.ValidateError
+import com.typesafe.scalalogging.LazyLogging
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
-abstract class Administrator[S <: Store](metaStore: S) {
+abstract class Administrator() extends LazyLogging {
 
-  def add(engine: Engine): Validated[ValidateError, Boolean]
-  def remove(engine: Engine): Validated[ValidateError, Boolean]
+  def addEngine(engineId: String): Validated[ValidateError, Boolean]
+  def addDataset(datasetId: String): Validated[ValidateError, Boolean]
+  def removeEngine(engineId: String): Validated[ValidateError, Boolean]
+  def removeDataset(datasetId: String): Validated[ValidateError, Boolean]
+  def list(resourceType: String): Validated[ValidateError, Boolean]
 
 }

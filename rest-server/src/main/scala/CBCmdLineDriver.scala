@@ -79,9 +79,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
     val source = Source.fromFile(config.engineDefJSON)
     val engineJSON = try source.mkString finally source.close()
 
-    //json4s style
     val params = parse(engineJSON).extract[CBEngineParams]
-    // circe style ?????
 
     // Todo: params will eventually come from some store that is sharable
     val engine = new CBEngine(dataset, params)

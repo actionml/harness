@@ -1,8 +1,26 @@
-# Commands
+# Important changes in REST API and CLI
 
-PIO-Kappa includes Commands just like other REST resources. They can be fired using the REST API or via the Command Line Interface (CLI), which is similar to Apache PredictionIO. Some of the CLI fires the REST Commands endpoints other parts of the CLI hits other resource types as needed.
+**Datasets are removed from the APIs** Due to the fact an Engine is required to validate input and that some input operates on mutable objects, datasets cannot be thought of as immutable event streams so they are not shareable by engines. Therefore they are removed from the REST and command API. They remain as-is in the current code base.
 
-## REST Endpoints for Administration
+# New input REST API
+
+ - **engines**: All data is sent to an engine and queries are made of an engine. Input is validated based on the needs of the dataset, which is constructed to fit requirements of the algorithm.
+ - **events**: a sub-collection of a particular engine. They are addressed like `POST /engines/<engine-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved events like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
+ - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status since the command may take very long to complete.
+
+## Input and Query
+
+See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries. Both reference an engine-id but have different endpoints.
+
+    POST /engines/<engine-id>/events
+        Request Body: JSON for PIO event
+        Response Body: na
+        
+    POST /engines/<engine-id>/queries
+        Request Body: JSON for PIO query
+        Response Body: JSON for PIO PredictedResults
+
+# New Admin API
 
 Internal to pio-kappa are objects like datasets and algorithms, they are always attached to engines. The Engine instance manages all interactions with a dataset or algorithm. All input data is validated by the dataset and engine, and must be readable by the algorithm. Therefor in order to have a dataset the engine must also be defined or validation of input is not possible.
 
@@ -36,30 +54,13 @@ Therefor we are removing all reference to datasets from the admin and input api.
         Action: gets a list and info, used for discovery of all resources 
           known by the system. This command is synchronous so no need
           to poll for updates
-        
-## REST Endpoints for Lambda Admin (TBD)
 
-in addition to the commands above, Lambda style learners require not only setup but batch training. So some additional commands are needed:
-
-    POST /commands/batch-train
-        Request Body: description of which engine to train and any params
-        Response Body: returns the command-id to poll via GET for
-          information about command progress
-        Action: will launch batch training of an <engine-id>. This 
-          command is asynchronous so needs to be polled for status
-          
-    Delete /commands/<command-id>
-        Action: attempts to kill the command by id and removes it
-
-    GET /commands/<command-id> 
-        Response Body: response body command status for asynch/long-lived command
-        
 ## The Command Line Interface
 
 PIO-Kappa uses resource-ids to identify all objects in the system, engines and commands. Every Template must have an engine. The Engine must have an `engine.json` file, which contains all parameters for the engine to run including algorithm parameters that are specific to the Template.
 
 **Things to remember:** 
- - The file `engine.json` can be named anything and put anywhere so the term is only a short version of `/path/to/some/engined/json/file`. The same is true of the `config.json` for server wide config.
+ - The file `engine.json` can be named anything and put anywhere so the term is only a short version of `/path/to/some/engine/json/file`. The same is true of the `config.json` for server wide config.
  - The working copy of this data is actually in a shared database and so until you create the engine (command below) or modify it, the engine config is not active. 
  - No command works before you start the server.
 
@@ -102,12 +103,4 @@ Following typical workflow for launching and managing the PIO-Kappa server the f
         # the command will attempt to find the server process to stop
         # -f or --force will bypass the confirmation of "aml stop"
         
-# The missing Commands
-
-It **is** possible to take an existing dataset and reuse it with a new Engine. This is done by the `aml engine update <engine-id>` command, which changes parameters the engine uses but does not delete the data. This only works with Engines of the same type where you are only changing parameters, for example altering the algorithm parameters. You cannot create 2 engines that use the same dataset since each may be modifying over the other.
-
-It **should** be possible to duplicate data to be used with a new engine of the exact same type, possibly differing parameters but is TBD.
-
-To implement storage of an immutable event stream that can be re-input into a completely new Engine, which has a compatible view of input events, a streaming mechanism can be put in front of the pio-kappa server like Kafka or Flume. 
-
-We will also implement a mechanism to stream raw events to elastic storage like HDFS before it is validated and processed by the Engine. This is so parameter changes can be applied throughout the event input or so it can be input into a new Engine with a different algorithm but which has a compatible input event formats and meaning.
+    
