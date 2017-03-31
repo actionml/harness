@@ -44,7 +44,7 @@ public class EventClientExample {
     public static void main(String[] args) {
 
         String datasetId = "test-resource";
-        EventClient client = new EventClient(datasetId, "localhost", 8080);
+        EventClient client = new EventClient(datasetId, "localhost", 9090);
 
 
 //        String json = "{" +
