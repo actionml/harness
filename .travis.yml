@@ -4,6 +4,8 @@ language: java
 scala:
    - 2.11.8
 
+install: mvn install -Dgpg.skip=true   
+
 
 script: cd java-sdk && mvn clean deploy #cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && 
 
