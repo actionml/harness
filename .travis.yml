@@ -1,21 +1,18 @@
-# See http://about.travis-ci.org/docs/user/build-configuration/
 language: java
-
 scala:
-   - 2.11.8  
-
-
-script: cd java-sdk && mvn clean deploy -X #cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && 
-
+- 2.11.8
+script: cd java-sdk && mvn clean deploy -X
 branches:
   only:
-    - master
-    - develop
-
+  - master
+  - develop
 notifications:
   email:
     recipients:
-      - semen@actionml.com
-
+    - semen@actionml.com
 jdk:
-  - oraclejdk8
+- oraclejdk8
+
+env:
+  global:
+    secure: fitlD0OVE1Jd/6Q+++FwZmXk0Z7+FnivSQTzHkIWCKPTFwKqUVxQbeg+ZjA/RWz5VF8YToZT8Y1oV8dcNw3/AUxrxO56fHHYIMSddvRQDo/QkU8udw3dtaS/rIIe414l6gSUvaC45wmJtndCu0PyyWuXxafGQ+pGvJBbAn4+oDDVWNK2ggLMVHecsUn3CvsZ5OuTtWj7ngxf+1x89K9TKm2yy2lR5b9FlJHLHHURnkCwB40fW/nh1Pm872vMDbBuLKLy7sV/x3CHzVlU3tI1H6754hdLEJIelJclaBv8WKIAIgbQTP7l/HgO2+mP4eYdq+nqJbmy+JZX+a6jtIBBM3ikhAXWZaQLDzzIyqwGv7tgUJMnGOIFtU+eBuBwDb8bC9Sl8AK2F5863M+V5j3nAKUZMMrsPcqAuWdJkEhvuumfZwEJLFP2vw9ourvmoDDYk4TOZ4pLgZrAo1ftKUCdNy+WFfmKokk2WUpL+/MCYyo8a3pR4fTAG1pZ5MKoHN4WJ9WSi76RWVOMzukUfvUWkoxZGLcrWkOu8ZZBXNP/3zqbIz66lmgg7q6/IEhj8XeS2mdJgvbaSJYSVyzPMGkBdBmJb9dJle+nLqTo6Hz1/qSCgfhPgPSvalhWSOMaImuxTziihDlaflZ4J/KFOK/ZVBoW00Bue6uFhDVjKTcCyrE=
