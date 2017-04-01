@@ -7,7 +7,7 @@ scala:
 install: mvn install -Dgpg.skip=true   
 
 
-script: cd java-sdk && mvn clean deploy #cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && 
+script: cd java-sdk && mvn clean deploy -X #cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && 
 
 branches:
   only:
