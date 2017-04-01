@@ -7,14 +7,14 @@ scala:
 jdk:
   - oraclejdk8
 
-script: cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test
+script: cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && cd ../java-sdk && mvn clean deploy
+
 branches:
   only:
     - master
     - develop
+
 notifications:
   email:
     recipients:
       - semen@actionml.com
-jdk:
-  - oraclejdk8
