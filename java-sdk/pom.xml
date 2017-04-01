@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.actionml</groupId>
-    <artifactId>java-sdk</artifactId>
+    <artifactId>pio-kappa-java-sdk</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
     <properties>
@@ -93,7 +93,7 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.1</version>
+            <version>1.2.2</version>
         </dependency>
 
         <dependency>

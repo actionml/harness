@@ -1,7 +1,12 @@
 # See http://about.travis-ci.org/docs/user/build-configuration/
-language: scala
+language: scala, java
+
 scala:
    - 2.11.8
+
+jdk:
+  - oraclejdk8
+
 script: cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test
 branches:
   only:
