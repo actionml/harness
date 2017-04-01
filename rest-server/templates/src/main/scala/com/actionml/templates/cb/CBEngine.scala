@@ -61,6 +61,8 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
+          case other => // todo: Pat, need refactoring this
+            logger.warn("Non expected value of entityType: {}, in {}", other, event)
         }
       case _ =>
     }

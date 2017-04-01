@@ -26,7 +26,7 @@ class CBEventService(implicit inj: Injector) extends EventService{
 
     case CreateEvent(datasetId, event) ⇒
       log.debug("Receive new event & stored, {}, {}", datasetId, event)
-      sender() ! engine.input(event).map(_.asJson) // Todo: Semen, you will want to refactor
+      sender() ! engine.input(event).map(_.asJson)
   }
 }
 

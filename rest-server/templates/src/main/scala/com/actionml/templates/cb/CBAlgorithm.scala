@@ -51,11 +51,6 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
       exists.contains(key)
     }
 
-    // todo: Semen, not sure of the purpose of this
-    logger.trace("Existing trainers: {}", exists)
-    logger.trace("New trainers: {}", groups)
-    logger.trace("Diff trainers: {}", diff)
-
     diff.foreach { case (trainer, collection) ⇒
       val actor = system.actorOf(SingleGroupTrainer.props(collection), trainer)
       trainers += trainer → actor
