@@ -1,13 +1,11 @@
 # See http://about.travis-ci.org/docs/user/build-configuration/
-language: scala, java
+language: java
 
 scala:
    - 2.11.8
 
-jdk:
-  - oraclejdk8
 
-script: cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && cd ../java-sdk && mvn clean deploy
+script: cd java-sdk && mvn clean deploy #cd rest-server && sbt ++$TRAVIS_SCALA_VERSION test && 
 
 branches:
   only:
@@ -18,3 +16,6 @@ notifications:
   email:
     recipients:
       - semen@actionml.com
+
+jdk:
+  - oraclejdk8
