@@ -1,3 +1,5 @@
+import SbtNativePackager._
+
 name := "pio-kappa-rest-server"
 
 version := "0.1.0-SNAPSHOT"
@@ -59,4 +61,4 @@ lazy val templates = (project in file("templates")).dependsOn(core).
 
 lazy val root = (project in file(".")).dependsOn(core, templates).settings(
   commonSettings
-).aggregate(core, templates)
+).enablePlugins(JavaAppPackaging).aggregate(core, templates)
