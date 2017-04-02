@@ -118,15 +118,4 @@
 
     </dependencies>
 
-    <repositories>
-        <repository>
-            <id>sdk</id>
-            <url>https://raw.github.com/actionml/pio-kappa/mvn-repo/</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
-
 </project>

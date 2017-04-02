@@ -16,10 +16,6 @@
  */
 
 import com.actionml.EventClient;
-import com.actionml.entity.Event;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,10 +83,7 @@ public class EventClientExample {
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
-            List<String> events = br.lines()//.limit(100)
-//                    .map(client::toJsonElement)
-//                    .map(jsonElement -> client.toPojo(jsonElement, Event.class))
-                    .collect(Collectors.toList());
+            List<String> events = br.lines().collect(Collectors.toList());
 
             log.info("Send events: " + events.size());
 
