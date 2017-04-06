@@ -21,24 +21,19 @@ import cats.data.Validated
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
-/**
-  * Forms the Engine contract. Engines parse and validate input strings, probably JSON,
-  * and sent the correct case class E or a Seq[E] to input or inputCol of the extending
+/** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
+  * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   *
-  * @param d dataset to store input
-  * @param p engine params, typically for the algorithm
-  * @tparam E input case class type, often and Event of some type
-  * @tparam R engine query result case class type
   */
-abstract class Engine[E, R](d: Dataset[E], p: EngineParams) extends LazyLogging {
+abstract class Engine(eId: String) extends LazyLogging {
 
-  val dataset = d
-  val params = p
+  val engineId = eId
 
+  def init(engineJson: String): Engine
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
-  def query(json: String): Validated[ValidateError, R]
+  def query(json: String): Validated[ValidateError, String]
 }
 
 trait EngineParams

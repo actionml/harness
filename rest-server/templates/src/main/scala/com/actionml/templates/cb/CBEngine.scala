@@ -20,24 +20,41 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{ParseError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, MappingException}
 
+
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(dataset: CBDataset, params: CBEngineParams)
-  extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
+class CBEngine(engineId: String) // REST resourceId used as a DB key too
+  extends Engine(engineId) with LazyLogging with JsonParser {
 
-  lazy val algo = new CBAlgorithm(getAlgoParams(params)).init() // this auto-starts kappa training on dataset in params
-
-  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
+  var params: CBEngineParams = _
+  var dataset: CBDataset = _
+  var algo: CBAlgorithm = _
+
+  def init(engineJson: String) = {
+
+    params = parse(engineJson).extract[CBEngineParams]
+    dataset = new CBDataset(engineId)
+      .destroy()// Todo: Remove this, only for testing.
+      .create()
+    val algoParams = CBAlgorithm.parseAndValidateParams(params.params.algorithm)
+    if(algoParams.isValid) {
+      algo = new CBAlgorithm(algoParams.getOrElse(CBAlgoParams(dataset)))
+    } else {
+      logger.error("Bad algorithm params. Using defaults but this is probably an error.")
+    }
+    this
+  }
+
   def train(): Unit = {
-    logger.trace(s"Only used for Lambda style training")
+    logger.warn(s"Only used for Lambda style training")
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
@@ -68,9 +85,9 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, CBQueryResult] = {
+  def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: ${json}")
-    Valid(CBQueryResult())
+    Valid(CBQueryResult("variant1", "group1").toJson)
   }
 
   def parseAndValidateQuery(json: String): Validated[ValidateError, CBQueryResult] = {
@@ -85,30 +102,17 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     }
   }
 
-  def getAlgoParams(ep: CBEngineParams): CBAlgoParams = {
-    CBAlgoParams(
-      dataset,
-      ep.maxIter,
-      ep.regParam,
-      ep.stepSize,
-      ep.bitPrecision,
-      ep.modelName,
-      ep.namespace,
-      ep.maxClasses)
-  }
-
 }
 
+case class CBAllParams(
+  algorithm: String
+)
+
+
 case class CBEngineParams(
-    id: String = "", // required
-    dataset: String = "", // required, readFile now
-    maxIter: Int = 100, // the rest of these are VW params
-    regParam: Double = 0.0,
-    stepSize: Double = 0.1,
-    bitPrecision: Int = 24,
-    modelName: String = "model.vw",
-    namespace: String = "n",
-    maxClasses: Int = 3)
+    engineId: Option[String] = None, // generated and returned if no specified
+    engineFactory: String = "", // required, how any new or restarted engine gets going
+    params: CBAllParams)
   extends EngineParams
 
 /*
@@ -133,4 +137,12 @@ Results
 case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
-  extends QueryResult
+  extends QueryResult {
+
+  def toJson() = {
+  s"""
+     |"variant": $variant,
+     |"groupId": $groupId
+   """.stripMargin
+  }
+}

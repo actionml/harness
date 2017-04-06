@@ -19,6 +19,7 @@
 
 // driver for running Contextual Bandit as an early scaffold
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.router.admin.MongoAdministrator
 import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s._
@@ -58,19 +59,19 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
     // parser.parse returns Option[C]
     parser.parse(args, CBCmdLineDriverConfig()) match {
       case Some(config) =>
-        process(config)
+        run(config)
 
       case None =>
       // arguments are bad, error message will have been displayed
     }
   }
 
-  def process( config: CBCmdLineDriverConfig ): Unit = {
+  def run( config: CBCmdLineDriverConfig ): Unit = {
     // Infant Template API, create a store, a dataset, and an engine
     // from then all input goes to the engine, which may or may not put it in the dataset using the store for
     // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
     // and Lambda style learning
-    val dataset = new CBDataset("test-resource")
+/*    val dataset = new CBDataset("test-resource")
       .destroy()
       .create()
 
@@ -83,6 +84,14 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
     // Todo: params will eventually come from some store that is sharable
     val engine = new CBEngine(dataset, params)
+*/
+
+    val admin = new MongoAdministrator().init.start
+    val engineJson = Source.fromFile(config.inputEvents).getLines().toString()
+    admin.addEngine(engineJson, Some("test-engine"))
+
+
+    val engine = admin.getEngine("test-resource")
 
     var errors = 0
     var total = 0
@@ -101,7 +110,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
     val query = """{"user": "pferrel", "group":"group 1" }"""
     engine.query(query) match {
-      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${result.variant} groupId: ${result.groupId}")
+      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${_}")
       case Invalid(error) ⇒ logger.error("Query error {}",error)
     }
   }

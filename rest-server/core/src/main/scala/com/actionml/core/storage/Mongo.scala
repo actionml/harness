@@ -28,6 +28,7 @@ class Mongo(m: String = "localhost", p: Int = 27017, n: String = "some-resource-
   val port: Int = p
   val dbName: String = n
   lazy val client = MongoClient(master, port)
+  @transient lazy val connection = MongoConnection(master, port)
   val store = this
 
   // should only be called from trusted source like the CLI!

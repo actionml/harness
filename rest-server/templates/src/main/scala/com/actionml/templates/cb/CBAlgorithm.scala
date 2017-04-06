@@ -19,8 +19,11 @@ package com.actionml.templates.cb
 
 import akka.actor._
 import akka.event.Logging
+import cats.data.Validated
+import cats.data.Validated.Valid
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
+import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.MongoCollection
 import org.slf4j.event.SubstituteLoggingEvent
 
@@ -35,7 +38,7 @@ import scala.concurrent.Future
   * @param p All needed params for the CB lib as well as the dataset containing events and data used in training.
   *          The dataset will contain groups from which the GroupTrain Actors are created
   */
-class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams) {
+class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams) with JsonParser {
 
   private val system = ActorSystem("CBAlgorithm")
 
@@ -87,6 +90,14 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
     system.terminate()
   }
 
+}
+
+object CBAlgorithm extends JsonParser {
+
+  def parseAndValidateParams( json: String): Validated[ValidateError, CBAlgoParams] = {
+    val params = parse(json).extract[CBAlgoParams]
+    Valid(params)
+  }
 }
 
 case class CBAlgoParams(
