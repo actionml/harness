@@ -87,8 +87,8 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 */
 
     val admin = new MongoAdministrator().init.start
-    val engineJson = Source.fromFile(config.inputEvents).getLines().toString()
-    admin.addEngine(engineJson, Some("test-engine"))
+    val engineJson = Source.fromFile(config.engineDefJSON).mkString
+    admin.addEngine(engineJson)
 
 
     val engine = admin.getEngine("test-resource")
@@ -110,7 +110,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
     val query = """{"user": "pferrel", "group":"group 1" }"""
     engine.query(query) match {
-      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${_}")
+      case Valid(result) ⇒ logger.trace(s"QueryResult: $result")
       case Invalid(error) ⇒ logger.error("Query error {}",error)
     }
   }

@@ -17,13 +17,19 @@
 
 package com.actionml.core.template
 
+import akka.actor.Terminated
 import com.actionml.core.storage.Store
 import com.typesafe.scalalogging.LazyLogging
 
-class Algorithm(s: Store, p: AlgorithmParams) extends LazyLogging{
+import scala.concurrent.Future
+
+abstract class Algorithm(s: Store) extends LazyLogging{
 
   val store: Store = s
-  val params: AlgorithmParams = p
+  val params: AlgorithmParams
+
+  def init(): Algorithm
+  def stop(): Future[Terminated]
 
 }
 

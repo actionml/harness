@@ -54,13 +54,13 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.admin.Administrator
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Engine, EngineParams}
-import com.actionml.core.validate.{ParseError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
 import com.actionml.templates.cb.CBEngine
 import com.typesafe.config.ConfigFactory
 import org.json4s.MappingException
 import org.json4s.jackson.JsonMethods._
 
-class MongoAdministrator() extends Administrator() {
+class MongoAdministrator() extends Administrator() with JsonParser {
 
   private lazy val config = ConfigFactory.load()
   lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
@@ -71,7 +71,7 @@ class MongoAdministrator() extends Administrator() {
   lazy val enginesCollection = store.connection("metaStore")("engines")
   lazy val datasetsCollection = store.connection("metaStore")("datasets")
   lazy val commandsCollection = store.connection("metaStore")("commands") // async persistent though temporary commands
-  var engines = _
+  var engines: Map[String, Engine] = _
 
 
   // startup and shutdown
@@ -85,13 +85,13 @@ class MongoAdministrator() extends Administrator() {
       // Todo: Semen, this happens on startup where all exisitng Engines will be started it replaces some of the code
       // in Main See CmdLineDriver for what should be done to integrate.
       engineId -> new CBEngine(engineId).init(params)
-    }
+    }.toMap
     this
   }
+
   override def start() = this
 
   override def stop(): Unit = {
-
   }
 
   def getEngine(engineId: String): Engine = {
@@ -105,11 +105,36 @@ class MongoAdministrator() extends Administrator() {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(engineJson: String, engineId: Option[String] ): Validated[ValidateError, Boolean] = {
-    Valid(true)
+  def addEngine(json: String): Validated[ValidateError, Boolean] = {
+    val params = parse(json).extract[RequiredEngineParams]
+    val eId = params.engineId
+    if (engines.keySet.contains(params.engineId)) { // Re-initialize the engine
+      engines = engines + (params.engineId -> new CBEngine(eId).init(json)) // Todo: replace with a call to the factory
+      // to remove dependency on specific Engine type
+      if (engines(eId) != null) { // new worked
+        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+        Valid(true)
+      } else { // init failed
+        engines = engines - eId //remove bad engine
+        logger.error(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json")
+        Invalid(ParseError(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json"))
+      }
+    } else { // Add a new engine
+      engines = engines + (params.engineId -> new CBEngine(eId).init(json)) // Todo: replace with a call to the factory
+      logger.trace(s"Added new engine for resource-id: ${params.engineId} with new params $json")
+      Valid(true)
+    }
   }
 
   def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
+    if ( engines.keySet.contains(engineId)) {
+      logger.info(s"Stopped and removed engine and all data for id: $engineId")
+      engines(engineId).stop()
+    } else {
+      logger.warn(s"Cannot remove non-existent engine for id: $engineId")
+      Invalid(s"Cannot remove non-existent engine for id: $engineId")
+    }
+    engines = engines - engineId // Todo
     Valid(true)
   }
 
@@ -136,7 +161,7 @@ class MongoAdministrator() extends Administrator() {
 }
 
 case class RequiredEngineParams(
-  engineId: Option[String], // required, resourceId for engine
+  engineId: String, // required, resourceId for engine
   engineFactory: String, // required engine factory class name com.actionml.templates.CBEngineFactory for instance
   // other data here is Engine specific
   params: Option[String] // the rest of the prams json string passed to the factory unparsed

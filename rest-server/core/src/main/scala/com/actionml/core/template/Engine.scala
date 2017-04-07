@@ -31,6 +31,7 @@ abstract class Engine(eId: String) extends LazyLogging {
   val engineId = eId
 
   def init(engineJson: String): Engine
+  def stop(): Unit = {}
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
   def query(json: String): Validated[ValidateError, String]

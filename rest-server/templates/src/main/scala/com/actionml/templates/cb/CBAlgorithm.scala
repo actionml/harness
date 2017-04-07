@@ -25,6 +25,10 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.MongoCollection
+import org.joda.time.DateTime
+import org.json4s.ext.JodaTimeSerializers
+import org.json4s.jackson.JsonMethods._
+import org.json4s.{DefaultFormats, Formats, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
 
 import scala.concurrent.Future
@@ -35,10 +39,8 @@ import scala.concurrent.Future
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
   *
-  * @param p All needed params for the CB lib as well as the dataset containing events and data used in training.
-  *          The dataset will contain groups from which the GroupTrain Actors are created
   */
-class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams) with JsonParser {
+class CBAlgorithm() extends Algorithm(new Mongo) with JsonParser {
 
   private val system = ActorSystem("CBAlgorithm")
 
@@ -46,8 +48,8 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
 
   // from the Dataset determine which groups are defined and start training on them
 
-  def init(): CBAlgorithm = {
-    val groups: Map[String, MongoCollection] = p.dataset.CBCollections.usageEventGroups
+  def init(dataset: CBDataset, json: String): CBAlgorithm = {
+    val groups: Map[String, MongoCollection] = dataset.CBCollections.usageEventGroups
     logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
     val exists = trainers.keys.toList
     val diff = groups.filterNot { case (key, _) ⇒
@@ -95,13 +97,17 @@ class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams)
 object CBAlgorithm extends JsonParser {
 
   def parseAndValidateParams( json: String): Validated[ValidateError, CBAlgoParams] = {
-    val params = parse(json).extract[CBAlgoParams]
-    Valid(params)
+    val params = parse(json).extract[CBAllParams]
+    Valid(params.algorithm)
   }
 }
 
+case class CBAllParams(
+  algorithm: CBAlgoParams
+)
+
+
 case class CBAlgoParams(
-    dataset: CBDataset, // required, where to get data
     maxIter: Int = 100, // the rest of these are VW params
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
@@ -129,7 +135,7 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
 }
 
-object SingleGroupTrainer{
+object SingleGroupTrainer {
 
   case object Train
 

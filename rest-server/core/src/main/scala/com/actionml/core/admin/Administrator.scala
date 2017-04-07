@@ -27,7 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 abstract class Administrator() extends LazyLogging {
 
   // engine management
-  def addEngine(json: String, resourceId: Option[String] = None): Validated[ValidateError, Boolean]
+  def addEngine(json: String): Validated[ValidateError, Boolean]
   def removeEngine(engineId: String): Validated[ValidateError, Boolean]
   def list(resourceType: String): Validated[ValidateError, Boolean]
   def parseAndValidateParams(params: String): Validated[ValidateError, EngineParams]

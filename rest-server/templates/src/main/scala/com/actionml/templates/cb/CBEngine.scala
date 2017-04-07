@@ -44,13 +44,15 @@ class CBEngine(engineId: String) // REST resourceId used as a DB key too
     dataset = new CBDataset(engineId)
       .destroy()// Todo: Remove this, only for testing.
       .create()
-    val algoParams = CBAlgorithm.parseAndValidateParams(params.params.algorithm)
-    if(algoParams.isValid) {
-      algo = new CBAlgorithm(algoParams.getOrElse(CBAlgoParams(dataset)))
-    } else {
-      logger.error("Bad algorithm params. Using defaults but this is probably an error.")
-    }
+    algo = new CBAlgorithm(engineJson).init(dataset)
     this
+  }
+
+  override def stop(): Unit = {
+    logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
+    algo.stop().wait() // Todo: should have a timeout and do something on timeout here
+    logger.info(s"Dropping persisted data for id: $engineId")
+    dataset.destroy()
   }
 
   def train(): Unit = {
@@ -104,15 +106,9 @@ class CBEngine(engineId: String) // REST resourceId used as a DB key too
 
 }
 
-case class CBAllParams(
-  algorithm: String
-)
-
-
 case class CBEngineParams(
     engineId: Option[String] = None, // generated and returned if no specified
-    engineFactory: String = "", // required, how any new or restarted engine gets going
-    params: CBAllParams)
+    engineFactory: String = "") // required, how any new or restarted engine gets going
   extends EngineParams
 
 /*
