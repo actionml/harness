@@ -26,15 +26,19 @@ import com.typesafe.scalalogging.LazyLogging
   * and sent the correct case class E or a Seq[E] to input or inputCol of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   *
-  * @param d dataset to store input
-  * @param p engine params, typically for the algorithm
-  * @tparam E input case class type, often and Event of some type
   * @tparam R engine query result case class type
   */
-abstract class Engine[E, R](d: Dataset[E], p: EngineParams) extends LazyLogging {
+abstract class Engine[R]() extends LazyLogging {
 
-  val dataset = d
-  val params = p
+  var dataset = _
+  var params = _
+  var algo = _
+  var engineId: String = _
+
+  def init(json: String): Validated[ValidateError, Boolean]
+  def destroy(): Validated[ValidateError, Boolean]
+  def start() = {logger.trace(s"Starting base Engine with engineId:$engineId")}
+  def stop() = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]

@@ -28,13 +28,20 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, MappingException}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(dataset: CBDataset, params: CBEngineParams)
-  extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
-
-  lazy val algo = new CBAlgorithm(getAlgoParams(params)).init() // this auto-starts kappa training on dataset in params
+class CBEngine() extends Engine() with LazyLogging with JsonParser {
 
   implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    algo = new CBAlgorithm(getAlgoParams(params))
+    val response = parseAndValidate[CBEngineParams](json)
+    if (response.isValid) {
+      engineId = response.getOrElse[CBEngineParams](CBEngineParams()).
+      algo.init(json)
+
+    } else response.map(_.)
+  }
 
   def train(): Unit = {
     logger.trace(s"Only used for Lambda style training")
@@ -75,42 +82,21 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     Valid(CBQueryResult())
   }
 
-  def parseAndValidateQuery(json: String): Validated[ValidateError, CBQueryResult] = {
-    logger.trace(s"Got a query JSON string: ${json}")
+  def parseAndValidate[T](json: String): Validated[ValidateError, T] = {
     try{
       Valid(parse(json).extract[CBQueryResult])
     } catch {
       case e: MappingException =>
-        logger.error(s"Recoverable Error: malformed query: ${json}", e)
-        Invalid(ParseError(s"Json4s parsing error, malformed query json: ${json}"))
+        logger.error(s"Malformed json: ${json}", e)
+        Invalid(ParseError(s"Json4s parsing error, malformed json: ${json}"))
 
     }
-  }
-
-  def getAlgoParams(ep: CBEngineParams): CBAlgoParams = {
-    CBAlgoParams(
-      dataset,
-      ep.maxIter,
-      ep.regParam,
-      ep.stepSize,
-      ep.bitPrecision,
-      ep.modelName,
-      ep.namespace,
-      ep.maxClasses)
   }
 
 }
 
 case class CBEngineParams(
-    id: String = "", // required
-    dataset: String = "", // required, readFile now
-    maxIter: Int = 100, // the rest of these are VW params
-    regParam: Double = 0.0,
-    stepSize: Double = 0.1,
-    bitPrecision: Int = 24,
-    modelName: String = "model.vw",
-    namespace: String = "n",
-    maxClasses: Int = 3)
+    engineId: String = "") // required
   extends EngineParams
 
 /*
