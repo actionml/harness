@@ -37,6 +37,10 @@ class NotCreatedError(ActionMLAPIError):
     pass
 
 
+class NotImplementedError(ActionMLAPIError):
+    pass
+
+
 class NotFoundError(ActionMLAPIError):
     pass
 
@@ -132,6 +136,9 @@ class BaseClient(object):
         if response.error is not None:
             raise NotFoundError("Exception happened: %s for request %s" %
                                 (response.error, response.request))
+        elif response.status == httplib.NOT_IMPLEMENTED:
+            raise NotImplementedError("Exception happened: %s for request %s" %
+                                      (response.error, response.request))
         elif response.status != httplib.OK:
             raise NotFoundError("request: %s status: %s body: %s" %
                                 (response.request, response.status, response.body))
@@ -154,7 +161,7 @@ class EventClient(BaseClient):
     Default value is 5.
     """
 
-    def __init__(self, dataset_id, url="http://localhost:8080", threads=1, qsize=0, timeout=5):
+    def __init__(self, dataset_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
         assert type(dataset_id) is str, "dataset_id must be string."
         self.dataset_id = dataset_id
         self.path = "/datasets/%s/events" % (self.dataset_id,)
@@ -248,150 +255,9 @@ class EventClient(BaseClient):
         """Synchronously delete an event from PIO Kappa Server."""
         return self.async_delete(event_id).get_response()
 
-    ## Below are helper functions
-
-    def async_set_user(self, uid, properties=None, event_time=None):
-        """
-        Set properties of a user.
-        Wrapper of async_create function, setting event to "$set" and entity_type
-        to "user".
-        """
-        if properties is None:
-            properties = {}
-        return self.async_create(
-            event="$set",
-            entity_type="user",
-            entity_id=uid,
-            properties=properties,
-            event_time=event_time,
-        )
-
-    def set_user(self, uid, properties=None, event_time=None):
-        """Set properties of a user"""
-        if properties is None:
-            properties = {}
-        return self.async_set_user(uid, properties, event_time).get_response()
-
-    def async_unset_user(self, uid, properties, event_time=None):
-        """
-        Unset properties of an user.
-        Wrapper of async_create function, setting event to "$unset" and entity_type
-        to "user".
-        """
-        # check properties={}, it cannot be empty
-        return self.async_create(
-            event="$unset",
-            entity_type="user",
-            entity_id=uid,
-            properties=properties,
-            event_time=event_time,
-        )
-
-    def unset_user(self, uid, properties, event_time=None):
-        """Set properties of a user"""
-        return self.async_unset_user(uid, properties, event_time).get_response()
-
-    def async_delete_user(self, uid, event_time=None):
-        """
-        Delete a user.
-        Wrapper of async_create function, setting event to "$delete" and entity_type
-        to "user".
-        """
-        return self.async_create(
-            event="$delete",
-            entity_type="user",
-            entity_id=uid,
-            event_time=event_time)
-
-    def delete_user(self, uid, event_time=None):
-        """Delete a user."""
-        return self.async_delete_user(uid, event_time).get_response()
-
-    def async_set_item(self, iid, properties=None, event_time=None):
-        """
-        Set properties of an item.
-        Wrapper of async_create function, setting event to "$set" and entity_type
-        to "item".
-        """
-        if properties is None:
-            properties = {}
-        return self.async_create(
-            event="$set",
-            entity_type="item",
-            entity_id=iid,
-            properties=properties,
-            event_time=event_time)
-
-    def set_item(self, iid, properties=None, event_time=None):
-        """Set properties of an item."""
-        if properties is None:
-            properties = {}
-        return self.async_set_item(iid, properties, event_time).get_response()
-
-    def async_unset_item(self, iid, properties=None, event_time=None):
-        """
-        Unset properties of an item.
-        Wrapper of async_create function, setting event to "$unset" and entity_type
-        to "item".
-        """
-        if properties is None:
-            properties = {}
-        return self.async_create(
-            event="$unset",
-            entity_type="item",
-            entity_id=iid,
-            properties=properties,
-            event_time=event_time)
-
-    def unset_item(self, iid, properties=None, event_time=None):
-        """Unset properties of an item."""
-        if properties is None:
-            properties = {}
-        return self.async_unset_item(iid, properties, event_time).get_response()
-
-    def async_delete_item(self, iid, event_time=None):
-        """
-        Delete an item.
-        Wrapper of async_create function, setting event to "$delete" and entity_type
-        to "item".
-        """
-        return self.async_create(
-            event="$delete",
-            entity_type="item",
-            entity_id=iid,
-            event_time=event_time)
-
-    def delete_item(self, iid, event_time=None):
-        """Delete an item."""
-        return self.async_delete_item(iid, event_time).get_response()
-
-    def async_record_user_action_on_item(self, action, uid, iid, properties=None, event_time=None):
-        """
-        Create a user-to-item action.
-        Wrapper of async_create function, setting entity_type to "user" and
-        target_entity_type to "item".
-        """
-        if properties is None:
-            properties = {}
-        return self.async_create(
-            event=action,
-            entity_type="user",
-            entity_id=uid,
-            target_entity_type="item",
-            target_entity_id=iid,
-            properties=properties,
-            event_time=event_time)
-
-    def record_user_action_on_item(self, action, uid, iid, properties=None, event_time=None):
-        """Create a user-to-item action."""
-        if properties is None:
-            properties = {}
-        return self.async_record_user_action_on_item(
-            action, uid, iid, properties, event_time).get_response()
-
 
 class DatasetClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:8080", threads=1, qsize=0, timeout=5):
+    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/datasets"
         super(DatasetClient, self).__init__(url, threads, qsize, timeout)
 
@@ -438,7 +304,7 @@ class DatasetClient(BaseClient):
 
 
 class EngineClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:8080", threads=1, qsize=0, timeout=5):
+    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/engines"
         super(EngineClient, self).__init__(url, threads, qsize, timeout)
 
@@ -497,7 +363,7 @@ class QueryClient(BaseClient):
     :param timeout: timeout for HTTP connection attempts and requests in seconds (optional). Default value is 5.
     """
 
-    def __init__(self, engine_id: str, url: str = "http://localhost:8080", threads=1, qsize=0, timeout=5):
+    def __init__(self, engine_id: str, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.engine_id = engine_id
         self.path = "/engines/{}/queries".format(self.engine_id)
         super(QueryClient, self).__init__(url, threads, qsize, timeout)
@@ -526,7 +392,7 @@ class QueryClient(BaseClient):
 
 
 class CommandClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:8080", threads=1, qsize=0, timeout=5):
+    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/commands"
         super(CommandClient, self).__init__(url, threads, qsize, timeout)
 
@@ -587,48 +453,3 @@ class CommandClient(BaseClient):
 
     def cancel_command(self, command_id: str) -> object:
         return self.async_cancel_command(command_id).get_response()
-
-
-class FileExporter(object):
-    """
-    File exporter to write events to JSON file for batch import
-    :param file_name: the destination file name
-    """
-
-    def __init__(self, file_name):
-        """Constructor of Exporter."""
-        self._file = open(file_name, 'w')
-
-    def create_event(self, event_id, event, entity_type, entity_id,
-                     target_entity_type=None, target_entity_id=None, properties=None,
-                     event_time=None, creation_time=None):
-        """Create an event and write to the file. (please refer to EventClient's create_event())"""
-        data = {
-            "eventId": event_id,
-            "event": event,
-            "entityType": entity_type,
-            "entityId": entity_id,
-        }
-
-        if target_entity_type is not None:
-            data["targetEntityType"] = target_entity_type
-
-        if target_entity_id is not None:
-            data["targetEntityId"] = target_entity_id
-
-        if properties is not None:
-            data["properties"] = properties
-
-        data["eventTime"] = time_to_string_if_valid(event_time)
-
-        data["creationTime"] = time_to_string_if_valid(creation_time)
-
-        j = json.dumps(data)
-        self._file.write(j + "\n")
-
-    def close(self):
-        """
-        Close the FileExporter
-        Call this method when you finish writing all events to JSON file
-        """
-        self._file.close()
