@@ -2,6 +2,7 @@ package com.actionml.router.http.routes
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import akka.http.scaladsl.server.Directives.complete
 import akka.http.scaladsl.server.{Directive, Directives, Route}
 import akka.util.Timeout
 import cats.data.Validated
@@ -50,6 +51,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Fa
       case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
+      case Invalid(error: EventOutOfSequence) ⇒ complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: NotImplemented) ⇒ complete(StatusCodes.NotImplemented, error.message)
       case _ ⇒ complete(StatusCodes.NotFound)
     }

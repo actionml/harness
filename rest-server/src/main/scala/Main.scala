@@ -41,7 +41,7 @@ class BaseModule extends Module{
   bind[EngineService] to new CBEngineService
   bind[QueryService] to new CBQueryService
 
-  bind[CBDataset] to new CBDataset("test-resource")
+  bind[CBDataset] to new CBDataset() // Semen: no longer need the store, private to the dataset now
 
   bind[CBEngineParams] to new CBEngineParams
   bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])

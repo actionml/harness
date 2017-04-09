@@ -31,7 +31,7 @@ import org.json4s.{DefaultFormats, MappingException}
 class CBEngine(dataset: CBDataset, params: CBEngineParams)
   extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
 
-  private lazy val algo = new CBAlgorithm(getAlgoParams(params)) // this auto-starts kappa training on dataset in params
+  private lazy val algo = new CBAlgorithm(getAlgoParams(params)).init() // this auto-starts kappa training on dataset in params
 
   private implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
@@ -46,9 +46,27 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    dataset.input(json)
-    // Todo: some events may cause immediate model modifications, only the Engine knows
-    // train() // for kappa?
+    dataset.input(json).andThen(triggerAlgorithm).map(_ => true)
+    // Just as only the engine know training is triggered on input, also some events may cause the model to change
+  }
+
+  /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
+  def triggerAlgorithm(event: CBEvent): Validated[ValidateError, CBEvent] = {
+     event match {
+      case event: CBUsageEvent =>
+        algo.train(event.properties.testGroupId)
+      case event: CBGroupInitEvent =>
+        algo.add(event.entityId,dataset.CBCollections.usageEventGroups(event.entityId))
+      case event: CBDeleteEvent =>
+        event.entityType match {
+          case "group" | "testGroup" =>
+            algo.remove(event.entityId)
+          case other => // todo: Pat, need refactoring this
+            logger.warn("Non expected value of entityType: {}, in {}", other, event)
+        }
+      case _ =>
+    }
+    Valid(event)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */

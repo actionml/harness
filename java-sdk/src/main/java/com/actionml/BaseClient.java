@@ -63,7 +63,7 @@ public class BaseClient {
         system = ActorSystem.create("actionml-sdk-client");
         Function<Throwable, Supervision.Directive> decider = exc -> {
             System.err.println(exc.getMessage());
-            exc.printStackTrace();
+//            exc.printStackTrace();
             return Supervision.resume();
         };
         materializer = ActorMaterializer.create(
@@ -125,17 +125,17 @@ public class BaseClient {
         return future;
     }
 
-    protected CompletionStage<JsonElement> extractJson(HttpResponse response) {
-        CompletableFuture<JsonElement> future = new CompletableFuture<>();
-        if (response.status() == StatusCodes.CREATED || response.status() == StatusCodes.OK) {
-            future = response.entity()
-                    .getDataBytes()
-                    .runFold(ByteString.empty(), ByteString::concat, this.materializer)
-                    .thenApply(ByteString::utf8String)
-                    .thenApply(parser::parse).toCompletableFuture();
-        } else {
-            future.completeExceptionally(new Exception("" + response.status() + response.entity().toString()));
-        }
+    protected CompletionStage<Pair<Integer, String>> extractResponse(HttpResponse response) {
+        CompletableFuture<Pair<Integer, String>> future;
+        future = response.entity()
+                .getDataBytes()
+                .runFold(ByteString.empty(), ByteString::concat, this.materializer)
+                .thenApply(ByteString::utf8String)
+                .thenApply(str -> {
+                    Integer code = response.status().intValue();
+                    return Pair.create(code, str);
+                }).toCompletableFuture();
+
         return future;
     }
 
