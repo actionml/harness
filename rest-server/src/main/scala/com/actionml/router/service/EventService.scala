@@ -1,5 +1,7 @@
 package com.actionml.router.service
 
+import cats.data.Validated.Invalid
+import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable
 import com.actionml.templates.cb.CBEngine
 import io.circe.generic.auto._
@@ -20,28 +22,16 @@ class CBEventService(implicit inj: Injector) extends EventService{
   private val engine = inject[CBEngine]
 
   override def receive: Receive = {
-    case GetEvent(datasetId, eventId) ⇒
-      log.debug("Get event, {}, {}", datasetId, eventId)
-      sender() ! None
+    case GetEvent(engineId, eventId) ⇒
+      log.debug("Get event, {}, {}", engineId, eventId)
+      sender() ! Invalid(NotImplemented())
 
-    case CreateEvent(datasetId, event) ⇒
-      log.debug("Receive new event & stored, {}, {}", datasetId, event)
+    case CreateEvent(engineId, event) ⇒
+      log.debug("Receive new event & stored, {}, {}", engineId, event)
       sender() ! engine.input(event).map(_.asJson)
   }
 }
 
-class EmptyEventService(implicit inj: Injector) extends EventService{
-  override def receive: Receive = {
-    case GetEvent(datasetId, eventId) ⇒
-      log.info("Get event, {}, {}", datasetId, eventId)
-      sender() ! None
-
-    case CreateEvent(datasetId, event) ⇒
-      log.info("Receive new event & stored, {}, {}", datasetId, event)
-      sender() ! None
-  }
-}
-
 sealed trait EventAction
-case class GetEvent(datasetId: String, eventId: String) extends EventAction
-case class CreateEvent(datasetId: String, event: String) extends EventAction
+case class GetEvent(engineId: String, eventId: String) extends EventAction
+case class CreateEvent(engineId: String, event: String) extends EventAction

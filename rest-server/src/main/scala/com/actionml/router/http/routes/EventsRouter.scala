@@ -2,11 +2,8 @@ package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import cats.data.Validated
-import com.actionml.core.validate.ValidateError
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
@@ -18,11 +15,11 @@ import scala.language.postfixOps
   * Event endpoints:
   *
   * Add new event
-  * PUT, POST /datasets/<dataset-id>/events {JSON body for PIO event}
+  * PUT, POST /engines/<engine-id>/events {JSON body for PIO event}
   * Response: HTTP code 201 if the event was successfully created; otherwise, 400.
   *
   * Get exist event
-  * GET /datasets/<dataset-id>/events/<event-id>
+  * GET /engines/<engine-id>/events/<event-id>
   * Response: {JSON body for PIO event}
   * HTTP code 200 if the event exist; otherwise, 404
   *
@@ -34,12 +31,12 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
   private val eventService = injectActorRef[EventService]
 
   val route: Route = rejectEmptyResponse {
-    (pathPrefix("datasets" / Segment) & extractLog) { (datasetId, log) =>
+    (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
       pathPrefix("events") {
         pathEndOrSingleSlash {
-          createEvent(datasetId, log)
+          createEvent(engineId, log)
         } ~ path(Segment) { eventId ⇒
-          getEvent(datasetId, eventId, log)
+          getEvent(engineId, eventId, log)
         }
       }
     }
@@ -47,17 +44,15 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.debug("Get event: {}, {}", datasetId, eventId)
-    complete()
-//    complete((eventService ? GetEvent(datasetId, eventId))
-//      .mapTo[Option[CBRawEvent]]
-//      .map(_.map(_.asJson))
-//    )
+    completeByValidated(StatusCodes.OK) {
+      (eventService ? GetEvent(datasetId, eventId)).mapTo[Response]
+    }
   }
 
-  private def createEvent(datasetId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
-    log.debug("Create event: {}, {}", datasetId, event)
+  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
+    log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(datasetId, event.toString())).mapTo[Response]
+      (eventService ? CreateEvent(engineId, event.toString())).mapTo[Response]
     }
   }
 
