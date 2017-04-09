@@ -32,8 +32,8 @@ import java.util.concurrent.CompletionStage;
  */
 public class EventClient extends RestClient {
 
-    public EventClient(String datasetId, String host, Integer port) {
-        super(host, port, Uri.create("/datasets").addPathSegment(datasetId).addPathSegment("events"));
+    public EventClient(String engineId, String host, Integer port) {
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"));
     }
 
     /**
@@ -42,7 +42,7 @@ public class EventClient extends RestClient {
      * @param eventId ID event
      * @return Event
      */
-    CompletionStage<Pair<Integer, String>> getEvent(String eventId) {
+    public CompletionStage<Pair<Integer, String>> getEvent(String eventId) {
         return this.get(eventId);
     }
 

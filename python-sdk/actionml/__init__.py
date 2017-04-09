@@ -161,10 +161,10 @@ class EventClient(BaseClient):
     Default value is 5.
     """
 
-    def __init__(self, dataset_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
-        assert type(dataset_id) is str, "dataset_id must be string."
-        self.dataset_id = dataset_id
-        self.path = "/datasets/%s/events" % (self.dataset_id,)
+    def __init__(self, engine_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+        assert type(engine_id) is str, "engine_id must be string."
+        self.engine_id = engine_id
+        self.path = "/engines/%s/events" % (self.engine_id,)
         super(EventClient, self).__init__(url, threads, qsize, timeout)
 
     def async_create(self, event_id, event, entity_type, entity_id,
