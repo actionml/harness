@@ -18,7 +18,9 @@
 package com.actionml.core.template
 
 import akka.actor.Terminated
+import cats.data.Validated
 import com.actionml.core.storage.Store
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Future
@@ -26,11 +28,12 @@ import scala.concurrent.Future
 abstract class Algorithm(s: Store) extends LazyLogging{
 
   val store: Store = s
-  val params: AlgorithmParams
+  //var params: AlgorithmParams
 
-  def init(): Algorithm
-  def stop(): Future[Terminated]
-
+  def init(json: String): Validated[ValidateError, Boolean]
+  def destroy(): Unit = {logger.trace(s"Starting base Algorithm")}
+  def start() = {logger.trace(s"Starting base Algorithm"); this}
+  def stop(): Unit = {logger.trace(s"Stopping base Algorithm")}
 }
 
 trait AlgorithmParams

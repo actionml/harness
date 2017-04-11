@@ -67,31 +67,19 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
   }
 
   def run( config: CBCmdLineDriverConfig ): Unit = {
-    // Infant Template API, create a store, a dataset, and an engine
-    // from then all input goes to the engine, which may or may not put it in the dataset using the store for
-    // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
-    // and Lambda style learning
-/*    val dataset = new CBDataset("test-resource")
-      .destroy()
-      .create()
+    // The pio-kappa rest-server should startup the administrator, which starts any persisted engines
+    // then the Python CLI will control CRUD on Engines. We need to use factories that take json for
+    // creating Engines so the Administrator and CLI is Engine independent
+    // For now we assume CBEngines in the MongoAdministrator
 
-    implicit val formats = DefaultFormats
-
-    val source = Source.fromFile(config.engineDefJSON)
-    val engineJSON = try source.mkString finally source.close()
-
-    val params = parse(engineJSON).extract[CBEngineParams]
-
-    // Todo: params will eventually come from some store that is sharable
-    val engine = new CBEngine(dataset, params)
-*/
-
-    val admin = new MongoAdministrator().init.start
+    val admin = new MongoAdministrator().init
     val engineJson = Source.fromFile(config.engineDefJSON).mkString
+
+    admin.removeEngine("test_resource") // should remove and destroy an engine initialized at startup
+    // so we can re-initialize in case of old data in the DB
+
     admin.addEngine(engineJson)
-
-
-    val engine = admin.getEngine("test-resource")
+    val engine = admin.getEngine("test_resource")
 
     var errors = 0
     var total = 0

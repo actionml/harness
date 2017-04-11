@@ -1,6 +1,8 @@
+import SbtNativePackager._
+
 name := "pio-kappa-rest-server"
 
-version := "1.0"
+version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
@@ -14,7 +16,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  version := "1.0-SNAPSHOT",
+  version := "0.1.0-SNAPSHOT",
   scalaVersion := "2.11.8",
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.2",
@@ -59,4 +61,4 @@ lazy val templates = (project in file("templates")).dependsOn(core).
 
 lazy val root = (project in file(".")).dependsOn(core, templates).settings(
   commonSettings
-).aggregate(core, templates)
+).enablePlugins(JavaAppPackaging).aggregate(core, templates)

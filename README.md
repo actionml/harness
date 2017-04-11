@@ -50,13 +50,13 @@ All REST APIs will have Access Control Lists based on who is allowed to access t
 Integral to REST is the notion of a "resource", which can be though of as a collection of items that can be addressed by a resource-id. Since with REST all resource-ids must be URI encoded following the rules for vanilla 
 URI fragments. The resources defined in PIO-Kappa are:
 
- - **engines**: All data is sent to an engine and queries are made of an engine. Input is validated based on the needs of the dataset, which is constructed to fit requirements of the algorithm.
- - **events**: a sub-collection of a particular engine. They are addressed like `POST /engines/<engine-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved events like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
+ - **events**: sub-collections that make up a particular dataset. They are addressed liek `/datasets/<dataset-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved event like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
+ - **engine**: the engine is the instance of a template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
  - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status since the command may take very long to complete.
 
 ## Input and Query
 
-See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries. Both reference an engine-id but have different endpoints.
+See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries.
 
     POST /engines/<engine-id>/events
         Request Body: JSON for PIO event

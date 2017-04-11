@@ -40,56 +40,68 @@ import scala.concurrent.Future
   * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
   *
   */
-class CBAlgorithm() extends Algorithm(new Mongo) with JsonParser {
+class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonParser {
 
-  private val system = ActorSystem("CBAlgorithm")
-
+  private val actors = ActorSystem("CBAlgorithm")
   private var trainers = Map.empty[String, ActorRef]
+  var params: CBAlgoParams = _
 
   // from the Dataset determine which groups are defined and start training on them
 
-  def init(dataset: CBDataset, json: String): CBAlgorithm = {
-    val groups: Map[String, MongoCollection] = dataset.CBCollections.usageEventGroups
-    logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
-    val exists = trainers.keys.toList
-    val diff = groups.filterNot { case (key, _) ⇒
-      exists.contains(key)
-    }
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    val response = parseAndValidate[CBAlgoParams](json)
 
-    // todo: Semen, not sure of the purpose of this
-    logger.trace("Existing trainers: {}", exists)
-    logger.trace("New trainers: {}", groups)
-    logger.trace("Diff trainers: {}", diff)
+    if (response.isValid) {
+      params = response.getOrElse(CBAlgoParams())
 
-    diff.foreach { case (trainer, collection) ⇒
-      val actor = system.actorOf(SingleGroupTrainer.props(collection), trainer)
-      trainers += trainer → actor
-    }
-    this
+      val groups: Map[String, MongoCollection] = dataset.usageEventGroups
+      logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
+      val exists = trainers.keys.toList
+      val diff = groups.filterNot { case (key, _) =>
+        exists.contains(key)
+      }
+
+      diff.foreach { case (trainer, collection) =>
+        val actor = actors.actorOf(SingleGroupTrainer.props(collection), trainer)
+        trainers += trainer → actor
+      }
+      Valid(true)
+    } else response.map(_ => false)
   }
 
   def train(groupName: String): Unit = {
-    logger.trace("Train trainer {}", groupName)
-    trainers(groupName) ! SingleGroupTrainer.Train
+    try {
+      logger.trace("Train trainer {}", groupName)
+      trainers(groupName) ! SingleGroupTrainer.Train
+    } catch{
+      case e: NoSuchElementException =>
+        logger.error(s"Training triggered on non-existent group: $groupName The group must be initialized first. " +
+          s"All events for this group will be ignored. ")
+    }
   }
 
   def remove(groupName: String): Unit = {
-    logger.info("Stop trainer {}", groupName)
-    system stop trainers(groupName)
-    logger.info("Remove trainer {}", groupName)
-    trainers -= groupName
+    try {
+      logger.info("Stop trainer {}", groupName)
+      actors stop trainers(groupName)
+      logger.info("Remove trainer {}", groupName)
+      trainers -= groupName
+    } catch{
+      case e: NoSuchElementException =>
+        logger.error(s"Deleting non-existent group: $groupName The group must be initialized first. Ingoring event.")
+    }
   }
 
   def add(groupName: String, collection: MongoCollection): Unit = {
     logger.info("Create trainer {}", groupName)
     if (!trainers.contains(groupName)) {
-      val actor = system.actorOf(SingleGroupTrainer.props(collection), groupName)
+      val actor = actors.actorOf(SingleGroupTrainer.props(collection), groupName)
       trainers += groupName → actor
     }
   }
 
-  def stop(): Future[Terminated] = {
-    system.terminate()
+  override def stop(): Unit = { // Todo: Semen, do we have to return Future[Terminated]? What is the benefit?
+    actors.terminate().wait() // Semen: I added the wait, not sure why we were returning a terminated Future
   }
 
 }

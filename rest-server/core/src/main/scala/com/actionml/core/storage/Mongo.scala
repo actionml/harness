@@ -22,7 +22,7 @@ import java.net.UnknownHostException
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClient
 
-class Mongo(m: String = "localhost", p: Int = 27017, n: String = "some-resource-id") extends Store {
+class Mongo(m: String = "localhost", p: Int = 27017, n: String = "test_resource") extends Store {
 
   val master: String = m
   val port: Int = p

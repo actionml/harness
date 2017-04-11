@@ -101,7 +101,58 @@ Following typical workflow for launching and managing the PIO-Kappa server the f
         # Server Configuration file. If the file is not provided
         # the command will attempt to find the server process to stop
         # -f or --force will bypass the confirmation of "aml stop"
-        
+
+# Engine Configuration Parameters
+
+Two files are used to initialize the pio-kappa Router and each Template.
+
+## application.conf
+
+In application.conf the default config for the Router is kept including what address and port it bind to, where MongoDB is, etc. This allows all specific config to be overridden in the environment. Simply adding a value for the following environment variables change the config:
+
+    // application.conf, hard coded defaults
+    mongo {
+      host = "localhost"
+      host = ${?MONGO_HOST}
+      port = 27017
+      port = ${?MONGO_PORT}
+    }
+
+To use a different host and port for MongoDB do the following before the REST-Server and Router is launched:
+
+    export MONGO_HOST=<some-host-name>
+    export MONGO_PORT=<some-port-number>
+    
+A full list of these will be provided in a bash shell script that sets up any overrides before launching the Router
+
+## engine.json
+
+This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are required by the pio-kappa framework:
+
+    {
+        "engineId": "test_resource"
+        "engineFactory": "org.actionml.templates.name.SomeEngineFatory"
+        "params": {
+            "algorithm": {
+                algorithm specific parameters, see Template docs
+                ...
+            },
+            "dataset": {
+                optional dataset specific parameters, see Template docs
+                ...
+            },
+            "other": {
+                any extra config can be defined by the template,
+                for instance Spark conf may go here is Spark is used,
+                see Template docs
+                ...
+            },
+            ...
+        }
+    }
+    
+The `"other"` section or sections are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit, or a Template may need a new server type that is only used by it. For instance The Universal Recommender will need an `"elasticsearch"` section. The Template will configure any component that is not part of the minimal subset defined by the Router
+         
 # The missing Commands
 
 It **is** possible to take an existing dataset and reuse it with a new Engine. This is done by the `aml engine update <engine-id>` command, which changes parameters the engine uses but does not delete the data. This only works with Engines of the same type where you are only changing parameters, for example altering the algorithm parameters. You cannot create 2 engines that use the same dataset since each may be modifying over the other.

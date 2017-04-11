@@ -17,6 +17,7 @@
 
 package com.actionml.core.template
 
+import akka.actor.Terminated
 import cats.data.Validated
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
@@ -24,14 +25,21 @@ import com.typesafe.scalalogging.LazyLogging
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
-  *
   */
-abstract class Engine(eId: String) extends LazyLogging {
+abstract class Engine() extends LazyLogging {
 
-  val engineId = eId
+  // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
+  // for instance. Because each Dataset may have a different parameter type
+  // val params: EngineParams
+  val algo: Algorithm
+  var engineId: String = _
 
-  def init(engineJson: String): Engine
-  def stop(): Unit = {}
+  def init(json: String): Validated[ValidateError, Boolean]
+  def initAndGet(json: String): Engine
+  def destroy(): Unit
+  def start() = {logger.trace(s"Starting base Engine with engineId:$engineId"); this}
+  def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
+
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
   def query(json: String): Validated[ValidateError, String]

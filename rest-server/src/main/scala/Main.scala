@@ -43,7 +43,7 @@ class BaseModule extends Module {
 
   //bind[CBEngineParams] to new CBEngineParams
   //bind[CBEngine] to new CBEngine(inject[CBDataset], inject[CBEngineParams])
-  bind[CBEngine] to new CBEngine("test-resource") // todo: Semen, this is supplied by the admin API now, this
+  bind[CBEngine] to new CBEngine() // todo: Semen, this is supplied by the admin API now, this
   // is only an exam[le
 
 }

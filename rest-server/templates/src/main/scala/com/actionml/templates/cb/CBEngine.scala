@@ -27,32 +27,42 @@ import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, MappingException}
 
-
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(engineId: String) // REST resourceId used as a DB key too
-  extends Engine(engineId) with LazyLogging with JsonParser {
+class CBEngine() extends Engine() with JsonParser {
 
-  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
-
+  val dataset = new CBDataset()
+  override val algo: CBAlgorithm = new CBAlgorithm(dataset)
   var params: CBEngineParams = _
-  var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
 
-  def init(engineJson: String) = {
+  override def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[CBEngineParams](json).andThen { p =>
+      params = p
+      Valid(p)
+    }.map(_ => true)
+  }
 
-    params = parse(engineJson).extract[CBEngineParams]
-    dataset = new CBDataset(engineId)
-      .destroy()// Todo: Remove this, only for testing.
-      .create()
-    algo = new CBAlgorithm(engineJson).init(dataset)
-    this
+  // used when init might fail from bad params in the json but you want an Engine, not a Validated
+  // Todo: should return null for bad init
+  override def initAndGet(json: String): CBEngine = {
+    val response = init(json)
+    if (response.isValid) {
+      logger.trace(s"Initialized with JSON: $json")
+      this
+    } else {
+      logger.error(s"Parse error with JSON: $json")
+      null.asInstanceOf[CBEngine] // todo: ugly, replace
+    }
   }
 
   override def stop(): Unit = {
     logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
-    algo.stop().wait() // Todo: should have a timeout and do something on timeout here
+    algo.stop() // Todo: should have a timeout and do something on timeout here
+  }
+
+  override def destroy(): Unit = {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
+    algo.destroy()
   }
 
   def train(): Unit = {
@@ -65,21 +75,22 @@ class CBEngine(engineId: String) // REST resourceId used as a DB key too
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    dataset.input(json).andThen(triggerAlgorithm).map(_ => true)
-    // Just as only the engine know training is triggered on input, also some events may cause the model to change
+    dataset.input(json).andThen(process(_)).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def triggerAlgorithm(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(event.entityId,dataset.CBCollections.usageEventGroups(event.entityId))
+        algo.add(event.entityId,dataset.usageEventGroups(event.entityId))
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
+          case other => // todo: Pat, need refactoring this
+            logger.warn("Unexpected value of entityType: {}, in {}", other, event)
         }
       case _ =>
     }
@@ -92,23 +103,10 @@ class CBEngine(engineId: String) // REST resourceId used as a DB key too
     Valid(CBQueryResult("variant1", "group1").toJson)
   }
 
-  def parseAndValidateQuery(json: String): Validated[ValidateError, CBQueryResult] = {
-    logger.trace(s"Got a query JSON string: ${json}")
-    try{
-      Valid(parse(json).extract[CBQueryResult])
-    } catch {
-      case e: MappingException =>
-        logger.error(s"Recoverable Error: malformed query: ${json}", e)
-        Invalid(ParseError(s"Json4s parsing error, malformed query json: ${json}"))
-
-    }
-  }
-
 }
 
 case class CBEngineParams(
-    engineId: Option[String] = None, // generated and returned if no specified
-    engineFactory: String = "") // required, how any new or restarted engine gets going
+    engineId: String = "") // required
   extends EngineParams
 
 /*

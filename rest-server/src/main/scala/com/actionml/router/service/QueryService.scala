@@ -21,7 +21,7 @@ class CBQueryService(implicit inj: Injector) extends QueryService{
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
-      sender() ! engine.query(query).map(_.asJson)// Todo: Semen you may want to refactor
+      sender() ! engine.query(query).map(_.asJson)
   }
 }
 

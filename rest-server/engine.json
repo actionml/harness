@@ -1,5 +1,5 @@
 {
-  "engineId": "test-resource",
+  "engineId": "test_resource",
   "engineFactory": "com.actionml.templates.cb.CBEngineFactory",
   "algorithm":{
     "maxIter": 100,

@@ -54,27 +54,28 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.admin.Administrator
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Engine, EngineParams}
-import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
+import com.actionml.core.validate._
 import com.actionml.templates.cb.CBEngine
+import com.mongodb.casbah.commons.MongoDBObject
+import com.mongodb.casbah.Imports._
 import com.typesafe.config.ConfigFactory
 import org.json4s.MappingException
 import org.json4s.jackson.JsonMethods._
 
 class MongoAdministrator() extends Administrator() with JsonParser {
 
-  private lazy val config = ConfigFactory.load()
   lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
 
 //  val engines = store.client.getDB("metaStore").getCollection("engines")
 //  val datasets = store.client.getDB("metaStore").getCollection("datasets")
 //  val commands = store.client.getDB("metaStore").getCollection("commands") // async persistent though temporary commands
-  lazy val enginesCollection = store.connection("metaStore")("engines")
-  lazy val datasetsCollection = store.connection("metaStore")("datasets")
-  lazy val commandsCollection = store.connection("metaStore")("commands") // async persistent though temporary commands
-  var engines: Map[String, Engine] = _
+  lazy val enginesCollection = store.connection("meta_store")("engines")
+  //lazy val datasetsCollection = store.connection("meta_store")("datasets")
+  lazy val commandsCollection = store.connection("meta_store")("commands") // async persistent though temporary commands
+  var engines = Map.empty[String, Engine]
 
 
-  // startup and shutdown
+  // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
     engines = enginesCollection.find.map { engine =>
@@ -84,14 +85,9 @@ class MongoAdministrator() extends Administrator() with JsonParser {
       // create each engine passing the params
       // Todo: Semen, this happens on startup where all exisitng Engines will be started it replaces some of the code
       // in Main See CmdLineDriver for what should be done to integrate.
-      engineId -> new CBEngine(engineId).init(params)
-    }.toMap
+      engineId -> (new CBEngine).initAndGet(params)
+    }.filter(_._2 != null).toMap
     this
-  }
-
-  override def start() = this
-
-  override def stop(): Unit = {
   }
 
   def getEngine(engineId: String): Engine = {
@@ -106,63 +102,56 @@ class MongoAdministrator() extends Administrator() with JsonParser {
   Action: creates or modifies an existing engine
   */
   def addEngine(json: String): Validated[ValidateError, Boolean] = {
-    val params = parse(json).extract[RequiredEngineParams]
-    val eId = params.engineId
-    if (engines.keySet.contains(params.engineId)) { // Re-initialize the engine
-      engines = engines + (params.engineId -> new CBEngine(eId).init(json)) // Todo: replace with a call to the factory
-      // to remove dependency on specific Engine type
-      if (engines(eId) != null) { // new worked
-        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+    // val params = parse(json).extract[RequiredEngineParams]
+    parseAndValidate[RequiredEngineParams](json).andThen { params =>
+      engines = engines + (params.engineId -> new CBEngine().initAndGet(json))
+      if (engines(params.engineId) != null) {
+        if(enginesCollection.find(MongoDBObject("EngineId" -> params.engineId)).size == 1) {
+          // re-initialize
+          logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+          enginesCollection.findAndModify(MongoDBObject("engineId" -> params.engineId),
+            MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+        } else {
+          //add new
+          logger.trace(s"Initializing new engine for resource-id: ${params.engineId} with params $json")
+          val builder = MongoDBObject.newBuilder
+          builder += "engineId" -> params.engineId
+          builder += "engineFactory" -> params.engineFactory
+          builder += "params" -> json
+          enginesCollection += builder.result()
+
+        } // ignores case of too many engine with the same engineId
         Valid(true)
-      } else { // init failed
-        engines = engines - eId //remove bad engine
+      } else {
+        // init failed
+        engines = engines - params.engineId //remove bad engine
         logger.error(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json")
         Invalid(ParseError(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json"))
       }
-    } else { // Add a new engine
-      engines = engines + (params.engineId -> new CBEngine(eId).init(json)) // Todo: replace with a call to the factory
-      logger.trace(s"Added new engine for resource-id: ${params.engineId} with new params $json")
-      Valid(true)
     }
   }
 
   def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
-    if ( engines.keySet.contains(engineId)) {
+    if (engines.keySet.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
-      engines(engineId).stop()
+      val deadEngine = engines(engineId)
+      engines = engines - engineId
+      enginesCollection.findAndRemove(MongoDBObject("engineId" -> engineId))
+      deadEngine.destroy()
+      Valid(true)
     } else {
       logger.warn(s"Cannot remove non-existent engine for id: $engineId")
-      Invalid(s"Cannot remove non-existent engine for id: $engineId")
+      Invalid(WrongParams(s"Cannot remove non-existent engine for id: $engineId"))
     }
-    engines = engines - engineId // Todo
-    Valid(true)
   }
 
   def list(resourceType: String): Validated[ValidateError, Boolean] = {
     Valid(true)
   }
 
-  def parseAndValidateParams(json: String): Validated[ValidateError, RequiredEngineParams] = {
-    try {
-      val params = parse(json).extract[RequiredEngineParams]
-      Valid(params)
-    } catch {
-      case e: MappingException =>
-        logger.error(s"Json4s parsing error, this could be because of missing but required fields in the json: ${json}")
-        Invalid(ParseError(s"Json4s parsing error, this could be because of missing but required fields in the " +
-          s"json: ${json}"))
-      case e: Exception =>
-        logger.error(s"Unknown Error: ignoring bad engine params: ${json}", e)
-        Invalid(ParseError(s"Unknown Error: ignoring bad engine params: ${json}, ${e.getMessage}"))
-    }
-
-  }
-
 }
 
 case class RequiredEngineParams(
   engineId: String, // required, resourceId for engine
-  engineFactory: String, // required engine factory class name com.actionml.templates.CBEngineFactory for instance
-  // other data here is Engine specific
-  params: Option[String] // the rest of the prams json string passed to the factory unparsed
+  engineFactory: String
 ) extends EngineParams
