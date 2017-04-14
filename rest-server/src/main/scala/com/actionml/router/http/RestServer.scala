@@ -11,6 +11,7 @@ import com.actionml.router.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
 import akka.http.scaladsl.server.Directives._
+import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -22,7 +23,7 @@ import scala.concurrent.Future
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:56
   */
-class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport{
+class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport with LazyLogging{
 
   implicit private val actorSystem = inject[ActorSystem]
   implicit private val executor = actorSystem.dispatcher
@@ -43,6 +44,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     if (config.ssl) {
       Http().setDefaultServerHttpContext(https)
     }
+    logger.info(s"Start http server $host:$port")
     Http().bindAndHandle(logResponseTime(route), host, port)
   }
 
