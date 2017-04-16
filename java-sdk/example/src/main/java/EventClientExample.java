@@ -79,7 +79,7 @@ public class EventClientExample {
 //        });
 
 
-        String fileName = "../data/sample-x.json";
+        String fileName = args[0];
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
