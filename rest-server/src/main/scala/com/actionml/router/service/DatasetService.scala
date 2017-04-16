@@ -33,7 +33,7 @@ trait DatasetService extends ActorInjectable
 
 class CBDatasetService(implicit inj: Injector) extends DatasetService{
 
-  private val dataset = inject[CBDataset]
+  private val engine = inject[CBEngine]
 
   override def receive: Receive = {
     case CreateDataset ⇒
