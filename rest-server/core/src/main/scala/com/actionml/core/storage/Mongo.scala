@@ -21,6 +21,7 @@ import java.net.UnknownHostException
 
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClient
+import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 
 class Mongo(m: String = "localhost", p: Int = 27017, n: String = "test_resource") extends Store {
 
@@ -30,6 +31,8 @@ class Mongo(m: String = "localhost", p: Int = 27017, n: String = "test_resource"
   lazy val client = MongoClient(master, port)
   @transient lazy val connection = MongoConnection(master, port)
   val store = this
+
+  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
   // should only be called from trusted source like the CLI!
   def create(): Mongo = {
