@@ -33,12 +33,11 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
   private val check = inject[CheckRouter]
   private val commands = inject[CommandsRouter]
-  private val datasets = inject[DatasetsRouter]
   private val events = inject[EventsRouter]
   private val engines = inject[EnginesRouter]
   private val queries = inject[QueriesRouter]
 
-  private val route: Route = check.route ~ events.route ~ datasets.route ~ engines.route ~ queries.route ~ commands.route
+  private val route: Route = check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.ssl) {

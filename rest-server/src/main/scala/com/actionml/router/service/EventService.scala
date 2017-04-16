@@ -1,10 +1,9 @@
 package com.actionml.router.service
 
 import cats.data.Validated.Invalid
+import com.actionml.core.template.Engine
 import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable
-import com.actionml.templates.cb.CBEngine
-import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -17,9 +16,9 @@ import scaldi.Injector
 
 trait EventService extends ActorInjectable
 
-class CBEventService(implicit inj: Injector) extends EventService{
+class EventServiceImpl(implicit inj: Injector) extends EventService{
 
-  private val engine = inject[CBEngine]
+  private val engine = inject[Engine]
 
   override def receive: Receive = {
     case GetEvent(engineId, eventId) ⇒

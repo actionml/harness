@@ -69,7 +69,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
     // creating Engines so the Administrator and CLI is Engine independent
     // For now we assume CBEngines in the MongoAdministrator
 
-    val admin = new MongoAdministrator().init
+    val admin = new MongoAdministrator().init()
     val engineJson = Source.fromFile(config.engineDefJSON).mkString
 
     admin.removeEngine("test_resource") // should remove and destroy an engine initialized at startup

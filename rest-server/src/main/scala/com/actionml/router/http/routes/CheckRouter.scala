@@ -5,7 +5,7 @@ import akka.http.scaladsl.server.Route
 import scaldi.Injector
 
 /**
-  * Created by semen on 03.03.17.
+  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
 class CheckRouter(implicit inj: Injector) extends BaseRouter {
   override val route: Route = pathSingleSlash {
