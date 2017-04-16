@@ -405,15 +405,6 @@ class CommandClient(BaseClient):
     def get_engines_list(self) -> object:
         return self.async_get_engines_list().get_response()
 
-    def async_get_datasets_list(self) -> AsyncRequest:
-        request = AsyncRequest("GET", self.path + "/list/datasets")
-        request.set_response_handler(self._ok_response_handler)
-        self._connection.make_request(request)
-        return request
-
-    def get_datasets_list(self) -> object:
-        return self.async_get_datasets_list().get_response()
-
     def async_get_commands_list(self) -> AsyncRequest:
         request = AsyncRequest("GET", self.path + "/list/commands")
         request.set_response_handler(self._ok_response_handler)

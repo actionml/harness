@@ -10,7 +10,7 @@ __license__ = "Apache License, Version 2.0"
 
 setup(
     name='ActionML',
-    version="0.0.4",
+    version="0.0.5",
     author=__author__,
     author_email=__email__,
     packages=['actionml'],

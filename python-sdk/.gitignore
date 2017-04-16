@@ -1,4 +1,4 @@
 /ActionML.egg-info/
 /dist/
 actionml/__pycache__/
-main.py
+example/main.py
