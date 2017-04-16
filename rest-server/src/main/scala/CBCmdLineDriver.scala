@@ -19,10 +19,8 @@
 
 // driver for running Contextual Bandit as an early scaffold
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.templates.cb.{CBDataset, CBEngine, CBEngineParams}
+import com.actionml.router.admin.MongoAdministrator
 import com.typesafe.scalalogging.LazyLogging
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
 import scaldi.akka.AkkaInjectable
 import scopt._
 
@@ -58,33 +56,27 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
     // parser.parse returns Option[C]
     parser.parse(args, CBCmdLineDriverConfig()) match {
       case Some(config) =>
-        process(config)
+        run(config)
 
       case None =>
       // arguments are bad, error message will have been displayed
     }
   }
 
-  def process( config: CBCmdLineDriverConfig ): Unit = {
-    // Infant Template API, create a store, a dataset, and an engine
-    // from then all input goes to the engine, which may or may not put it in the dataset using the store for
-    // persistence. The engine may train with each new input or may train in batch mode, providing both Kappa
-    // and Lambda style learning
-    val dataset = new CBDataset("test-resource")
-      .destroy()
-      .create()
+  def run( config: CBCmdLineDriverConfig ): Unit = {
+    // The pio-kappa rest-server should startup the administrator, which starts any persisted engines
+    // then the Python CLI will control CRUD on Engines. We need to use factories that take json for
+    // creating Engines so the Administrator and CLI is Engine independent
+    // For now we assume CBEngines in the MongoAdministrator
 
-    implicit val formats = DefaultFormats
+    val admin = new MongoAdministrator().init
+    val engineJson = Source.fromFile(config.engineDefJSON).mkString
 
-    val source = Source.fromFile(config.engineDefJSON)
-    val engineJSON = try source.mkString finally source.close()
+    admin.removeEngine("test_resource") // should remove and destroy an engine initialized at startup
+    // so we can re-initialize in case of old data in the DB
 
-    //json4s style
-    val params = parse(engineJSON).extract[CBEngineParams]
-    // circe style ?????
-
-    // Todo: params will eventually come from some store that is sharable
-    val engine = new CBEngine(dataset, params)
+    admin.addEngine(engineJson)
+    val engine = admin.getEngine("test_resource")
 
     var errors = 0
     var total = 0
@@ -103,7 +95,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
 
     val query = """{"user": "pferrel", "group":"group 1" }"""
     engine.query(query) match {
-      case Valid(result) ⇒ logger.info(s"Queried and received variant: ${result.variant} groupId: ${result.groupId}")
+      case Valid(result) ⇒ logger.trace(s"QueryResult: $result")
       case Invalid(error) ⇒ logger.error("Query error {}",error)
     }
   }

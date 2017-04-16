@@ -19,9 +19,16 @@ package com.actionml.templates.cb
 
 import akka.actor._
 import akka.event.Logging
+import cats.data.Validated
+import cats.data.Validated.Valid
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
+import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.MongoCollection
+import org.joda.time.DateTime
+import org.json4s.ext.JodaTimeSerializers
+import org.json4s.jackson.JsonMethods._
+import org.json4s.{DefaultFormats, Formats, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
 
 import scala.concurrent.Future
@@ -32,60 +39,87 @@ import scala.concurrent.Future
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
   *
-  * @param p All needed params for the CB lib as well as the dataset containing events and data used in training.
-  *          The dataset will contain groups from which the GroupTrain Actors are created
   */
-class CBAlgorithm(p: CBAlgoParams) extends Algorithm(new Mongo, p: CBAlgoParams) {
+class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonParser {
 
-  private val system = ActorSystem("CBAlgorithm")
-
+  private val actors = ActorSystem("CBAlgorithm")
   private var trainers = Map.empty[String, ActorRef]
+  var params: CBAlgoParams = _
 
   // from the Dataset determine which groups are defined and start training on them
 
-  def init(): CBAlgorithm = {
-    val groups: Map[String, MongoCollection] = p.dataset.CBCollections.usageEventGroups
-    logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
-    val exists = trainers.keys.toList
-    val diff = groups.filterNot { case (key, _) ⇒
-      exists.contains(key)
-    }
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    val response = parseAndValidate[CBAlgoParams](json)
 
-    diff.foreach { case (trainer, collection) ⇒
-      val actor = system.actorOf(SingleGroupTrainer.props(collection), trainer)
-      trainers += trainer → actor
-    }
-    this
+    if (response.isValid) {
+      params = response.getOrElse(CBAlgoParams())
+
+      val groups: Map[String, MongoCollection] = dataset.usageEventGroups
+      logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
+      val exists = trainers.keys.toList
+      val diff = groups.filterNot { case (key, _) =>
+        exists.contains(key)
+      }
+
+      diff.foreach { case (trainer, collection) =>
+        val actor = actors.actorOf(SingleGroupTrainer.props(collection), trainer)
+        trainers += trainer → actor
+      }
+      Valid(true)
+    } else response.map(_ => false)
   }
 
   def train(groupName: String): Unit = {
-    logger.trace("Train trainer {}", groupName)
-    trainers(groupName) ! SingleGroupTrainer.Train
+    try {
+      logger.trace("Train trainer {}", groupName)
+      trainers(groupName) ! SingleGroupTrainer.Train
+    } catch{
+      case e: NoSuchElementException =>
+        logger.error(s"Training triggered on non-existent group: $groupName The group must be initialized first. " +
+          s"All events for this group will be ignored. ")
+    }
   }
 
   def remove(groupName: String): Unit = {
-    logger.info("Stop trainer {}", groupName)
-    system stop trainers(groupName)
-    logger.info("Remove trainer {}", groupName)
-    trainers -= groupName
+    try {
+      logger.info("Stop trainer {}", groupName)
+      actors stop trainers(groupName)
+      logger.info("Remove trainer {}", groupName)
+      trainers -= groupName
+    } catch{
+      case e: NoSuchElementException =>
+        logger.error(s"Deleting non-existent group: $groupName The group must be initialized first. Ingoring event.")
+    }
   }
 
   def add(groupName: String, collection: MongoCollection): Unit = {
     logger.info("Create trainer {}", groupName)
     if (!trainers.contains(groupName)) {
-      val actor = system.actorOf(SingleGroupTrainer.props(collection), groupName)
+      val actor = actors.actorOf(SingleGroupTrainer.props(collection), groupName)
       trainers += groupName → actor
     }
   }
 
-  def stop(): Future[Terminated] = {
-    system.terminate()
+  override def stop(): Unit = { // Todo: Semen, do we have to return Future[Terminated]? What is the benefit?
+    actors.terminate().wait() // Semen: I added the wait, not sure why we were returning a terminated Future
   }
 
 }
 
+object CBAlgorithm extends JsonParser {
+
+  def parseAndValidateParams( json: String): Validated[ValidateError, CBAlgoParams] = {
+    val params = parse(json).extract[CBAllParams]
+    Valid(params.algorithm)
+  }
+}
+
+case class CBAllParams(
+  algorithm: CBAlgoParams
+)
+
+
 case class CBAlgoParams(
-    dataset: CBDataset, // required, where to get data
     maxIter: Int = 100, // the rest of these are VW params
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
@@ -113,7 +147,7 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
 }
 
-object SingleGroupTrainer{
+object SingleGroupTrainer {
 
   case object Train
 

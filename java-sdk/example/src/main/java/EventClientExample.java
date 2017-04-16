@@ -39,8 +39,8 @@ public class EventClientExample {
 
     public static void main(String[] args) {
 
-        String engineId = "ENGINE_ID";
-        EventClient client = new EventClient(engineId, "localhost", 9090);
+        String datasetId = "test_resource";
+        EventClient client = new EventClient(datasetId, "localhost", 9090);
 
 
 //        String json = "{" +
@@ -83,7 +83,7 @@ public class EventClientExample {
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
-            List<String> events = br.lines().limit(10).collect(Collectors.toList());
+            List<String> events = br.lines().collect(Collectors.toList());
 
             log.info("Send events: " + events.size());
 
