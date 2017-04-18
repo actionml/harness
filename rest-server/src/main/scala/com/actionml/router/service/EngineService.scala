@@ -1,6 +1,11 @@
 package com.actionml.router.service
 
+import cats.data.Validated.Invalid
+import com.actionml.core.admin.Administrator
+import com.actionml.core.template.Engine
+import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable
+import io.circe.syntax._
 import scaldi.Injector
 
 /**
@@ -12,28 +17,39 @@ import scaldi.Injector
 
 trait EngineService extends ActorInjectable
 
-class EmptyEngineService(implicit inj: Injector) extends EngineService{
+class EngineServiceImpl(implicit inj: Injector) extends EngineService{
+
+  private val engine = inject[Engine]
+  private val admin = inject[Administrator]
+
   override def receive: Receive = {
     case GetEngine(engineId) ⇒
       log.info("Get engine, {}", engineId)
-      sender() ! None
+      // TODO: Not Implemented in engine
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
 
-    case CreateEngine(engine) ⇒
+    case GetEngines(resourceId) ⇒
+      log.info("Get all engines")
+      sender() ! admin.list(resourceId).map(_.asJson)
+
+    case CreateEngine(engineJson) ⇒
       log.info("Create new engine, {}", engine)
-      sender() ! None
+      sender() ! admin.addEngine(engineJson).map(_.asJson)
 
-    case UpdateEngine(engineId, engine) ⇒
+    case UpdateEngine(engineId, engineJson) ⇒
       log.info("Update exist engine, {}, {}", engineId, engine)
-      sender() ! None
+      admin.removeEngine(engineId)
+      sender() ! admin.addEngine(engineJson).map(_.asJson)
 
     case DeleteEngine(engineId) ⇒
       log.info("Delete exist engine, {}", engineId)
-      sender() ! None
+      sender() ! admin.removeEngine(engineId).map(_.asJson)
   }
 }
 
 sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
-case class CreateEngine(engine: String) extends EngineAction
-case class UpdateEngine(engineId: String, engine: String) extends EngineAction
+case class GetEngines(resourceId: String) extends EngineAction
+case class CreateEngine(engineJson: String) extends EngineAction
+case class UpdateEngine(engineId: String, engineJson: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction

@@ -35,12 +35,12 @@ import java.util.stream.Collectors;
  */
 public class EventClientExample {
 
-    static Logger log = LoggerFactory.getLogger(EventClientExample.class);
+    private static Logger log = LoggerFactory.getLogger(EventClientExample.class);
 
     public static void main(String[] args) {
 
-        String datasetId = "test-resource";
-        EventClient client = new EventClient(datasetId, "localhost", 9090);
+        String datasetId = "test_resource";
+        EventClient client = new EventClient(datasetId, "0.0.0.0", 9090);
 
 
 //        String json = "{" +
@@ -79,7 +79,7 @@ public class EventClientExample {
 //        });
 
 
-        String fileName = "../data/sample-x.json";
+        String fileName = args[0];
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 

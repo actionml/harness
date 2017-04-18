@@ -27,11 +27,11 @@ abstract class Dataset[T](r: String) extends LazyLogging {
   val resourceId: String = r
   val store: Store
 
-  def create(): Dataset[T]
-  def destroy(): Dataset[T]
-  def persist(datum: T): Validated[ValidateError, Event]
-  // todo: we may want to use some operators overloading if this fits some Scala idiom well
-  // takes one json, possibly an Event, returns HTTP Status code 200 or 400 (failure to parse or validate)
+  def init(json: String): Validated[ValidateError, Boolean]
+  def destroy(): Unit = {logger.trace(s"Starting base Dataset")}
+  def start() = {logger.trace(s"Starting base Dataset"); this}
+  def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
+
   def input(datum: String): Validated[ValidateError, Event]
 
   def parseAndValidateInput(s: String): Validated[ValidateError, T]

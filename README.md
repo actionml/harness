@@ -50,7 +50,6 @@ All REST APIs will have Access Control Lists based on who is allowed to access t
 Integral to REST is the notion of a "resource", which can be though of as a collection of items that can be addressed by a resource-id. Since with REST all resource-ids must be URI encoded following the rules for vanilla 
 URI fragments. The resources defined in PIO-Kappa are:
 
- - **datasets**: a collection of datasets that store events
  - **events**: sub-collections that make up a particular dataset. They are addressed liek `/datasets/<dataset-id>/events/` for adding. Events are loosely defined in JSON with engine specific fields. Unreserved events (no $ in the name) can be thought of as a non-ending stream. Reserved event like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the engine description for how events are formatted and handled.
  - **engine**: the engine is the instance of a template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
  - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status since the command may take very long to complete.
@@ -59,7 +58,7 @@ URI fragments. The resources defined in PIO-Kappa are:
 
 See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending PIO events and making queries.
 
-    POST /datasets/<dataset-id>/events
+    POST /engines/<engine-id>/events
         Request Body: JSON for PIO event
         Response Body: na
         
@@ -69,7 +68,7 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
 
 ## The Commands
 
-Commands are REST resources just like Datasets and Engines so commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
+Commands are REST resources just like Engines so Commands can be fired through REST but we also provide a Command Line Interface (CLI) similar to Apache PredictionIO. It allows you quickly access and control the server and to script interactions. See [Commands](commands.md)
      
 # [Security](security.md)  
 
@@ -78,8 +77,6 @@ pio-kappa optionally supports SSL and Server to Server Authentication. See the [
 # [Java SDK](java-sdk.md)
 
 The Java SDK is currently source and build instructions. You must include the source and required Java artifacts a shown in the examples then build them into your Java application.
-
-# 
 
 # Python CLI and SDK
 
