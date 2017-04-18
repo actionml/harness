@@ -9,8 +9,9 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
-import com.actionml.router.http.routes.{DatasetsRouter, EnginesRouter, EventsRouter, QueriesRouter}
+import com.actionml.router.http.routes._
 import akka.http.scaladsl.server.Directives._
+import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -22,7 +23,7 @@ import scala.concurrent.Future
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:56
   */
-class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport{
+class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport with LazyLogging{
 
   implicit private val actorSystem = inject[ActorSystem]
   implicit private val executor = actorSystem.dispatcher
@@ -30,17 +31,19 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
   private val config = inject[AppConfig].restServer
 
-  private val datasets = inject[DatasetsRouter]
+  private val check = inject[CheckRouter]
+  private val commands = inject[CommandsRouter]
   private val events = inject[EventsRouter]
   private val engines = inject[EnginesRouter]
   private val queries = inject[QueriesRouter]
 
-  private val route: Route = events.route ~ datasets.route ~ engines.route ~ queries.route
+  private val route: Route = check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.ssl) {
       Http().setDefaultServerHttpContext(https)
     }
+    logger.info(s"Start http server $host:$port")
     Http().bindAndHandle(logResponseTime(route), host, port)
   }
 

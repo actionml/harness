@@ -2,14 +2,9 @@ package com.actionml.router.http.routes
 
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import com.actionml.router.service._
-import io.circe.Json
-import io.circe.generic.auto._
-import io.circe.syntax._
-import cats.syntax.either._
 import scaldi.Injector
 
 /**
@@ -54,36 +49,30 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
 
   private def getEngine(engineId: String, log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)
-    complete((engineService ? GetEngine(engineId))
-      .mapTo[Either[Int, Boolean]]
-      .map(_.map(_.asJson))
-    )
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? GetEngine(engineId)).mapTo[Response]
+    }
   }
 
-  private def createEngine(log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
+  private def createEngine(log: LoggingAdapter): Route = asJson { engine =>
     log.info("Create event: {}", engine)
-    complete()
-//    completeByCond(StatusCodes.Created) {
-//      (engineService ? CreateEngine(engine.toString())).mapTo[Either[Int, Boolean]].map(_.map(_.asJson))
-//    }
+    completeByValidated(StatusCodes.Created) {
+      (engineService ? CreateEngine(engine.toString())).mapTo[Response]
+    }
   }
 
-  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & entity(as[Json])) { engine =>
+  private def updateEngine(engineId: String, log: LoggingAdapter): Route = asJson { engine =>
     log.info("Update engine: {}, {}", engineId, engine)
-    complete()
-//    complete((engineService ? UpdateEngine(engineId, engine.toString()))
-//      .mapTo[Either[Int, Boolean]]
-//      .map(_.map(_.asJson))
-//    )
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngine(engineId, engine.toString())).mapTo[Response]
+    }
   }
 
   private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
     log.info("Update engine: {}", engineId)
-    complete()
-//    complete((engineService ? DeleteEngine(engineId))
-//      .mapTo[Either[Int, Boolean]]
-//      .map(_.map(_.asJson))
-//    )
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? DeleteEngine(engineId)).mapTo[Response]
+    }
   }
 
 }

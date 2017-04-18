@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{ParseError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
@@ -28,16 +28,45 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, MappingException}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(dataset: CBDataset, params: CBEngineParams)
-  extends Engine[CBEvent, CBQueryResult](dataset, params) with LazyLogging{
+class CBEngine() extends Engine() with JsonParser {
 
-  lazy val algo = new CBAlgorithm(getAlgoParams(params)).init() // this auto-starts kappa training on dataset in params
+  val dataset = new CBDataset()
+  override val algo: CBAlgorithm = new CBAlgorithm(dataset)
+  var params: CBEngineParams = _
 
-  implicit val formats = DefaultFormats  ++ JodaTimeSerializers.all //needed for json4s parsing
-  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+  override def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[CBEngineParams](json).andThen { p =>
+      params = p
+      Valid(p)
+    }.map(_ => true)
+  }
+
+  // used when init might fail from bad params in the json but you want an Engine, not a Validated
+  // Todo: should return null for bad init
+  override def initAndGet(json: String): CBEngine = {
+    val response = init(json)
+    if (response.isValid) {
+      logger.trace(s"Initialized with JSON: $json")
+      this
+    } else {
+      logger.error(s"Parse error with JSON: $json")
+      null.asInstanceOf[CBEngine] // todo: ugly, replace
+    }
+  }
+
+  override def stop(): Unit = {
+    logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
+    algo.stop() // Todo: should have a timeout and do something on timeout here
+  }
+
+  override def destroy(): Unit = {
+    logger.info(s"Dropping persisted data for id: $engineId")
+    dataset.destroy()
+    algo.destroy()
+  }
 
   def train(): Unit = {
-    logger.trace(s"Only used for Lambda style training")
+    logger.warn(s"Only used for Lambda style training")
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
@@ -46,23 +75,22 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    dataset.input(json).andThen(triggerAlgorithm).map(_ => true)
-    // Just as only the engine know training is triggered on input, also some events may cause the model to change
+    dataset.input(json).andThen(process(_)).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def triggerAlgorithm(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(event.entityId,dataset.CBCollections.usageEventGroups(event.entityId))
+        algo.add(event.entityId,dataset.usageEventGroups(event.entityId))
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
           case other => // todo: Pat, need refactoring this
-            logger.warn("Non expected value of entityType: {}, in {}", other, event)
+            logger.warn("Unexpected value of entityType: {}, in {}", other, event)
         }
       case _ =>
     }
@@ -70,47 +98,15 @@ class CBEngine(dataset: CBDataset, params: CBEngineParams)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, CBQueryResult] = {
+  def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: ${json}")
-    Valid(CBQueryResult())
-  }
-
-  def parseAndValidateQuery(json: String): Validated[ValidateError, CBQueryResult] = {
-    logger.trace(s"Got a query JSON string: ${json}")
-    try{
-      Valid(parse(json).extract[CBQueryResult])
-    } catch {
-      case e: MappingException =>
-        logger.error(s"Recoverable Error: malformed query: ${json}", e)
-        Invalid(ParseError(s"Json4s parsing error, malformed query json: ${json}"))
-
-    }
-  }
-
-  def getAlgoParams(ep: CBEngineParams): CBAlgoParams = {
-    CBAlgoParams(
-      dataset,
-      ep.maxIter,
-      ep.regParam,
-      ep.stepSize,
-      ep.bitPrecision,
-      ep.modelName,
-      ep.namespace,
-      ep.maxClasses)
+    Valid(CBQueryResult("variant1", "group1").toJson)
   }
 
 }
 
 case class CBEngineParams(
-    id: String = "", // required
-    dataset: String = "", // required, readFile now
-    maxIter: Int = 100, // the rest of these are VW params
-    regParam: Double = 0.0,
-    stepSize: Double = 0.1,
-    bitPrecision: Int = 24,
-    modelName: String = "model.vw",
-    namespace: String = "n",
-    maxClasses: Int = 3)
+    engineId: String = "") // required
   extends EngineParams
 
 /*
@@ -135,4 +131,12 @@ Results
 case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
-  extends QueryResult
+  extends QueryResult {
+
+  def toJson() = {
+  s"""
+     |"variant": $variant,
+     |"groupId": $groupId
+   """.stripMargin
+  }
+}

@@ -78,7 +78,7 @@ and send the event:
 
 Queries are specific to each template so are created directly from JSON strings:
 
-    String engineId = "test-resource";
+    String engineId = "test_resource";
     QueryClient client = new QueryClient(engineId, "localhost", 8080);
     
     String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
