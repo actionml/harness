@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+
+echo "ActionML $1, $2, $3, $4"
+
+
+command="$1"
+echo "COMMAND = $command"
+
+case ${command} in
+
+    start)
+    echo "CASE = START"
+    ./aml-start $2 $3 $4
+    ;;
+
+    stop)
+    echo "CASE = STOP"
+    aml-stop
+
+    shift # past argument
+    ;;
+    *)
+    ;;
+esac

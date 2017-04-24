@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# Figure out where PredictionIO is installed
+export AML_HOME="$(cd `dirname $0`/..; pwd)"
+
+
+echo "Starting PIO Kappa Event Server..."
+${AML_HOME}/bin/aml-daemon ${AML_HOME}/eventserver.pid $1 $2 $3
