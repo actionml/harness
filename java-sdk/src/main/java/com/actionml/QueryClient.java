@@ -19,7 +19,6 @@ package com.actionml;
 
 import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
-import com.google.gson.JsonElement;
 
 import java.util.concurrent.CompletionStage;
 
