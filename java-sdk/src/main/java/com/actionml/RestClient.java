@@ -21,7 +21,6 @@ import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
 import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
-import com.google.gson.JsonElement;
 
 import java.util.concurrent.CompletionStage;
 

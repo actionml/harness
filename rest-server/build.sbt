@@ -1,5 +1,3 @@
-import SbtNativePackager._
-
 name := "pio-kappa-rest-server"
 
 version := "0.1.0-SNAPSHOT"

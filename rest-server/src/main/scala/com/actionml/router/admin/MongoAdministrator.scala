@@ -62,16 +62,16 @@ import com.typesafe.config.ConfigFactory
 import org.json4s.MappingException
 import org.json4s.jackson.JsonMethods._
 
-class MongoAdministrator() extends Administrator() with JsonParser {
+class MongoAdministrator extends Administrator with JsonParser {
 
   lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
 
 //  val engines = store.client.getDB("metaStore").getCollection("engines")
 //  val datasets = store.client.getDB("metaStore").getCollection("datasets")
 //  val commands = store.client.getDB("metaStore").getCollection("commands") // async persistent though temporary commands
-  lazy val enginesCollection = store.connection("meta_store")("engines")
+  lazy val enginesCollection: MongoCollection = store.connection("meta_store")("engines")
   //lazy val datasetsCollection = store.connection("meta_store")("datasets")
-  lazy val commandsCollection = store.connection("meta_store")("commands") // async persistent though temporary commands
+  lazy val commandsCollection: MongoCollection = store.connection("meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[String, Engine]
 
 

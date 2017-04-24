@@ -1,8 +1,7 @@
 package com.actionml.router.service
 
+import com.actionml.core.template.Engine
 import com.actionml.router.ActorInjectable
-import com.actionml.templates.cb.CBEngine
-import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -14,22 +13,14 @@ import scaldi.Injector
   */
 trait QueryService extends ActorInjectable
 
-class CBQueryService(implicit inj: Injector) extends QueryService{
+class QueryServiceImpl(implicit inj: Injector) extends QueryService{
 
-  private val engine = inject[CBEngine]
+  private val engine = inject[Engine]
 
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
       sender() ! engine.query(query).map(_.asJson)
-  }
-}
-
-class EmptyQueryService(implicit inj: Injector) extends QueryService{
-  override def receive: Receive = {
-    case GetPrediction(engineId, query) ⇒
-      log.debug("Get prediction, {}, {}", engineId, query)
-      sender() ! None
   }
 }
 
