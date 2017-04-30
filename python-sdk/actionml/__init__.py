@@ -3,7 +3,7 @@ The ActionML Python SDK provides easy-to-use functions for integrating
 Python applications with ActionML REST API services.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.8"
 
 # import packages
 import re
@@ -16,12 +16,17 @@ except ImportError:
     from http import client as httplib
 
 try:
+    from urllib import quote
+except ImportError:
+    # pylint: disable=F0401,E0611
+    from urllib.parse import quote
+
+try:
     from urllib import urlencode
 except ImportError:
     # pylint: disable=F0401,E0611
     from urllib.parse import urlencode
 
-import json
 import urllib
 
 from datetime import datetime
@@ -33,19 +38,34 @@ from actionml.connection import AsyncResponse
 from actionml.connection import ActionMLAPIError
 
 
-class NotCreatedError(ActionMLAPIError):
-    pass
+class HttpError(ActionMLAPIError):
+    def __init__(self, message, response):
+        super(HttpError, self).__init__(message)
+        self.response = response
 
 
-class NotImplementedError(ActionMLAPIError):
-    pass
+class UnexpectedStatusError(HttpError):
+    def __init__(self, response):
+        super(UnexpectedStatusError, self).__init__("Unexpected status: {}".format(response.status), response)
 
 
-class NotFoundError(ActionMLAPIError):
-    pass
+class NotImplementedError(HttpError):
+    def __init__(self, response):
+        super(NotImplementedError, self).__init__("Not Implemented: {}".format(response.request), response)
 
 
-def time_to_string_if_valid(t: datetime):
+class BadRequestError(HttpError):
+    def __init__(self, response):
+        super(BadRequestError, self).__init__("Bad request: {}".format(response.request), response)
+
+
+class NotFoundError(HttpError):
+    def __init__(self, response):
+        super(NotFoundError, self).__init__("Not found: {}".format(response.request), response)
+
+
+
+def time_to_string_if_valid(t):
     """ Validate event_time according to EventAPI Specification."""
 
     if t is None:
@@ -119,31 +139,30 @@ class BaseClient(object):
         result = request.get_response()
         return result
 
-    def _add_segment(self, segment: str):
-        return self.path + "/" + urllib.parse.quote(segment, "")
+    def _add_segment(self, segment=None):
+        if segment is not None:
+            return self.path + "/" + quote(segment, "")
+        else:
+            return self.path
 
-    def _create_response_handler(self, response):
+    def _response_handler(self, expected_status, response):
         if response.error is not None:
-            raise NotCreatedError("Exception happened: %s for request %s" %
-                                  (response.error, response.request))
-        elif response.status != httplib.CREATED:
-            raise NotCreatedError("request: %s status: %s body: %s" %
-                                  (response.request, response.status, response.body))
-
+            raise HttpError("Exception happened: {}".format(response.error), response)
+        elif response.status == httplib.NOT_IMPLEMENTED:
+            raise NotImplementedError(response)
+        elif response.status == httplib.BAD_REQUEST:
+            raise BadRequestError(response)
+        elif response.status == httplib.NOT_FOUND:
+            raise NotFoundError(response)
+        elif response.status != expected_status:
+            raise UnexpectedStatusError(response)
         return response
 
-    def _ok_response_handler(self, response):
-        if response.error is not None:
-            raise NotFoundError("Exception happened: %s for request %s" %
-                                (response.error, response.request))
-        elif response.status == httplib.NOT_IMPLEMENTED:
-            raise NotImplementedError("Exception happened: %s for request %s" %
-                                      (response.error, response.request))
-        elif response.status != httplib.OK:
-            raise NotFoundError("request: %s status: %s body: %s" %
-                                (response.request, response.status, response.body))
+    def _create_response_handler(self, response):
+        return self._response_handler(httplib.CREATED, response)
 
-        return response.json_body
+    def _ok_response_handler(self, response):
+        return self._response_handler(httplib.OK, response)
 
 
 class EventClient(BaseClient):
@@ -216,15 +235,15 @@ class EventClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def create(self, event_id: str, event: str, entity_type: str, entity_id: str,
-               target_entity_type: str = None, target_entity_id: str = None, properties: object = None,
-               event_time: datetime = None, creation_time: datetime = None):
+    def create(self, event_id, event, entity_type, entity_id,
+               target_entity_type = None, target_entity_id = None, properties = None,
+               event_time = None, creation_time = None):
         """Synchronously (blocking) create an event."""
         return self.async_create(event_id, event, entity_type, entity_id,
                                  target_entity_type, target_entity_id, properties,
                                  event_time, creation_time).get_response()
 
-    def async_get(self, event_id: str):
+    def async_get(self, event_id):
         """
         Asynchronously get an event from PIO Kappa Server.
         :param event_id: event id returned by the EventServer when creating the event.
@@ -256,59 +275,12 @@ class EventClient(BaseClient):
         return self.async_delete(event_id).get_response()
 
 
-class DatasetClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
-        self.path = "/datasets"
-        super(DatasetClient, self).__init__(url, threads, qsize, timeout)
-
-    def async_get(self, dataset_id: str):
-        """
-        Asynchronously get an dataset info from PIO Kappa Server.
-        :param dataset_id:
-        :returns: AsyncRequest object.
-        """
-        request = AsyncRequest("GET", self._add_segment(dataset_id))
-        request.set_response_handler(self._ok_response_handler)
-        self._connection.make_request(request)
-        return request
-
-    def get(self, dataset_id: str):
-        return self.async_get(dataset_id).get_response()
-
-    def async_create(self, dataset_id: str = None):
-        """
-        Asynchronously create dataset.
-        :param dataset_id: 
-        :return: 
-        """
-        data = {}
-        if dataset_id is not None:
-            data['id'] = dataset_id
-
-        request = AsyncRequest("POST", self.path, **data)
-        request.set_response_handler(self._create_response_handler)
-        self._connection.make_request(request)
-        return request
-
-    def create(self, dataset_id: str = None):
-        return self.async_create(dataset_id).get_response()
-
-    def async_delete(self, dataset_id: str):
-        request = AsyncRequest("DELETE", self._add_segment(dataset_id))
-        request.set_response_handler(self._delete_response_handler)
-        self._connection.make_request(request)
-        return request
-
-    def delete(self, dataset_id: str):
-        return self.async_delete(dataset_id).get_response()
-
-
 class EngineClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/engines"
         super(EngineClient, self).__init__(url, threads, qsize, timeout)
 
-    def async_get(self, engine_id: str):
+    def async_get(self, engine_id):
         """
         Asynchronously get an engine info from PIO Kappa Server.
         :param engine_id:
@@ -319,34 +291,32 @@ class EngineClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def get(self, engine_id: str):
+    def get(self, engine_id):
         return self.async_get(engine_id).get_response()
 
-    def async_create(self, engine_id: str = None):
+    def async_create(self, data, engine_id = None):
         """
         Asynchronously create engine.
+        :param data: 
         :param engine_id: 
         :return: 
         """
-        data = {}
-        if engine_id is not None:
-            data['id'] = engine_id
 
-        request = AsyncRequest("POST", self.path, **data)
+        request = AsyncRequest("POST", self._add_segment(engine_id), **data)
         request.set_response_handler(self._create_response_handler)
         self._connection.make_request(request)
         return request
 
-    def create(self, engine_id: str = None):
-        return self.async_create(engine_id).get_response()
+    def create(self, data, engine_id = None):
+        return self.async_create(data, engine_id).get_response()
 
-    def async_delete(self, engine_id: str):
+    def async_delete(self, engine_id):
         request = AsyncRequest("DELETE", self._add_segment(engine_id))
-        request.set_response_handler(self._delete_response_handler)
+        request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def delete(self, engine_id: str):
+    def delete(self, engine_id):
         return self.async_delete(engine_id).get_response()
 
 
@@ -363,12 +333,12 @@ class QueryClient(BaseClient):
     :param timeout: timeout for HTTP connection attempts and requests in seconds (optional). Default value is 5.
     """
 
-    def __init__(self, engine_id: str, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, engine_id, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.engine_id = engine_id
         self.path = "/engines/{}/queries".format(self.engine_id)
         super(QueryClient, self).__init__(url, threads, qsize, timeout)
 
-    def async_send_query(self, data: dict):
+    def async_send_query(self, data):
         """
         Asynchronously send a request to the engine instance with data as the query.
         :param data: the query: It is converted to an json object using json.dumps method. type dict.
@@ -382,7 +352,7 @@ class QueryClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def send_query(self, data: dict):
+    def send_query(self, data):
         """
         Synchronously send a request.
         :param data: the query: It is converted to an json object using json.dumps method. type dict.
@@ -392,29 +362,29 @@ class QueryClient(BaseClient):
 
 
 class CommandClient(BaseClient):
-    def __init__(self, url: str = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/commands"
         super(CommandClient, self).__init__(url, threads, qsize, timeout)
 
-    def async_get_engines_list(self) -> AsyncRequest:
+    def async_get_engines_list(self):
         request = AsyncRequest("GET", self.path + "/list/engines")
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def get_engines_list(self) -> object:
+    def get_engines_list(self):
         return self.async_get_engines_list().get_response()
 
-    def async_get_commands_list(self) -> AsyncRequest:
+    def async_get_commands_list(self):
         request = AsyncRequest("GET", self.path + "/list/commands")
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def get_commands_list(self) -> object:
+    def get_commands_list(self):
         return self.async_get_commands_list().get_response()
 
-    def async_run_command(self, engine_id: str) -> AsyncRequest:
+    def async_run_command(self, engine_id):
         data = {}
         if engine_id is not None:
             data['engine_id'] = engine_id
@@ -424,23 +394,23 @@ class CommandClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def run_command(self, engine_id: str) -> object:
+    def run_command(self, engine_id):
         return self.async_run_command(engine_id).get_response()
 
-    def async_check_command(self, command_id: str) -> AsyncRequest:
+    def async_check_command(self, command_id):
         request = AsyncRequest("GET", self._add_segment(command_id))
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def check_command(self, command_id: str) -> object:
+    def check_command(self, command_id):
         return self.async_check_command(command_id).get_response()
 
-    def async_cancel_command(self, command_id: str) -> AsyncRequest:
+    def async_cancel_command(self, command_id):
         request = AsyncRequest("DELETE", self._add_segment(command_id))
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def cancel_command(self, command_id: str) -> object:
+    def cancel_command(self, command_id):
         return self.async_cancel_command(command_id).get_response()
