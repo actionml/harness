@@ -27,8 +27,6 @@ except ImportError:
     # pylint: disable=F0401,E0611
     from urllib.parse import urlencode
 
-import urllib
-
 from datetime import datetime
 import pytz
 
