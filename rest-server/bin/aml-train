@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+. header
+
+RESOURCE_ID=$1
+
+if [ -z "$RESOURCE_ID" ]; then
+    echo -e "${Red}Engine id not found!${Reset} Expect 'aml train <engine-id>'"
+    exit 1
+fi
+
+${AML_HOME}/bin/command.py train ${RESOURCE_ID}

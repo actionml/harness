@@ -1,99 +1,43 @@
 #!/usr/bin/env bash
 
-#
-# Licensed to the Apache Software Foundation (ASF) under one or more
-# contributor license agreements.  See the NOTICE file distributed with
-# this work for additional information regarding copyright ownership.
-# The ASF licenses this file to You under the Apache License, Version 2.0
-# (the "License"); you may not use this file except in compliance with
-# the License.  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-search() {
-  local i=0;
-  local needle=$1;
-  shift
-  for str in $@; do
-    if [ "${str}" = "$needle" ]; then
-      echo ${i}
-      return
-    else
-      ((i++))
-    fi
-  done
-  echo ${i}
-}
-
-if [ -z $AML_HOME ] ; then
-  PIO_FILE=$(readlink -f $0 2>/dev/null)
-  if [ $? = 0 ] ; then
-    export AML_HOME="$(cd $(dirname $PIO_FILE)/..; pwd)"
-  else
-    CURRENT_DIR=`pwd`
-    TARGET_FILE="$0"
-    cd "$(dirname "$TARGET_FILE")"
-    TARGET_FILE=$(basename "$TARGET_FILE")
-
-    while [ -L "$TARGET_FILE" ]
-    do
-      TARGET_FILE=$(readlink "$TARGET_FILE")
-      cd "$(dirname "$TARGET_FILE")"
-      TARGET_FILE=$(basename "$TARGET_FILE")
-    done
-
-    export AML_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
-    cd "$CURRENT_DIR"
-  fi
-fi
-
-if [ -z $PIO_CONF_DIR ] ; then
-  export PIO_CONF_DIR="${AML_HOME}/conf"
-  if [ ! -d $PIO_CONF_DIR ] ; then
-    export PIO_CONF_DIR="/etc/predictionio"
-    if [ ! -d $PIO_CONF_DIR ] ; then
-      echo "PIO_CONF_DIR is not found."
-      exit 1
-    fi
-  fi
-fi
+. header
 
 PIDFILE=$1
 
 shift
 
-echo "ActionML $1, $2, $3, $4"
+export PIO_REST_PORT=9090
 
-CONFIG=$1
+case ${1} in
+    -p|--port) export PIO_REST_PORT=$2 ;;
+
+    *)
+        export CONFIG=$1
+        case ${2} in
+            -p|--port) export PIO_REST_PORT=$3 ;;
+
+            *) ;;
+        esac
+    ;;
+esac
+
+if [ -z ${CONFIG} ] ; then
+    export CONFIG="${AML_HOME}/conf/config.conf"
+fi
 
 if [ ! -f ${CONFIG} ]; then
-    echo "File $CONFIG not found!"
+    echo -e "${Red}Config file '${CONFIG}' not found!${Reset}"
     exit 1
 fi
 
-KEY=$2
-
-case ${KEY} in
-    -p|--port) PORT=$3;;
-
-    *) ;;
-esac
-
-if [ -z "$PORT" ]; then
-  PORT=9090
+if [ ! -f "${AML_HOME}/bin/main" ]; then
+    echo -e "${Red}Main file '${AML_HOME}/bin/main' not found!${Reset}"
+    exit 1
 fi
 
-echo $PIDFILE
-echo "${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=$PORT"
+echo "Pid file: ${PIDFILE}"
+echo -e "${Green}${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT}${Reset}"
 
-exec ${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=$PORT
-
-# exec ${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=$PORT <&- > /dev/null 2>&1 &
-# echo $! > ${PIDFILE}
+exec ${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT} <&- > /dev/null 2>&1 &
+echo $! > ${PIDFILE}
+cat ${PIDFILE}

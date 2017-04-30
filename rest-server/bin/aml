@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
 
-
-echo "ActionML $1, $2, $3, $4"
-
+. header
 
 command="$1"
-echo "COMMAND = $command"
+shift
 
 case ${command} in
 
-    start)
-    echo "CASE = START"
-    ./aml-start $2 $3 $4
-    ;;
+    start) ${AML_HOME}/bin/aml-start $1 $2 $3 ;;
 
-    stop)
-    echo "CASE = STOP"
-    aml-stop
+    stop) ${AML_HOME}/bin/aml-stop ;;
 
-    shift # past argument
-    ;;
+    status) ${AML_HOME}/bin/aml-status ;;
+
+    engine) ${AML_HOME}/bin/aml-engine $1 $2 $3 $4 ;;
+
+    train) ${AML_HOME}/bin/aml-train $1 ;;
+
     *)
-    ;;
+        echo -e "${Red}Unknown command: '$COMMAND'. Need use 'start', 'stop', 'engine' or 'train'${Reset}"
+        exit 1 ;;
 esac
