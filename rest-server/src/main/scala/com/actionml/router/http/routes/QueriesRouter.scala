@@ -1,13 +1,12 @@
 package com.actionml.router.http.routes
 
+import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import com.actionml.router.service._
 import scaldi.Injector
-
-import scala.language.postfixOps
 
 /**
   *
@@ -22,7 +21,7 @@ import scala.language.postfixOps
   */
 class QueriesRouter(implicit inj: Injector) extends BaseRouter {
 
-  private val queryService = injectActorRef[QueryService]
+  private val queryService = inject[ActorRef]('QueryService)
 
   override val route: Route = rejectEmptyResponse {
     (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>

@@ -1,5 +1,6 @@
 package com.actionml.router.http.routes
 
+import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
@@ -28,7 +29,7 @@ import scala.language.postfixOps
   */
 class EventsRouter(implicit inj: Injector) extends BaseRouter {
 
-  private val eventService = injectActorRef[EventService]
+  private val eventService = inject[ActorRef]('EventService)
 
   val route: Route = rejectEmptyResponse {
     (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
