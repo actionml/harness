@@ -24,14 +24,20 @@ import cats.data.Validated.Valid
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
+import com.mongodb.casbah.commons.{TypeImports, MongoDBObject}
 import org.joda.time.DateTime
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
-
 import scala.concurrent.Future
+
+import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
+import java.nio.file.{Files, Paths}
+
+import vw.VW
 
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
@@ -142,7 +148,15 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
   private def startWork(): Unit = {
     log.info(s"$name Start work")
+    val input = events.map { dbobj =>
+      makeVWString(dbobj)
+    }
     log.info(s"$name Finish work")
+  }
+
+  def makeVWString(dbobj: MongoDBObject): String = {
+
+    ""
   }
 
 }
