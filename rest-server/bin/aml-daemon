@@ -9,12 +9,18 @@ shift
 export PIO_REST_PORT=9090
 
 case ${1} in
-    -p|--port) export PIO_REST_PORT=$2 ;;
+    -p|--port)
+        export PIO_REST_PORT="${2}"
+        echo " > PIO_REST_PORT: ${PIO_REST_PORT}"
+        ;;
 
     *)
         export CONFIG=$1
         case ${2} in
-            -p|--port) export PIO_REST_PORT=$3 ;;
+            -p|--port)
+                export PIO_REST_PORT="${3}"
+                echo " >> PIO_REST_PORT: ${PIO_REST_PORT}"
+                ;;
 
             *) ;;
         esac

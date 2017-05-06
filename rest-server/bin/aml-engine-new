@@ -35,6 +35,7 @@ if [ ! -f ${ENGINE_CONFIG} ]; then
 fi
 
 if [ -z "$RESOURCE_ID" ]; then
+    echo ${PIO_REST_PORT}
     ${AML_HOME}/bin/engine.py create -c ${ENGINE_CONFIG}
 else
     ${AML_HOME}/bin/engine.py create ${RESOURCE_ID} -c ${ENGINE_CONFIG}
