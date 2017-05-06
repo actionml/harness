@@ -28,7 +28,7 @@ abstract class Administrator extends LazyLogging {
   lazy val config: Config = ConfigFactory.load()
 
   // engine management
-  def addEngine(json: String): Validated[ValidateError, String]
+  def addEngine(json: String): Validated[ValidateError, Boolean]
   def removeEngine(engineId: String): Validated[ValidateError, Boolean]
   def list(resourceType: String): Validated[ValidateError, Boolean]
 
