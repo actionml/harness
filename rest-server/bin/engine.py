@@ -50,12 +50,18 @@ elif args.action == 'create':
         config = json.load(data_file)
         try:
             res = engine_client.create(config)
-            print_success(res, 'Created new engine. id=')
+            print_success(res, 'Created new engine. Success=')
         except HttpError as err:
             print_failure(err, 'Error creating new engine.')
 
 elif args.action == 'update':
-    pass
+    with open(args.config) as data_file:
+        config = json.load(data_file)
+        try:
+            res = engine_client.create(config)
+            print_success(res, 'Updates exists engine. Success=')
+        except HttpError as err:
+            print_failure(err, 'Error updating engine.')
 
 elif args.action == 'delete':
     try:
