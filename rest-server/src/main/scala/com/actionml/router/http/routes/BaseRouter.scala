@@ -2,7 +2,6 @@ package com.actionml.router.http.routes
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import akka.http.scaladsl.server.Directives.complete
 import akka.http.scaladsl.server.{Directive, Directives, Route}
 import akka.util.Timeout
 import cats.data.Validated

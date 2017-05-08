@@ -101,7 +101,7 @@ class MongoAdministrator extends Administrator with JsonParser {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, Boolean] = {
+  def addEngine(json: String): Validated[ValidateError, String] = {
     // val params = parse(json).extract[RequiredEngineParams]
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> new CBEngine().initAndGet(json))
@@ -121,7 +121,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           enginesCollection += builder.result()
 
         } // ignores case of too many engine with the same engineId
-        Valid(true)
+        Valid(params.engineId)
       } else {
         // init failed
         engines = engines - params.engineId //remove bad engine
@@ -136,7 +136,7 @@ class MongoAdministrator extends Administrator with JsonParser {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
-      enginesCollection.findAndRemove(MongoDBObject("engineId" -> engineId))
+      enginesCollection.remove(MongoDBObject("engineId" -> engineId))
       deadEngine.destroy()
       Valid(true)
     } else {

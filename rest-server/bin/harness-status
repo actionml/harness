@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+. harness-env
+
+${AML_HOME}/bin/command.py status

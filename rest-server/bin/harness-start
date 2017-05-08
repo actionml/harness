@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+. harness-env
+
+echo -e "${Green}Starting PIO Kappa Event Server...${Reset}"
+${AML_HOME}/bin/harness-daemon ${AML_HOME}/eventserver.pid $1 $2 $3

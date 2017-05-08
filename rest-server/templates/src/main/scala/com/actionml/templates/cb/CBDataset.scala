@@ -25,6 +25,11 @@ import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.conversions.scala._
 import com.mongodb.util.JSON
+import com.novus.salat._
+import com.novus.salat.global._
+import com.novus.salat.annotations._
+import com.novus.salat.dao._
+import com.mongodb.casbah.MongoConnection
 import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
 import org.json4s.ext.JodaTimeSerializers
@@ -59,7 +64,11 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
 
   val users = store.connection(resourceId)("users")
   var usageEventGroups: Map[String, MongoCollection] = Map.empty
-  val groups = store.connection(resourceId)("groups")
+  // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
+  private val groups = MongoConnection()(resourceId)("groups")
+  groups.createIndex[String](keys = DBObject("_id", 1), name = "id", unique = true)
+  groups.createInde
+  object GroupsDAO extends SalatDAO[GroupParams, String](collection = groups)
 
 
   // These should only be called from trusted source like the CLI!
@@ -132,7 +141,7 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
           usageEventGroups = usageEventGroups +
             (event.entityId -> store.connection(resourceId)(event.entityId)) //replace with new collection (needed?)
 
-          val query = MongoDBObject("groupId" -> event.entityId)
+/*        val query = MongoDBObject("groupId" -> event.entityId)
 
           val builder = MongoDBObject.newBuilder
           builder += "groupId" -> event.entityId
@@ -141,6 +150,10 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
             new DateTime(event.properties.testPeriodEnd.get)
           builder += "eventTime" -> new DateTime(event.eventTime)
           groups.findAndModify(query, builder.result())
+*/
+          val groupParams = GroupParams(event.entityId, new DateTime(event.properties.testPeriodStart), event.properties.pageVariants, Some(new DateTime(event.properties.testPeriodEnd.getOrElse(None))))
+          GroupsDAO.update(DBObject("id" -> event.entityId), groupParams, upsert = true,
+            false, GroupsDAO.defaultWriteConcern)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -159,7 +172,8 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
               Valid(event)
             case "group" | "testGroup" =>
               if ( usageEventGroups.keySet.contains(event.entityId) ) {
-                groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
+                GroupsDAO.remove(MongoDBObject("groupId" -> event.entityId))
+                //groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
                 usageEventGroups(event.entityId).drop() // drop all events
                 usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
@@ -233,6 +247,12 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
           parseAndValidate[CBUsageEvent](json)
       }
     }
+  }
+
+  def getGroupParams(groupId: String): GroupParams = {
+    groups.find(DBObject("groupId" -> groupId))
+
+    GroupsDAO.findOneById()
   }
 }
 
@@ -313,6 +333,14 @@ case class CBGroupInitProperties (
   testPeriodStart: String, // ISO8601 date
   pageVariants: Seq[String], //["17","18"]
   testPeriodEnd: Option[String])
+
+case class GroupParams (
+  @Key("_id") id: String,
+  //groupId: String,
+  testPeriodStart: DateTime, // ISO8601 date
+  pageVariants: Seq[String], //["17","18"]
+  testPeriodEnd: Option[DateTime])
+
 
 case class CBGroupInitEvent (
     entityType: String,

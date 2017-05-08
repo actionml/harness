@@ -42,7 +42,7 @@ import scala.concurrent.Future
   */
 class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonParser {
 
-  private val actors = ActorSystem("CBAlgorithm")
+  private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
   private var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
 
@@ -142,6 +142,7 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
   private def startWork(): Unit = {
     log.info(s"$name Start work")
+
     log.info(s"$name Finish work")
   }
 

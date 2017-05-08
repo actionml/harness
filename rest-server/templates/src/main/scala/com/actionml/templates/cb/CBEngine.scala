@@ -84,7 +84,11 @@ class CBEngine() extends Engine() with JsonParser {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(event.entityId,dataset.usageEventGroups(event.entityId))
+        algo.add(
+          event.entityId,
+          dataset.usageEventGroups(event.entityId),
+          dataset.getGroupParams(event.entityId),
+          dataset.users)
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
