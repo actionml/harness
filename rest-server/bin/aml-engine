@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+. header
+
+COMMAND=$1
+shift
+
+case ${COMMAND} in
+
+    new)
+        ${AML_HOME}/bin/aml-engine-new $1 $2 $3 ;;
+
+    update)
+        ${AML_HOME}/bin/aml-engine-update $1 $2 $3 ;;
+
+    delete)
+        ${AML_HOME}/bin/aml-engine-delete $1 ;;
+
+    *)
+        echo -e "${Red}Unknown command: '$COMMAND' for 'engine' section. Need use 'new', 'update' or 'delete'${Reset}"
+        exit 1 ;;
+esac

@@ -106,11 +106,12 @@ class MongoAdministrator extends Administrator with JsonParser {
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> new CBEngine().initAndGet(json))
       if (engines(params.engineId) != null) {
-        if(enginesCollection.find(MongoDBObject("EngineId" -> params.engineId)).size == 1) {
+        if(enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
           // re-initialize
           logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-          enginesCollection.findAndModify(MongoDBObject("engineId" -> params.engineId),
-            MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+          val query = MongoDBObject("engineId" -> params.engineId)
+          val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+          enginesCollection.findAndModify(query, update)
         } else {
           //add new
           logger.trace(s"Initializing new engine for resource-id: ${params.engineId} with params $json")

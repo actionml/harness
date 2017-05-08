@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+. header
+
+COMMAND=$1
+shift
+
+case ${COMMAND} in
+
+    -c|--config)
+        ENGINE_CONFIG=$1 ;;
+
+    *)
+        RESOURCE_ID=${COMMAND}
+        COMMAND=$1
+        shift
+        case ${COMMAND} in
+
+            -c|--config) ENGINE_CONFIG=$1 ;;
+
+            *) ;;
+
+        esac
+    ;;
+esac
+
+if [ -z "$ENGINE_CONFIG" ]; then
+    echo -e "${Red}Engine config.conf not found!${Reset} Expect 'aml engine new [<engine-id>] [-c <engine.json> | --config.conf <engine.json>]'"
+    exit 1
+fi
+
+if [ ! -f ${ENGINE_CONFIG} ]; then
+    echo -e "${Red}File $ENGINE_CONFIG not found!${Reset}"
+    exit 1
+fi
+
+if [ -z "$RESOURCE_ID" ]; then
+    echo ${PIO_REST_PORT}
+    ${AML_HOME}/bin/engine.py create -c ${ENGINE_CONFIG}
+else
+    ${AML_HOME}/bin/engine.py create ${RESOURCE_ID} -c ${ENGINE_CONFIG}
+fi
+
+
+
