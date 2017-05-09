@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+. header
+
+RESOURCE_ID=$1
+
+if [ -z "$RESOURCE_ID" ]; then
+    echo -e "${Red}Engine id not found!${Reset} Expect 'harness engine delete <engine-id>'"
+    exit 1
+fi
+
+${HARNESS_HOME}/bin/engine.py delete ${RESOURCE_ID}

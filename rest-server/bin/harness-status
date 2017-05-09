@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+. header
+
+${HARNESS_HOME}/bin/command.py status

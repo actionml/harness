@@ -25,7 +25,7 @@ case ${COMMAND} in
 esac
 
 if [ -z "$ENGINE_CONFIG" ]; then
-    echo -e "${Red}Engine config.conf not found!${Reset} Expect 'aml engine new [<engine-id>] [-c <engine.json> | --config.conf <engine.json>]'"
+    echo -e "${Red}Engine config.conf not found!${Reset} Expect 'harness engine new [<engine-id>] [-c <engine.json> | --config.conf <engine.json>]'"
     exit 1
 fi
 
@@ -35,11 +35,7 @@ if [ ! -f ${ENGINE_CONFIG} ]; then
 fi
 
 if [ -z "$RESOURCE_ID" ]; then
-    echo ${PIO_REST_PORT}
-    ${AML_HOME}/bin/engine.py create -c ${ENGINE_CONFIG}
+    ${HARNESS_HOME}/bin/engine.py update -c ${ENGINE_CONFIG}
 else
-    ${AML_HOME}/bin/engine.py create ${RESOURCE_ID} -c ${ENGINE_CONFIG}
+    ${HARNESS_HOME}/bin/engine.py update ${RESOURCE_ID} -c ${ENGINE_CONFIG}
 fi
-
-
-

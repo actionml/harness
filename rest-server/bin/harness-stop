@@ -4,7 +4,7 @@
 
 # PIO Kappa Event Server
 echo -e "${Green}Stopping PIO Kappa Event Server...${Reset}"
-PIDFILE=${AML_HOME}/eventserver.pid
+PIDFILE=${HARNESS_HOME}/eventserver.pid
 if [ -e ${PIDFILE} ]; then
     cat ${PIDFILE} | xargs kill
     rm ${PIDFILE}
