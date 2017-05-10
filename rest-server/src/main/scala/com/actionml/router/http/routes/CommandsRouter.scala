@@ -2,10 +2,11 @@ package com.actionml.router.http.routes
 
 import java.util.UUID
 
+import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.router.service.{EngineService, GetEngines}
+import com.actionml.router.service.GetEngines
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -14,7 +15,7 @@ import scaldi.Injector
   */
 class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
-  private val engineService = injectActorRef[EngineService]
+  private val engineService = inject[ActorRef]('EngineService)
 
   override val route: Route = rejectEmptyResponse {
     pathPrefix("commands") {

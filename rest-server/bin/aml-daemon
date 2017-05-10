@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+. header
+
+PIDFILE=$1
+
+shift
+
+export PIO_REST_PORT=9090
+
+case ${1} in
+    -p|--port)
+        export PIO_REST_PORT="${2}"
+        echo " > PIO_REST_PORT: ${PIO_REST_PORT}"
+        ;;
+
+    *)
+        export CONFIG=$1
+        case ${2} in
+            -p|--port)
+                export PIO_REST_PORT="${3}"
+                echo " >> PIO_REST_PORT: ${PIO_REST_PORT}"
+                ;;
+
+            *) ;;
+        esac
+    ;;
+esac
+
+if [ -z ${CONFIG} ] ; then
+    export CONFIG="${AML_HOME}/conf/config.conf"
+fi
+
+if [ ! -f ${CONFIG} ]; then
+    echo -e "${Red}Config file '${CONFIG}' not found!${Reset}"
+    exit 1
+fi
+
+if [ ! -f "${AML_HOME}/bin/main" ]; then
+    echo -e "${Red}Main file '${AML_HOME}/bin/main' not found!${Reset}"
+    exit 1
+fi
+
+echo "Pid file: ${PIDFILE}"
+echo -e "${Green}${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT}${Reset}"
+
+exec ${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT} <&- > /dev/null 2>&1 &
+echo $! > ${PIDFILE}
+cat ${PIDFILE}

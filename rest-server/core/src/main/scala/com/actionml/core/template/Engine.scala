@@ -17,7 +17,6 @@
 
 package com.actionml.core.template
 
-import akka.actor.Terminated
 import cats.data.Validated
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging

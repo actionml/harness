@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+. harness-env
+
+command="$1"
+shift
+
+case ${command} in
+
+    start) ${AML_HOME}/bin/harness-start $1 $2 $3 ;;
+
+    stop) ${AML_HOME}/bin/harness-stop ;;
+
+    status) ${AML_HOME}/bin/harness-status ;;
+
+    engine) ${AML_HOME}/bin/harness-engine $1 $2 $3 $4 ;;
+
+    train) ${AML_HOME}/bin/harness-train $1 ;;
+
+    *)
+        echo -e "${Red}Unknown command: '$COMMAND'. Need use 'start', 'stop', 'engine' or 'train'${Reset}"
+        exit 1 ;;
+esac

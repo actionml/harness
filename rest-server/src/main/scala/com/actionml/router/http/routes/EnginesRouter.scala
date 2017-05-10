@@ -1,5 +1,6 @@
 package com.actionml.router.http.routes
 
+import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
@@ -33,9 +34,9 @@ import scaldi.Injector
   */
 class EnginesRouter(implicit inj: Injector) extends BaseRouter {
 
-  private val engineService = injectActorRef[EngineService]
+  private val engineService = inject[ActorRef]('EngineService)
 
-  val route: Route = rejectEmptyResponse {
+  override val route: Route = rejectEmptyResponse {
     (pathPrefix("engines") & extractLog) { log ⇒
       pathEndOrSingleSlash {
         createEngine(log)
@@ -55,7 +56,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
   }
 
   private def createEngine(log: LoggingAdapter): Route = asJson { engine =>
-    log.info("Create event: {}", engine)
+    log.info("Create engine: {}", engine)
     completeByValidated(StatusCodes.Created) {
       (engineService ? CreateEngine(engine.toString())).mapTo[Response]
     }
@@ -69,7 +70,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
   }
 
   private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
-    log.info("Update engine: {}", engineId)
+    log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? DeleteEngine(engineId)).mapTo[Response]
     }

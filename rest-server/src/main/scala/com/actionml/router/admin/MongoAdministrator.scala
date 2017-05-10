@@ -17,18 +17,8 @@
 
 /** REST admin type commands, these are independent of Template
 
-  * PUT /datasets/<dataset-id>
-  * Action: returns 404 since writing an entire dataset is not supported
-
-  * POST /datasets/
-  * Request Body: JSON for PIO dataset description describing Dataset
-  * created, must include in the JSON `"resource-id": "<some-string>"
-      the resource-id is returned. If there is no `resource-id` one will be generated and returned
-    Action: sets up a new empty dataset with the id specified.
-
-DELETE /datasets/<dataset-id>
-    Action: deletes the dataset including the dataset-id/empty dataset
-      and removes all data
+PUT /engines/<engine-id>
+    Action: returns 404 since writing an entire dataset is not supported
 
 POST /engines/<engine-id>
     Request Body: JSON for engine configuration engine.json file
@@ -62,16 +52,16 @@ import com.typesafe.config.ConfigFactory
 import org.json4s.MappingException
 import org.json4s.jackson.JsonMethods._
 
-class MongoAdministrator extends Administrator with JsonParser {
+class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
-  lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
+  //lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
 
 //  val engines = store.client.getDB("metaStore").getCollection("engines")
 //  val datasets = store.client.getDB("metaStore").getCollection("datasets")
 //  val commands = store.client.getDB("metaStore").getCollection("commands") // async persistent though temporary commands
-  lazy val enginesCollection: MongoCollection = store.connection("meta_store")("engines")
+  lazy val enginesCollection: MongoCollection = connection("meta_store")("engines")
   //lazy val datasetsCollection = store.connection("meta_store")("datasets")
-  lazy val commandsCollection: MongoCollection = store.connection("meta_store")("commands") // async persistent though temporary commands
+  lazy val commandsCollection: MongoCollection = connection("meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[String, Engine]
 
 
@@ -101,16 +91,17 @@ class MongoAdministrator extends Administrator with JsonParser {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, Boolean] = {
+  def addEngine(json: String): Validated[ValidateError, String] = {
     // val params = parse(json).extract[RequiredEngineParams]
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> new CBEngine().initAndGet(json))
       if (engines(params.engineId) != null) {
-        if(enginesCollection.find(MongoDBObject("EngineId" -> params.engineId)).size == 1) {
+        if(enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
           // re-initialize
           logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-          enginesCollection.findAndModify(MongoDBObject("engineId" -> params.engineId),
-            MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+          val query = MongoDBObject("engineId" -> params.engineId)
+          val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+          enginesCollection.findAndModify(query, update)
         } else {
           //add new
           logger.trace(s"Initializing new engine for resource-id: ${params.engineId} with params $json")
@@ -121,7 +112,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           enginesCollection += builder.result()
 
         } // ignores case of too many engine with the same engineId
-        Valid(true)
+        Valid(params.engineId)
       } else {
         // init failed
         engines = engines - params.engineId //remove bad engine
@@ -136,7 +127,7 @@ class MongoAdministrator extends Administrator with JsonParser {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
-      enginesCollection.findAndRemove(MongoDBObject("engineId" -> engineId))
+      enginesCollection.remove(MongoDBObject("engineId" -> engineId))
       deadEngine.destroy()
       Valid(true)
     } else {

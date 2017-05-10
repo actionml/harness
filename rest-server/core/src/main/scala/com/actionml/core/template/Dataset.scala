@@ -25,7 +25,6 @@ import com.typesafe.scalalogging.LazyLogging
 abstract class Dataset[T](r: String) extends LazyLogging {
 
   val resourceId: String = r
-  val store: Store
 
   def init(json: String): Validated[ValidateError, Boolean]
   def destroy(): Unit = {logger.trace(s"Starting base Dataset")}
