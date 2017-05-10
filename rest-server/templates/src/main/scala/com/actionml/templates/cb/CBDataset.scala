@@ -23,18 +23,12 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.conversions.scala._
-import com.mongodb.util.JSON
-import com.novus.salat._
-import com.novus.salat.global._
-import com.novus.salat.annotations._
-import com.novus.salat.dao._
+import salat.global._
+import salat.annotations._
+import salat.dao._
 import com.mongodb.casbah.MongoConnection
-import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, MappingException}
+//import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
 
@@ -56,29 +50,22 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](resourceId) with JsonParser {
+class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
 
-  private lazy val config = ConfigFactory.load()
-  lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = resourceId)
-  // Todo: need to get port from CLI or config
-
-  val users = store.connection(resourceId)("users")
-  var usageEventGroups: Map[String, MongoCollection] = Map.empty
+  val users = connection(resourceId)("users")
+  var usageEventGroups: Map[String, UsageEventDAO] = Map.empty
   // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
-  private val groups = MongoConnection()(resourceId)("groups")
-  groups.createIndex[String](keys = DBObject("_id", 1), name = "id", unique = true)
-  groups.createInde
-  object GroupsDAO extends SalatDAO[GroupParams, String](collection = groups)
+  // may need to createIndex if _id: String messes things up
+  object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
 
 
   // These should only be called from trusted source like the CLI!
   def init(json: String = ""): Validated[ValidateError, Boolean] = {
-    store.create()
     Valid(true)
   }
 
-  override def destroy() = {
-    store.destroy()
+  override def destroy(dbName: String) = {
+    super.destroy(dbName)
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
@@ -102,7 +89,7 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
               "groupId" -> event.properties.testGroupId,
               "converted" -> event.properties.converted,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
-            usageEventGroups(event.properties.testGroupId).insert(eventObj)
+            usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
             Valid(event)
           } else {
             logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
@@ -137,9 +124,12 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
         case event: CBGroupInitEvent => // user profile update, modifies use object
           logger.trace(s"Persisting a Group Init Event: ${event}")
           // create the events collection for the group
-          if (usageEventGroups.keySet.contains(event.entityId)) usageEventGroups(event.entityId).drop()
+          if (usageEventGroups.keySet.contains(event.entityId)) {
+          // re-initializing
+            usageEventGroups(event.entityId).collection.drop()
+          }
           usageEventGroups = usageEventGroups +
-            (event.entityId -> store.connection(resourceId)(event.entityId)) //replace with new collection (needed?)
+            (event.entityId -> UsageEventDAO(connection(resourceId)(event.entityId)))
 
 /*        val query = MongoDBObject("groupId" -> event.entityId)
 
@@ -151,9 +141,8 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
           builder += "eventTime" -> new DateTime(event.eventTime)
           groups.findAndModify(query, builder.result())
 */
-          val groupParams = GroupParams(event.entityId, new DateTime(event.properties.testPeriodStart), event.properties.pageVariants, Some(new DateTime(event.properties.testPeriodEnd.getOrElse(None))))
-          GroupsDAO.update(DBObject("id" -> event.entityId), groupParams, upsert = true,
-            false, GroupsDAO.defaultWriteConcern)
+          //val groupParams = GroupParams(event.entityId, new DateTime(event.properties.testPeriodStart), event.properties.pageVariants, Some(new DateTime(event.properties.testPeriodEnd.getOrElse(None))))
+          GroupsDAO.insert(event.toGroupParams)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -174,7 +163,7 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
               if ( usageEventGroups.keySet.contains(event.entityId) ) {
                 GroupsDAO.remove(MongoDBObject("groupId" -> event.entityId))
                 //groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
-                usageEventGroups(event.entityId).drop() // drop all events
+                usageEventGroups(event.entityId).collection.drop() // drop all events
                 usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
                 Valid(event)
@@ -210,8 +199,8 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
               parseAndValidate[CBUserUpdateEvent](json).andThen { cbue =>
                 if (cbue.properties.isDefined != true) {
                   logger.trace(s"No properties for the user update event: ${event.event}")
-                }
-                Valid(cbue)
+                  Invalid(MissingParams(s"No properties for the user update event: ${event.event}"))
+                } else Valid(cbue)
               }
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
@@ -249,11 +238,6 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
     }
   }
 
-  def getGroupParams(groupId: String): GroupParams = {
-    groups.find(DBObject("groupId" -> groupId))
-
-    GroupsDAO.findOneById()
-  }
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])
@@ -309,12 +293,35 @@ case class CBUsageProperties(
   converted: Boolean)
 
 case class CBUsageEvent(
-    event: String,
-    entityId: String,
-    targetEntityId: String,
-    properties: CBUsageProperties,
-    eventTime: String)
-  extends CBEvent
+  event: String,
+  entityId: String,
+  targetEntityId: String,
+  properties: CBUsageProperties,
+  eventTime: String)
+  extends CBEvent {
+
+  def toUsageEvent: UsageEvent = {
+    UsageEvent(
+      event = this.event,
+      userId = this.entityId,
+      itemId = this.targetEntityId,
+      testGroupId = this.properties.testGroupId,
+      converted = this.properties.converted,
+      eventTime = new DateTime(this.eventTime)
+    )
+  }
+}
+
+case class UsageEvent(
+  _id: ObjectId = new ObjectId(),
+  event: String,
+  userId: String,
+  itemId: String,
+  testGroupId: String,
+  converted: Boolean,
+  eventTime: DateTime)
+
+case class UsageEventDAO(eventColl: MongoCollection) extends SalatDAO[UsageEvent, ObjectId](eventColl)
 
 /* CBGroupInitEvent
 {
@@ -335,8 +342,7 @@ case class CBGroupInitProperties (
   testPeriodEnd: Option[String])
 
 case class GroupParams (
-  @Key("_id") id: String,
-  //groupId: String,
+  _id: String,
   testPeriodStart: DateTime, // ISO8601 date
   pageVariants: Seq[String], //["17","18"]
   testPeriodEnd: Option[DateTime])
@@ -347,7 +353,18 @@ case class CBGroupInitEvent (
     entityId: String,
     properties: CBGroupInitProperties,
     eventTime: String) // ISO8601 date
-  extends CBEvent
+  extends CBEvent {
+
+  def toGroupParams: GroupParams = {
+    GroupParams(
+      _id = this.entityId,
+      testPeriodStart = new DateTime(this.properties.testPeriodStart),
+      pageVariants = this.properties.pageVariants,
+      testPeriodEnd = if (this.properties.testPeriodEnd.isEmpty) None else Some(new DateTime(this.properties.testPeriodEnd.get))
+    )
+  }
+}
+
 
 /* CBUser Comes in CBEvent partially parsed from the Json:
 {

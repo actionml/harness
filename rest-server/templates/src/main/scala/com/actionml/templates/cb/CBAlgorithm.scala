@@ -40,7 +40,7 @@ import scala.concurrent.Future
   * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
   *
   */
-class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonParser {
+class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mongo {
 
   private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
   private var trainers = Map.empty[String, ActorRef]
@@ -54,7 +54,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonPars
     if (response.isValid) {
       params = response.getOrElse(CBAlgoParams())
 
-      val groups: Map[String, MongoCollection] = dataset.usageEventGroups
+      val groups: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
       val exists = trainers.keys.toList
       val diff = groups.filterNot { case (key, _) =>
@@ -92,7 +92,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonPars
     }
   }
 
-  def add(groupName: String, collection: MongoCollection): Unit = {
+  def add(groupName: String, collection: UsageEventDAO): Unit = {
     logger.info("Create trainer {}", groupName)
     if (!trainers.contains(groupName)) {
       val actor = actors.actorOf(SingleGroupTrainer.props(collection), groupName)
@@ -130,7 +130,7 @@ case class CBAlgoParams(
   extends AlgorithmParams
 
 
-class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
+class SingleGroupTrainer(events: UsageEventDAO) extends ActorWithLogging {
 
   import SingleGroupTrainer._
 
@@ -152,7 +152,7 @@ object SingleGroupTrainer {
 
   case object Train
 
-  def props(events: MongoCollection): Props = Props(new SingleGroupTrainer(events))
+  def props(events: UsageEventDAO): Props = Props(new SingleGroupTrainer(events))
 }
 
 trait ActorWithLogging extends Actor with ActorLogging{

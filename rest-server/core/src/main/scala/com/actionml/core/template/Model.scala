@@ -20,8 +20,6 @@ package com.actionml.core.template
 import com.typesafe.scalalogging.LazyLogging
 
 /** Model for the algorithm, in charge of storage CRUD ops in the store */
-abstract class Model[S](s: S) extends LazyLogging {
-
-  val store = s
+trait Model extends LazyLogging {
 
 }

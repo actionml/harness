@@ -17,18 +17,8 @@
 
 /** REST admin type commands, these are independent of Template
 
-  * PUT /datasets/<dataset-id>
-  * Action: returns 404 since writing an entire dataset is not supported
-
-  * POST /datasets/
-  * Request Body: JSON for PIO dataset description describing Dataset
-  * created, must include in the JSON `"resource-id": "<some-string>"
-      the resource-id is returned. If there is no `resource-id` one will be generated and returned
-    Action: sets up a new empty dataset with the id specified.
-
-DELETE /datasets/<dataset-id>
-    Action: deletes the dataset including the dataset-id/empty dataset
-      and removes all data
+PUT /engines/<engine-id>
+    Action: returns 404 since writing an entire dataset is not supported
 
 POST /engines/<engine-id>
     Request Body: JSON for engine configuration engine.json file
@@ -62,16 +52,16 @@ import com.typesafe.config.ConfigFactory
 import org.json4s.MappingException
 import org.json4s.jackson.JsonMethods._
 
-class MongoAdministrator extends Administrator with JsonParser {
+class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
-  lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
+  //lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
 
 //  val engines = store.client.getDB("metaStore").getCollection("engines")
 //  val datasets = store.client.getDB("metaStore").getCollection("datasets")
 //  val commands = store.client.getDB("metaStore").getCollection("commands") // async persistent though temporary commands
-  lazy val enginesCollection: MongoCollection = store.connection("meta_store")("engines")
+  lazy val enginesCollection: MongoCollection = connection("meta_store")("engines")
   //lazy val datasetsCollection = store.connection("meta_store")("datasets")
-  lazy val commandsCollection: MongoCollection = store.connection("meta_store")("commands") // async persistent though temporary commands
+  lazy val commandsCollection: MongoCollection = connection("meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[String, Engine]
 
 

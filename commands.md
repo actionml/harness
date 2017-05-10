@@ -1,12 +1,12 @@
 # Commands
 
-PIO-Kappa includes Commands just like other REST resources. They can be fired using the REST API or via the Command Line Interface (CLI), which is similar to Apache PredictionIO. Some of the CLI fires the REST Commands endpoints other parts of the CLI hits other resource types as needed.
+Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials (secret token). 
 
-## REST Endpoints for Administration
+Harness must be running for anything but the `harness start` command to work and this is also the only command that will not work remotely. All other command work against the running Harness server.
 
-Internal to pio-kappa are objects like datasets and algorithms, they are always attached to engines. The Engine instance manages all interactions with a dataset or algorithm. All input data is validated by the dataset and engine, and must be readable by the algorithm. Therefor in order to have a dataset the engine must also be defined or validation of input is not possible.
+Internal to Harness are ***Engines*** made of objects like datasets and algorithms. An Engine is an instance of a Template and manages all interactions with a dataset or algorithm. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
 
-Therefor we are removing all reference to datasets from the admin and input api. 
+## REST Endpoints for Administration 
           
     PUT /engines/
     PUT /engines/<engine-id>
@@ -56,12 +56,14 @@ in addition to the commands above, Lambda style learners require not only setup 
         
 ## The Command Line Interface
 
-PIO-Kappa uses resource-ids to identify all objects in the system, engines and commands. Every Template must have an engine. The Engine must have an `engine.json` file, which contains all parameters for the engine to run including algorithm parameters that are specific to the Template.
+Harness uses resource-ids to identify all objects in the system, engines and commands. The Engine must have an `some-engine.json` file, which contains all parameters for the engine to run including the resource-id used in as the "R" in REST as well as algorithm parameters that are specific to the Template. All Harness specific config is in harness-env like DB addresses, ports for the Harness REST, etc. See Harness Config for details (not written yet).
 
 **Things to remember:** 
+
  - The file `<some-engine.json>` can be named anything and put anywhere so the term is only a short version of `/path/to/some/engine/json/file`. The same is true of the `config.json` for server wide config.
  - The working copy of all engine parameters and input data is actually in a shared database and so until you create a new engine (command below) or modify it, the engine config is not active and data will be rejected.
  - No command works before you start the server.
+ - In order to administer Harness remotely it is often inconvenient to have the `some-engine.json` file present so most commands allow use of the resource-id as shorthand for the engine to be managed. Using the resource-id assumes that the engine has been added, which can only be accomplished with a json params file. Remote execution of the CLI can also be done with the `some-engine.json` file, which contains the resource-id.
 
 **Commands**:
 
@@ -69,22 +71,22 @@ Set your path to include to the directory containing the `harness` script.
 
  - `harness start` starts the harness server based on configuration in `harness-env`, which is expected to be in the same directory as `harness`, all other commands require the service to be running, it is always started as a daemon/background process. All previously configured engines are started.
  - `harness stop` gracefully stops harness and all engines.
- - `harness add <some-engine.json>` creates and starts an instance of the template defined in `some-engine.json`, which is a path to the template specific parameters file. An error message is displayed if the engine is already defined or if the json is invalid.
- - `harness update <some-engine.json> [-d | --data-delete]` stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as `harness engine <some-engine.json> new` there will be an error if a . If `-d` is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data (see engine config for more about mirroring). This command will reset the engine to ground original state with the `-d` but no other change to the parameters in the json file.
- - `harness delete <some-engine.json>` The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
- - `harness import <some-engine.json> [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
- - `harness train <some-engine.json>` in the Lambda model this trains the algorithm on all previously accumulated data.
- - `harness status [<some-engine.json>]` prints a status message for harness or for the engine specified.
+ - `harness add -c <some-engine.json>` creates and starts an instance of the template defined in `some-engine.json`, which is a path to the template specific parameters file. An error message is displayed if the engine is already defined or if the json is invalid.
+ - `harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]` stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as `harness engine <some-engine.json> new` there will be an error if a . If `-d` is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data unless `-f` is supplied (see engine config for more about mirroring). This command will reset the engine to ground original state with the `-d` if there are no changes to the parameters in the json file.
+ - `harness delete [-c <some-engine.json> | <some-resource-id]` The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
+ - `harness import [-c <some-engine.json> | <some-resource-id] [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
+ - `harness train [-c <some-engine.json> | <some-resource-id]` in the Lambda model this trains the algorithm on all previously accumulated data.
+ - `harness status [[-c <some-engine.json> | <some-resource-id]]` prints a status message for harness or for the engine specified.
  - `harness list engines` lists engines and stats about them
  - `harness list commands` lists any currently active long running commands like `harness train ...`
 
 # Harness Workflow
 
-Following typical workflow for launching and managing the PIO-Kappa server the following commands are available:
+Following typical workflow for launching and managing the Harness server the following commands are available:
 
- 1. Startup all needed services needed by a template. For PIO-Kappa with the Contextual Bandit this will be MongoDB only, but other Templates may require other services. Each type of engine will allows config for connecting to the services it needs in engine.json. But the services must be running before the Engine is started or it will not be able to connect to the services.
+ 1. Startup all needed services needed by a template. For Harness with the Contextual Bandit this will be MongoDB only, but other Templates may require other services. Each type of engine will allows config for connecting to the services it needs in engine.json. But the services must be running before the Engine is started or it will not be able to connect to the services.
 
- 1. Start the PIO-Kappa server but none of the component services like Spark, DBs, etc., :
+ 1. Start the Harness server but none of the component services like Spark, DBs, etc., :
         
         harness start 
         # default port if not specified in harness-env is 9090
@@ -112,39 +114,30 @@ Following typical workflow for launching and managing the PIO-Kappa server the f
  1. To bring the server down:
 
         harness stop
-        # The PID is retrieved from a location set in
-        # `harness-env`. If the file is not provided
+        # stop may take some time and it's usually safe to 
+        # just kill the harness PID
 
-# Engine Configuration Parameters
+# Configuration Parameters
 
-Two files are used to initialize the pio-kappa Router and each Template.
+All config of Harness and it's component services is done with `harness-env` or in the service config specific to the services used.
 
-## application.conf
+## `harness-env`
 
-In application.conf the default config for the Router is kept including what address and port it bind to, where MongoDB is, etc. This allows all specific config to be overridden in the environment. Simply adding a value for the following environment variables change the config:
-
-    // application.conf, hard coded defaults
-    mongo {
-      host = "localhost"
-      host = ${?MONGO_HOST}
-      port = 27017
-      port = ${?MONGO_PORT}
-    }
-
-To use a different host and port for MongoDB do the following before the REST-Server and Router is launched:
+`harness-env` is a Bash shell script that is sourced before any command is run. All required variable should be defined like this:
 
     export MONGO_HOST=<some-host-name>
     export MONGO_PORT=<some-port-number>
     
-A full list of these will be provided in a bash shell script that sets up any overrides before launching the Router
+A full list of these will be provided in a bash shell script that sets up any overrides before launching Harness
 
-## some-engine.json
+## `some-engine.json` Required Parameters
 
-This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are required by the pio-kappa framework:
+This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are required by the Harness framework:
 
     {
         "engineId": "some_resource_id"
         "engineFactory": "org.actionml.templates.name.SomeEngineFatory"
+        "mirror": "path/to/mirror" // optional, turns on mirroring
         "params": {
             "algorithm": {
                 algorithm specific parameters, see Template docs
@@ -164,14 +157,19 @@ This file provide the parameters and config for anything that is Template/Engine
         }
     }
     
-The `"other"` section or sections are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit, or a Template may need a new server type that is only used by it. For instance The Universal Recommender will need an `"elasticsearch"` section. The Template will configure any component that is not part of the minimal subset defined by the Router
+The `"other"` section or sections are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit, or a Template may need a new server type that is only used by it. For instance The Universal Recommender will need an `"elasticsearch"` section. The Template will configure any component that is not part of the minimal subset defined by Harness.
+
+# Input Mirroring and Importing
+
+Some special events like `$set`, `$unset`, `$delete` may cause mutable database data to be modified as they are received, while user/usage events represent an immutable event stream. That is to say sequence matters with input and some state is mutable and some immutable. In order to provide for replay of modification of the event stream, we provide mirroring of input events with no validation. This is useful if you wanted to change the params for how an engine works and want to re-create it using all past data. 
+
+To accomplish this, you must set up mirroring. Then the next input event sent to `/engines/resource-id/events` will be mirrored to a location set in `some-engine.json`. Best practice would be to start with mirroring and then turn if off once everything is running correctly since mirroring will save all events and grow without limit, like unrotated server logs. HDFS can be used and is recommended for mirroring.
+
+Simply set `"mirror": "path/to/mirror"` in `some-engine.json`. The path can be on the local filesystem or HDFS by specifying the correct URI, such as `"mirror": "hdfs://some-hadoop-master:9000/user/aml/"` a directory named for the engine resource-id will be created and json files will be sent there packaged so time periods are human readable.
+
+`harness update <resource-id> -d` will delete engine data leaving any previously mirrored data and `harness import <resource-id>` will check for the mirrored files move them, reload all the mirrored data, and leave the previously mirrored files intact. This will create 2 identical dataset directories so if the import proceeded correctly you can remove the old data, if there were errors the old events are still there to be used again, nothing is lost, `harness import <resource-id> -f ...` allows you to reimport any event json files including the events of record. 
+
+## Importing and Bootstrapping
+
+The `harness import` command is also useful when json events have been derived from past history available from other application databases or logs in a bootstrapping operation.
          
-# The missing Commands
-
-It **is** possible to take an existing dataset and reuse it with a new Engine. This is done by the `harness engine update <engine-id>` command, which changes parameters the engine uses but does not delete the data. This only works with Engines of the same type where you are only changing parameters, for example altering the algorithm parameters. You cannot create 2 engines that use the same dataset since each may be modifying over the other.
-
-It **should** be possible to duplicate data to be used with a new engine of the exact same type, possibly differing parameters but is TBD.
-
-To implement storage of an immutable event stream that can be re-input into a completely new Engine, which has a compatible view of input events, a streaming mechanism can be put in front of the pio-kappa server like Kafka or Flume. 
-
-We will also implement a mechanism to stream raw events to elastic storage like HDFS before it is validated and processed by the Engine. This is so parameter changes can be applied throughout the event input or so it can be input into a new Engine with a different algorithm but which has a compatible input event formats and meaning.

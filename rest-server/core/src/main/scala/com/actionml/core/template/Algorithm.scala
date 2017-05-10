@@ -25,10 +25,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Future
 
-abstract class Algorithm(s: Store) extends LazyLogging{
-
-  val store: Store = s
-  //var params: AlgorithmParams
+abstract class Algorithm extends LazyLogging{
 
   def init(json: String): Validated[ValidateError, Boolean]
   def destroy(): Unit = {logger.trace(s"Starting base Algorithm")}
