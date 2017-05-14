@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Figure out where PIO Kappa is installed
-export AML_HOME="$(cd `dirname $0`/..; pwd)"
+# Figure out where Harness is installed
+export HARNESS_HOME="$(cd `dirname $0`/..; pwd)"
 
 # Reset
 Reset='\033[0m'       # Text Reset
