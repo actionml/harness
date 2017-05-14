@@ -2,4 +2,4 @@
 
 . harness-env
 
-${AML_HOME}/bin/command.py status
+${HARNESS_HOME}/bin/command.py status

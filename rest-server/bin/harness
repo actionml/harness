@@ -7,15 +7,15 @@ shift
 
 case ${command} in
 
-    start) ${AML_HOME}/bin/harness-start $1 $2 $3 ;;
+    start) ${HARNESS_HOME}/bin/harness-start $1 $2 $3 ;;
 
-    stop) ${AML_HOME}/bin/harness-stop ;;
+    stop) ${HARNESS_HOME}/bin/harness-stop ;;
 
-    status) ${AML_HOME}/bin/harness-status ;;
+    status) ${HARNESS_HOME}/bin/harness-status ;;
 
-    engine) ${AML_HOME}/bin/harness-engine $1 $2 $3 $4 ;;
+    engine) ${HARNESS_HOME}/bin/harness-engine $1 $2 $3 $4 ;;
 
-    train) ${AML_HOME}/bin/harness-train $1 ;;
+    train) ${HARNESS_HOME}/bin/harness-train $1 ;;
 
     *)
         echo -e "${Red}Unknown command: '$COMMAND'. Need use 'start', 'stop', 'engine' or 'train'${Reset}"

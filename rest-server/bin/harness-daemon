@@ -6,15 +6,21 @@ PIDFILE=$1
 
 shift
 
-export PIO_REST_PORT=9090
+export HARNESS_REST_PORT=9090
 
 case ${1} in
-    -p|--port) export PIO_REST_PORT=$2 ;;
+    -p|--port)
+        export HARNESS_REST_PORT="${2}"
+        echo " > HARNESS_REST_PORT: ${HARNESS_REST_PORT}"
+        ;;
 
     *)
         export CONFIG=$1
         case ${2} in
-            -p|--port) export PIO_REST_PORT=$3 ;;
+            -p|--port)
+                export HARNESS_REST_PORT="${3}"
+                echo " >> HARNESS_REST_PORT: ${HARNESS_REST_PORT}"
+                ;;
 
             *) ;;
         esac
@@ -22,7 +28,7 @@ case ${1} in
 esac
 
 if [ -z ${CONFIG} ] ; then
-    export CONFIG="${AML_HOME}/conf/config.conf"
+    export CONFIG="${HARNESS_HOME}/conf/config.conf"
 fi
 
 if [ ! -f ${CONFIG} ]; then
@@ -30,14 +36,14 @@ if [ ! -f ${CONFIG} ]; then
     exit 1
 fi
 
-if [ ! -f "${AML_HOME}/bin/main" ]; then
-    echo -e "${Red}Main file '${AML_HOME}/bin/main' not found!${Reset}"
+if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
+    echo -e "${Red}Main file '${HARNESS_HOME}/bin/main' not found!${Reset}"
     exit 1
 fi
 
 echo "Pid file: ${PIDFILE}"
-echo -e "${Green}${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT}${Reset}"
+echo -e "${Green}${HARNESS_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${HARNESS_REST_PORT}${Reset}"
 
-exec ${AML_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${PIO_REST_PORT} <&- > /dev/null 2>&1 &
+exec ${HARNESS_HOME}/bin/main -Dconfig.file=${CONFIG} -Drest-server.port=${HARNESS_REST_PORT} <&- > /dev/null 2>&1 &
 echo $! > ${PIDFILE}
 cat ${PIDFILE}

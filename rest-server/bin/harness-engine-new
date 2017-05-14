@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. harness-env
+. header
 
 COMMAND=$1
 shift
@@ -35,10 +35,8 @@ if [ ! -f ${ENGINE_CONFIG} ]; then
 fi
 
 if [ -z "$RESOURCE_ID" ]; then
-    ${AML_HOME}/bin/engine.py create -c ${ENGINE_CONFIG}
+    echo ${HARNESS_REST_PORT}
+    ${HARNESS_HOME}/bin/engine.py create -c ${ENGINE_CONFIG}
 else
-    ${AML_HOME}/bin/engine.py create ${RESOURCE_ID} -c ${ENGINE_CONFIG}
+    ${HARNESS_HOME}/bin/engine.py create ${RESOURCE_ID} -c ${ENGINE_CONFIG}
 fi
-
-
-

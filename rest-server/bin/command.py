@@ -35,9 +35,9 @@ def print_warning(notice):
     print(BColors.WARNING + notice + BColors.END)
 
 
-pio_host = os.getenv('PIO_REST_HOST', 'localhost')
-pio_port = os.getenv('PIO_REST_PORT', 9090)
-url = 'http://{}:{}'.format(pio_host, pio_port)
+harness_host = os.getenv('HARNESS_REST_HOST', 'localhost')
+harness_port = os.getenv('HARNESS_REST_PORT', 9090)
+url = 'http://{}:{}'.format(harness_host, harness_port)
 
 command_client = CommandClient(url=url)
 

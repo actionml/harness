@@ -1,10 +1,10 @@
-name := "pio-kappa-rest-server"
+name := "harness-rest-server"
 
 version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
-lazy val akkaVersion = "2.4.17"
+lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.5"
 lazy val circeVersion = "0.7.1"
 lazy val scalaTestVersion = "3.0.1"

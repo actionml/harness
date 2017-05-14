@@ -9,4 +9,4 @@ if [ -z "$RESOURCE_ID" ]; then
     exit 1
 fi
 
-${AML_HOME}/bin/command.py train ${RESOURCE_ID}
+${HARNESS_HOME}/bin/command.py train ${RESOURCE_ID}

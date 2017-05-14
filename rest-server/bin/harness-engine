@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. harness-env
+. header
 
 COMMAND=$1
 shift
@@ -8,13 +8,13 @@ shift
 case ${COMMAND} in
 
     new)
-        ${AML_HOME}/bin/harness-engine-new $1 $2 $3 ;;
+        ${HARNESS_HOME}/bin/harness-engine-new $1 $2 $3 ;;
 
     update)
-        ${AML_HOME}/bin/harness-engine-update $1 $2 $3 ;;
+        ${HARNESS_HOME}/bin/harness-engine-update $1 $2 $3 ;;
 
     delete)
-        ${AML_HOME}/bin/harness-engine-delete $1 ;;
+        ${HARNESS_HOME}/bin/harness-engine-delete $1 ;;
 
     *)
         echo -e "${Red}Unknown command: '$COMMAND' for 'engine' section. Need use 'new', 'update' or 'delete'${Reset}"

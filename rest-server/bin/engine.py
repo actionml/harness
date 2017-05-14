@@ -37,10 +37,10 @@ def print_warning(notice):
     print(BColors.WARNING + notice + BColors.END)
 
 
-pio_host = os.getenv('PIO_REST_HOST', 'localhost')
-pio_port = os.getenv('PIO_REST_PORT', 9090)
+harness_host = os.getenv('HARNESS_REST_HOST', 'localhost')
+harness_port = os.getenv('HARNESS_REST_PORT', 9090)
 
-engine_client = EngineClient(url='http://{}:{}'.format(pio_host, pio_port))
+engine_client = EngineClient(url='http://{}:{}'.format(harness_host, harness_port))
 
 if args.action == 'get':
     pass

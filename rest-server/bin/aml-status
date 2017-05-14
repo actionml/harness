@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-. header
-
-${AML_HOME}/bin/command.py status

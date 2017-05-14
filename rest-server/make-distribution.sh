@@ -46,7 +46,7 @@ DISTDIR="${FWDIR}/dist"
 
 VERSION=$(grep ^version ${FWDIR}/build.sbt | grep -o '".*"' | sed 's/"//g')
 
-echo "Building binary distribution for ActionML PioKappa $VERSION..."
+echo "Building binary distribution for ActionML Harness $VERSION..."
 
 cd ${FWDIR}
 set -x
