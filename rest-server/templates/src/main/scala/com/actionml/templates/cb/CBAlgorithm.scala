@@ -37,7 +37,7 @@ import scala.concurrent.Future
 import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
 import java.nio.file.{Files, Paths}
 
-import vw.VW
+//import vw.VW
 
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
