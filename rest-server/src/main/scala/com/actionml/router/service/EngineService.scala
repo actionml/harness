@@ -36,10 +36,14 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
       log.info("Create new engine, {}", engine)
       sender() ! admin.addEngine(engineJson).map(_.asJson)
 
-    case UpdateEngine(engineId, engineJson) ⇒
-      log.info("Update exist engine, {}, {}", engineId, engine)
+    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force) ⇒
+      log.info("Update exist engine, {}, {}, {}, {}", engineId, engine, dataDelete, force)
       admin.removeEngine(engineId)
       sender() ! admin.addEngine(engineJson).map(_.asJson)
+
+    case UpdateEngineWithId(engineId, dataDelete, force) ⇒
+      log.info("Update exist engine, {}, {}, {}", engineId, dataDelete, force)
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
 
     case DeleteEngine(engineId) ⇒
       log.info("Delete exist engine, {}", engineId)
@@ -51,5 +55,6 @@ sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
 case class GetEngines(resourceId: String) extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
-case class UpdateEngine(engineId: String, engineJson: String) extends EngineAction
+case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean) extends EngineAction
+case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction
