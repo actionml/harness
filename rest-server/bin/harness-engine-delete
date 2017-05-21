@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+. "${HARNESS_HOME}/bin/harness-env"
+
+case "$1" in
+    -c) ENGINE_CONFIG=$2
+        shift ;;
+    *) RESOURCE_ID=$1 ;;
+esac
+
+if [ -z "$ENGINE_CONFIG" ] && [ -z "$RESOURCE_ID" ]; then
+    echo -e "${RED}Engine config file or resource id not specified!${NC}"
+    echo -e "Expect command: ${CYAN}harness delete [-c <some-engine.json> | <some-resource-id]${NC}"
+    exit 1
+fi
+
+if [ ! -f ${ENGINE_CONFIG} ]; then
+    echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
+    echo -e "Expect command: ${CYAN}harness delete [-c <some-engine.json> | <some-resource-id]${NC}"
+    echo -e "Verify that the correct path is specified."
+    exit 1
+fi
+
+PYTHON_ARGS="delete"
+if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
+if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG}"; fi
+
+
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+
+${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}

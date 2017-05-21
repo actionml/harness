@@ -28,7 +28,7 @@ import scala.io.Source
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
-  inputEvents: String = "", // events readFile
+  inputEvents: String = "data/xyxon-pio-data.json", // events readFile
   engineDefJSON: String = ""  // engine.json readFile
 )
 
@@ -41,7 +41,7 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
       opt[String]('m', "model").action((x, c) =>
         c.copy(modelOut = x)).text("Model storage location, eventually from the Engine config")
 
-      opt[String]('d', "dataset").required().action((x, c) =>
+      opt[String]('d', "dataset").action((x, c) =>
         c.copy(inputEvents = x)).text("Event dataset input location, eventually fome the Engine config")
 
       opt[String]('e', "engine").required().action((x, c) =>

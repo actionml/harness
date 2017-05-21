@@ -1,2 +1,2 @@
-PIO-Kappa REST Server
+Harness REST Server
 =====================

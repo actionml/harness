@@ -10,7 +10,7 @@ __license__ = "Apache License, Version 2.0"
 
 setup(
     name='ActionML',
-    version="0.0.5",
+    version="0.0.10",
     author=__author__,
     author_email=__email__,
     packages=['actionml'],
@@ -45,5 +45,5 @@ setup(
                        ActionML API to Python programmers so that they
                        can focus on their application logic.
                        """,
-    install_requires=["pytz >= 2016.10", ],
+    install_requires=["pytz >= 2017.2", ],
 )

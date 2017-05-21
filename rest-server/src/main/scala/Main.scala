@@ -30,6 +30,8 @@ class BaseModule extends Module{
 
   bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
 
+  implicit lazy val system: ActorSystem = inject [ActorSystem]
+
   bind[RestServer] to new RestServer
 
   bind[CheckRouter] to new CheckRouter
@@ -41,6 +43,10 @@ class BaseModule extends Module{
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
+
+  binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
+  binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
+  binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
   bind[Administrator] to new MongoAdministrator initWith(_.init())
   bind[Engine] to new CBEngine() // todo: Semen, this is supplied by the admin API now, this

@@ -24,14 +24,20 @@ import cats.data.Validated.Valid
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Algorithm, AlgorithmParams}
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
+import com.mongodb.casbah.commons.{TypeImports, MongoDBObject}
 import org.joda.time.DateTime
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
-
 import scala.concurrent.Future
+
+import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
+import java.nio.file.{Files, Paths}
+
+//import vw.VW
 
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
@@ -40,9 +46,9 @@ import scala.concurrent.Future
   * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
   *
   */
-class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonParser {
+class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mongo {
 
-  private val actors = ActorSystem("CBAlgorithm")
+  private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
   private var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
 
@@ -54,7 +60,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonPars
     if (response.isValid) {
       params = response.getOrElse(CBAlgoParams())
 
-      val groups: Map[String, MongoCollection] = dataset.usageEventGroups
+      val groups: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init manager for ${groups.size} groups. ${groups.mkString(", ")}")
       val exists = trainers.keys.toList
       val diff = groups.filterNot { case (key, _) =>
@@ -92,7 +98,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm(new Mongo) with JsonPars
     }
   }
 
-  def add(groupName: String, collection: MongoCollection): Unit = {
+  def add(groupName: String, collection: UsageEventDAO): Unit = {
     logger.info("Create trainer {}", groupName)
     if (!trainers.contains(groupName)) {
       val actor = actors.actorOf(SingleGroupTrainer.props(collection), groupName)
@@ -130,7 +136,7 @@ case class CBAlgoParams(
   extends AlgorithmParams
 
 
-class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
+class SingleGroupTrainer(events: UsageEventDAO) extends ActorWithLogging {
 
   import SingleGroupTrainer._
 
@@ -142,7 +148,13 @@ class SingleGroupTrainer(events: MongoCollection) extends ActorWithLogging {
 
   private def startWork(): Unit = {
     log.info(s"$name Start work")
+
     log.info(s"$name Finish work")
+  }
+
+  def makeVWString(dbobj: MongoDBObject): String = {
+
+    ""
   }
 
 }
@@ -151,7 +163,7 @@ object SingleGroupTrainer {
 
   case object Train
 
-  def props(events: MongoCollection): Props = Props(new SingleGroupTrainer(events))
+  def props(events: UsageEventDAO): Props = Props(new SingleGroupTrainer(events))
 }
 
 trait ActorWithLogging extends Actor with ActorLogging{

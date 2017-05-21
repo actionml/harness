@@ -24,6 +24,6 @@ import com.actionml.core.template.Model
 /** DAO for persisted Contextual Bandit model classes
   *
   */
-class CBModel() extends Model[Mongo](new Mongo) {
+class CBModel() extends Model {
 
 }
