@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-. header
+. "${HARNESS_HOME}/bin/harness-env"
 
 # PIO Kappa Event Server
-echo -e "${Green}Stopping PIO Kappa Event Server...${Reset}"
+echo -e "${GREEN}Stopping PIO Kappa Event Server...${NC}"
 PIDFILE=${HARNESS_HOME}/eventserver.pid
 if [ -e ${PIDFILE} ]; then
     cat ${PIDFILE} | xargs kill
     rm ${PIDFILE}
 else
-    echo -e "${Red}Pid file not found!${Reset}"
+    echo -e "${RED}Pid file not found!${NC}"
 fi
