@@ -21,10 +21,11 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
-import com.typesafe.scalalogging.LazyLogging
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
+import com.mongodb.casbah.Imports._
+import salat.global._
+import salat.annotations._
+import salat.dao._
+import com.mongodb.casbah.MongoConnection
 import org.json4s.{DefaultFormats, MappingException}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -84,7 +85,9 @@ class CBEngine() extends Engine() with JsonParser {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(event.entityId,dataset.usageEventGroups(event.entityId))
+        algo.add(
+          event.entityId,
+          dataset.usageEventGroups(event.entityId))
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>

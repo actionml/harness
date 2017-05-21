@@ -16,7 +16,7 @@ JAVA_PROPS=()
 
 for i in "$@"
 do
-case $i in
+case ${i} in
     -h|--help)
     usage
     shift
@@ -24,14 +24,6 @@ case $i in
     ;;
     -D*)
     JAVA_PROPS+=("$i")
-    shift
-    ;;
-    --with-rpm)
-    RPM_BUILD=true
-    shift
-    ;;
-    --with-deb)
-    DEB_BUILD=true
     shift
     ;;
     *)
@@ -58,6 +50,7 @@ cd ${FWDIR}
 rm -rf ${DISTDIR}
 mkdir -p ${DISTDIR}/bin
 mkdir -p ${DISTDIR}/conf
+mkdir -p ${DISTDIR}/logs
 mkdir -p ${DISTDIR}/lib
 mkdir -p ${DISTDIR}/project
 
@@ -78,5 +71,6 @@ cp -r ${DISTDIR} ${TARDIR}
 
 tar zcvf ${TARNAME} ${TARDIR}
 rm -rf ${TARDIR}
+rm -rf ${DISTDIR}
 
 echo -e "\033[0;32mActionML binary distribution created at $TARNAME\033[0m"

@@ -27,7 +27,7 @@ $ pip install actionml
 Start ActionML Rest-Server
 ```bash
 $ cd ./bin
-$ ./aml start
+$ ./harness start
 ```
 
 You should see something like the following when it finishes building successfully.
@@ -37,7 +37,7 @@ $ Starting PIO Kappa Event Server...
 
 Check ActionML Rest-Server
 ```bash
-$ ./aml status
+$ ./harness status
 ```
 
 You should see something like the following when it finishes building successfully.
@@ -49,7 +49,7 @@ $ Error connecting to ActionML Rest Server [http://localhost:9090] [Errno 111] C
 
 Stop ActionML Rest-Server
 ```bash
-$ ./aml stop
+$ ./harness stop
 ```
 
 You should see something like the following when it finishes building successfully.
