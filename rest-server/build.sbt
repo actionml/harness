@@ -1,12 +1,12 @@
-name := "harness-rest-server"
+name := "harness"
 
 version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.18"
-lazy val akkaHttpVersion = "10.0.5"
-lazy val circeVersion = "0.7.1"
+lazy val akkaHttpVersion = "10.0.6"
+lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
@@ -17,14 +17,14 @@ lazy val commonSettings = Seq(
   version := "0.1.0-SNAPSHOT",
   scalaVersion := "2.11.8",
   libraryDependencies ++= Seq(
-    "ch.qos.logback" % "logback-classic" % "1.2.2",
+    "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
 
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
-    "de.heikoseeberger" %% "akka-http-circe" % "1.14.0",
+    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
     "org.mongodb" %% "casbah" % "3.1.1",
     "com.github.salat" %% "salat" % "1.11.0",
