@@ -19,6 +19,7 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.backup.Mirroring
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
@@ -28,7 +29,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, MappingException}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class CBEngine() extends Engine() with JsonParser with Mirroring {
 
   val dataset = new CBDataset()
   override val algo: CBAlgorithm = new CBAlgorithm(dataset)
@@ -74,6 +75,7 @@ class CBEngine() extends Engine() with JsonParser {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
+    mirrorJson(json)
     // validation happens as the input goes to the dataset
     dataset.input(json).andThen(process(_)).map(_ => true)
   }
