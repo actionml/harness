@@ -44,9 +44,9 @@ lazy val commonSettings = Seq(
     "org.scaldi" %% "scaldi-akka" % "0.5.8",
     "joda-time" % "joda-time" % "2.9.9",
 
-    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
-  )
-)
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+
+    "com.github.johnlangford" % "vw-jni" % "8.0.0"))
 
 lazy val core = (project in file("core")).
   settings(

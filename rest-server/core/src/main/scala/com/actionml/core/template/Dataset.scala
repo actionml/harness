@@ -27,7 +27,7 @@ abstract class Dataset[T](r: String) extends LazyLogging {
   val resourceId: String = r
 
   def init(json: String): Validated[ValidateError, Boolean]
-  def destroy(): Unit = {logger.trace(s"Starting base Dataset")}
+  def destroy(): Unit
   def start() = {logger.trace(s"Starting base Dataset"); this}
   def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
 

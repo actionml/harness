@@ -1,3 +1,5 @@
+package com.actionml.drivers
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,16 +17,16 @@
  * limitations under the License.
  */
 
-//package com.actionml.templates.cb
+//package cb
 
 // driver for running Contextual Bandit as an early scaffold
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.router.admin.MongoAdministrator
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.akka.AkkaInjectable
 import scopt._
 
 import scala.io.Source
+import com.actionml.core.admin.MongoAdministrator
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model

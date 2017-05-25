@@ -37,7 +37,7 @@ if [ ! -f ${CONFIG} ]; then
 fi
 
 if [ ! -f "${AML_HOME}/bin/main" ]; then
-    echo -e "${Red}Main file '${AML_HOME}/bin/main' not found!${Reset}"
+    echo -e "${Red}com.actionml.Main file '${AML_HOME}/bin/main' not found!${Reset}"
     exit 1
 fi
 

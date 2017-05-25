@@ -7,7 +7,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.actionml.router" level="INFO"/>
+    <logger name="com.actionml.com.actionml.router" level="INFO"/>
     <logger name="com.mongodb" level="INFO"/>
     <logger name="org.mongodb" level="INFO"/>
     <logger name="com.typesafe" level="INFO"/>

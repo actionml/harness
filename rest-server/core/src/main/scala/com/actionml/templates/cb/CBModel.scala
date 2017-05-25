@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package cb
 
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Model

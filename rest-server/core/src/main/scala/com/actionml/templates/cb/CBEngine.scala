@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -36,10 +36,11 @@ class CBEngine() extends Engine() with JsonParser {
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[CBEngineParams](json).andThen { p =>
+    val response = parseAndValidate[CBEngineParams](json).andThen { p =>
       params = p
       Valid(p)
     }.map(_ => true)
+    if (response.isValid) algo.init(json, params.engineId) else response
   }
 
   // used when init might fail from bad params in the json but you want an Engine, not a Validated
@@ -85,9 +86,7 @@ class CBEngine() extends Engine() with JsonParser {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(
-          event.entityId,
-          dataset.usageEventGroups(event.entityId))
+        algo.add(event.entityId)
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>

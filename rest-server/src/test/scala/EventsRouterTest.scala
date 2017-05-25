@@ -3,10 +3,10 @@
 //import akka.http.scaladsl.model.{ContentTypes, HttpEntity, MediaTypes}
 //import akka.http.scaladsl.server.Route
 //import akka.http.scaladsl.testkit.ScalatestRouteTest
-//import com.actionml.router.http.RestServer
-//import com.actionml.router.http.routes.EventsRouter
-//import com.actionml.router.service._
-//import com.actionml.templates.cb.{CBEvent, CBGroupInitProperties}
+//import router.http.RestServer
+//import router.http.routes.EventsRouter
+//import router.service._
+//import cb.{CBEvent, CBGroupInitProperties}
 //import de.heikoseeberger.akkahttpcirce.CirceSupport
 //import org.joda.time.DateTime
 //import org.scalatest.concurrent.ScalaFutures
