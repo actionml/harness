@@ -18,8 +18,10 @@ trait Mirroring {
 
   /**
     *
-    * The method mirrors the input JSON to a file called HH-mm-ss.SSS.json
-    * It's placed in a folder with a date-specific name
+    * The method mirrors the input JSON to a file named considering <i>HH-mm-ss.SSS.json</i> pattern
+    * It's placed to a folder with a name like <i>dd-MMM-yyyy</i>. So there is one folder per day.
+    * In case of the file already exists in the directory it's supposed to be overwritten
+    * (i.e. the maximal frequency of the mirroring is 1 millisecond)
     *
     * @param json input JSON
     */
