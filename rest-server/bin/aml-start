@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-. header
-
-echo -e "${Green}Starting PIO Kappa Event Server...${Reset}"
-${AML_HOME}/bin/aml-daemon ${AML_HOME}/eventserver.pid $1 $2 $3

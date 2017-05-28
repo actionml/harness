@@ -1,4 +1,4 @@
-name := "pio-kappa-rest-server"
+name := "harness"
 
 version := "0.1.0-SNAPSHOT"
 

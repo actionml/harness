@@ -3,7 +3,7 @@ The ActionML Python SDK provides easy-to-use functions for integrating
 Python applications with ActionML REST API services.
 """
 
-__version__ = "0.0.8"
+__version__ = "0.0.10"
 
 # import packages
 import re
@@ -139,9 +139,13 @@ class BaseClient(object):
 
     def _add_segment(self, segment=None):
         if segment is not None:
-            return self.path + "/" + quote(segment, "")
+            return "%s/%s" % (self.path, quote(segment, ""))
         else:
             return self.path
+
+    def _add_get_params(self, path=None, **params):
+        _path = self.path if path is None else path
+        return "%s?%s" % (_path, urlencode(params))
 
     def _response_handler(self, expected_status, response):
         if response.error is not None:
@@ -274,7 +278,7 @@ class EventClient(BaseClient):
 
 
 class EngineClient(BaseClient):
-    def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
         self.path = "/engines"
         super(EngineClient, self).__init__(url, threads, qsize, timeout)
 
@@ -284,7 +288,7 @@ class EngineClient(BaseClient):
         :param engine_id:
         :returns: AsyncRequest object.
         """
-        request = AsyncRequest("GET", self._add_segment(engine_id))
+        request = AsyncRequest("GET", self._add_segment(self.path, engine_id))
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
@@ -292,21 +296,47 @@ class EngineClient(BaseClient):
     def get(self, engine_id):
         return self.async_get(engine_id).get_response()
 
-    def async_create(self, data, engine_id = None):
+    def async_create(self, data):
         """
         Asynchronously create engine.
-        :param data: 
-        :param engine_id: 
+        :param data:
         :return: 
         """
 
-        request = AsyncRequest("POST", self._add_segment(engine_id), **data)
+        request = AsyncRequest("POST", self.path, **data)
         request.set_response_handler(self._create_response_handler)
         self._connection.make_request(request)
         return request
 
-    def create(self, data, engine_id = None):
-        return self.async_create(data, engine_id).get_response()
+    def create(self, data):
+        return self.async_create(data).get_response()
+
+    def async_update(self, engine_id, data, data_delete=False, force=False):
+        """
+        Asynchronously update engine.
+        :param force:
+        :param data_delete:
+        :param data:
+        :param engine_id:
+        :return:
+        """
+
+        query = {}
+        if data_delete:
+            query['data_delete'] = True
+        if force:
+            query['force'] = True
+
+        path = self._add_segment(engine_id)
+        path = self._add_get_params(path, **query)
+
+        request = AsyncRequest("POST", path, **data)
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def update(self, engine_id, data, data_delete=False, force=False):
+        return self.async_update(engine_id, data, data_delete, force).get_response()
 
     def async_delete(self, engine_id):
         request = AsyncRequest("DELETE", self._add_segment(engine_id))

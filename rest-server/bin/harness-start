@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 
-. harness-env
+. "${HARNESS_HOME}/bin/harness-env"
 
-echo -e "${Green}Starting PIO Kappa Event Server...${Reset}"
-${AML_HOME}/bin/harness-daemon ${AML_HOME}/eventserver.pid $1 $2 $3
+PIDFILE=${HARNESS_HOME}/eventserver.pid
+
+if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
+    echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
+    exit 1
+fi
+
+
+echo -e "${GLINE}"
+echo "REST_SERVER_HOST....${REST_SERVER_HOST}"
+echo "REST_SERVER_PORT....${REST_SERVER_PORT}"
+echo "MONGO_HOST..........${MONGO_HOST}"
+echo "MONGO_PORT..........${MONGO_PORT}"
+echo "HARNESS_LOG_CONFIG..${HARNESS_LOG_CONFIG}"
+echo "HARNESS_LOG_PATH....${HARNESS_LOG_PATH}"
+echo ""
+echo "Run ${HARNESS_HOME}/bin/main"
+echo "Create pid file: ${PIDFILE}"
+
+if [ ! -f ${PIDFILE} ]; then
+    exec ${HARNESS_HOME}/bin/main -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} <&- > /dev/null 2>&1 &
+    echo $! > ${PIDFILE}
+fi
+
+echo "PID.................$(cat ${PIDFILE})"
+echo -e "${RLINE}"

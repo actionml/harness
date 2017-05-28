@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+. "${HARNESS_HOME}/bin/harness-env"
+
+echo -e "   ${CYAN}harness start${NC}"
+echo -e "       Start the Harness server but none of the component services like Spark, DBs, etc.."
+echo ""
+
+echo -e "   ${CYAN}harness stop${NC}"
+echo -e "       Gracefully stops harness and all engines."
+echo ""
+
+echo -e "   ${CYAN}harness add [-c <some-engine.json> | <some-resource-id]${NC}"
+echo -e "       Create a new engine and set it's configuration"
+echo ""
+
+echo -e "   ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+echo -e "       Stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as harness engine <some-engine.json> new there will be an error if a . If -d is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data unless -f is supplied (see engine config for more about mirroring). This command will reset the engine to ground original state with the -d if there are no changes to the parameters in the json file."
+echo ""
+
+echo -e "   ${CYAN}harness delete [-c <some-engine.json> | <some-resource-id]${NC}"
+echo -e "       If you wish to remove all data and the engine to start fresh."
+echo ""
+
+echo -e "   ${CYAN}harness train [-c <some-engine.json> | <some-resource-id]${NC}"
+echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data."
+echo ""
+
+echo -e "   ${CYAN}harness status [[-c <some-engine.json> | <some-resource-id]]${NC}"
+echo -e "       Prints a status message for harness or for the engine specified.."
+echo ""
