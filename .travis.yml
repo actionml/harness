@@ -1,7 +1,7 @@
 language: java
 scala:
 - 2.11.8
-script: cd java-sdk && mvn clean compile && cd ../rest-server && sbt clean compile
+script: cd rest-server && sbt compile
 branches:
   only:
   - master
