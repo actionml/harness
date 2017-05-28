@@ -2,7 +2,6 @@ package com.actionml.core.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import cb.CBEngine
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
@@ -23,17 +22,21 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   var engines = Map.empty[String, Engine]
 
 
+  private def newEngineInstance(engineFactory: String): Engine = {
+    Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
+  }
+
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
     engines = enginesCollection.find.map { engine =>
       val engineId = engine.get("engineId").toString
-      val engineFactory = engine.get("engineFactory")
+      val engineFactory = engine.get("engineFactory").toString
       val params = engine.get("params").toString
       // create each engine passing the params
-      // Todo: Semen, this happens on startup where all exisitng Engines will be started it replaces some of the code
+      // Todo: Semen, this happens on startup where all exisiting Engines will be started it replaces some of the code
       // in Main See CmdLineDriver for what should be done to integrate.
-      engineId -> (new CBEngine).initAndGet(params)
+      engineId -> newEngineInstance(engineFactory).initAndGet(params)
     }.filter(_._2 != null).toMap
     this
   }
@@ -52,7 +55,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   def addEngine(json: String): Validated[ValidateError, String] = {
     // val params = parse(json).extract[RequiredEngineParams]
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
-      engines = engines + (params.engineId -> new CBEngine().initAndGet(json))
+      engines = engines + (params.engineId -> newEngineInstance(params.engineFactory).initAndGet(json))
       if (engines(params.engineId) != null) {
         if(enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
           // re-initialize

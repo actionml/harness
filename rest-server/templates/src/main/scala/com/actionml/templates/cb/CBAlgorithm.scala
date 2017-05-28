@@ -210,14 +210,15 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     allEvents
   }
 
-  private def createVW() : VW = {
+  private def createVW(): VW = {
     val reg = "--l2 " + params.regParam
     val iters = "-c -k --passes " + params.maxIter
     val lrate = "-l " + params.stepSize
 
     val vw = new VW("--csoaa 10 " + "-b " + params.bitPrecision + " " + "-f " + params.modelName + " " + reg +
       " " + lrate + " " + iters)
-    return vw
+    println(vw)
+    vw
   }
 
   def examplesToVWStrings(
