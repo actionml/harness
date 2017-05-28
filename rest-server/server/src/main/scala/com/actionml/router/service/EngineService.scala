@@ -1,7 +1,7 @@
 package com.actionml.router.service
 
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.admin.Administrator
+import com.actionml.admin.Administrator
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.NotImplemented
 import com.actionml.router.ActorInjectable

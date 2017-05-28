@@ -1,13 +1,13 @@
 package com.actionml
 
 import akka.actor.ActorSystem
-import cb.CBEngine
-import com.actionml.core.admin.{Administrator, MongoAdministrator}
+import com.actionml.admin.{Administrator, MongoAdministrator}
 import com.actionml.core.template.Engine
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.actionml.templates.cb.CBEngine
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 /**

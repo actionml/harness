@@ -1,4 +1,4 @@
-package com.actionml.core.admin
+package com.actionml.admin
 
 import com.actionml.core.template.EngineParams
 

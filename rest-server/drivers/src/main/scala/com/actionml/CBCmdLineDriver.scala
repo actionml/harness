@@ -1,4 +1,4 @@
-package com.actionml.drivers
+package com.actionml
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -21,12 +21,11 @@ package com.actionml.drivers
 
 // driver for running Contextual Bandit as an early scaffold
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.admin.MongoAdministrator
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.akka.AkkaInjectable
-import scopt._
+import scopt.OptionParser
 
 import scala.io.Source
-import com.actionml.core.admin.MongoAdministrator
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
@@ -34,7 +33,7 @@ case class CBCmdLineDriverConfig(
   engineDefJSON: String = ""  // engine.json readFile
 )
 
-object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
+object CBCmdLineDriver extends App with LazyLogging{
 
   override def main(args: Array[String]): Unit = {
     val parser = new OptionParser[CBCmdLineDriverConfig]("scopt") {
@@ -71,13 +70,14 @@ object CBCmdLineDriver extends App with AkkaInjectable with LazyLogging{
     // creating Engines so the Administrator and CLI is Engine independent
     // For now we assume CBEngines in the MongoAdministrator
 
-    val admin = new MongoAdministrator().init()
+    val admin = new MongoAdministrator()
     val engineJson = Source.fromFile(config.engineDefJSON).mkString
 
     admin.removeEngine("test_resource") // should remove and destroy an engine initialized at startup
     // so we can re-initialize in case of old data in the DB
 
     admin.addEngine(engineJson)
+    admin.init()
     val engine = admin.getEngine("test_resource")
 
     var errors = 0

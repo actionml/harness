@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package cb
+package com.actionml.templates.cb
 
 import akka.actor._
 import akka.event.Logging
@@ -26,15 +26,15 @@ import com.actionml.core.template.{Algorithm, AlgorithmParams}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
-import com.mongodb.casbah.commons.{TypeImports, MongoDBObject}
+import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
 import org.joda.time.DateTime
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{JValue, DefaultFormats, Formats, MappingException}
+import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
-import scala.concurrent.Future
 
-import java.io.{ObjectOutputStream, FileOutputStream, ObjectInputStream, FileInputStream}
+import scala.concurrent.Future
+import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.nio.file.{Files, Paths}
 
 import vw.VW
