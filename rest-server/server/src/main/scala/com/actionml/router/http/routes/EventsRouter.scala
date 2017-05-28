@@ -1,0 +1,60 @@
+package com.actionml.router.http.routes
+
+import akka.actor.ActorRef
+import akka.event.LoggingAdapter
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Route
+import akka.pattern.ask
+import com.actionml.router.service._
+import io.circe.Json
+import scaldi.Injector
+
+import scala.language.postfixOps
+
+/**
+  *
+  * Event endpoints:
+  *
+  * Add new event
+  * PUT, POST /engines/<engine-id>/events {JSON body for PIO event}
+  * Response: HTTP code 201 if the event was successfully created; otherwise, 400.
+  *
+  * Get exist event
+  * GET /engines/<engine-id>/events/<event-id>
+  * Response: {JSON body for PIO event}
+  * HTTP code 200 if the event exist; otherwise, 404
+  *
+  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
+  * 28.01.17 12:53
+  */
+class EventsRouter(implicit inj: Injector) extends BaseRouter {
+
+  private val eventService = inject[ActorRef]('EventService)
+
+  val route: Route = rejectEmptyResponse {
+    (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
+      pathPrefix("events") {
+        pathEndOrSingleSlash {
+          createEvent(engineId, log)
+        } ~ path(Segment) { eventId ⇒
+          getEvent(engineId, eventId, log)
+        }
+      }
+    }
+  }
+
+  private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
+    log.debug("Get event: {}, {}", datasetId, eventId)
+    completeByValidated(StatusCodes.OK) {
+      (eventService ? GetEvent(datasetId, eventId)).mapTo[Response]
+    }
+  }
+
+  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
+    log.debug("Create event: {}, {}", engineId, event)
+    completeByValidated(StatusCodes.Created) {
+      (eventService ? CreateEvent(engineId, event.toString())).mapTo[Response]
+    }
+  }
+
+}

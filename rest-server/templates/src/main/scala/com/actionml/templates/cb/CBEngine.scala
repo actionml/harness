@@ -18,14 +18,9 @@
 package com.actionml.templates.cb
 
 import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Valid
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{JsonParser, ParseError, ValidateError}
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
-import com.typesafe.scalalogging.LazyLogging
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, MappingException}
+import com.actionml.core.validate.{JsonParser, ValidateError}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
@@ -35,10 +30,11 @@ class CBEngine() extends Engine() with JsonParser {
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[CBEngineParams](json).andThen { p =>
+    val response = parseAndValidate[CBEngineParams](json).andThen { p =>
       params = p
       Valid(p)
     }.map(_ => true)
+    if (response.isValid) algo.init(json, params.engineId) else response
   }
 
   // used when init might fail from bad params in the json but you want an Engine, not a Validated
@@ -84,7 +80,7 @@ class CBEngine() extends Engine() with JsonParser {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
       case event: CBGroupInitEvent =>
-        algo.add(event.entityId,dataset.usageEventGroups(event.entityId))
+        algo.add(event.entityId)
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>

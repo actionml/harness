@@ -22,24 +22,30 @@ import java.net.UnknownHostException
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClient
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
+import com.typesafe.config.ConfigFactory
 
-class Mongo(m: String = "localhost", p: Int = 27017, n: String = "test_resource") extends Store {
+trait Mongo extends Store {
 
-  val master: String = m
-  val port: Int = p
-  val dbName: String = n
+  private lazy val config = ConfigFactory.load()
+/*
+  val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
+  val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
+*/
+
+  // Todo: super hack to get debugger working I had to remove all artifact creation refactoring so now
+  // not sure where to put config files for ConfigFactory.load()
+  val master = "localhost"
+  val port = 27017
+
+  // Todo: need to get port from CLI or config
+  val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
+
   lazy val client = MongoClient(master, port)
   @transient lazy val connection = MongoConnection(master, port)
-  val store = this
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
-  // should only be called from trusted source like the CLI!
-  def create(): Mongo = {
-    this
-  }
-
-  def destroy(): Mongo = {
+  override def destroy(dbName: String): Mongo = {
     try {
       client.dropDatabase(dbName)
     } catch {

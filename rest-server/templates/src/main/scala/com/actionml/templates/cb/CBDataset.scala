@@ -23,13 +23,10 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.conversions.scala._
-import com.mongodb.util.JSON
-import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, MappingException}
+import salat.dao._
+import salat.global._
+//import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
 
@@ -51,25 +48,22 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](resourceId) with JsonParser {
+class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
 
-  private lazy val config = ConfigFactory.load()
-  lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = resourceId)
-  // Todo: need to get port from CLI or config
-
-  val users = store.connection(resourceId)("users")
-  var usageEventGroups: Map[String, MongoCollection] = Map.empty
-  val groups = store.connection(resourceId)("groups")
+  val usersDAO = UsersDAO(connection(resourceId)("users"))
+  var usageEventGroups: Map[String, UsageEventDAO] = Map.empty
+  // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
+  // may need to createIndex if _id: String messes things up
+  object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
 
 
   // These should only be called from trusted source like the CLI!
   def init(json: String = ""): Validated[ValidateError, Boolean] = {
-    store.create()
     Valid(true)
   }
 
   override def destroy() = {
-    store.destroy()
+    client.dropDatabase(resourceId)
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
@@ -86,14 +80,15 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
             logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
             // input to usageEvents collection
             // Todo: validate fields first
-            val eventObj = MongoDBObject(
+/*            val eventObj = MongoDBObject(
               "userId" -> event.entityId,
               "eventName" -> event.event,
               "itemId" -> event.targetEntityId,
               "groupId" -> event.properties.testGroupId,
               "converted" -> event.properties.converted,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
-            usageEventGroups(event.properties.testGroupId).insert(eventObj)
+*/
+            usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
             Valid(event)
           } else {
             logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
@@ -107,7 +102,7 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
           // input to usageEvents collection
           // Todo: validate fields first
           if (event.properties.nonEmpty) {
-            val query = MongoDBObject("userId" -> event.entityId)
+/*            val query = MongoDBObject("userId" -> event.entityId)
             // replace the old document with the 'apple' instance
 
             val builder = MongoDBObject.newBuilder
@@ -116,6 +111,8 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
             builder += "eventTime" -> new DateTime(event.eventTime)
             val eventObj = builder.result
             users.update(query, eventObj, true, false) // upsert true
+*/
+            usersDAO.insert(User(event.entityId, User.propsToMapString(event.properties.get)))
             Valid(event)
 
           } else {
@@ -128,11 +125,14 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
         case event: CBGroupInitEvent => // user profile update, modifies use object
           logger.trace(s"Persisting a Group Init Event: ${event}")
           // create the events collection for the group
-          if (usageEventGroups.keySet.contains(event.entityId)) usageEventGroups(event.entityId).drop()
+          if (usageEventGroups.contains(event.entityId)) {
+          // re-initializing
+            usageEventGroups(event.entityId).collection.drop()
+          }
           usageEventGroups = usageEventGroups +
-            (event.entityId -> store.connection(resourceId)(event.entityId)) //replace with new collection (needed?)
+            (event.entityId -> UsageEventDAO(connection(resourceId)(event.entityId)))
 
-          val query = MongoDBObject("groupId" -> event.entityId)
+/*        val query = MongoDBObject("groupId" -> event.entityId)
 
           val builder = MongoDBObject.newBuilder
           builder += "groupId" -> event.entityId
@@ -141,6 +141,9 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
             new DateTime(event.properties.testPeriodEnd.get)
           builder += "eventTime" -> new DateTime(event.eventTime)
           groups.findAndModify(query, builder.result())
+*/
+          //val groupParams = GroupParams(event.entityId, new DateTime(event.properties.testPeriodStart), event.properties.pageVariants, Some(new DateTime(event.properties.testPeriodEnd.getOrElse(None))))
+          GroupsDAO.insert(event.toGroupParams)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -148,25 +151,26 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
           val update = new MongoDBObject
           val unsetPropNames = event.properties.get.keys.toArray
 
-          users.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
+          usersDAO.collection.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
           Valid(event)
 
         case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
-              users.findAndRemove(MongoDBObject("userId" -> event.entityId))
+              //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
+              usersDAO.removeById(event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
-              if ( usageEventGroups.keySet.contains(event.entityId) ) {
-                groups.findAndRemove(MongoDBObject("groupId" -> event.entityId))
-                usageEventGroups(event.entityId).drop() // drop all events
+              if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
+                logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
+                Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
+              } else {
+                GroupsDAO.remove(MongoDBObject("_id" -> event.entityId))
+                usageEventGroups(event.entityId).collection.dropCollection() // drop all events
                 usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
                 Valid(event)
-              } else {
-                logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
-                Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
               }
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
@@ -196,8 +200,8 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
               parseAndValidate[CBUserUpdateEvent](json).andThen { cbue =>
                 if (cbue.properties.isDefined != true) {
                   logger.trace(s"No properties for the user update event: ${event.event}")
-                }
-                Valid(cbue)
+                  Invalid(MissingParams(s"No properties for the user update event: ${event.event}"))
+                } else Valid(cbue)
               }
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
@@ -234,6 +238,7 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
       }
     }
   }
+
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])
@@ -252,6 +257,27 @@ class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](r
   "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
 }
  */
+
+case class User(
+  _id: String,
+  properties: Map[String, String]) {
+  //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
+  def propsToMapOfSeq = properties.map { case(propId, propString) =>
+    propId -> propString.split("%").toSeq
+  }
+}
+
+
+object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
+    props.map { case (propId, propSeq) =>
+      propId -> propSeq.mkString("%")
+    }
+  }
+}
+
+case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
+
 case class CBUserUpdateEvent(
   entityId: String,
   // Todo:!!! this is the way they should be encoded, fix when we get good JSON
@@ -289,12 +315,35 @@ case class CBUsageProperties(
   converted: Boolean)
 
 case class CBUsageEvent(
-    event: String,
-    entityId: String,
-    targetEntityId: String,
-    properties: CBUsageProperties,
-    eventTime: String)
-  extends CBEvent
+  event: String,
+  entityId: String,
+  targetEntityId: String,
+  properties: CBUsageProperties,
+  eventTime: String)
+  extends CBEvent {
+
+  def toUsageEvent: UsageEvent = {
+    UsageEvent(
+      event = this.event,
+      userId = this.entityId,
+      itemId = this.targetEntityId,
+      testGroupId = this.properties.testGroupId,
+      converted = this.properties.converted,
+      eventTime = new DateTime(this.eventTime)
+    )
+  }
+}
+
+case class UsageEvent(
+  _id: ObjectId = new ObjectId(),
+  event: String,
+  userId: String,
+  itemId: String,
+  testGroupId: String,
+  converted: Boolean,
+  eventTime: DateTime)
+
+case class UsageEventDAO(eventColl: MongoCollection) extends SalatDAO[UsageEvent, ObjectId](eventColl)
 
 /* CBGroupInitEvent
 {
@@ -314,12 +363,30 @@ case class CBGroupInitProperties (
   pageVariants: Seq[String], //["17","18"]
   testPeriodEnd: Option[String])
 
+case class GroupParams (
+  _id: String,
+  testPeriodStart: DateTime, // ISO8601 date
+  pageVariants: Seq[String], //["17","18"]
+  testPeriodEnd: Option[DateTime])
+
+
 case class CBGroupInitEvent (
     entityType: String,
     entityId: String,
     properties: CBGroupInitProperties,
     eventTime: String) // ISO8601 date
-  extends CBEvent
+  extends CBEvent {
+
+  def toGroupParams: GroupParams = {
+    GroupParams(
+      _id = this.entityId,
+      testPeriodStart = new DateTime(this.properties.testPeriodStart),
+      pageVariants = this.properties.pageVariants,
+      testPeriodEnd = if (this.properties.testPeriodEnd.isEmpty) None else Some(new DateTime(this.properties.testPeriodEnd.get))
+    )
+  }
+}
+
 
 /* CBUser Comes in CBEvent partially parsed from the Json:
 {
