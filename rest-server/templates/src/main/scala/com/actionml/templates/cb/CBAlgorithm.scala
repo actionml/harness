@@ -37,7 +37,7 @@ import scala.concurrent.Future
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.nio.file.{Files, Paths}
 
-//import vw.VW
+import vw.VW
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
   * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups

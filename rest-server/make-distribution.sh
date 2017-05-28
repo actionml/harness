@@ -7,9 +7,6 @@ usage ()
     echo "Usage: $0 [-h|--help]"
     echo ""
     echo "  -h|--help    Show usage"
-    echo ""
-    echo "  --with-rpm   Build distribution for RPM package"
-    echo "  --with-deb   Build distribution for DEB package"
 }
 
 JAVA_PROPS=()
@@ -38,12 +35,12 @@ DISTDIR="${FWDIR}/dist"
 
 VERSION=$(grep ^version ${FWDIR}/build.sbt | grep -o '".*"' | sed 's/"//g')
 
-echo "Building binary distribution for ActionML Harness $VERSION..."
+echo "Building binary distribution for Harness $VERSION..."
 
 cd ${FWDIR}
 set -x
-sbt/sbt "${JAVA_PROPS[@]}" clean
-sbt/sbt "${JAVA_PROPS[@]}" universal:stage
+sbt/sbt "${JAVA_PROPS[@]}" server/clean
+sbt/sbt "${JAVA_PROPS[@]}" server/universal:stage
 set +x
 
 cd ${FWDIR}
@@ -60,17 +57,17 @@ cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
 cp ${FWDIR}/conf/* ${DISTDIR}/conf
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
 cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
-cp ${FWDIR}/target/universal/stage/lib/* ${DISTDIR}/lib
-cp ${FWDIR}/target/universal/stage/bin/main ${DISTDIR}/bin
+cp ${FWDIR}/server/target/universal/stage/lib/* ${DISTDIR}/lib
+cp ${FWDIR}/server/target/universal/stage/bin/server ${DISTDIR}/bin/main
 
 touch ${DISTDIR}/RELEASE
 
-TARNAME="ActionML-$VERSION.tar.gz"
-TARDIR="ActionML-$VERSION"
+TARNAME="Harness-$VERSION.tar.gz"
+TARDIR="Harness-$VERSION"
 cp -r ${DISTDIR} ${TARDIR}
 
 tar zcvf ${TARNAME} ${TARDIR}
 rm -rf ${TARDIR}
 rm -rf ${DISTDIR}
 
-echo -e "\033[0;32mActionML binary distribution created at $TARNAME\033[0m"
+echo -e "\033[0;32mHarness binary distribution created at $TARNAME\033[0m"
