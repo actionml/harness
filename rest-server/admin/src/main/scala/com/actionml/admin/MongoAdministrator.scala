@@ -1,11 +1,10 @@
-package com.actionml.core.admin
+package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
-
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
 
@@ -34,7 +33,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       val engineFactory = engine.get("engineFactory").toString
       val params = engine.get("params").toString
       // create each engine passing the params
-      // Todo: Semen, this happens on startup where all exisiting Engines will be started it replaces some of the code
+      // Todo: Semen, this happens on startup where all existing Engines will be started it replaces some of the code
       // in Main See CmdLineDriver for what should be done to integrate.
       engineId -> newEngineInstance(engineFactory).initAndGet(params)
     }.filter(_._2 != null).toMap

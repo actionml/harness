@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package cb
+package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -23,11 +23,9 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
-import salat.global._
-import salat.annotations._
-import salat.dao._
-import com.mongodb.casbah.MongoConnection
 import org.joda.time.DateTime
+import salat.dao._
+import salat.global._
 //import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls

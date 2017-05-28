@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.admin
+package com.actionml.admin
 
 import cats.data.Validated
 import com.actionml.core.validate.ValidateError
