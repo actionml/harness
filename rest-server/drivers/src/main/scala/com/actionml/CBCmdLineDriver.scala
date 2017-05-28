@@ -78,7 +78,8 @@ object CBCmdLineDriver extends App with LazyLogging{
 
     admin.addEngine(engineJson)
     admin.init()
-    val engine = admin.getEngine("test_resource")
+    val engineId = "test_resource"
+    val engine = admin.getEngine(engineId).getOrElse(throw new RuntimeException(s"Engine for id=$engineId not found."))
 
     var errors = 0
     var total = 0
@@ -93,7 +94,7 @@ object CBCmdLineDriver extends App with LazyLogging{
       total +=1
     }
 
-    logger.info(s"Processed ${total} events, ${errors} were bad in some way")
+    logger.info(s"Processed $total events, $errors were bad in some way")
 
     val query = """{"user": "pferrel", "group":"group 1" }"""
     engine.query(query) match {

@@ -25,7 +25,7 @@ import com.typesafe.scalalogging.LazyLogging
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine() extends LazyLogging {
+abstract class Engine extends LazyLogging {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
@@ -36,7 +36,7 @@ abstract class Engine() extends LazyLogging {
   def init(json: String): Validated[ValidateError, Boolean]
   def initAndGet(json: String): Engine
   def destroy(): Unit
-  def start() = {logger.trace(s"Starting base Engine with engineId:$engineId"); this}
+  def start(): Engine = {logger.trace(s"Starting base Engine with engineId:$engineId"); this}
   def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()

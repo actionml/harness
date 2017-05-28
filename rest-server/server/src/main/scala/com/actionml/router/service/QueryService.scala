@@ -1,6 +1,9 @@
 package com.actionml.router.service
 
+import cats.data.Validated.Invalid
+import com.actionml.admin.Administrator
 import com.actionml.core.template.Engine
+import com.actionml.core.validate.WrongParams
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
@@ -15,12 +18,16 @@ trait QueryService extends ActorInjectable
 
 class QueryServiceImpl(implicit inj: Injector) extends QueryService{
 
-  private val engine = inject[Engine]
+  private val admin = inject[Administrator]
 
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
-      sender() ! engine.query(query).map(_.asJson)
+      admin.getEngine(engineId) match {
+        case Some(engine) ⇒ sender() ! engine.query(query).map(_.asJson)
+        case None ⇒ sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
+      }
+
   }
 }
 

@@ -18,7 +18,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   lazy val enginesCollection: MongoCollection = connection("meta_store")("engines")
   //lazy val datasetsCollection = store.connection("meta_store")("datasets")
   lazy val commandsCollection: MongoCollection = connection("meta_store")("commands") // async persistent though temporary commands
-  var engines = Map.empty[String, Engine]
+  var engines = Map.empty[EngineId, Engine]
 
 
   private def newEngineInstance(engineFactory: String): Engine = {
@@ -40,8 +40,8 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     this
   }
 
-  def getEngine(engineId: String): Engine = {
-    engines(engineId)
+  def getEngine(engineId: EngineId): Option[Engine] = {
+    engines.get(engineId)
   }
 
   /*
@@ -51,7 +51,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, String] = {
+  def addEngine(json: String): Validated[ValidateError, EngineId] = {
     // val params = parse(json).extract[RequiredEngineParams]
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> newEngineInstance(params.engineFactory).initAndGet(json))
@@ -82,7 +82,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
+  override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
     if (engines.keySet.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
@@ -96,8 +96,9 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  def list(resourceType: String): Validated[ValidateError, Boolean] = {
+  override def list(resourceType: String): Validated[ValidateError, Boolean] = {
     Valid(true)
   }
 
+  override def getEngineParams(engineId: EngineId): String = ???
 }
