@@ -18,6 +18,7 @@
 package com.actionml.admin
 
 import cats.data.Validated
+import com.actionml.core.template.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
@@ -25,12 +26,17 @@ import com.typesafe.scalalogging.LazyLogging
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 abstract class Administrator extends LazyLogging {
 
+  type EngineId = String
+
   lazy val config: Config = ConfigFactory.load()
 
   // engine management
-  def addEngine(json: String): Validated[ValidateError, String]
-  def removeEngine(engineId: String): Validated[ValidateError, Boolean]
+  def getEngine(engineId: EngineId): Option[Engine]
+  def addEngine(json: String): Validated[ValidateError, EngineId]
+  def removeEngine(engineId: EngineId): Validated[ValidateError, Boolean]
   def list(resourceType: String): Validated[ValidateError, Boolean]
+
+  def getEngineParams(engineId: EngineId): String
 
   // startup and shutdown
   def init(): Administrator = this
