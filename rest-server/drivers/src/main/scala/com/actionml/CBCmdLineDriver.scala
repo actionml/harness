@@ -29,7 +29,7 @@ import scala.io.Source
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
-  inputEvents: String = "data/xyxon-pio-data.json", // events readFile
+  inputEvents: String = "data/small-sample.json", // events readFile
   engineDefJSON: String = ""  // engine.json readFile
 )
 

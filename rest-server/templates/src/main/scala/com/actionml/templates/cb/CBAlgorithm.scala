@@ -56,6 +56,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
 
   def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
     //val response = parseAndValidate[CBAlgoParams](json)
+    resourceId = rsrcId
     parseAndValidate[CBAlgoParams](json).andThen { p =>
 
       params = p
@@ -179,8 +180,12 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     trainOnAllHistoricalData(freshPreparedData, classes, userData,vw)
     */
 
-    train(formatGroupData(events, users, params, group, resourceId))
-
+    examplesToVWStrings(
+      events.find(allCollectionObjects).seq.toSeq,
+      group.pageVariants,
+      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
+      resourceId)
+    .foreach(vw.learn(_))
 
     vw.close()
     log.debug(s"$name Finish work")
@@ -196,7 +201,8 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     val allEvents = examplesToVWStrings(
       events.find(allCollectionObjects).seq.toSeq,
       group.pageVariants,
-      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap
+      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
+      resourceId
     )
     allEvents
   }
@@ -215,7 +221,8 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
   def examplesToVWStrings(
     events: Seq[UsageEvent],
     classes: Seq[String],
-    users: Map[String, User]): Seq[String] = {
+    users: Map[String, User],
+    resourceId: String): Seq[String] = {
 
     /*private def examplesToVWStrings(
       data: PreparedData,
@@ -233,12 +240,18 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
           else "2.0")
       }.mkString(" ")
 
-      constructVWString(classString, event.userId, event.testGroupId, users)
+      constructVWString(classString, event.userId, event.testGroupId, users, resourceId)
     }
 
   }
 
-  def constructVWString(classString: String, userId: String, testGroupId: String, users: Map[String, User]): String = {
+  def constructVWString(
+    classString: String,
+    userId: String,
+    testGroupId: String,
+    users: Map[String, User],
+    resourceId: String): String = {
+
     @transient implicit lazy val formats = org.json4s.DefaultFormats
 
     // class-id|namespace user_ user testGroupId_ testGroupId
@@ -253,7 +266,7 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
           users.getOrElse(userId, User(userId, Map[String, String]())).properties.map { case(propId, propstring) =>
             propId + "_" + propstring.replaceAll("\\s+","_") + "_" + testGroupId
             }.mkString(" "))
-    log.debug("VW string for training: $vwString")
+    log.info(s"VW string for training: $vwString")
     vwString
   }
 
@@ -269,7 +282,12 @@ object SingleGroupTrainer {
 
   case object Train
 
-  def props(events: UsageEventDAO, users: UsersDAO, params: CBAlgoParams, group: GroupParams, resourceId: String): Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
+  def props(
+    events: UsageEventDAO,
+    users: UsersDAO,
+    params: CBAlgoParams,
+    group: GroupParams,
+    resourceId: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
 }
 
 trait ActorWithLogging extends Actor with ActorLogging{
