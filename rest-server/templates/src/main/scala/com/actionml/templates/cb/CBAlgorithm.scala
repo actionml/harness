@@ -53,7 +53,6 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
   var resourceId: String = _
 
   // from the Dataset determine which groups are defined and start training on them
-
   def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
     //val response = parseAndValidate[CBAlgoParams](json)
     resourceId = rsrcId
