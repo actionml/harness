@@ -18,9 +18,9 @@
 package com.actionml.templates.cb
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.{WrongParams, MissingParams, JsonParser, ValidateError}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
@@ -30,11 +30,11 @@ class CBEngine() extends Engine() with JsonParser {
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    val response = parseAndValidate[CBEngineParams](json).andThen { p =>
+    parseAndValidate[CBEngineParams](json).andThen { p =>
       params = p
       Valid(p)
-    }.map(_ => true)
-    if (response.isValid) algo.init(json, params.engineId) else response
+    }.andThen(_ => algo.init(json, params.engineId))
+    //if (response.isValid) algo.init(json, params.engineId) else response
   }
 
   // used when init might fail from bad params in the json but you want an Engine, not a Validated
@@ -96,8 +96,17 @@ class CBEngine() extends Engine() with JsonParser {
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: ${json}")
-    Valid(CBQueryResult("variant1", "group1").toJson)
+    parseAndValidate[CBQuery](json).andThen { query =>
+      // query ok if training group exists or group params are in the dataset
+      if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
+        val result = algo.predict(query)
+        Valid(result.toJson)
+      } else {
+        Invalid(WrongParams(s"Query for non-existent group: $json"))
+      }
+    }
   }
+
 
 }
 

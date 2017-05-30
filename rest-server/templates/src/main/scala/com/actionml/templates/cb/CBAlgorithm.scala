@@ -21,13 +21,13 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Algorithm, AlgorithmParams}
+import com.actionml.core.storage._
+import com.actionml.core.template.{Query, Algorithm, AlgorithmParams}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
 import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
-import org.joda.time.DateTime
+import org.joda.time.{Duration, DateTime}
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
@@ -39,6 +39,8 @@ import java.nio.file.{Files, Paths}
 
 import vw.VW
 
+import scala.reflect.io.File
+
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
   * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
@@ -48,7 +50,7 @@ import vw.VW
 class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mongo {
 
   private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
-  private var trainers = Map.empty[String, ActorRef]
+  var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
   var resourceId: String = _
 
@@ -57,9 +59,10 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
   def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
     //val response = parseAndValidate[CBAlgoParams](json)
     resourceId = rsrcId
-    parseAndValidate[CBAlgoParams](json).andThen { p =>
+    parseAndValidate[CBAllParams](json).andThen { p =>
 
-      params = p
+      params = p.algorithm
+      // todo: remove old model since it is recreated with each new input batch, not sure how to do this in vw
       val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
       val exists = trainers.keys.toList
@@ -114,9 +117,78 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     }
   }
 
+  def predict(query: CBQuery): CBQueryResult = {
+    if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
+  }
+
   override def stop(): Unit = { // Todo: Semen, do we have to return Future[Terminated]? What is the benefit?
     actors.terminate().wait() // Semen: I added the wait, not sure why we were returning a terminated Future
   }
+
+  def getVariant(query: CBQuery): CBQueryResult = {
+    val vw = new VW(" -i " + params.modelName)
+
+    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+
+    val numClasses = group.pageVariants.size
+
+    val classString = (1 to numClasses).mkString(" ")
+
+    val users = dataset.usersDAO.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap
+
+    val queryText = SingleGroupTrainer.constructVWString(classString, query.user, query.groupId, users, resourceId)
+
+    val pred = vw.predict(queryText).toInt
+    vw.close()
+
+    //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
+    //we use testPeriods as epsilon0
+
+    val startTime = group.testPeriodStart
+    val endTime = group.testPeriodEnd.getOrElse(new DateTime())
+
+    val maxEpsilon = 1.0 - (1.0/numClasses)
+    val currentTestDuration = new Duration(startTime, new DateTime()).getStandardMinutes().toDouble
+    val totalTestDuration = new Duration(startTime, endTime).getStandardMinutes().toDouble
+
+    //scale epsilonT to the range 0.0-maxEpsilon
+    val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration/ totalTestDuration) ))
+
+    //val testGroupMap = model.classes.classes(query.groupId).toMap
+    // todo: wrong, the map should be Map[Int, String] but not sure where the Int comes from, index of the variants?
+    val groupMap = group.pageVariants.indices.zip(group.pageVariants).toMap
+
+    val probabilityMap = groupMap.keys.map { x => x -> (if(x == pred) 1.0 - epsilonT else epsilonT / (numClasses - 1.0) ) }.toMap
+
+    val sampledPred = sample(probabilityMap)
+
+    val pageVariant = groupMap(sampledPred)
+    CBQueryResult(pageVariant, groupId = query.groupId)
+  }
+
+
+  def getDefaultVariant(query: CBQuery): CBQueryResult = {
+    logger.info("Test group has no training data with  yet. Fall back to uniform distribution")
+    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+
+    val variants = group.pageVariants
+    val numClasses = variants.size
+    val map = variants.map{ x => x -> 1.0/numClasses}.toMap
+    CBQueryResult(sample[String](map), groupId = query.groupId)
+  }
+
+  def sample[A](dist: Map[A, Double]): A = {
+    val p = scala.util.Random.nextDouble
+
+    val rangedProbs = dist.values.scanLeft(0.0)(_ + _).drop(1)
+
+    val rangedMap = (dist.keys zip rangedProbs).toMap
+
+    val item = dist.filter( x => rangedMap(x._1) >= p).keys.head
+
+    item
+  }
+
 
 }
 
@@ -130,7 +202,7 @@ case class CBAlgoParams(
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
     bitPrecision: Int = 24,
-    modelName: String = "model.vw",
+    modelName: String = "/Users/pat/harness/model.vw",
     namespace: String = "n",
     maxClasses: Int = 3)
   extends AlgorithmParams
@@ -151,36 +223,8 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
   private def startWork(): Unit = {
     log.debug(s"$name Start work")
     implicit val vw = createVW()
-    // train model here
-    /* PVR template trains all test groups in the namespace
-    class TrainingData(
-      val trainingExamples: RDD[VisitorVariantExample],
-      val users: RDD[(String, PropertyMap)],
-      val testGroups: RDD[(String, PropertyMap)]
-    ) extends Serializable
 
-    class VisitorVariantExample (
-      val converted: Boolean,
-      val user: String,
-      val variant: String,
-      val testGroupId:
-      String, val props: DataMap ) extends Serializable
-
-
-    val freshData = ds.readTraining(sc)
-    val freshPreparedData = new PreparedData(freshData.trainingExamples, freshData.users, freshData.testGroups)
-
-    require(!freshPreparedData.testGroups.take(1).isEmpty,
-      s"No test groups found, please initialize test groups")
-
-    val (classes, testPeriodStarts, testPeriodEnds) = testGroupToClassesAndPeriodBounds(freshPreparedData)
-
-    val userData = freshPreparedData.users.collect().map( x => x._1 -> x._2).toMap
-
-    trainOnAllHistoricalData(freshPreparedData, classes, userData,vw)
-    */
-
-    examplesToVWStrings(
+    eventsToVWStrings(
       events.find(allCollectionObjects).seq.toSeq,
       group.pageVariants,
       users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
@@ -189,22 +233,6 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
 
     vw.close()
     log.debug(s"$name Finish work")
-  }
-
-  private def train(vwInputs: Seq[String])(implicit vw: VW): Unit = {
-    for (item <- vwInputs) yield vw.learn(item)
-  }
-
-  private def formatGroupData(events: UsageEventDAO, users: UsersDAO, params: CBAlgoParams, group: GroupParams, resourceId: String): Seq[String] = {
-    //freshData.trainingExamples, freshData.users, freshData.testGroups, classes, userData
-    // events, all users, group description, all user properties
-    val allEvents = examplesToVWStrings(
-      events.find(allCollectionObjects).seq.toSeq,
-      group.pageVariants,
-      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
-      resourceId
-    )
-    allEvents
   }
 
   private def createVW(): VW = {
@@ -218,17 +246,11 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     vw
   }
 
-  def examplesToVWStrings(
+  def eventsToVWStrings(
     events: Seq[UsageEvent],
     classes: Seq[String],
     users: Map[String, User],
     resourceId: String): Seq[String] = {
-
-    /*private def examplesToVWStrings(
-      data: PreparedData,
-      classes: Map[String,Seq[(Int, String)]],
-      userData: Map[String, PropertyMap]): Seq[String] = {
-    */
 
     events.map { event =>
       //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
@@ -245,6 +267,21 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
 
   }
 
+
+}
+
+
+object SingleGroupTrainer {
+
+  case object Train
+
+  def props(
+    events: UsageEventDAO,
+    users: UsersDAO,
+    params: CBAlgoParams,
+    group: GroupParams,
+    resourceId: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
+
   def constructVWString(
     classString: String,
     userId: String,
@@ -260,13 +297,14 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     // }.mkString(" ")
 
     val props = users.getOrElse(userId, User(userId, Map[String, String]()))
+
     val vwString = classString + " |" +  resourceId + " " + // may need to make a namespace per group by resourceId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
           users.getOrElse(userId, User(userId, Map[String, String]())).properties.map { case(propId, propstring) =>
             propId + "_" + propstring.replaceAll("\\s+","_") + "_" + testGroupId
-            }.mkString(" "))
-    log.info(s"VW string for training: $vwString")
+          }.mkString(" "))
+    //log.info(s"VW string for training: $vwString")
     vwString
   }
 
@@ -275,19 +313,6 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     str.replaceAll("[|:]", "")
   }
 
-}
-
-
-object SingleGroupTrainer {
-
-  case object Train
-
-  def props(
-    events: UsageEventDAO,
-    users: UsersDAO,
-    params: CBAlgoParams,
-    group: GroupParams,
-    resourceId: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
 }
 
 trait ActorWithLogging extends Actor with ActorLogging{

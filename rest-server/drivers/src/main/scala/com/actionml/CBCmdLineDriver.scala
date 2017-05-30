@@ -96,7 +96,7 @@ object CBCmdLineDriver extends App with LazyLogging{
 
     logger.info(s"Processed $total events, $errors were bad in some way")
 
-    val query = """{"user": "pferrel", "group":"group 1" }"""
+    val query = """{"user": "pferrel", "groupId": "2" }"""
     engine.query(query) match {
       case Valid(result) ⇒ logger.trace(s"QueryResult: $result")
       case Invalid(error) ⇒ logger.error("Query error {}",error)

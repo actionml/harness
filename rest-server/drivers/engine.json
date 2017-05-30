@@ -6,7 +6,7 @@
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "modelName": "model.vw",
+    "modelName": "/Users/pat/harness/model.vw",
     "namespace": "name",
     "maxClasses": 3
   }
