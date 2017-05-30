@@ -53,13 +53,12 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
   var resourceId: String = _
 
   // from the Dataset determine which groups are defined and start training on them
-
   def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
     //val response = parseAndValidate[CBAlgoParams](json)
+    resourceId = rsrcId
     parseAndValidate[CBAlgoParams](json).andThen { p =>
 
       params = p
-      resourceId = rsrcId
       val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
       val exists = trainers.keys.toList
@@ -180,8 +179,12 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
     trainOnAllHistoricalData(freshPreparedData, classes, userData,vw)
     */
 
-    formatGroupData(events, users, params, group, resourceId).foreach(vw.learn(_))
-
+    examplesToVWStrings(
+      events.find(allCollectionObjects).seq.toSeq,
+      group.pageVariants,
+      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
+      resourceId)
+    .foreach(vw.learn(_))
 
     vw.close()
     log.debug(s"$name Finish work")
@@ -194,18 +197,11 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
   private def formatGroupData(events: UsageEventDAO, users: UsersDAO, params: CBAlgoParams, group: GroupParams, resourceId: String): Seq[String] = {
     //freshData.trainingExamples, freshData.users, freshData.testGroups, classes, userData
     // events, all users, group description, all user properties
-
-    val eventsSeq =  events.find(allCollectionObjects).seq.toSeq
-    val variants = group.pageVariants
-    val userMap = users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap
-    log.debug(s"Events: $eventsSeq")
-    log.debug(s"variants: $variants")
-    log.debug(s"Users: $userMap")
-
     val allEvents = examplesToVWStrings(
       events.find(allCollectionObjects).seq.toSeq,
       group.pageVariants,
-      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap
+      users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
+      resourceId
     )
     allEvents
   }
@@ -224,9 +220,16 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
   def examplesToVWStrings(
     events: Seq[UsageEvent],
     classes: Seq[String],
-    users: Map[String, User]): Seq[String] = {
+    users: Map[String, User],
+    resourceId: String): Seq[String] = {
 
-     events.map { event =>
+    /*private def examplesToVWStrings(
+      data: PreparedData,
+      classes: Map[String,Seq[(Int, String)]],
+      userData: Map[String, PropertyMap]): Seq[String] = {
+    */
+
+    events.map { event =>
       //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
 
       //The magic numbers here are costs: 0.0 in case we see this variant, and it converted, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it, which is never the case since we train per group now, not all groups.
@@ -236,12 +239,18 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
           else "2.0")
       }.mkString(" ")
 
-      constructVWString(classString, event.userId, event.testGroupId, users)
+      constructVWString(classString, event.userId, event.testGroupId, users, resourceId)
     }
 
   }
 
-  def constructVWString(classString: String, userId: String, testGroupId: String, users: Map[String, User]): String = {
+  def constructVWString(
+    classString: String,
+    userId: String,
+    testGroupId: String,
+    users: Map[String, User],
+    resourceId: String): String = {
+
     @transient implicit lazy val formats = org.json4s.DefaultFormats
 
     // class-id|namespace user_ user testGroupId_ testGroupId
@@ -256,7 +265,7 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
           users.getOrElse(userId, User(userId, Map[String, String]())).properties.map { case(propId, propstring) =>
             propId + "_" + propstring.replaceAll("\\s+","_") + "_" + testGroupId
             }.mkString(" "))
-    log.debug(s"VW string for training: $vwString")
+    log.info(s"VW string for training: $vwString")
     vwString
   }
 
@@ -272,7 +281,12 @@ object SingleGroupTrainer {
 
   case object Train
 
-  def props(events: UsageEventDAO, users: UsersDAO, params: CBAlgoParams, group: GroupParams, resourceId: String): Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
+  def props(
+    events: UsageEventDAO,
+    users: UsersDAO,
+    params: CBAlgoParams,
+    group: GroupParams,
+    resourceId: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
 }
 
 trait ActorWithLogging extends Actor with ActorLogging{
