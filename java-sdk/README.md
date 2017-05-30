@@ -1,2 +1,2 @@
-PIO-Kappa Java SDK
+Harness Java SDK
 ==================

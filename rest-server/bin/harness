@@ -1,23 +1,48 @@
 #!/usr/bin/env bash
 
-. harness-env
+if [ -z ${HARNESS_HOME} ] ; then
+  HARNESS_FILE=$(readlink -f $0 2>/dev/null)
+  if [ $? = 0 ] ; then
+    export HARNESS_HOME="$(cd $(dirname ${HARNESS_FILE})/..; pwd)"
+  else
+    CURRENT_DIR=`pwd`
+    TARGET_FILE="$0"
+    cd "$(dirname "$TARGET_FILE")"
+    TARGET_FILE=$(basename "$TARGET_FILE")
+
+    while [ -L "$TARGET_FILE" ]
+    do
+      TARGET_FILE=$(readlink "$TARGET_FILE")
+      cd "$(dirname "$TARGET_FILE")"
+      TARGET_FILE=$(basename "$TARGET_FILE")
+    done
+
+    export HARNESS_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+    cd "$CURRENT_DIR"
+  fi
+fi
+
+. "${HARNESS_HOME}/bin/harness-env"
 
 command="$1"
 shift
 
+
 case ${command} in
 
-    start) ${AML_HOME}/bin/harness-start $1 $2 $3 ;;
+    start) ${HARNESS_HOME}/bin/harness-start ;;
 
-    stop) ${AML_HOME}/bin/harness-stop ;;
+    stop) ${HARNESS_HOME}/bin/harness-stop ;;
 
-    status) ${AML_HOME}/bin/harness-status ;;
+    status) ${HARNESS_HOME}/bin/harness-status ;;
 
-    engine) ${AML_HOME}/bin/harness-engine $1 $2 $3 $4 ;;
+    add) ${HARNESS_HOME}/bin/harness-engine-add $1 $2 ;;
 
-    train) ${AML_HOME}/bin/harness-train $1 ;;
+    update) ${HARNESS_HOME}/bin/harness-engine-update $1 $2 $3 $4 ;;
 
-    *)
-        echo -e "${Red}Unknown command: '$COMMAND'. Need use 'start', 'stop', 'engine' or 'train'${Reset}"
-        exit 1 ;;
+    delete) ${HARNESS_HOME}/bin/harness-engine-delete $1 $2 ;;
+
+    train) ${HARNESS_HOME}/bin/harness-engine-train $1 $2 ;;
+
+    *) ${HARNESS_HOME}/bin/harness-help ;;
 esac

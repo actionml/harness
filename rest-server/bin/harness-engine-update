@@ -1,1 +1,39 @@
 #!/usr/bin/env bash
+
+. "${HARNESS_HOME}/bin/harness-env"
+
+
+while [ -n "$1" ]
+do
+case "$1" in
+    -c) ENGINE_CONFIG=$2
+        shift ;;
+    -d|--data-delete) DATA_DELETE="-d" ;;
+    -f|--force) FORCE="-f" ;;
+    *) RESOURCE_ID=$1 ;;
+esac
+shift
+done
+
+if [ -z "$ENGINE_CONFIG" ] && [ -z "$RESOURCE_ID" ]; then
+    echo -e "${RED}Engine config file or resource id not specified!${NC}"
+    echo -e "Expect command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    exit 1
+fi
+
+if [ ! -f ${ENGINE_CONFIG} ]; then
+    echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
+    echo -e "Expect command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Verify that the correct path is specified."
+    exit 1
+fi
+
+PYTHON_ARGS="update"
+if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
+if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG}"; fi
+if [ -n "$DATA_DELETE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${DATA_DELETE}"; fi
+if [ -n "$FORCE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${FORCE}"; fi
+
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+
+${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
