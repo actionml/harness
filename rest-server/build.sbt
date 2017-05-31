@@ -32,6 +32,7 @@ lazy val commonSettings = Seq(
     "org.json4s" %% "json4s-jackson" % "3.5.1",
     "org.json4s" %% "json4s-ext" % "3.5.1",
     "com.github.scopt" %% "scopt" % "3.5.0",
+    "org.apache.hadoop" % "hadoop-client" % "2.8.0",
 
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
