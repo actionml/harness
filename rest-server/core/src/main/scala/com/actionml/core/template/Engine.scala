@@ -42,6 +42,7 @@ abstract class Engine extends LazyLogging {
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
   def query(json: String): Validated[ValidateError, String]
+  def status(): String = "Does not support status message."
 }
 
 trait EngineParams

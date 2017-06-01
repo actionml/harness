@@ -7,16 +7,11 @@ import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
+import salat.dao.SalatDAO
 
 class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
-  //lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
-
-//  val engines = store.client.getDB("metaStore").getCollection("engines")
-//  val datasets = store.client.getDB("metaStore").getCollection("datasets")
-//  val commands = store.client.getDB("metaStore").getCollection("commands") // async persistent though temporary commands
   lazy val enginesCollection: MongoCollection = connection("meta_store")("engines")
-  //lazy val datasetsCollection = store.connection("meta_store")("datasets")
   lazy val commandsCollection: MongoCollection = connection("meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
 
@@ -33,8 +28,6 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       val engineFactory = engine.get("engineFactory").toString
       val params = engine.get("params").toString
       // create each engine passing the params
-      // Todo: Semen, this happens on startup where all existing Engines will be started it replaces some of the code
-      // in Main See CmdLineDriver for what should be done to integrate.
       engineId -> newEngineInstance(engineFactory).initAndGet(params)
     }.filter(_._2 != null).toMap
     this
@@ -96,9 +89,8 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  override def list(resourceType: String): Validated[ValidateError, Boolean] = {
-    Valid(true)
+  override def list(resourceType: String): Validated[ValidateError, String] = {
+    Valid("\n\n"+engines.mapValues(_.status()).toSeq.mkString("\n\n"))
   }
 
-  override def getEngineParams(engineId: EngineId): String = ???
 }

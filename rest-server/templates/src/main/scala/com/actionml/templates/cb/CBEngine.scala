@@ -107,6 +107,13 @@ class CBEngine() extends Engine() with JsonParser {
     }
   }
 
+  override def status(): String = {
+    s"""
+      |    Engine: ${this.getClass.getName}
+      |    Resource ID: ${engineId}
+      |    Number of active groups: ${algo.trainers.size}
+    """.stripMargin
+  }
 
 }
 
