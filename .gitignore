@@ -173,3 +173,4 @@ ENV/
 
 # Rope project settings
 .ropeproject
+/java-sdk/example/data/
