@@ -27,7 +27,7 @@ if [ ! -f ${PIDFILE} ]; then
     -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
     -Drest-server.host=${REST_SERVER_HOST} \
     -Drest-server.port=${REST_SERVER_PORT} \
-    -Dmongo.host=${MONGO_PORT} \
+    -Dmongo.host=${MONGO_HOST} \
     -Dmongo.port=${MONGO_PORT} \
     <&- > /dev/null 2>&1 &
     echo $! > ${PIDFILE}
