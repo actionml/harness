@@ -22,7 +22,14 @@ echo "Run ${HARNESS_HOME}/bin/main"
 echo "Create pid file: ${PIDFILE}"
 
 if [ ! -f ${PIDFILE} ]; then
-    exec ${HARNESS_HOME}/bin/main -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} <&- > /dev/null 2>&1 &
+    exec ${HARNESS_HOME}/bin/main \
+    -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
+    -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
+    -Drest-server.host=${REST_SERVER_HOST} \
+    -Drest-server.port=${REST_SERVER_PORT} \
+    -Dmongo.host=${MONGO_PORT} \
+    -Dmongo.port=${MONGO_PORT} \
+    <&- > /dev/null 2>&1 &
     echo $! > ${PIDFILE}
 fi
 
