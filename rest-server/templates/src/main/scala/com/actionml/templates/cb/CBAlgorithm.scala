@@ -121,8 +121,8 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
 
-  override def stop(): Unit = { // Todo: Semen, do we have to return Future[Terminated]? What is the benefit?
-    actors.terminate().wait() // Semen: I added the wait, not sure why we were returning a terminated Future
+  override def stop(): Unit = {
+    actors.terminate().wait()
   }
 
   def getVariant(query: CBQuery): CBQueryResult = {
