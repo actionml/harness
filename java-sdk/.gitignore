@@ -71,4 +71,4 @@ buildNumber.properties
 /.idea/
 /java-sdk.iml
 *.iml
-/data
+/data/*

@@ -1,12 +1,12 @@
 {
-  "engineId": "test_resource",
+  "engineId": "TEST-ENGINE-ID",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "modelName": "/Users/pat/harness/model.vw",
+    "modelName": "test-model.vw",
     "namespace": "name",
     "maxClasses": 3
   }

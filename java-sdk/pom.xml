@@ -46,7 +46,7 @@
                         <include>**/*</include>
                     </includes>
                     <!-- github repo name -->
-                    <repositoryName>pio-kappa</repositoryName>
+                    <repositoryName>harness</repositoryName>
                     <!-- github username -->
                     <repositoryOwner>actionml</repositoryOwner>
                 </configuration>
@@ -100,8 +100,8 @@
     <dependencies>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-http_2.11</artifactId>
-            <version>10.0.6</version>
+            <artifactId>akka-http_2.12</artifactId>
+            <version>10.0.7</version>
         </dependency>
 
         <dependency>

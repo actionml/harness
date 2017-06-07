@@ -39,7 +39,7 @@
     <repositories>
         <repository>
             <id>pio-kappa-mvn-repo</id>
-            <url>https://raw.github.com/actionml/pio-kappa/mvn-repo/</url>
+            <url>https://raw.github.com/actionml/harness/mvn-repo/</url>
             <snapshots>
                 <enabled>true</enabled>
                 <updatePolicy>always</updatePolicy>

@@ -1,9 +1,9 @@
 ### Installing Rest Server from Source Code
 
 ```bash
-$ wget https://github.com/actionml/pio-kappa/archive/python-cli.zip
-$ unzip python-cli.zip
-$ cd ./pio-kappa-python-cli
+$ wget https://github.com/actionml/harness/archive/develop.zip
+$ unzip develop.zip
+$ cd ./harness-develop/rest-server
 $ ./make-distribution.sh
 ```
 
@@ -16,12 +16,16 @@ ActionML binary distribution created at ActionML-0.1.0-SNAPSHOT.tar.gz
 
 Extract the binary distribution you have just built.
 ```bash
-$ tar zxvf ActionML-0.1.0-SNAPSHOT.tar.gz
+$ tar zxvf Harness-0.1.0-SNAPSHOT.tar.gz
 ```
 
 Install ActionML Python-SDK
 ```bash
 $ pip install actionml
+```
+May be for mac needed run
+```bash
+brew link --overwrite python
 ```
 
 Start ActionML Rest-Server
