@@ -9,7 +9,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 object HDFSMirroring extends Mirroring {
   def write(uri: String, filePath: String, data: Array[Byte]): Unit = {
     System.setProperty("hadoop.home.dir", "/")
-    System.setProperty("HADOOP_USER_NAME", "hdfs")
+    System.setProperty("HADOOP_USER_NAME", System.getProperty("user.name"))
     val path = new Path(filePath)
     val conf = new Configuration()
     conf.set("fs.defaultFS", uri)
