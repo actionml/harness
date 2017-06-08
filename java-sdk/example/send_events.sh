@@ -2,7 +2,7 @@
 
 if [ -z "$1" ]
   then
-    echo "No argument supplied (event json file)"
+    echo "No argument supplied for events json file"
 else
   mvn compile
   mvn exec:java -Dexec.mainClass="EventClientExample" -Dexec.args="$1" -Dexec.cleanupDaemonThreads=false

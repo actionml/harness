@@ -16,6 +16,17 @@
  */
 
 import com.actionml.QueryClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -29,24 +40,35 @@ public class QueryClientExample {
         String engineId = "test_resource";
         QueryClient client = new QueryClient(engineId, "0.0.0.0", 9090);
 
-        String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
+        //String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
+        //String q1 =    "{\"user\":\"eebe0f57-f8ee-4ba4-b0a8-b07a2212f2f1-1\",\"groupId\":\"1\"}";
+        String fileName = args[0];
 
-        try {
-            System.out.println("Send query: " + query);
-            long start = System.currentTimeMillis();
-            client.sendQuery(query).whenComplete((queryResult, throwable) -> {
-                long duration = System.currentTimeMillis() - start;
-                if (throwable == null) {
-                    System.out.println("Receive eventIds: " + queryResult.toString() + ", " + duration + " ms.");
-                } else {
-                    System.err.println(throwable.getMessage());
-                }
-                client.close();
-            });
+        try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
+
+            List<String> queries = br.lines().collect(Collectors.toList());
+
+            for ( String query: queries ) {
+                System.out.println("Send query: " + query);
+                long start = System.currentTimeMillis();
+
+                client.sendQuery(query).whenComplete((queryResult, throwable) -> {
+                    long duration = System.currentTimeMillis() - start;
+                    if (throwable == null) {
+                        System.out.println("Results: " + queryResult.toString() + ", taking " + duration + " ms.");
+                    } else {
+                        System.out.println("Error sending query");
+                        System.err.println(throwable.getMessage());
+                    }
+                });
+
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        client.close();
 
     }
 

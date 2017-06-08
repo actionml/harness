@@ -1,0 +1,22 @@
+[DEBUG] 2017-06-02 16:24:31,414 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : json : {"user":"eebe0f57-f8ee-4ba4-b0a8-b07a2212f2f1-1","testGroupId":"1"}
+[DEBUG] 2017-06-02 16:24:31,415 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : httpRequestLine >> POST http://52.77.141.222:8001/queries.json HTTP/1.1
+[DEBUG] 2017-06-02 16:24:31,657 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response >> 200
+[DEBUG] 2017-06-02 16:24:31,660 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response output : {"variant":"1","testGroupId":"1"}
+
+
+[DEBUG] 2017-06-02 16:25:22,461 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : json : {"user":"8a70d81d-e37b-4a5c-b395-c9cacb992f3a-1","testGroupId":"1"}
+[DEBUG] 2017-06-02 16:25:22,461 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : httpRequestLine >> POST http://52.77.141.222:8001/queries.json HTTP/1.1
+[DEBUG] 2017-06-02 16:25:22,610 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response >> 200
+[DEBUG] 2017-06-02 16:25:22,610 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response output : {"variant":"2","testGroupId":"1"}
+
+
+[DEBUG] 2017-06-02 16:54:47,964 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : json : {"user":"8a70d81d-e37b-4a5c-b395-c9cacb992f3a-2","testGroupId":"2"}
+[DEBUG] 2017-06-02 16:54:47,964 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : httpRequestLine >> POST http://52.77.141.222:8001/queries.json HTTP/1.1
+[DEBUG] 2017-06-02 16:54:48,109 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response >> 200
+[DEBUG] 2017-06-02 16:54:48,109 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response output : {"variant":"4","testGroupId":"2"}
+
+
+[DEBUG] 2017-06-02 16:55:38,088 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : json : {"user":"c4068b12-9439-4726-9b19-450bbb1345e2-2","testGroupId":"2"}
+[DEBUG] 2017-06-02 16:55:38,088 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : httpRequestLine >> POST http://52.77.141.222:8001/queries.json HTTP/1.1
+[DEBUG] 2017-06-02 16:55:38,243 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response >> 200
+[DEBUG] 2017-06-02 16:55:38,243 [jp.co.xyxon.hcdepend.web.prediction.PredictionIOSettingService] PIO : Response output : {"variant":"4","testGroupId":"2"}
