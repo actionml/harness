@@ -26,10 +26,11 @@ Install ActionML Python-SDK
 ```bash
 $ pip install actionml
 ```
-May be for mac needed run
+
+For the mac run this to switch to python 3
 
 ```bash
-brew link --overwrite python
+$ brew link --overwrite python
 ```
 
 Start ActionML Rest-Server
@@ -46,6 +47,7 @@ $ Starting PIO Kappa Event Server...
 ```
 
 Check ActionML Rest-Server
+
 ```bash
 $ ./harness status
 ```
@@ -70,7 +72,7 @@ Stop ActionML Rest-Server
 $ ./harness stop
 ```
 
-You should see something like the following when it finishes building successfully.
+You should see something like the following when it shuts down successfully.
 
 ```bash
 $ Stopping Harness server... 

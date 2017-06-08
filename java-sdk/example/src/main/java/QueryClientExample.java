@@ -60,7 +60,7 @@ public class QueryClientExample {
                         System.out.println("Error sending query");
                         System.err.println(throwable.getMessage());
                     }
-                });
+                }).toCompletableFuture().get();
 
             }
 
