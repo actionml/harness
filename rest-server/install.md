@@ -1,6 +1,7 @@
 # Installing Harness Rest Server from Source Code
 
-This works for Harness but if you are using the Contextual Bandit Template you may have to install on Ubuntu 14.04, which requires several extra steps&mdash;[see this page]()
+This works for Harness but if you are using the Contextual Bandit Template you may have to install on Ubuntu 14.04, which requires several extra steps&mdash;[see this page](https://github.com/actionml/harness/blob/develop/rest-server/install_ubuntu_14.md)
+
 ```bash
 $ wget https://github.com/actionml/harness/archive/develop.zip
 $ unzip develop.zip
