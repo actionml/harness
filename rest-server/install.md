@@ -1,5 +1,6 @@
-### Installing Rest Server from Source Code
+# Installing Harness Rest Server from Source Code
 
+This works for Harness but if you are using the Contextual Bandit Template you may have to install on Ubuntu 14.04, which requires several extra steps&mdash;[see this page]()
 ```bash
 $ wget https://github.com/actionml/harness/archive/develop.zip
 $ unzip develop.zip
@@ -19,18 +20,20 @@ Extract the binary distribution you have just built.
 
 ```bash
 $ tar zxvf Harness-0.1.0-SNAPSHOT.tar.gz
+$ cd Harness-0.1.0-SNAPSHOT
+```
+
+For the mac run this to switch to python 3
+
+```bash
+$ brew install python3
+$ brew link --overwrite python
 ```
 
 Install ActionML Python-SDK
 
 ```bash
 $ pip install actionml
-```
-
-For the mac run this to switch to python 3
-
-```bash
-$ brew link --overwrite python
 ```
 
 Start ActionML Rest-Server
