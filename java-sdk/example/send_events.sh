@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-if [ -z "$1" ]
+echo "Usage: ./send_events resource-id events-file.json"
+if [ -z "$2" ]
   then
-    echo "No argument supplied for events json file"
+    echo "No events file specified"
+elif [ -z $1 ]
+  then
+    echo "No resource-id"
 else
+
   mvn compile
-  mvn exec:java -Dexec.mainClass="EventClientExample" -Dexec.args="$1" -Dexec.cleanupDaemonThreads=false
+  mvn exec:java -Dexec.mainClass="EventClientExample" -Dexec.args="$1 $2" -Dexec.cleanupDaemonThreads=false
 fi
 

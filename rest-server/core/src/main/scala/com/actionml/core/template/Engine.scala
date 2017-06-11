@@ -29,8 +29,6 @@ abstract class Engine extends LazyLogging {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
-  // val params: EngineParams
-  val algo: Algorithm
   var engineId: String = _
 
   def init(json: String): Validated[ValidateError, Boolean]

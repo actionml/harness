@@ -48,7 +48,7 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String = "test_resource") extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
+class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
 
   val usersDAO = UsersDAO(connection(resourceId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map.empty

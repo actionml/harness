@@ -11,8 +11,8 @@ import salat.dao.SalatDAO
 
 class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
-  lazy val enginesCollection: MongoCollection = connection("meta_store")("engines")
-  lazy val commandsCollection: MongoCollection = connection("meta_store")("commands") // async persistent though temporary commands
+  lazy val enginesCollection: MongoCollection = connection("harness_meta_store")("engines")
+  lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
 
 

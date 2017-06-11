@@ -29,8 +29,9 @@ import scala.io.Source
 
 case class CBCmdLineDriverConfig(
   modelOut: String = "", // db for model
-  inputEvents: String = "data/small-sample.json", // events readFile
-  engineDefJSON: String = ""  // engine.json readFile
+  inputEvents: String = "data/test-ds-1.json", // events readFile
+  engineDef1JSON: String = "drivers/test_resource.json",  // engine.json readFile
+  engineDef2JSON: String = "drivers/test_resource_2.json"  // engine.json readFile
 )
 
 object CBCmdLineDriver extends App with LazyLogging{
@@ -45,8 +46,11 @@ object CBCmdLineDriver extends App with LazyLogging{
       opt[String]('d', "dataset").action((x, c) =>
         c.copy(inputEvents = x)).text("Event dataset input location, eventually fome the Engine config")
 
-      opt[String]('e', "engine").required().action((x, c) =>
-        c.copy(engineDefJSON = x)).text("Engine config, JSON readFile now, but eventually from shared key/value store")
+      opt[String]('1', "engine1").action((x, c) =>
+        c.copy(engineDef1JSON = x)).text("Engine 1 config, JSON readFile")
+
+      opt[String]('2', "engine2").action((x, c) =>
+        c.copy(engineDef2JSON = x)).text("Engine 2 config, JSON readFile")
 
       help("help").text("prints this usage text")
 
@@ -71,15 +75,21 @@ object CBCmdLineDriver extends App with LazyLogging{
     // For now we assume CBEngines in the MongoAdministrator
 
     val admin = new MongoAdministrator()
-    val engineJson = Source.fromFile(config.engineDefJSON).mkString
+    val engine1Json = Source.fromFile(config.engineDef1JSON).mkString
+    val engine2Json = Source.fromFile(config.engineDef2JSON).mkString
 
-    admin.removeEngine("test_resource") // should remove and destroy an engine initialized at startup
+    admin.removeEngine("test_resource")
+    admin.removeEngine("test_resource_2") // should remove and destroy an engine initialized at startup
     // so we can re-initialize in case of old data in the DB
 
-    admin.addEngine(engineJson)
+
+    admin.addEngine(engine1Json)
+    admin.addEngine(engine2Json)
     admin.init()
-    val engineId = "test_resource"
-    val engine = admin.getEngine(engineId).getOrElse(throw new RuntimeException(s"Engine for id=$engineId not found."))
+    val engineId1 = "test_resource"
+    val engine1 = admin.getEngine(engineId1).getOrElse(throw new RuntimeException(s"Engine for id=$engineId1 not found."))
+    val engineId2 = "test_resource_2"
+    val engine2 = admin.getEngine(engineId2).getOrElse(throw new RuntimeException(s"Engine for id=$engineId2 not found."))
 
     var errors = 0
     var total = 0
@@ -87,7 +97,11 @@ object CBCmdLineDriver extends App with LazyLogging{
 
     Source.fromFile(config.inputEvents).getLines().foreach { line =>
 
-      engine.input(line) match {
+      engine1.input(line) match {
+        case Valid(_) ⇒ good += 1
+        case Invalid(_) ⇒ errors += 1
+      }
+      engine2.input(line) match {
         case Valid(_) ⇒ good += 1
         case Invalid(_) ⇒ errors += 1
       }
@@ -97,7 +111,7 @@ object CBCmdLineDriver extends App with LazyLogging{
     logger.info(s"Processed $total events, $errors were bad in some way")
 
     val query = """{"user": "pferrel", "groupId": "2" }"""
-    engine.query(query) match {
+    engine1.query(query) match {
       case Valid(result) ⇒ logger.trace(s"QueryResult: $result")
       case Invalid(error) ⇒ logger.error("Query error {}",error)
     }

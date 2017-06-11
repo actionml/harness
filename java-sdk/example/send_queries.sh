@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 
-if [ -z "$1" ]
+echo "Usage: ./send_queries resource-id queries-file.json"
+if [ -z "$2" ]
   then
-    echo "No argument supplied for queries json file"
+    echo "No queries file specified"
+elif [ -z $1 ]
+  then
+    echo "No resource-id"
 else
   mvn clean compile
-  mvn exec:java -Dexec.mainClass="QueryClientExample" -Dexec.args="$1" -Dexec.cleanupDaemonThreads=false
+  mvn exec:java -Dexec.mainClass="QueryClientExample" -Dexec.args="$1 $2" -Dexec.cleanupDaemonThreads=false
 fi
 
 

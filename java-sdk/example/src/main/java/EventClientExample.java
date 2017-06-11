@@ -38,8 +38,10 @@ public class EventClientExample {
 
     public static void main(String[] args) {
 
-        String datasetId = "test_resource";
-        EventClient client = new EventClient(datasetId, "0.0.0.0", 9090);
+        String fileName = args[1];
+        String engineId = args[0];
+
+        EventClient client = new EventClient(engineId, "0.0.0.0", 9090);
 
 
 //        String json = "{" +
@@ -78,7 +80,6 @@ public class EventClientExample {
 //        });
 
 
-        String fileName = args[0];
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 

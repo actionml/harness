@@ -60,7 +60,6 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     //val response = parseAndValidate[CBAlgoParams](json)
     resourceId = rsrcId
     parseAndValidate[CBAllParams](json).andThen { p =>
-
       params = p.algorithm
       // todo: remove old model since it is recreated with each new input batch, not sure how to do this in vw
       val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
