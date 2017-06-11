@@ -35,7 +35,7 @@ abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectabl
   val algo: Algorithm
   val engineId: String
 
-  protected var mirroring: Mirroring = inject[Mirroring]
+  private val mirroring: Mirroring = inject[Mirroring]
 
   def init(json: String): Validated[ValidateError, Boolean]
   def initAndGet(json: String): Engine
@@ -44,8 +44,13 @@ abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectabl
   def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+    mirroring.mirrorJson(engineId, json)
+    inputInternal(json: String, trainNow)
+  }
   def query(json: String): Validated[ValidateError, String]
+
+  protected def inputInternal(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
 }
 
 trait EngineParams

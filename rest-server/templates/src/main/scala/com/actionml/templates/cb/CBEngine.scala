@@ -67,11 +67,10 @@ class CBEngine(implicit inj: Injector) extends Engine() with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  def inputInternal(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
-    mirroring.mirrorJson(engineId, json)
     // validation happens as the input goes to the dataset
     dataset.input(json).andThen(process(_)).map(_ => true)
   }
