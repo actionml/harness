@@ -2,8 +2,8 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-# PIO Kappa Event Server
-echo -e "${GREEN}Stopping PIO Kappa Event Server...${NC}"
+# Harness Server
+echo -e "${GREEN}Stopping Harness Server...${NC}"
 PIDFILE=${HARNESS_HOME}/eventserver.pid
 if [ -e ${PIDFILE} ]; then
     cat ${PIDFILE} | xargs kill

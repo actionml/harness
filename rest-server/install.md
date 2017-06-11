@@ -47,7 +47,7 @@ $ ./harness start
 You should see something like the following when it finishes building successfully.
 
 ```bash
-$ Starting PIO Kappa Event Server...
+$ Starting Harness Server...
 ```
 
 Check ActionML Rest-Server
@@ -56,13 +56,7 @@ Check ActionML Rest-Server
 $ ./harness status
 ```
 
-You should see something like the following when it finishes building successfully.
-
-```bash
-$ Connect to ActionML Rest Server [http://localhost:9090] is OK
-OR
-$ Error connecting to ActionML Rest Server [http://localhost:9090] [Errno 111] Connection refused
-```
+You should see information about the configuration or the server.
 
 Add an engine
 
