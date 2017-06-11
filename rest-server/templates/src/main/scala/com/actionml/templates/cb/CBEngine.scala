@@ -19,13 +19,14 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.backup.FSMirroring
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import scaldi.Injector
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class CBEngine(implicit inj: Injector) extends Engine() with JsonParser {
 
+  val engineId = "CBEngine"
   val dataset = new CBDataset()
   override val algo: CBAlgorithm = new CBAlgorithm(dataset)
   var params: CBEngineParams = _
@@ -70,7 +71,7 @@ class CBEngine() extends Engine() with JsonParser {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
-    FSMirroring.mirrorJson(json)
+    mirroring.mirrorJson(engineId, json)
     // validation happens as the input goes to the dataset
     dataset.input(json).andThen(process(_)).map(_ => true)
   }

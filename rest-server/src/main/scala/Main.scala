@@ -1,5 +1,6 @@
 import akka.actor.ActorSystem
 import com.actionml.core.admin.Administrator
+import com.actionml.core.backup.{HDFSMirroring, Mirroring}
 import com.actionml.core.template.Engine
 import com.actionml.router.admin.MongoAdministrator
 import com.actionml.router.config.AppConfig
@@ -41,6 +42,8 @@ class BaseModule extends Module{
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
+
+  bind[Mirroring] to HDFSMirroring
 
   bind[Administrator] to new MongoAdministrator initWith(_.init())
   bind[Engine] to new CBEngine() // todo: Semen, this is supplied by the admin API now, this

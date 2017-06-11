@@ -56,13 +56,11 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Engine, EngineParams}
 import com.actionml.core.validate._
 import com.actionml.templates.cb.CBEngine
-import com.mongodb.casbah.commons.MongoDBObject
 import com.mongodb.casbah.Imports._
-import com.typesafe.config.ConfigFactory
-import org.json4s.MappingException
-import org.json4s.jackson.JsonMethods._
+import com.mongodb.casbah.commons.MongoDBObject
+import scaldi.Injector
 
-class MongoAdministrator extends Administrator with JsonParser {
+class MongoAdministrator(implicit inj: Injector) extends Administrator with JsonParser {
 
   lazy val store = new Mongo(m = config.getString("mongo.host"), p = config.getInt("mongo.port"), n = "metaStore")
 

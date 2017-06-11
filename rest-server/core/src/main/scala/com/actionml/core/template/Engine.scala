@@ -17,22 +17,25 @@
 
 package com.actionml.core.template
 
-import akka.actor.Terminated
 import cats.data.Validated
+import com.actionml.core.backup.Mirroring
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import scaldi.{Injectable, Injector}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine() extends LazyLogging {
+abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectable {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   // val params: EngineParams
   val algo: Algorithm
-  var engineId: String = _
+  val engineId: String
+
+  protected var mirroring: Mirroring = inject[Mirroring]
 
   def init(json: String): Validated[ValidateError, Boolean]
   def initAndGet(json: String): Engine

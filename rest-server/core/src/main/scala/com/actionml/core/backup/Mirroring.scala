@@ -1,13 +1,15 @@
 package com.actionml.core.backup
 
+import java.time.{LocalDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
 
 /**
   * TODO scaladoc
   */
 abstract class Mirroring {
-  protected val dirNamePattern: DateTimeFormatter = DateTimeFormatter.ofPattern("dd-MMM-yyyy")
-  protected val fileNamePattern: DateTimeFormatter = DateTimeFormatter.ofPattern("HH-mm-ss.SSS")
+  protected val fileNamePattern: DateTimeFormatter = DateTimeFormatter.ofPattern("ddMMyy-HHmmss.SSS")
 
-  def mirrorJson(json: String): Unit
+  def mirrorJson(engineId: String, json: String): Unit
+
+  protected def now: LocalDateTime = LocalDateTime.now(ZoneId.of("UTC"))
 }
