@@ -1,0 +1,13 @@
+Usage: ./send_queries resource-id queries-file.json
+Run with params: resourceId: TEST-ENGINE-ID, eventsFile: /data/queries-for-test-ds-1.json, host: router, port: 9090
+INFO  QueryClientExample - Args: TEST-ENGINE-ID, /data/queries-for-test-ds-1.json, router, 9090
+INFO  Slf4jLogger - Slf4jLogger started
+INFO  QueryClientExample - Send query: {"user":"eebe0f57-f8ee-4ba4-b0a8-b07a2212f2f1-1","groupId":"1"}
+INFO  QueryClientExample - Results: Pair(200,"\n\"variant\": 2,\n\"groupId\": 1\n   ")
+INFO  QueryClientExample - Send query: {"user":"8a70d81d-e37b-4a5c-b395-c9cacb992f3a-1","groupId":"1"}
+INFO  QueryClientExample - Results: Pair(200,"\n\"variant\": 2,\n\"groupId\": 1\n   ")
+INFO  QueryClientExample - Send query: {"user":"8a70d81d-e37b-4a5c-b395-c9cacb992f3a-2","groupId":"2"}
+INFO  QueryClientExample - Results: Pair(200,"\n\"variant\": 4,\n\"groupId\": 2\n   ")
+INFO  QueryClientExample - Send query: {"user":"c4068b12-9439-4726-9b19-450bbb1345e2-2","groupId":"2"}
+INFO  QueryClientExample - Results: Pair(200,"\n\"variant\": 4,\n\"groupId\": 2\n   ")
+Shutting down client

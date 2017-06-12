@@ -1,0 +1,74 @@
+==================================================================
+REST_SERVER_HOST....0.0.0.0
+REST_SERVER_PORT....9090
+MONGO_HOST..........mongo
+MONGO_PORT..........27017
+HARNESS_LOG_CONFIG../app/conf/logback.xml
+HARNESS_LOG_PATH..../app/logs
+
+Run /app/bin/main
+Create pid file: /app/eventserver.pid
+==================================================================
+==================================================================
+HARNESS_HOME......../app
+REST_SERVER_HOST....0.0.0.0
+REST_SERVER_PORT....9090
+MONGO_HOST..........mongo
+MONGO_PORT..........27017
+HARNESS_LOG_CONFIG../app/conf/logback.xml
+HARNESS_LOG_PATH..../app/logs
+==================================================================
+Connect to HarnessEventServer[http://0.0.0.0:9090] is OK
+Run /app/bin/engine.py create -c /data/engine.json
+Created new engine. Success=TEST-ENGINE-ID
+Usage: ./send_events resource-id events-file.json
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.1.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- maven-resources-plugin:2.3:resources (default-resources) @ harness-java-sdk-example ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /app/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.6.1:compile (default-compile) @ harness-java-sdk-example ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.936s
+[INFO] Finished at: Sun Jun 11 13:58:22 UTC 2017
+[INFO] Final Memory: 10M/199M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.1.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[WARNING] 
+java.lang.ArrayIndexOutOfBoundsException: 3
+	at EventClientExample.main(EventClientExample.java:52)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at org.codehaus.mojo.exec.ExecJavaMojo$1.run(ExecJavaMojo.java:282)
+	at java.lang.Thread.run(Thread.java:748)
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 9.081s
+[INFO] Finished at: Sun Jun 11 13:58:33 UTC 2017
+[INFO] Final Memory: 12M/145M
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.codehaus.mojo:exec-maven-plugin:1.6.0:java (default-cli) on project harness-java-sdk-example: An exception occured while executing the Java class. 3 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
+Stopping Harness Server...

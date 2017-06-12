@@ -20,10 +20,14 @@ services:
     depends_on:
       - mongo
     volumes:
-      - ./data:/app/data
+      - ./it/shared/logs:/app/logs
+      - ./it/shared/data:/data
 
-#  java_client:
-#    build: ./java-sdk/example
-#
-#    depends_on:
-#      - router
+  java_client:
+    build: ./java-sdk/example
+    environment:
+      REST_SERVER_HOST: "router"
+    depends_on:
+      - router
+    volumes:
+      - ./it/shared/data:/data
