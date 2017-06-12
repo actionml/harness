@@ -25,7 +25,7 @@ This works for Harness but if you are using the Contextual Bandit Template you m
     sudo pip install actionml
     ```
     
-## Using the Harness CL
+## Using the Harness CLI
 
 To see a list of harness CLI, switch to the distribution's `bin` directory with something like `cd Harness-0.1.0-SNAPSHOT/dist/bin` then run:
     
