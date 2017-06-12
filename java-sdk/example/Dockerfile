@@ -4,4 +4,6 @@ ADD . /app
 
 WORKDIR /app
 
-ENTRYPOINT ["/app/send_query.sh"]
+RUN mvn compile
+
+ENTRYPOINT ["/app/entrypoint.sh"]

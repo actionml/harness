@@ -38,11 +38,20 @@ public class EventClientExample {
 
     public static void main(String[] args) {
 
-        String fileName = args[2];
-        String engineId = args[1];
-        String hostName = args[0];
+        String engineId = args[0];
+        String fileName = args[1];
+        String serverHost = "0.0.0.0";
+        Integer serverPort = 9090;
+        try {
+            serverHost = args[2];
+        } catch (Exception ignored) {}
+        try {
+            serverPort = Integer.parseInt(args[3]);
+        } catch (Exception ignored) {}
 
-        EventClient client = new EventClient(engineId, hostName, 9090);
+        log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
+
+        EventClient client = new EventClient(engineId, serverHost, serverPort);
 
 
 //        String json = "{" +
@@ -80,8 +89,6 @@ public class EventClientExample {
 //            client.close();
 //        });
 
-
-
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
             List<String> events = br.lines().collect(Collectors.toList());
@@ -95,7 +102,8 @@ public class EventClientExample {
                         .map(p -> p.second().first().toString())
                         .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-                log.info("Finished: " + duration + "ms. Responses: " + pairs.size());
+                log.info("Responses: " + pairs.size());
+                log.info("Finished: " + duration);
                 counting.forEach((code, cnt) -> log.info("Status " + code + ": " + cnt));
                 return pairs.size();
             }).whenComplete((size, throwable) -> {

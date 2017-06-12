@@ -116,7 +116,7 @@ The CB is the first Harness Template and it uses Vowpal Wabbit (VW) for model cr
 ```
 
  - **algorithm**: This section is expected for any Engine with an algorithm and so is almost always present. These params go the the part of the Template extending `core/templates/algorith`, in this case `CBAlgorithm`
- - **modelName**: **Important**: this **must** be the same name for all CB Engines because it is used by the single instance of VW to store models. This is a location in the server's file systems where VW manages it's internal data.
+ - **modelName**: **Important**: this **must** be the same name for all CB Engines because it is used by the single instance of VW to store models. zThis is a location in the server's file systems where VW manages it's internal data.
  - **nameSpace**: **Important**: this puts the model data in a separate bucket so should be unique per Engine. We may use the resource-id for this longer term (to simplify things) so for now use it explicitly.
  - **maxIter**: a VW param for converging the classifier used. More will calculate models slower and 100 is a good default since more will lead to diminishing returns.
  - **regParam**: must be specified but no regularization is require for most uses.
