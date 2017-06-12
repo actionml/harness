@@ -10,6 +10,6 @@ RUN cd /tmp && \
     tar zxvf ./Harness-0.1.0-SNAPSHOT.tar.gz && \
     cp -a ./Harness-0.1.0-SNAPSHOT/. /app/ && \
     cd /app && \
-    rm -R /tmp
+    rm -R /tmp/*
 
 ENTRYPOINT ["/app/entrypoint.sh"]
