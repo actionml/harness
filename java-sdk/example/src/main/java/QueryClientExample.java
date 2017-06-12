@@ -34,31 +34,39 @@ import java.util.stream.Collectors;
  */
 public class QueryClientExample {
 
+    private static Logger log = LoggerFactory.getLogger(QueryClientExample.class);
 
     public static void main(String[] args) {
 
-        String fileName = args[1];
         String engineId = args[0];
-        QueryClient client = new QueryClient(engineId, "0.0.0.0", 9090);
+        String fileName = args[1];
+        String serverHost = "0.0.0.0";
+        Integer serverPort = 9090;
+        try {
+            serverHost = args[2];
+        } catch (Exception ignored) {}
+        try {
+            serverPort = Integer.parseInt(args[3]);
+        } catch (Exception ignored) {}
 
-        //String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
-        //String q1 =    "{\"user\":\"eebe0f57-f8ee-4ba4-b0a8-b07a2212f2f1-1\",\"groupId\":\"1\"}";
+        log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
+        QueryClient client = new QueryClient(engineId, serverHost, serverPort);
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
             List<String> queries = br.lines().collect(Collectors.toList());
 
             for ( String query: queries ) {
-                System.out.println("Send query: " + query);
+                log.info("Send query: " + query);
                 long start = System.currentTimeMillis();
 
                 client.sendQuery(query).whenComplete((queryResult, throwable) -> {
                     long duration = System.currentTimeMillis() - start;
                     if (throwable == null) {
-                        System.out.println("Results: " + queryResult.toString() + ", taking " + duration + " ms.");
+                        log.info("Results: " + queryResult.toString());
+                        log.info("Taking " + duration + " ms.");
                     } else {
-                        System.out.println("Error sending query");
-                        System.err.println(throwable.getMessage());
+                        log.error("Error sending query", throwable);
                     }
                 }).toCompletableFuture().get();
 

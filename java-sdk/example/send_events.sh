@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "Usage: ./send_events resource-id events-file.json"
-if [ -z "$2" ]
+if [ ! -f "$2" ]
   then
     echo "No events file specified"
 elif [ -z $1 ]
