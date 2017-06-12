@@ -37,9 +37,11 @@ public class QueryClientExample {
 
     public static void main(String[] args) {
 
-        String fileName = args[1];
-        String engineId = args[0];
-        QueryClient client = new QueryClient(engineId, "0.0.0.0", 9090);
+        String fileName = args[2];
+        String engineId = args[1];
+        String hostName = args[0];
+
+        QueryClient client = new QueryClient(engineId, hostName, 9090);
 
         //String query = "{\"user\": \"user-1\",\"groupId\": \"group-1\"}";
         //String q1 =    "{\"user\":\"eebe0f57-f8ee-4ba4-b0a8-b07a2212f2f1-1\",\"groupId\":\"1\"}";

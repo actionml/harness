@@ -38,12 +38,12 @@ We start from a clean new machine logged into the user account `aml`
     cd harness/rest-server
     ./make-distribution.sh 
     tar zxvf Harness-0.1.0-SNAPSHOT.tar.gz
-    cd Harness-0.1.0-SNAPSHOT/bin
+    cd Harness-0.1.0-SNAPSHOT/dist/bin
     nano harness-env # change listening to 0.0.0.0 from localhost
     nano ../../drivers/engine.json # put model file in desired location
     ./harness start
     ./harness add ../../drivers/engine.json 
     ./harness status
     curl localhost:9090 # should get "OK"
-    tail -f -n 200 /home/aml/harness/rest-server/Harness-0.1.0-SNAPSHOT/logs/main.log
+    tail -f -n 200 /home/aml/harness/rest-server/Harness-0.1.0-SNAPSHOT/dist/logs/main.log
     ```

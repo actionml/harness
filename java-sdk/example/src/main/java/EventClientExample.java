@@ -38,10 +38,11 @@ public class EventClientExample {
 
     public static void main(String[] args) {
 
-        String fileName = args[1];
-        String engineId = args[0];
+        String fileName = args[2];
+        String engineId = args[1];
+        String hostName = args[0];
 
-        EventClient client = new EventClient(engineId, "0.0.0.0", 9090);
+        EventClient client = new EventClient(engineId, hostName, 9090);
 
 
 //        String json = "{" +
