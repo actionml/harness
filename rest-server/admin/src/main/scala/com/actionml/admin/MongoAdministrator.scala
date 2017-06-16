@@ -3,7 +3,7 @@ package com.actionml.admin
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.Engine
+import com.actionml.core.template.{Engine, RequiredEngineParams}
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
