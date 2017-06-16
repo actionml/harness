@@ -1,10 +1,10 @@
 # Commands
 
-Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials (secret token). 
+Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials. 
 
-Harness must be running for anything but the `harness start` command to work and this is also the only command that will not work remotely. All other command work against the running Harness server.
+Harness must be running for anything but the `harness start` command to work and this is also the only command that will not work remotely. All other commands work against the running Harness server.
 
-Internal to Harness are ***Engines*** made of objects like datasets and algorithms. An Engine is an instance of a Template and manages all interactions with a dataset or algorithm. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
+Internal to Harness are ***Engines*** that are instances of ***Templates*** made of objects like datasets and algorithms. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
 
 ## REST Endpoints for Administration 
           
@@ -26,6 +26,10 @@ Internal to Harness are ***Engines*** made of objects like datasets and algorith
           should be avoided but to delete models separately requires a new
           resource type.
           
+    GET /
+        Action: returns json for engine params and any status or stats
+        available
+    
     GET /engines/<engine-id>
         Action: returns json for engine params and any status or stats
         available
