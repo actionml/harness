@@ -2,6 +2,7 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import com.actionml.admin.{Administrator, MongoAdministrator}
+import com.actionml.core.backup.{HDFSMirroring, Mirroring}
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
@@ -41,6 +42,8 @@ class BaseModule extends Module{
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
+
+  bind[Mirroring] to HDFSMirroring
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")

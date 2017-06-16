@@ -20,17 +20,24 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.backup.Mirroring
+import scaldi.{Injectable, Injector}
+
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends JsonParser with LazyLogging {
+abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectable with JsonParser {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
-  var engineId: String = _
+  val params: EngineParams
+  val algo: Algorithm
+  val engineId: String
+
+  private val mirroring: Mirroring = inject[Mirroring]
 
   // Slava: not sure if these should be here or in the mirroring Trait or the specific Object injected
   var mirrorType: Option[String] = _
@@ -54,9 +61,14 @@ abstract class Engine extends JsonParser with LazyLogging {
   def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+    mirroring.mirrorJson(engineId, json)
+    inputInternal(json: String, trainNow)
+  }
   def query(json: String): Validated[ValidateError, String]
   def status(): String = "Does not support status message."
+
+  protected def inputInternal(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
 }
 
 trait EngineParams
