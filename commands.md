@@ -1,10 +1,10 @@
 # Commands
 
-Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials (secret token). 
+Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials. 
 
-Harness must be running for anything but the `harness start` command to work and this is also the only command that will not work remotely. All other command work against the running Harness server.
+Harness must be running for anything but the `harness start` command to work and this is also the only command that will not work remotely. All other commands work against the running Harness server.
 
-Internal to Harness are ***Engines*** made of objects like datasets and algorithms. An Engine is an instance of a Template and manages all interactions with a dataset or algorithm. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
+Internal to Harness are ***Engines*** that are instances of ***Templates*** made of objects like datasets and algorithms. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
 
 ## REST Endpoints for Administration 
           
@@ -26,6 +26,10 @@ Internal to Harness are ***Engines*** made of objects like datasets and algorith
           should be avoided but to delete models separately requires a new
           resource type.
           
+    GET /
+        Action: returns json for server params and any status or stats
+        available. May include a list of engines active.
+    
     GET /engines/<engine-id>
         Action: returns json for engine params and any status or stats
         available
@@ -52,7 +56,7 @@ in addition to the commands above, Lambda style learners require not only setup 
         Action: attempts to kill the command by id and removes it
 
     GET /commands/<command-id> 
-        Response Body: response body command status for asynch/long-lived command
+        Response Body: response body command status for async/long-lived command
         
 ## The Command Line Interface
 
@@ -67,18 +71,18 @@ Harness uses resource-ids to identify all objects in the system, engines and com
 
 **Commands**:
 
-Set your path to include to the directory containing the `harness` script.
+Set your path to include to the directory containing the `harness` script. Commands not implemented in Harness v0.0.1 are marked with a dagger character (&dagger;)
 
  - `harness start` starts the harness server based on configuration in `harness-env`, which is expected to be in the same directory as `harness`, all other commands require the service to be running, it is always started as a daemon/background process. All previously configured engines are started.
  - `harness stop` gracefully stops harness and all engines.
  - `harness add -c <some-engine.json>` creates and starts an instance of the template defined in `some-engine.json`, which is a path to the template specific parameters file. An error message is displayed if the engine is already defined or if the json is invalid.
- - `harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]` stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as `harness engine <some-engine.json> new` there will be an error if a . If `-d` is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data unless `-f` is supplied (see engine config for more about mirroring). This command will reset the engine to ground original state with the `-d` if there are no changes to the parameters in the json file.
+ - &dagger;`harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]` stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as `harness engine <some-engine.json> new` there will be an error if a . If `-d` is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data unless `-f` is supplied (see engine config for more about mirroring). This command will reset the engine to ground original state with the `-d` if there are no changes to the parameters in the json file.
  - `harness delete [-c <some-engine.json> | <some-resource-id]` The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
- - `harness import [-c <some-engine.json> | <some-resource-id] [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
- - `harness train [-c <some-engine.json> | <some-resource-id]` in the Lambda model this trains the algorithm on all previously accumulated data.
+ - &dagger;`harness import [-c <some-engine.json> | <some-resource-id] [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
+ - &dagger;`harness train [-c <some-engine.json> | <some-resource-id]` in the Lambda model this trains the algorithm on all previously accumulated data.
  - `harness status [[-c <some-engine.json> | <some-resource-id]]` prints a status message for harness or for the engine specified.
- - `harness list engines` lists engines and stats about them
- - `harness list commands` lists any currently active long running commands like `harness train ...`
+ - &dagger;`harness list engines` lists engines and stats about them
+ - &dagger;`harness list commands` lists any currently active long running commands like `harness train ...`
 
 # Harness Workflow
 
@@ -103,7 +107,9 @@ Following typical workflow for launching and managing the Harness server the fol
         # use -d if you want to discard any previously collected data 
         # or model
 
- 1. Once the engine is created and receiving input through it's REST `events` input endpoint any Kappa style learner will respond to the REST engine `queries` endpoint. To use a Lambda style (batch/background) style learner or to bulk train the Kappa on saved up input run:
+    &dagger;This command is not implemented yet so use `harness delete` and `harness add` for updates but be aware that all data will be destroyed during `delete`.    
+
+ 1. &dagger;Once the engine is created and receiving input through it's REST `events` input endpoint any Kappa style learner will respond to the REST engine `queries` endpoint. To use a Lambda style (batch/background) style learner or to bulk train the Kappa on saved up input run:
     
         harness train <some-engine.json>
         
@@ -137,7 +143,8 @@ This file provide the parameters and config for anything that is Template/Engine
     {
         "engineId": "some_resource_id"
         "engineFactory": "org.actionml.templates.name.SomeEngineFatory"
-        "mirror": "path/to/mirror" // optional, turns on mirroring
+        "mirrorType": "hdfs" | "localfs", // optional, turn on a type of mirroring
+        "mirrorLocation": "path/to/mirror", // optional, where to mirror input
         "params": {
             "algorithm": {
                 algorithm specific parameters, see Template docs
@@ -159,7 +166,7 @@ This file provide the parameters and config for anything that is Template/Engine
     
 The `"other"` section or sections are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit, or a Template may need a new server type that is only used by it. For instance The Universal Recommender will need an `"elasticsearch"` section. The Template will configure any component that is not part of the minimal subset defined by Harness.
 
-# Input Mirroring and Importing
+# Input Mirroring and Importing (not implemented yet)
 
 Some special events like `$set`, `$unset`, `$delete` may cause mutable database data to be modified as they are received, while user/usage events represent an immutable event stream. That is to say sequence matters with input and some state is mutable and some immutable. In order to provide for replay of modification of the event stream, we provide mirroring of input events with no validation. This is useful if you wanted to change the params for how an engine works and want to re-create it using all past data. 
 
@@ -169,7 +176,13 @@ Simply set `"mirror": "path/to/mirror"` in `some-engine.json`. The path can be o
 
 `harness update <resource-id> -d` will delete engine data leaving any previously mirrored data and `harness import <resource-id>` will check for the mirrored files move them, reload all the mirrored data, and leave the previously mirrored files intact. This will create 2 identical dataset directories so if the import proceeded correctly you can remove the old data, if there were errors the old events are still there to be used again, nothing is lost, `harness import <resource-id> -f ...` allows you to reimport any event json files including the events of record. 
 
-## Importing and Bootstrapping
+# Importing and Bootstrapping (not implemented yet)
 
 The `harness import` command is also useful when json events have been derived from past history available from other application databases or logs in a bootstrapping operation.
+
+# Generating Authentication Tokens (not implemented yet)
+
+The `harness grant <access.json>` command will grant access to the resources defined in the access.json file and generate the tokens to be used in authentication. Likewise `harness deny <token> <access.json>` will remove access rights for the token to the routes defined.
+
+The format of the json route file is TBD as well as the method of generating tokens.
          
