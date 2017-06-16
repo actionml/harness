@@ -1,6 +1,7 @@
 {
   "engineId": "test_resource_2",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
+  "mirrorType": "hdfs",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,

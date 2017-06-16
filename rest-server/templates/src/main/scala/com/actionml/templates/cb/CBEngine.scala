@@ -30,13 +30,14 @@ class CBEngine() extends Engine() with JsonParser {
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[CBEngineParams](json).andThen { p =>
-      params = p
-      engineId = params.engineId
-      dataset = new CBDataset(engineId)
-      algo = new CBAlgorithm(dataset)
-      Valid(p)
-    }.andThen(_ => algo.init(json, engineId))
+    super.init(json).andThen { _ =>
+      parseAndValidate[CBEngineParams](json).andThen { p =>
+        params = p
+        dataset = new CBDataset(engineId)
+        algo = new CBAlgorithm(dataset)
+        Valid(p)
+      }.andThen(_ => algo.init(json, engineId))
+    }
   }
 
   // used when init might fail from bad params in the json but you want an Engine, not a Validated
