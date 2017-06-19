@@ -13,6 +13,7 @@ elif [ -z $1 ]
   then
     echo "No host name"
 else
+  echo "host: ${1} resource: ${2} file: ${3}"
   mvn compile
   mvn exec:java -Dexec.mainClass="EventClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
 fi
