@@ -42,12 +42,6 @@ public class QueryClientExample {
         String engineId = args[1];
         String fileName = args[2];
         Integer serverPort = 9090;
-        try {
-            serverHost = args[2];
-        } catch (Exception ignored) {}
-        try {
-            serverPort = Integer.parseInt(args[3]);
-        } catch (Exception ignored) {}
 
         log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
         QueryClient client = new QueryClient(engineId, serverHost, serverPort);
