@@ -1,6 +1,6 @@
 # Debugging with IntelliJ
 
-Rather than run the binary we will run inside of IntelliJ. This makes `harness start` impossible to use but other commands can be run by executing the CLI inside of `bin/`. First create 2 IntelliJ projects. 
+To debug we will run inside of IntelliJ. This makes `harness start` impossible to use but other commands can be run by executing the CLI inside of `bin/`. First create 2 IntelliJ projects. 
 
 ```
 git clone https://github.com/actionml/harness.git harness
@@ -20,7 +20,7 @@ The Harness Server can be debugged with the Harness CLI or by sending event and/
  - `harness delete <resource-id>` and the other CLI can be set to trigger using our bash defaults and setting the specific options needed. For example:
   ![](images/harness-bash-triggers.png)
   this will perform the equivalent of `harness delete <resource-id>`. as you can see I have created add and delete of 2 different engines for testing.
-  - Input for the Java SDK example. We have scripts that will compile the example and launch it. The scripts take parameters to control what event json is sent to the server among other things. To input event json, fir launch the server as shown above then run the following Bash run config (notice the working directory is different than other Bash CLI commands.
+  - **Note**: This is quite setup correctly yet but should work. Input for the Java SDK example. We have scripts that will compile the example and launch it. The scripts take parameters to control what event json is sent to the server among other things. To input event json, fir launch the server as shown above then run the following Bash run config (notice the working directory is different than other Bash CLI commands.
   ![](images/send_events.sh)
 
 ## Debugging the Java SDK and Examples

@@ -26,7 +26,7 @@ The typical method to run and debug Harness is to launch the Sever, then trigger
     cd Harness-0.1.0-SNAPSHOT/dist/bin
     ```
 
-2. Get the ActionML python SDK
+2. Get the ActionML python SDK, which is needed by the harness CLI
 
     ```
     sudo pip install actionml
