@@ -405,7 +405,7 @@ case class CBDeleteEvent(
 
 // allows us to look at what kind of specialized event to create
 case class CBRawEvent (
-    eventId: String,
+    //eventId: String, // not used in Harness, but allowed for PIO compatibility
     event: String,
     entityType: String,
     entityId: String,
