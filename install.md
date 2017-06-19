@@ -1,6 +1,8 @@
-# Installing Harness Rest Server from Source Code
+# Installing Harness Rest Server and Java SDK Examples
 
-This works for Harness but if you are using the Contextual Bandit Template you may have to install on Ubuntu 14.04, which requires several extra steps&mdash;[see this page](https://github.com/actionml/harness/blob/develop/rest-server/install_ubuntu_14.md)
+This guide allows you to install the server and Java SDK examples as well as set them up for debugging with IntelliJ. Much of this is targeted at macOS (BSD based).
+
+To install on Ubuntu 14.04, which requires several extra steps&mdash;[see this page](https://github.com/actionml/harness/blob/develop/rest-server/install_ubuntu_14.md)
 
 **Prerequisites**:
     
@@ -8,6 +10,11 @@ This works for Harness but if you are using the Contextual Bandit Template you m
  - Python 3: accessed as the default, check with `python --version`
  - Pip: the python package manager for various scripts
  - MongoDB v 3.x: This is used as the metadata store for Harness and may be used by engines for model storage. Is needs to be running at all times so set to start at boot.
+ - IntelliJ IDEA with the Scala and Python plugins.
+
+# Harness Server
+
+The typical method to run and debug Harness is to launch the Sever, then trigger CLI commands with Bash run configs in IntelliJ or run the Java SDK examples, which send events and make queries. First the Server: 
 
 1. Get source, make-distribution, un-tar distribution
 

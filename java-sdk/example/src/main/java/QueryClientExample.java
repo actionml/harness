@@ -38,9 +38,9 @@ public class QueryClientExample {
 
     public static void main(String[] args) {
 
-        String engineId = args[0];
-        String fileName = args[1];
-        String serverHost = "0.0.0.0";
+        String serverHost = args[0];
+        String engineId = args[1];
+        String fileName = args[2];
         Integer serverPort = 9090;
         try {
             serverHost = args[2];
