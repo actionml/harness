@@ -17,16 +17,20 @@ import scaldi.Injector
   * PUT, POST /engines/ {JSON body for PIO engine}
   * Response: HTTP code 201 if the engine was successfully created; otherwise, 400.
   *
-  * Update exist engine
+  * Todo: Update existing engine
   * PUT, POST /engines/<engine-id>?data_delete=true&force=true {JSON body for PIO event}
   * Response: HTTP code 200 if the engine was successfully updated; otherwise, 400.
   *
-  * Get exist engine
+  * Update existing engine
+  * PUT, POST /engines/<engine-id>?import=true&location=String
+  * Response: HTTP code 200 if the engine was successfully updated; otherwise, 400.
+  *
+  * Get existing engine
   * GET /engines/<engine-id>
   * Response: {JSON body for PIO event}
   * HTTP code 200 if the engine exist; otherwise, 404
   *
-  * Delete exist engine
+  * Delete existing engine
   * DELETE /engines/<engine-id>
   * Response: HTTP code 200 if the engine was successfully deleted; otherwise, 400.
   *
@@ -63,6 +67,14 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
     }
   }
 
+  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & parameters('import.as[Boolean], 'location.?) ) { (importFlag, location) ⇒
+    log.info("Update engine: {} by importing: {}", engineId, location)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngineWithImport(engineId, location)).mapTo[Response]
+    }
+  }
+
+/*
   private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false) ) { (dataDelete, force) ⇒
     entity(as[Json]) { engineConfig ⇒
       log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
@@ -77,8 +89,10 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
     }
 
   }
+*/
 
   private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
+
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? DeleteEngine(engineId)).mapTo[Response]

@@ -42,6 +42,8 @@ case ${command} in
 
     delete) ${HARNESS_HOME}/bin/harness-engine-delete $1 $2 ;;
 
+    import) ${HARNESS_HOME}/bin/harness-engine-import $1 $2 ;;
+
     train) ${HARNESS_HOME}/bin/harness-engine-train $1 $2 ;;
 
     *) ${HARNESS_HOME}/bin/harness-help ;;

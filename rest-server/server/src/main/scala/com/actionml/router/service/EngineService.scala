@@ -36,16 +36,20 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
       sender() ! admin.addEngine(engineJson).map(_.asJson)
 
     case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force) ⇒
-      log.info("Update exist engine, {}, {}, {}, {}", engineId, engineJson, dataDelete, force)
+      log.info("Update existing engine, {}, {}, {}, {}", engineId, engineJson, dataDelete, force)
       admin.removeEngine(engineId)
       sender() ! admin.addEngine(engineJson).map(_.asJson)
 
     case UpdateEngineWithId(engineId, dataDelete, force) ⇒
-      log.info("Update exist engine, {}, {}, {}", engineId, dataDelete, force)
+      log.info("Update existing engine, {}, {}, {}", engineId, dataDelete, force)
+      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+
+    case UpdateEngineWithImport(engineId, location) ⇒
+      log.info("Update existing engine, {}, {}, {}", engineId, location)
       sender() ! Invalid(NotImplemented("Not Implemented in engine"))
 
     case DeleteEngine(engineId) ⇒
-      log.info("Delete exist engine, {}", engineId)
+      log.info("Delete existing engine, {}", engineId)
       sender() ! admin.removeEngine(engineId).map(_.asJson)
   }
 }
@@ -56,4 +60,5 @@ case class GetEngines(resourceId: String) extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
 case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean) extends EngineAction
 case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean) extends EngineAction
+case class UpdateEngineWithImport(engineId: String, location: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction
