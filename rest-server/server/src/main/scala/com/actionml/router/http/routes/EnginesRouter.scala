@@ -67,7 +67,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter {
     }
   }
 
-  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & parameters('import.as[Boolean], 'location.?) ) { (importFlag, location) ⇒
+  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & parameters('imprt.as[Boolean] ? true, 'location.?) ) { ('imprt, location) ⇒
     log.info("Update engine: {} by importing: {}", engineId, location)
     completeByValidated(StatusCodes.OK) {
       (engineService ? UpdateEngineWithImport(engineId, location)).mapTo[Response]
