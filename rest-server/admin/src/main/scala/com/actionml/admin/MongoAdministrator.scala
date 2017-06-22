@@ -4,10 +4,12 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
-import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
+import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
 import salat.dao.SalatDAO
+
+import scala.io.Source
 
 class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
@@ -85,7 +87,33 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       Valid(true)
     } else {
       logger.warn(s"Cannot remove non-existent engine for id: $engineId")
-      Invalid(WrongParams(s"Cannot remove non-existent engine for id: $engineId"))
+      Invalid(WrongParams(s"Cannot remove non-existent engine: $engineId"))
+    }
+  }
+
+  override def importToEngine(engineId: EngineId, location: String): Validated[ValidateError, Boolean] = {
+    // Todo: this should be an HDFS URI, possibly a file:// or an hdfs:// so treated differently, assuming only localfs for now
+    if (engines.keySet.contains(engineId)) {
+      logger.info(s"Importing all events from: ${location} into engine: $engineId")
+      // assume localfs for now
+      val importEngine = engines(engineId)
+      var good = 0
+      var errors = 0
+
+      Source.fromFile(location).getLines().foreach { line =>
+
+        importEngine.input(line) match {
+          case Valid(_) ⇒
+            good += 1
+          case Invalid(_) ⇒
+            logger.warn(s"Error while importing event $line to engine: $engineId")
+            errors += 1
+        }
+      }
+      if(errors == 0) Valid(true) else Invalid(ValidRequestExecutionError())
+    } else {
+      logger.warn(s"Cannot remove non-existent engine: $engineId")
+      Invalid(WrongParams(s"Cannot import to non-existent engine: $engineId"))
     }
   }
 

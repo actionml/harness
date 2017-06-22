@@ -46,7 +46,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case UpdateEngineWithImport(engineId, location) ⇒
       log.info("Update existing engine, {}, {}, {}", engineId, location)
-      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+      sender() ! admin.importToEngine(engineId, location)
 
     case DeleteEngine(engineId) ⇒
       log.info("Delete existing engine, {}", engineId)
