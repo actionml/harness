@@ -29,28 +29,15 @@ import com.typesafe.scalalogging.LazyLogging
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectable with JsonParser {
+abstract class Engine(/*implicit inj: Injector*/) extends LazyLogging /*with Injectable*/ with JsonParser {
 
-  // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
-  // for instance. Because each Dataset may have a different parameter type
-  val params: EngineParams
-  val algo: Algorithm
-  val engineId: String
+  var engineId: String = _
 
-  private val mirroring: Mirroring = inject[Mirroring]
-
-  // Slava: not sure if these should be here or in the mirroring Trait or the specific Object injected
-  var mirrorType: Option[String] = _
-  var mirrorLocation: Option[String] = _
+  //private val mirroring: Mirroring = inject[Mirroring]
 
   def init(json: String): Validated[ValidateError, Boolean] = {
     parseAndValidate[RequiredEngineParams](json).andThen { p =>
       engineId = p.engineId
-
-      // Slava use something like this to initialize the mirroring, this should get the param out of the engine.json
-      // no type defaults to localfs, no location will use the default location
-      mirrorType = p.mirrorType
-      mirrorLocation = p.mirrorLocation
       Valid(true)
     }
   }
@@ -62,13 +49,14 @@ abstract class Engine(implicit inj: Injector) extends LazyLogging with Injectabl
 
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    mirroring.mirrorJson(engineId, json)
-    inputInternal(json: String, trainNow)
+    //mirroring.mirrorJson(engineId, json)
+    Valid(true)
   }
   def query(json: String): Validated[ValidateError, String]
   def status(): String = "Does not support status message."
 
-  protected def inputInternal(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
+  // Slava, not sure why this is needed?
+  // protected def inputInternal(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
 }
 
 trait EngineParams

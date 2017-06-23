@@ -2,13 +2,16 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import com.actionml.admin.{Administrator, MongoAdministrator}
-import com.actionml.core.backup.{HDFSMirroring, Mirroring}
+import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.typesafe.config.ConfigFactory
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
+
+
 /**
   *
   *
@@ -24,6 +27,11 @@ object Main extends App with AkkaInjectable{
 }
 
 class BaseModule extends Module{
+
+/*
+  private lazy val config = ConfigFactory.load()
+
+  val mirrorType: String = if (config.getString("mirror.type").isEmpty) "localfs" else config.getString("mirror.type")
 
   bind[AppConfig] to AppConfig.apply
 
@@ -43,12 +51,44 @@ class BaseModule extends Module{
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
 
-  bind[Mirroring] to HDFSMirroring
+  // need to decide here what type of mirroring to use from server config
+  // todo: need to turn this on/off while running so no reboot is required.
+  //if(mirrorType == Mirroring.localfs) bind[Mirroring] to FSMirroring else bind[Mirroring] to HDFSMirroring
+  // bind[Mirroring] to FSMirroring
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
   bind[Administrator] to new MongoAdministrator initWith(_.init())
+*/
 
+  bind[AppConfig] to AppConfig.apply
+
+  bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
+
+  implicit lazy val system: ActorSystem = inject [ActorSystem]
+
+  bind[RestServer] to new RestServer
+
+  bind[CheckRouter] to new CheckRouter
+  bind[EventsRouter] to new EventsRouter
+  bind[EnginesRouter] to new EnginesRouter
+  bind[QueriesRouter] to new QueriesRouter
+  bind[CommandsRouter] to new CommandsRouter
+
+  bind[EventService] to new EventServiceImpl
+  bind[EngineService] to new EngineServiceImpl
+  bind[QueryService] to new QueryServiceImpl
+
+  // need to decide here what type of mirroring to use from server config
+  // todo: need to turn this on/off while running so no reboot is required.
+  //if(mirrorType == Mirroring.localfs) bind[Mirroring] to FSMirroring else bind[Mirroring] to HDFSMirroring
+  // bind[Mirroring] to FSMirroring
+
+  binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
+  binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
+  binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
+
+  bind[Administrator] to new MongoAdministrator initWith(_.init())
 }

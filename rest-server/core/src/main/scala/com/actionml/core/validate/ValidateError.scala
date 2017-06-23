@@ -11,3 +11,4 @@ final case class MissingParams(message: String) extends ValidateError
 final case class WrongParams(message: String) extends ValidateError
 final case class EventOutOfSequence(message: String) extends ValidateError
 final case class NotImplemented(message: String = "Not implemented") extends ValidateError
+final case class ExecutionError(message: String = "Execution error for valid request") extends ValidateError
