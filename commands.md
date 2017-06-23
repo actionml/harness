@@ -77,8 +77,8 @@ Set your path to include to the directory containing the `harness` script. Comma
  - `harness stop` gracefully stops harness and all engines.
  - `harness add -c <some-engine.json>` creates and starts an instance of the template defined in `some-engine.json`, which is a path to the template specific parameters file. An error message is displayed if the engine is already defined or if the json is invalid.
  - &dagger;`harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]` stops the engine, modifies the parameters and restarts the engine. If the engine is not defined a warning will be displayed that the engine is new and it will function just as `harness engine <some-engine.json> new` there will be an error if a . If `-d` is set this removes the dataset and model for the engine so it will treat all new data as if it were the first received. You will be prompted to delete mirrored data unless `-f` is supplied (see engine config for more about mirroring). This command will reset the engine to ground original state with the `-d` if there are no changes to the parameters in the json file.
- - `harness delete [-c <some-engine.json> | <some-resource-id]` The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
- - &dagger;`harness import [-c <some-engine.json> | <some-resource-id] [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
+ - `harness delete <some-resource-id>` The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
+ - &dagger;`harness import <some-resource-id> [<some-directory>]` This is typically used to replay previously mirrored events or bootstrap events created from application logs. It sends the files in the directory to the `/engine/resourse-id/events` input endpoint as if POSTing them with the SDK. If `<some-directory>` is omitted harness will attempt to use the mirrored events if defined in the engine config json. 
  - &dagger;`harness train [-c <some-engine.json> | <some-resource-id]` in the Lambda model this trains the algorithm on all previously accumulated data.
  - `harness status [[-c <some-engine.json> | <some-resource-id]]` prints a status message for harness or for the engine specified.
  - &dagger;`harness list engines` lists engines and stats about them
@@ -97,13 +97,13 @@ Following typical workflow for launching and managing the Harness server the fol
          
  1. Create a new Engine and set it's configuration:
 
-        harness add <some-engine.json>
+        harness add -c <some-engine.json>
         # the engine-id in the json file will be used for the resource-id
         # in the REST API
         
  1. The `<some-engine.json>` file is required above but it can be modifed with:
 
-        harness update <some-engine.json>
+        harness update -c <some-engine.json> ...
         # use -d if you want to discard any previously collected data 
         # or model
 
@@ -111,11 +111,11 @@ Following typical workflow for launching and managing the Harness server the fol
 
  1. &dagger;Once the engine is created and receiving input through it's REST `events` input endpoint any Kappa style learner will respond to the REST engine `queries` endpoint. To use a Lambda style (batch/background) style learner or to bulk train the Kappa on saved up input run:
     
-        harness train <some-engine.json>
+        harness train -c <some-engine.json>
         
  1. If you wish to **remove all data** and the engine to start fresh:
 
-        harness delete <some-engine.json>
+        harness delete <some-resource-id>
 
  1. To bring the server down:
 
