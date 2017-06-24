@@ -20,23 +20,30 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{WrongParams, MissingParams, JsonParser, ValidateError}
+import com.actionml.core.validate._
+import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
+import com.typesafe.scalalogging.LazyLogging
+import org.json4s.ext.JodaTimeSerializers
+import org.json4s.jackson.JsonMethods._
+import org.json4s.{DefaultFormats, MappingException}
+import scaldi.Injector
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class CBEngine(/*implicit inj: Injector*/) extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[CBEngineParams](json).andThen { p =>
-      params = p
-      engineId = params.engineId
-      dataset = new CBDataset(engineId)
-      algo = new CBAlgorithm(dataset)
-      Valid(p)
-    }.andThen(_ => algo.init(json, engineId))
+    super.init(json).andThen { _ =>
+      parseAndValidate[CBEngineParams](json).andThen { p =>
+        params = p
+        dataset = new CBDataset(engineId)
+        algo = new CBAlgorithm(dataset)
+        Valid(p)
+      }.andThen(_ => algo.init(json, engineId))
+    }
   }
 
   // used when init might fail from bad params in the json but you want an Engine, not a Validated
@@ -68,12 +75,16 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    dataset.input(json).andThen(process(_)).map(_ => true)
+    if(super.input(json, trainNow).isValid)
+      dataset.input(json).andThen(process(_)).map(_ => true)
+    else
+      Valid(true) // Some error like an ExecutionError in super.input happened
+    // todo: pass back indication of deeper error
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */

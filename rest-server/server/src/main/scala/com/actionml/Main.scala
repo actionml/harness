@@ -2,12 +2,16 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import com.actionml.admin.{Administrator, MongoAdministrator}
+import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.typesafe.config.ConfigFactory
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
+
+
 /**
   *
   *
@@ -42,10 +46,14 @@ class BaseModule extends Module{
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
 
+  // need to decide here what type of mirroring to use from server config
+  // todo: for now, not using injection. mirroring is hard coded to localfs type and Engine is extended with a trait
+  // todo: need to turn this on/off while running so no reboot is required.
+  //if(mirrorType == Mirroring.localfs) bind[Mirroring] to FSMirroring else bind[Mirroring] to HDFSMirroring
+
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
   bind[Administrator] to new MongoAdministrator initWith(_.init())
-
 }
