@@ -28,11 +28,6 @@ object Main extends App with AkkaInjectable{
 
 class BaseModule extends Module{
 
-/*
-  private lazy val config = ConfigFactory.load()
-
-  val mirrorType: String = if (config.getString("mirror.type").isEmpty) "localfs" else config.getString("mirror.type")
-
   bind[AppConfig] to AppConfig.apply
 
   bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
@@ -52,39 +47,9 @@ class BaseModule extends Module{
   bind[QueryService] to new QueryServiceImpl
 
   // need to decide here what type of mirroring to use from server config
+  // todo: for now, not using injection. mirroring is hard coded to localfs type and Engine is extended with a trait
   // todo: need to turn this on/off while running so no reboot is required.
   //if(mirrorType == Mirroring.localfs) bind[Mirroring] to FSMirroring else bind[Mirroring] to HDFSMirroring
-  // bind[Mirroring] to FSMirroring
-
-  binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
-  binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
-  binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
-
-  bind[Administrator] to new MongoAdministrator initWith(_.init())
-*/
-
-  bind[AppConfig] to AppConfig.apply
-
-  bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
-
-  implicit lazy val system: ActorSystem = inject [ActorSystem]
-
-  bind[RestServer] to new RestServer
-
-  bind[CheckRouter] to new CheckRouter
-  bind[EventsRouter] to new EventsRouter
-  bind[EnginesRouter] to new EnginesRouter
-  bind[QueriesRouter] to new QueriesRouter
-  bind[CommandsRouter] to new CommandsRouter
-
-  bind[EventService] to new EventServiceImpl
-  bind[EngineService] to new EngineServiceImpl
-  bind[QueryService] to new QueryServiceImpl
-
-  // need to decide here what type of mirroring to use from server config
-  // todo: need to turn this on/off while running so no reboot is required.
-  //if(mirrorType == Mirroring.localfs) bind[Mirroring] to FSMirroring else bind[Mirroring] to HDFSMirroring
-  // bind[Mirroring] to FSMirroring
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")

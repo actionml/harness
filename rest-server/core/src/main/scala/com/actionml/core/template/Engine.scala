@@ -20,16 +20,19 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.validate.{JsonParser, ValidateError}
-import com.actionml.core.backup.Mirroring
+import com.actionml.core.backup.{FSMirroring, Mirroring}
 import scaldi.{Injectable, Injector}
 
 import com.typesafe.scalalogging.LazyLogging
 
+import com.actionml.core.backup.FSMirroring
+
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
+  * TODO: not using injection for mirroring
   */
-abstract class Engine(/*implicit inj: Injector*/) extends LazyLogging /*with Injectable*/ with JsonParser {
+abstract class Engine(/*implicit inj: Injector*/) extends LazyLogging /*with Injectable*/ with JsonParser with FSMirroring {
 
   var engineId: String = _
 
@@ -49,7 +52,7 @@ abstract class Engine(/*implicit inj: Injector*/) extends LazyLogging /*with Inj
 
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    //mirroring.mirrorJson(engineId, json)
+    mirrorJson(engineId, json)
     Valid(true)
   }
   def query(json: String): Validated[ValidateError, String]
