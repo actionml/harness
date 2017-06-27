@@ -5,6 +5,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ParseError, ValidateError, WrongParams}
+import com.actionml.core._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
 import salat.dao.SalatDAO
@@ -15,7 +16,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
 
-
+  drawActionML
   private def newEngineInstance(engineFactory: String): Engine = {
     Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
   }
@@ -30,6 +31,11 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       // create each engine passing the params
       engineId -> newEngineInstance(engineFactory).initAndGet(params)
     }.filter(_._2 != null).toMap
+    drawInfo("Harness Server Init", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("Number of Engines: ", engines.size),
+      ("Engines: ", engines.map(_._1))))
+
     this
   }
 
