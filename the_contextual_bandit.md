@@ -147,8 +147,8 @@ The CB has a configuration file defined below. This defines parameters for for t
   - **regParam**: regularization parameter, see VW docs.
   - **stepSize**: steps for iterations, se VW docs
   - **bitPrecision**: how many bits used to define a fixed point value internally.
-  - **modelName**: location in the local filesystem to store the VW model data when persisted.
-  - **nameSpace**: should be unique for every resource-id. **WARNING**: this will be **deprecated** and calculated automatically.
+  - **modelName**: location in the local filesystem to store the VW model data when persisted. **WARNING**:must be the same for all Engines that use VW! Otherwise they will overwrite each other's models.
+  - **nameSpace**: **MUST** be unique for every resource-id. **WARNING**: this will be **deprecated** and calculated automatically.
   - **maxClasses**: max number of variants.
 
 # Training
