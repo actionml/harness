@@ -44,7 +44,8 @@ trait FSMirroring extends Mirroring {
 
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(engineId: String, json: String): Unit = {
+  override def mirrorEvent(engineId: String, json: String): Boolean = {
+    var noError = true
     if(mirrorType == Mirroring.localfs){
       try {
         val resourceCollection = new File(containerName(engineId))
@@ -60,15 +61,19 @@ trait FSMirroring extends Mirroring {
         case e: Exception =>
           logger.error("Problem mirroring while input")
           e.printStackTrace
+          noError = false
       }
 
     } else {
       logger.warn("Local filesystem mirroring called, but not configured.")
+      noError = false
     }
+    noError
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Unit = {
+  override def importEvents(engine: Engine, location: String): Boolean = {
+    var noError = true
     try {
       val mirrorLocation = new File(containerName(engine.engineId))
       val resourceCollection = new File(location)
@@ -79,22 +84,24 @@ trait FSMirroring extends Mirroring {
           logger.info(s"Reading files from directory: ${location}")
           for (file <- flist) {
             Source.fromFile(file).getLines().foreach { line =>
-              engine.input(line, noMirror = true)
+              engine.input(line)
             }
           }
         } else if (resourceCollection.exists()) { // single file
           Source.fromFile(location).getLines().foreach { line =>
-            engine.input(line, noMirror = true)
+            engine.input(line)
           }
         }
       } else {
         logger.error(s"Cannot import from mirroring location: $location since imported files are also mirrored causing an infinite loop. Copy or move them first.")
+        noError = false
       }
     } catch {
       case e: Exception =>
         logger.error("Problem while importing saved events")
         e.printStackTrace
+        noError = false
     }
-
+    noError
   }
 }

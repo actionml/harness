@@ -38,8 +38,8 @@ trait Mirroring extends LazyLogging {
   val mirrorContainer: String = if (config.getString("mirror.container").isEmpty) "" else config.getString("mirror.container")
   val mirrorType: String = if (config.getString("mirror.type").isEmpty) "" else config.getString("mirror.type")
 
-  def mirrorEvent(engineId: String, json: String): Unit
-  def importEvents(engine: Engine, location: String): Unit
+  def mirrorEvent(engineId: String, json: String): Boolean
+  def importEvents(engine: Engine, location: String): Boolean
 
   /**
     * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name

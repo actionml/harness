@@ -18,9 +18,9 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.FSMirroring
-import com.actionml.core.validate.ValidateError
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
@@ -40,8 +40,9 @@ abstract class Engine extends LazyLogging with FSMirroring {
   def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()
-  def input(json: String, trainNow: Boolean = true, noMirror: Boolean = false): Validated[ValidateError, Boolean] = {
-    if(!noMirror) mirrorEvent(engineId, json.replace("\n"," ") + "\n")
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+    if(mirrorEvent(engineId, json.replace("\n"," ") + "\n")) Valid(true) else Invalid(ValidRequestExecutionError("Unable " +
+      "to mirror event, see server logs"))
     Valid(true)
   }
 
