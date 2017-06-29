@@ -6,9 +6,6 @@ from common import *
 
 engine_client = EngineClient(url=url)
 
-#debug
-#print("Action: "+args.action+" all args: "+str(args))
-#print("Input: "+args.input)
 if args.action == 'create':
     with open(args.config) as data_file:
         config = json.load(data_file)
@@ -18,20 +15,10 @@ if args.action == 'create':
         except HttpError as err:
             print_failure(err, 'Error creating new engine.')
 
-elif args.action == 'import':
-    i = args.input
-    engine_id = args.engine_id
-    print("Importing to: "+engine_id+" from: "+i)
-    try:
-        res = engine_client.update(engine_id, i)
-        print_success(res, 'Updating existing engine. Success=')
-    except HttpError as err:
-        print_failure(err, 'Error updating engine.')
-
 elif args.action == 'update':
     engine_id, config = id_or_config()
     try:
-        res = engine_client.update(engine_id, config, args.delete, args.force)
+        res = engine_client.update(engine_id, config, args.delete, args.force, args.input)
         print_success(res, 'Updating existing engine. Success=')
     except HttpError as err:
         print_failure(err, 'Error updating engine.')

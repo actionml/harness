@@ -311,9 +311,10 @@ class EngineClient(BaseClient):
     def create(self, data):
         return self.async_create(data).get_response()
 
-    def async_update(self, engine_id, data, data_delete=False, force=False):
+    def async_update(self, engine_id, data, data_delete=False, force=False, input=None):
         """
         Asynchronously update engine.
+        :param input: file or directory containing input as raw JSON
         :param force:
         :param data_delete:
         :param data:
@@ -326,6 +327,8 @@ class EngineClient(BaseClient):
             query['data_delete'] = True
         if force:
             query['force'] = True
+        if input is not None:
+            query['input'] = input
 
         path = self._add_segment(engine_id)
         path = self._add_get_params(path, **query)
@@ -335,8 +338,8 @@ class EngineClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def update(self, engine_id, data, data_delete=False, force=False):
-        return self.async_update(engine_id, data, data_delete, force).get_response()
+    def update(self, engine_id, data, data_delete=False, force=False, input=None):
+        return self.async_update(engine_id, data, data_delete, force, input).get_response()
 
     def async_delete(self, engine_id):
         request = AsyncRequest("DELETE", self._add_segment(engine_id))

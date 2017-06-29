@@ -18,6 +18,8 @@
 package com.actionml.core.template
 
 import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.core.backup.FSMirroring
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -25,7 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging {
+abstract class Engine extends LazyLogging with FSMirroring {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
@@ -38,7 +40,11 @@ abstract class Engine extends LazyLogging {
   def stop(): Unit = {logger.trace(s"Stopping base Engine with engineId:$engineId")}
 
   def train()
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean]
+  def input(json: String, trainNow: Boolean = true, noMirror: Boolean = false): Validated[ValidateError, Boolean] = {
+    if(!noMirror) mirrorEvent(engineId, json.replace("\n"," ") + "\n")
+    Valid(true)
+  }
+
   def query(json: String): Validated[ValidateError, String]
   def status(): String = "Does not support status message."
 }

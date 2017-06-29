@@ -1,3 +1,20 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.actionml.admin
 
 import cats.data.Validated
@@ -5,11 +22,10 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate._
+import com.actionml.core._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
 import salat.dao.SalatDAO
-
-import scala.io.Source
 
 class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
@@ -17,7 +33,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
 
-
+  drawActionML
   private def newEngineInstance(engineFactory: String): Engine = {
     Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
   }
@@ -32,6 +48,11 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       // create each engine passing the params
       engineId -> newEngineInstance(engineFactory).initAndGet(params)
     }.filter(_._2 != null).toMap
+    drawInfo("Harness Server Init", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("Number of Engines: ", engines.size),
+      ("Engines: ", engines.map(_._1))))
+
     this
   }
 
@@ -87,33 +108,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       Valid(true)
     } else {
       logger.warn(s"Cannot remove non-existent engine for id: $engineId")
-      Invalid(WrongParams(s"Cannot remove non-existent engine: $engineId"))
-    }
-  }
-
-  override def importToEngine(engineId: EngineId, location: String): Validated[ValidateError, Boolean] = {
-    // Todo: this should be an HDFS URI, possibly a file:// or an hdfs:// so treated differently, assuming only localfs for now
-    if (engines.keySet.contains(engineId)) {
-      logger.info(s"Importing all events from: ${location} into engine: $engineId")
-      // assume localfs for now
-      val importEngine = engines(engineId)
-      var good = 0
-      var errors = 0
-
-      Source.fromFile(location).getLines().foreach { line =>
-
-        importEngine.input(line) match {
-          case Valid(_) ⇒
-            good += 1
-          case Invalid(_) ⇒
-            logger.warn(s"Error while importing event $line to engine: $engineId")
-            errors += 1
-        }
-      }
-      if(errors == 0) Valid(true) else Invalid(ValidRequestExecutionError())
-    } else {
-      logger.warn(s"Cannot remove non-existent engine: $engineId")
-      Invalid(WrongParams(s"Cannot import to non-existent engine: $engineId"))
+      Invalid(WrongParams(s"Cannot remove non-existent engine for id: $engineId"))
     }
   }
 
@@ -121,4 +116,32 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     Valid("\n\n"+engines.mapValues(_.status()).toSeq.mkString("\n\n"))
   }
 
+  override def updateEngine(
+    engineId: EngineId,
+    engineJson: Option[String] = None,
+    dataDelete: Boolean = false,
+    force: Boolean = false,
+    input: Option[String] = None): Validated[ValidateError, Boolean] = {
+    if (engineJson.nonEmpty) {
+      // Todo: implement
+      logger.info("Using 'harness update -c <some-engine-json-file>' is not implemented yet")
+    }
+    if (engines.keySet.contains(engineId)) {
+      val engine = engines(engineId)
+      val params = engineJson.getOrElse(enginesCollection.findOne(MongoDBObject("engineId" -> engineId)).get.get("params").toString)
+      if (dataDelete) {
+        engine.destroy()
+        engine.init(params)
+      }
+      if(input.nonEmpty) {
+        engines(engineId).importEvents(engines(engineId), input.get)
+      }
+    } else {
+      logger.error(s"Unable to update to a non-existent engineId: ${engineId}")
+      return Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${engineId}"))
+    }
+    Valid(true)
+  }
+
 }
+
