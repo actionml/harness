@@ -26,13 +26,12 @@ defined input/query objects
  
 # Architecture
  
-**Libraries used**
+**Components**
 
  - akka-http, akka-actors, scala
- - [Asynch HTTP Client](https://github.com/AsyncHttpClient/async-http-client#async-http-client-asynchttpclient-on-twitter-), which replaces previous PIO SDKs and supports SSL with S2S Auth
- - Example existing [PIO Java client SDK](https://github.com/apache/incubator-predictionio-sdk-java)
+ - [Asynch HTTP Client](https://github.com/AsyncHttpClient/async-http-client#async-http-client-asynchttpclient-on-twitter-)
 
-![PIO Kappa Architecture](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=910&h=739)
+![Harness Overview](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
 
 ## Router
 
