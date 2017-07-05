@@ -33,3 +33,8 @@ echo ""
 echo -e "   ${CYAN}harness status [[-c <some-engine.json> | <some-resource-id>]]${NC}"
 echo -e "       Prints a status message for harness or for the engine specified. Note: prints only server status."
 echo ""
+
+echo -e "   ${CYAN}harness import <some-resource-id> -i <path/to/events/json/files> ${NC}"
+echo -e "       Imports events into the engine specified. The path can be to a directory or a single file."
+echo -e "       The files should contain one event per line of JSON. Files starting with '.' or '_' will be ignored."
+echo ""
