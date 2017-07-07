@@ -18,31 +18,35 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.backup.FSMirroring
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.backup.{FSMirroring, Mirroring}
+import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging with JsonParser with FSMirroring {
+abstract class Engine extends LazyLogging with JsonParser {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
-  var engineMirrorType: Option[String] = _
-  var engineMirrorContainer: Option[String] = _
+  var mirroring: Mirroring = _
 
-  def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[RequiredEngineParams](json).andThen { p =>
-      // todo: Slava these params are from the JSON engine config file and can be used to initialize the Mirror
-      // they do nothing in the current code since these are set server wide in bin/harness-env
-      // we want to control them per engine and so setup mirroring here with params from the engine JSON file
-      engineMirrorType = p.mirrorType
-      engineMirrorContainer = p.mirrorContainer
-      Valid(true)
+  def init(json: String): Validated[ValidateError, Unit] = {
+    def createMirror(p: RequiredEngineParams) = {
+      p.mirrorContainer.fold[Validated[ValidateError, Unit]](Invalid(MissingParams("mirror container is undefined"))) {
+        container =>
+          p.mirrorType.fold[Validated[ValidateError, Unit]](Invalid(MissingParams("mirror type is undefined"))) {
+            case "fs" => mirroring = new FSMirroring(container); Valid(())
+            case mt   => Invalid(WrongParams(s"mirror type $mt is not implemented"))
+          }
+      }
+    }
+
+    parseAndValidate[RequiredEngineParams](json).andThen {
+      createMirror
     }
   }
 
@@ -53,7 +57,7 @@ abstract class Engine extends LazyLogging with JsonParser with FSMirroring {
 
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Unit] =
-    mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
   Valid(())
 
   def query(json: String): Validated[ValidateError, String]

@@ -23,22 +23,18 @@ import java.time.{LocalDateTime, ZoneId}
 import cats.data.Validated
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.ValidateError
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
-  * Basic trait for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
+  * Abstract class for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
   * a trait or object extending this.
   *
   */
-trait Mirroring extends LazyLogging {
+abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
 
   // globally set in server config
-  lazy val config = ConfigFactory.load()
-
-  // Put base dir of ALL mirroring in server/src/main/resources/reference.conf or env, like logs all will go here
-  val mirrorContainer: String = if (config.getString("mirror.container").isEmpty) "" else config.getString("mirror.container")
-  val mirrorType: String = if (config.getString("mirror.type").isEmpty) "" else config.getString("mirror.type")
+  lazy val config: Config = ConfigFactory.load()
 
   def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Unit]
   def importEvents(engine: Engine, location: String): Validated[ValidateError, Unit]

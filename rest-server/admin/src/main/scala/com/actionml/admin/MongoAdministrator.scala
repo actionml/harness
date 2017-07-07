@@ -132,7 +132,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
         engine.destroy()
         engine.init(params)
       }
-      if (input.nonEmpty) engines(engineId).importEvents(engines(engineId), input.get) else Valid(())
+      if (input.nonEmpty) engines(engineId).mirroring.importEvents(engines(engineId), input.get) else Valid(())
     } else {
       logger.error(s"Unable to update to a non-existent engineId: ${ engineId }")
       Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${ engineId }"))

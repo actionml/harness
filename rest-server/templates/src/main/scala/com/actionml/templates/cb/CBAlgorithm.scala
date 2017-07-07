@@ -56,7 +56,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
 
   // from the Dataset determine which groups are defined and start training on them
 
-  def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
+  def init(json: String, rsrcId: String): Validated[ValidateError, Unit] = {
     //val response = parseAndValidate[CBAlgoParams](json)
     resourceId = rsrcId
     parseAndValidate[CBAllParams](json).andThen { p =>
@@ -74,7 +74,7 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
         val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, resourceId), trainer)
         trainers += trainer → actor
       }
-      Valid(true)
+      Valid(())
     }
   }
 

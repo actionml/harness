@@ -30,9 +30,7 @@ import scala.io.Source
   * Mirroring implementation for local FS.
   */
 
-// TODO: not using injection so need a trait
-//object FSMirroring extends Mirroring {
-trait FSMirroring extends Mirroring {
+class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
 
   val f = new File(mirrorContainer)
   if (f.exists() && f.isDirectory && config.getString("mirror.type").nonEmpty) {
@@ -49,7 +47,6 @@ trait FSMirroring extends Mirroring {
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
 
-    if (mirrorType == Mirroring.localfs) {
       try {
         val resourceCollection = new File(containerName(engineId))
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
@@ -61,17 +58,11 @@ trait FSMirroring extends Mirroring {
           pw.close()
         }
       } catch {
-        case _: Exception =>
+        case ex: Exception =>
           val errMsg = "Problem mirroring while input"
-          logger.error(errMsg)
-          mirrorEventError(errMsg)
+          logger.error(errMsg, ex)
+          mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
-
-    } else {
-      val errMsg = "Local filesystem mirroring called, but not configured."
-      logger.warn(errMsg)
-      mirrorEventError(errMsg)
-    }
     Valid(())
   }
 
