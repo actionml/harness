@@ -30,7 +30,7 @@ class CBEngine() extends Engine() with JsonParser {
   var algo: CBAlgorithm = _
   var params: CBEngineParams = _
 
-  override def init(json: String): Validated[ValidateError, Unit] = {
+  override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       parseAndValidate[CBEngineParams](json).andThen { p =>
         params = p
