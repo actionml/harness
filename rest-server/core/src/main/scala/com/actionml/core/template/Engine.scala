@@ -34,21 +34,16 @@ abstract class Engine extends LazyLogging with JsonParser {
   var engineId: String = _
   var mirroring: Mirroring = _
 
-  def init(json: String): Validated[ValidateError, Boolean] = {
-    def createMirror(p: RequiredEngineParams) = {
-      p.mirrorContainer.fold[Validated[ValidateError, Boolean]](Invalid(MissingParams("mirror container is undefined"))) {
-        container =>
-          p.mirrorType.fold[Validated[ValidateError, Boolean]](Invalid(MissingParams("mirror type is undefined"))) {
-            case "fs" => mirroring = new FSMirroring(container); Valid(true)
-            case mt   => Invalid(WrongParams(s"mirror type $mt is not implemented"))
-          }
-      }
-    }
+  private def createMirror(params: RequiredEngineParams) = params.mirrorContainer
+    .fold[Validated[ValidateError, Boolean]](Invalid(MissingParams("mirror container is undefined")))(
+    container => params.mirrorType
+      .fold[Validated[ValidateError, Boolean]](Invalid(MissingParams("mirror type is undefined"))) {
+      case "fs" => mirroring = new FSMirroring(container); Valid(true)
+      case mt   => Invalid(WrongParams(s"mirror type $mt is not implemented"))
+    })
 
-    parseAndValidate[RequiredEngineParams](json).andThen {
-      createMirror
-    }
-  }
+  def init(json: String): Validated[ValidateError, Boolean] = parseAndValidate[RequiredEngineParams](json)
+    .andThen(createMirror)
 
   def initAndGet(json: String): Engine
   def destroy(): Unit
