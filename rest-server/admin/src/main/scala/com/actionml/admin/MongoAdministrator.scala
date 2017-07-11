@@ -120,7 +120,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     engineJson: Option[String] = None,
     dataDelete: Boolean = false,
     force: Boolean = false,
-    input: Option[String] = None): Validated[ValidateError, Unit] = {
+    input: Option[String] = None): Validated[ValidateError, Boolean] = {
     if (engineJson.nonEmpty) {
       // Todo: implement
       logger.info("Using 'harness update -c <some-engine-json-file>' is not implemented yet")
@@ -132,7 +132,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
         engine.destroy()
         engine.init(params)
       }
-      if (input.nonEmpty) engines(engineId).mirroring.importEvents(engines(engineId), input.get) else Valid(())
+      if (input.nonEmpty) engines(engineId).mirroring.importEvents(engines(engineId), input.get) else Valid(true)
     } else {
       logger.error(s"Unable to update to a non-existent engineId: ${ engineId }")
       Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${ engineId }"))

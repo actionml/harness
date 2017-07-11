@@ -43,7 +43,7 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
 
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Unit] = {
+  override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean] = {
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
 
@@ -63,11 +63,11 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
           logger.error(errMsg, ex)
           mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
-    Valid(())
+    Valid(true)
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Unit] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin))
@@ -102,6 +102,6 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
         logger.error(errMsg)
         importEventsError(errMsg)
     }
-    Valid(())
+    Valid(true)
   }
 }

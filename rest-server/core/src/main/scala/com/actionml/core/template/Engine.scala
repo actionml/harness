@@ -56,7 +56,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
 
   def train()
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Unit] =
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] =
     mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
   Valid(())
 

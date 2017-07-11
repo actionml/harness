@@ -40,7 +40,7 @@ abstract class Administrator extends LazyLogging {
     engineJson: Option[String] = None,
     dataDelete: Boolean = false,
     force: Boolean = false,
-    input: Option[String] = None): Validated[ValidateError, Unit]
+    input: Option[String] = None): Validated[ValidateError, Boolean]
   def list(resourceType: String): Validated[ValidateError, String]
 
   // startup and shutdown

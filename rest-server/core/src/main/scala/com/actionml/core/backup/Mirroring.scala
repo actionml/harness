@@ -36,8 +36,8 @@ abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
   // globally set in server config
   lazy val config: Config = ConfigFactory.load()
 
-  def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Unit]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, Unit]
+  def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
+  def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
 
   /**
     * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name
