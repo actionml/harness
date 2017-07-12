@@ -39,10 +39,12 @@ class CBEngine() extends Engine() with JsonParser {
         algo = new CBAlgorithm(dataset)
         drawInfo("Contextual Bandit Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId)))
+          ("EngineId: ", engineId),
+          ("Mirror Type: ", mirrorType),
+          ("Mirror Container: ", mirrorContainer)))
 
         Valid(p)
-      }.andThen(_ => algo.init(json, engineId))
+      }.andThen( _ => algo.init(json, engineId))
     }
   }
 

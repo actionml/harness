@@ -6,7 +6,11 @@
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
+    "comment": "modelName is being deprecated and should not be used",
     "modelName": "/Users/pat/harness/model.vw",
+    "comment": "modelContainer should be a full directory path on the local fs",
+    "modelContainer": "/Users/pat/big-data/harness/models/",
+    "comment": "namespace is being deprecated and should not be used",
     "namespace": "name",
     "maxClasses": 3
   }

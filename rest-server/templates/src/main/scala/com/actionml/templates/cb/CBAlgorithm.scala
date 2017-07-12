@@ -22,12 +22,16 @@ import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.storage._
-import com.actionml.core.template.{Query, Algorithm, AlgorithmParams}
+import com.actionml.core.template.{Algorithm, AlgorithmParams, Query}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.mongodb.casbah.Imports._
+import com.typesafe.scalalogging.LazyLogging
+
+import scala.tools.nsc.classpath.FileUtils
+//import java.io.File
 import com.mongodb.casbah.MongoCollection
 import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
-import org.joda.time.{Duration, DateTime}
+import org.joda.time.{DateTime, Duration}
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
@@ -35,8 +39,9 @@ import org.slf4j.event.SubstituteLoggingEvent
 
 import scala.concurrent.Future
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
+import com.typesafe.config.ConfigFactory
 import vw.VW
 
 import scala.reflect.io.File
@@ -49,10 +54,13 @@ import scala.reflect.io.File
   */
 class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mongo {
 
+  val serverHome = sys.env("HARNESS_HOME")
+
   private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
   var resourceId: String = _
+  var modelPath: String = _
 
   // from the Dataset determine which groups are defined and start training on them
 
@@ -60,8 +68,10 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     //val response = parseAndValidate[CBAlgoParams](json)
     resourceId = rsrcId
     parseAndValidate[CBAllParams](json).andThen { p =>
-      params = p.algorithm
-      // todo: remove old model since it is recreated with each new input batch, not sure how to do this in vw
+      modelPath = p.algorithm.modelContainer.getOrElse(serverHome) + resourceId
+      params = p.algorithm.copy(
+        modelName = modelPath,
+        namespace = resourceId)
       val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
       val exists = trainers.keys.toList
@@ -71,11 +81,23 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
 
       diff.foreach { case (trainer, collection) =>
         val group = dataset.GroupsDAO.findOne(DBObject("groupId" -> trainer)).get
-        val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, resourceId), trainer)
+        val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, resourceId,
+          modelPath), trainer)
         trainers += trainer → actor
       }
+      CBAlgorithm.createVW(params).close() // sets up the parameters for the model and names the file for storage of the
+      // params .close() should write to the file
+
       Valid(true)
     }
+  }
+
+  override def destroy(): Unit = {
+    // remove old model since it is recreated with each new CBEngine
+    Files.deleteIfExists(Paths.get(modelPath))
+    if(Files.deleteIfExists(Paths.get(modelPath))) logger.info(s"Unable to delete old VW model file: ${modelPath}")
+    else logger.info(s"Unable to delete old VW model file: ${modelPath}")
+
   }
 
   def train(groupName: String): Unit = {
@@ -110,7 +132,8 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
           dataset.usersDAO,
           params,
           dataset.GroupsDAO.findOneById(groupName).get,
-          resourceId),
+          resourceId,
+          modelPath),
         groupName)
       trainers += groupName → actor
     }
@@ -125,7 +148,8 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
   }
 
   def getVariant(query: CBQuery): CBQueryResult = {
-    val vw = new VW(" -i " + params.modelName)
+    //val vw = new VW(" -i " + modelPath)
+    val vw = CBAlgorithm.getVW(modelPath: String)
 
     val group = dataset.GroupsDAO.findOneById(query.groupId).get
 
@@ -188,6 +212,21 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     item
   }
 
+}
+
+object CBAlgorithm extends LazyLogging {
+  def createVW(params: CBAlgoParams): VW = {
+    val reg = " --l2 " + params.regParam + " "
+    val iters = " -c -k --passes " + params.maxIter + " "
+    val lrate = " -l " + params.stepSize + " "
+
+    val vw = new VW(" --csoaa 10 " + " -b " + params.bitPrecision + " -f " + params.modelName + reg +
+      lrate + iters + " --save_per_pass ")
+    logger.info(s"VW config: ${vw.toString}")
+    vw
+  }
+
+  def getVW(modelPath: String): VW = new VW(s" -i $modelPath  --save_per_pass ")
 
 }
 
@@ -201,13 +240,20 @@ case class CBAlgoParams(
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
     bitPrecision: Int = 24,
+    modelContainer: Option[String] = None,
     modelName: String = "/Users/pat/harness/model.vw",
     namespace: String = "n",
     maxClasses: Int = 3)
   extends AlgorithmParams
 
 
-class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoParams, group: GroupParams, resourceId: String)
+class SingleGroupTrainer(
+    events: UsageEventDAO,
+    users: UsersDAO,
+    params: CBAlgoParams,
+    group: GroupParams,
+    resourceId: String,
+    modelPath: String)
   extends ActorWithLogging {
 
   import SingleGroupTrainer._
@@ -221,7 +267,7 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
 
   private def startWork(): Unit = {
     log.debug(s"$name Start work")
-    implicit val vw = createVW()
+    val vw = CBAlgorithm.getVW(modelPath)
 
     eventsToVWStrings(
       events.find(allCollectionObjects).seq.toSeq,
@@ -232,17 +278,6 @@ class SingleGroupTrainer(events: UsageEventDAO, users: UsersDAO, params: CBAlgoP
 
     vw.close()
     log.debug(s"$name Finish work")
-  }
-
-  private def createVW(): VW = {
-    val reg = "--l2 " + params.regParam
-    val iters = "-c -k --passes " + params.maxIter
-    val lrate = "-l " + params.stepSize
-
-    val vw = new VW("--csoaa 10 " + "-b " + params.bitPrecision + " " + "-f " + params.modelName + " " + reg +
-      " " + lrate + " " + iters)
-    println(vw)
-    vw
   }
 
   def eventsToVWStrings(
@@ -279,7 +314,8 @@ object SingleGroupTrainer {
     users: UsersDAO,
     params: CBAlgoParams,
     group: GroupParams,
-    resourceId: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId))
+    resourceId: String,
+    modelPath: String):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath))
 
   def constructVWString(
     classString: String,
