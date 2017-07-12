@@ -9,9 +9,11 @@ several fundamental changes including:
  - merged input and query servers on different endpoints of the same REST service
  - based on http-akka
  - supports SSL
- - supports authentication (server to server bearer token based OAuth2)
- - supports Kappa style and non-Spark Algorithms in Templates with no requirement that Spark be installed or used
- - Templates must supply code for validation of input
+ - supports authentication (server to server bearer token based)
+ - supports Kappa style online learners
+ - support non-Spark Algorithms in Templates with no requirement that Spark be installed or used
+ - supports Lambda style batch learners
+ - Templates must supply code for validation of input so input is validated in realtime
  - Java and Python SDKs implements client side SSL and Authentication
  - implements the Command Line Interface (CLI) as calls to the REST microservice using SSL and Authentication in Python
  - supports both mutable objects and an immutable event stream in an integrated manner allowing TTLs of certain types of events and instant modification of mutable objects
@@ -20,41 +22,44 @@ several fundamental changes including:
 # Requirements
 
 The new Harness server should take identical input (events) and respond to identical queries packaged in JSON as Apache PIO using 
-the Contextual Bandit as an example. We use the CB because it can operate in Lambda and Kappa style and already has a well 
-defined input/query objects
-
-# Architecture
+the Contextual Bandit as an example. We use the CB because it can operate in Lambda and Kappa style and already has a well defined input/query objects for both PIO and Harness.
  
  - akka-http for router and server implementation
  - akka-actors for lightweight engine containers
  - akka-http Java Client for Harness Java SDK
  - scala 2.11
  - Python 3 for CLI and Harness Python SDK
- - MongoDB (switchable with effort)
+ - MongoDB 3.x (switchable with effort)
+
+# Architecture
 
 ![Harness Overview](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
 
 ## Router
 
-The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime. It is meant as a core piece for microservices to use in presenting a REST interface and also support SSL and signature based OAuth2. These features are optional for times Harness needs to be available on the open internet from client application, rather than behind VPNs.
+The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime. It is meant as a core piece for microservices to use in presenting a REST interface and also support SSL, signature based authentication, and REST route based authorization. These features are optional so Harness can be available on the open unsecured environments like the internet or disabled for operation behind VPNs.
 
 The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the microservice. 
 
 ## Administrator
 
-The Administrator executes all CLI type commands. It restores all Engines to their previous state on `harness start` and is in charge of maintaining metadata about the Engines. Another example of its function is `harness add -c <engine-json-file>` where is creates and engine from the factory in the json file, initializes is, stores metadata about it, and creates the routes to the Engine endpoints as specified by the Templates contract. All Template specific behavior is deferred to the Engine.
+The Administrator executes all CLI type commands. It restores all Engines to their previous state on `harness start` and is in charge of maintaining metadata about the Engines. Another example of its function is `harness add -c <engine-json-file>` where it creates an engine from the factory in the json file, initializes is, stores metadata about it, and creates the routes to the Engine endpoints as specified by the Templates contract. All Template specific behavior is deferred to the Engine.
 
 ## Templates and Engines
 
-Templates are abstract APIs defined in the com.actionml.core.templates module. Each Engine must supply these APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's json file. This File structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
+Templates are abstract APIs defined in the `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's json file. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
 
 # Kappa Learning
 
 The Kappa style learning algorithm takes in unbounded streams of data and incrementally updates the model without the need for a background batch operation. See the discussion of how this works in Harness Templates in [Kappa Learning](kappa-learning.md)
+
+# Lambda Learning
+
+Many algorithms learn by processing a large batch of data and modifying some model all at once but periodically. The Universal Recommender is an example of a Lambda learner. Spark's MLlib also has examples of Lambda style learners. 
  
 # Server REST API
 
-All REST APIs will have Access Control Lists based on who is allowed to access the endpoint and resourse-id. All APIs will respond with an appropriate HTTP code, some (UPDATE/POST requests) will respond with a JSON  body as described. All data not defined in the URI will be in JSON request and response body.
+All REST APIs are protected by authorization lists, which specify which routes are accessible to which clients. All APIs will respond with an appropriate HTTP code, some (UPDATE/POST requests) will respond with a JSON  body as described. All data not defined in the URI will be in JSON request and response body.
 
 Integral to REST is the notion of a "resource", which can be though of as a collection of items that can be addressed by a resource-id. Since all REST resource-ids must be URI encoded following the rules for vanilla 
 URI fragments when naming resources. The resources defined in Harness are:
@@ -80,7 +85,7 @@ For specifics of the format and use of events and queries see the Template docum
 
 # [Commands](commands.md)
 
-Commands are REST resources just like Engines so Commands can be fired through REST but we also provide a Command Line Interface (CLI) to allow quick access and control of the server and to support scripted interactions. See [Commands](commands.md)
+Commands that do not correspond to an Engine function are REST resources just like Engines so Commands can be fired through REST but we also provide a Command Line Interface (CLI) to allow quick access and control of the server and to support scripted interactions. See [Commands](commands.md)
      
 # [Security](security.md)  
 
@@ -88,16 +93,16 @@ pio-kappa optionally supports SSL and Server to Server Authentication. See the [
     
 # [Java SDK](java-sdk.md)
 
-The Java SDK is currently source and build instructions. You must include the source and required Java artifacts a shown in the examples then build them into your Java application.
+The Java SDK is currently source and build instructions. You must include the source and required Java artifacts as shown in the examples then build them into your Java application.
 
 # [Python CLI and SDK](commands.md)
 
-The CLI will be implemented using the new Python SDK supporting the SSL and authentication methods where needed. 
+The CLI is implemented using the new Python SDK supporting the SSL and authentication methods where needed. 
   
-# Access Control Lists
+# Authorization
 
-ACLs are set through the Harness CLI so new signatures can be generated and permission granted to endpoints being added at runtime. Each signature may be granted access to all or a small subset of endpoints. This is useful for administration where the CLI needs to have access to all endpoints and for external clients who may only have access to a certain engine-id with the associated `events` and `queries` endpoints. See the [Commands](commands.md) for details.
+ACLs are set through the Harness CLI so new signatures can be generated and permission granted to endpoints being added at runtime. Each signature may be granted access to all or a small subset of REST Routes. This is useful for administration where the CLI needs to have access to all routes and for external clients who may only have access to a certain engine-id with the associated `events` and `queries` routes. See the [Commands](commands.md) for details.
 
 # [Config](harness_config.md)
 
-Out of the box Harness runs on localhost and does not mirror events. To change this an other global behavior (not engine specific) read the [Config Page](harness_config.md)
+Out of the box Harness runs on localhost and does not mirror events. To change this and other global behavior (not engine specific) read the [Config Page](harness_config.md)
