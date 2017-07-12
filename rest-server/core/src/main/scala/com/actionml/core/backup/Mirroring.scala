@@ -23,7 +23,6 @@ import java.time.{LocalDateTime, ZoneId}
 import cats.data.Validated
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.ValidateError
-import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -32,9 +31,6 @@ import com.typesafe.scalalogging.LazyLogging
   *
   */
 abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
-
-  // globally set in server config
-  lazy val config: Config = ConfigFactory.load()
 
   def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
   def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]

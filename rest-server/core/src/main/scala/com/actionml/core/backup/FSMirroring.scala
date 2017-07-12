@@ -33,14 +33,7 @@ import scala.io.Source
 class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
 
   val f = new File(mirrorContainer)
-  if (f.exists() && f.isDirectory && config.getString("mirror.type").nonEmpty) {
-    logger.info(s"Morroring raw un-validated events to ${ mirrorContainer }")
-  } else if (config.getString("mirror.type").nonEmpty) {
-    logger.error(s"Mirror location: ${ mirrorContainer } not configured to accept event mirroring.")
-  } else {
-    logger.warn(s"Mirroring location is set but type is not configured, no mirroring with be done.")
-  }
-
+  if (f.exists() && f.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean] = {
