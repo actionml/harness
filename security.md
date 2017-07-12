@@ -6,6 +6,12 @@ pio-kappa optionally uses SSL and OAuth2 Server to Server Authentication to secu
 
 Uses [http-akka SSL support](http://doc.akka.io/docs/akka-http/current/scala/http/server-side-https-support.html).
 
-## OAuth2 Authentication
+## Authentication (not implemented)
 
-We will use OAuth2 authorization framework. OAuth2 defines 4 grant types: "authorization code", "implicit", "password credentials", and "client credentials". Since we need server-to-server auth, then we will use ["client credentials" grant type](https://tools.ietf.org/html/rfc6749#section-4.4) Thus our rest service will be a "resource server" and "authorization server". We will use the [Nulab library](https://github.com/nulab/scala-oauth2-provider) for the implementation.  
+We will use token exchange and nonce-based signature authentication. This requires offline exchange of credentials but is quite secure, especially when combined with TLS/SSL. The Client generates a random nonce, which is used with the private key to hash the message being sent. When a REST route is accessed the nonce is read and used with the server's copy of the key to hash the message. If they match (for any key the server knows) the request is said to be authenticated.
+
+## Authorization (not implemented)
+
+If an authenticated route has been granted access permission for the key, then the request will be processed, otherwise it will be refused with an error code.
+
+The generation of keys and the granting of permissions is done through the CLI (since it has global permissions) and so can be set and modified while the Harness Server is running.
