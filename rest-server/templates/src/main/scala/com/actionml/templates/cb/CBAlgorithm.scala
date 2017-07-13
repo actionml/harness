@@ -269,12 +269,14 @@ class SingleGroupTrainer(
     log.debug(s"$name Start work")
     val vw = CBAlgorithm.getVW(modelPath)
 
-    eventsToVWStrings(
+    val inputs: Seq[String] = eventsToVWStrings(
       events.find(allCollectionObjects).seq.toSeq,
       group.pageVariants,
       users.find(allCollectionObjects).seq.toSeq.map(user => user._id -> user).toMap,
       resourceId)
-    .foreach(vw.learn(_))
+
+    log.info(s"VW input after escaping:\n\n${inputs.toString()}\n\n")
+    for ( item <- inputs ) yield vw.learn(item)
 
     vw.close()
     log.debug(s"$name Finish work")
@@ -345,7 +347,8 @@ object SingleGroupTrainer {
 
   def rawTextToVWFormattedString(str: String) : String = {
     //VW input cannot contain these characters
-    str.replaceAll("[|:]", "")
+    val ret = str.replaceAll("[|:]", "")
+    ret
   }
 
 }

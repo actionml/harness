@@ -101,26 +101,8 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
           logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
-          if (event.properties.nonEmpty) {
-/*            val query = MongoDBObject("userId" -> event.entityId)
-            // replace the old document with the 'apple' instance
-
-            val builder = MongoDBObject.newBuilder
-            builder += "userId" -> event.entityId
-            builder ++= event.properties.get
-            builder += "eventTime" -> new DateTime(event.eventTime)
-            val eventObj = builder.result
-            users.update(query, eventObj, true, false) // upsert true
-*/
-            usersDAO.insert(User(event.entityId, User.propsToMapString(event.properties.get)))
-            Valid(event)
-
-          } else {
-            // no properties so ignore
-            logger.warn(s"Dataset: ${resourceId} got an empty User Profile Update Event: ${event} and " +
-              s"will be ignored")
-            Invalid(ParseError(s"Got an empty User Profile $$set event, ignored."))
-          }
+          usersDAO.insert(User(event.entityId, User.propsToMapString(event.properties.get)))
+          Valid(event)
 
         case event: CBGroupInitEvent => // user profile update, modifies use object
           logger.trace(s"Persisting a Group Init Event: ${event}")
@@ -132,17 +114,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
           usageEventGroups = usageEventGroups +
             (event.entityId -> UsageEventDAO(connection(resourceId)(event.entityId)))
 
-/*        val query = MongoDBObject("groupId" -> event.entityId)
 
-          val builder = MongoDBObject.newBuilder
-          builder += "groupId" -> event.entityId
-          builder += "start" -> new DateTime(event.properties.testPeriodStart)
-          if (event.properties.testPeriodEnd.nonEmpty) builder += "end" ->
-            new DateTime(event.properties.testPeriodEnd.get)
-          builder += "eventTime" -> new DateTime(event.eventTime)
-          groups.findAndModify(query, builder.result())
-*/
-          //val groupParams = GroupParams(event.entityId, new DateTime(event.properties.testPeriodStart), event.properties.pageVariants, Some(new DateTime(event.properties.testPeriodEnd.getOrElse(None))))
           GroupsDAO.insert(event.toGroupParams)
           Valid(event)
 
@@ -197,12 +169,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
         case "$set" => // either group or user updates
           event.entityType match {
             case "user" => // got a user profile update event
-              parseAndValidate[CBUserUpdateEvent](json).andThen { cbue =>
-                if (cbue.properties.isDefined != true) {
-                  logger.trace(s"No properties for the user update event: ${event.event}")
-                  Invalid(MissingParams(s"No properties for the user update event: ${event.event}"))
-                } else Valid(cbue)
-              }
+              parseAndValidate[CBUserUpdateEvent](json)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
               parseAndValidate[CBGroupInitEvent](json)
@@ -270,7 +237,7 @@ case class User(
 
 object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
   def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
-    props.map { case (propId, propSeq) =>
+    props.filter((t) => (t._2.size != 1 && t._2.head != "")).map { case (propId, propSeq) =>
       propId -> propSeq.mkString("%")
     }
   }
