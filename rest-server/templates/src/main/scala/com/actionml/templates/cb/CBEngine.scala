@@ -31,23 +31,33 @@ class CBEngine() extends Engine() with JsonParser {
   var params: CBEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[CBEngineParams](json).andThen { p =>
-      params = p
-      engineId = params.engineId
-      dataset = new CBDataset(engineId)
-      algo = new CBAlgorithm(dataset)
-      drawInfo("Contextual Bandit Init", Seq(
-        ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("EngineId: ", engineId)))
+    super.init(json).andThen { _ =>
+      parseAndValidate[CBEngineParams](json).andThen { p =>
+        params = p
+        engineId = params.engineId
+        dataset = new CBDataset(engineId)
+        algo = new CBAlgorithm(dataset)
+        drawInfo("Contextual Bandit Init", Seq(
+          ("════════════════════════════════════════", "══════════════════════════════════════"),
+          ("EngineId: ", engineId),
+          ("Mirror Type: ", mirrorType),
+          ("Mirror Container: ", mirrorContainer)))
 
-      Valid(p)
-    }.andThen(_ => algo.init(json, engineId))
+        Valid(p)
+      }.andThen { p =>
+        dataset.init(json).andThen { r =>
+          algo.init(json, p.engineId)
+        } //( _ => algo.init(json, engineId))
+      }
+    }
   }
 
-  // used when init might fail from bad params in the json but you want an Engine, not a Validated
+  // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
+  // the administrator.
+  // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
   override def initAndGet(json: String): CBEngine = {
-    val response = init(json)
+   val response = init(json)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
@@ -90,13 +100,13 @@ class CBEngine() extends Engine() with JsonParser {
      event match {
       case event: CBUsageEvent =>
         algo.train(event.properties.testGroupId)
-      case event: CBGroupInitEvent =>
-        algo.add(event.entityId)
+      case event: GroupParams =>
+        algo.add(event._id)
       case event: CBDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
-          case other => // todo: Pat, need refactoring this
+          case other => // todo: Pat, need refactoring this, Pat says, no this looks good
             logger.warn("Unexpected value of entityType: {}, in {}", other, event)
         }
       case _ =>
