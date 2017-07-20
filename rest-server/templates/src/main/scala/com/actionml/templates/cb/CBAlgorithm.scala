@@ -105,7 +105,8 @@ class CBAlgorithm(dataset: CBDataset) extends Algorithm with JsonParser with Mon
     val checkpointing = " --save_resume "
 
     val config = " --csoaa 10 " + " -b " + params.bitPrecision + " -f " + params.modelName + reg +
-      lrate + iters + cacheFile + checkpointing
+      lrate + iters + cacheFile
+
     logger.info(s"VW: config: \n$config\n")
     vw = new VW(config)
     vw
@@ -298,7 +299,11 @@ class SingleGroupTrainer(
       resourceId)
 
     log.info(s"VW input after escaping:\n")
+<<<<<<< HEAD
     for ( item <- inputs ) log.info(s"$item\n")
+=======
+    //for ( item <- inputs ) log.info(s"$item\n")
+>>>>>>> mt-vw
     for ( item <- inputs ) yield vw.learn(item)
 
     // vw.close()
