@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event}
+import com.actionml.core.template.{Dataset, Event, RequiredEngineParams}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import org.joda.time.DateTime
@@ -51,14 +51,21 @@ import scala.language.reflectiveCalls
 class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
 
   val usersDAO = UsersDAO(connection(resourceId)("users"))
-  var usageEventGroups: Map[String, UsageEventDAO] = Map.empty
+  var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
   // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
   // may need to createIndex if _id: String messes things up
   object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
 
 
   // These should only be called from trusted source like the CLI!
-  def init(json: String = ""): Validated[ValidateError, Boolean] = {
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[RequiredEngineParams](json).andThen { p =>
+      GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
+        usageEventGroups = usageEventGroups +
+          (p._id -> UsageEventDAO(connection(resourceId)(p._id)))
+      }
+      Valid(p)
+    }
     Valid(true)
   }
 
@@ -104,18 +111,17 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
           usersDAO.insert(User(event.entityId, User.propsToMapString(event.properties.get)))
           Valid(event)
 
-        case event: CBGroupInitEvent => // user profile update, modifies use object
+        case event: GroupParams => // group init event, modifies group definition
           logger.trace(s"Persisting a Group Init Event: ${event}")
           // create the events collection for the group
-          if (usageEventGroups.contains(event.entityId)) {
+          if (usageEventGroups.contains(event._id)) {
           // re-initializing
-            usageEventGroups(event.entityId).collection.drop()
+            usageEventGroups(event._id).collection.drop()
           }
           usageEventGroups = usageEventGroups +
-            (event.entityId -> UsageEventDAO(connection(resourceId)(event.entityId)))
+            (event._id -> UsageEventDAO(connection(resourceId)(event._id)))
 
-
-          GroupsDAO.insert(event.toGroupParams)
+          GroupsDAO.insert(event)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -172,7 +178,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
               parseAndValidate[CBUserUpdateEvent](json)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
-              parseAndValidate[CBGroupInitEvent](json)
+              parseAndValidate[CBGroupInitEvent](json).map(_.toGroupParams)
           }
 
         case "$unset" => // remove properties
@@ -256,7 +262,7 @@ case class CBUserUpdateEvent(
 case class CBUserUnsetEvent(
   entityId: String,
   // Todo:!!! this is teh way they should be encoded, fix when we get good JSON
-  // properties: Option[Map[String, List[String]]],
+  // properties: Option[Map[String, Seq[String]]],
   properties: Option[Map[String, Any]] = None,
   eventTime: String)
   extends CBEvent
@@ -333,8 +339,13 @@ case class CBGroupInitProperties (
 case class GroupParams (
   _id: String,
   testPeriodStart: DateTime, // ISO8601 date
-  pageVariants: Seq[String], //["17","18"]
-  testPeriodEnd: Option[DateTime])
+  pageVariants: Map[String, String], //((1 -> "17"),(2 -> "18"))
+  testPeriodEnd: Option[DateTime]) extends CBEvent {
+
+  def keysToInt(v: Map[String, String]): Map[Int, String] = {
+    v.map( a => a._1.toInt -> a._2)
+  }
+}
 
 
 case class CBGroupInitEvent (
@@ -345,10 +356,13 @@ case class CBGroupInitEvent (
   extends CBEvent {
 
   def toGroupParams: GroupParams = {
+    val pvsStringKeyed = this.properties.pageVariants.indices.zip(this.properties.pageVariants).toMap
+      .map( t => t._1.toString -> t._2)
     GroupParams(
       _id = this.entityId,
       testPeriodStart = new DateTime(this.properties.testPeriodStart),
-      pageVariants = this.properties.pageVariants,
+      // use the index as the key for the variant string
+      pageVariants = pvsStringKeyed,
       testPeriodEnd = if (this.properties.testPeriodEnd.isEmpty) None else Some(new DateTime(this.properties.testPeriodEnd.get))
     )
   }
