@@ -299,15 +299,8 @@ class SingleGroupTrainer(
       resourceId)
 
     log.info(s"VW input after escaping:\n")
-<<<<<<< HEAD
-    for ( item <- inputs ) log.info(s"$item\n")
-=======
-<<<<<<< HEAD
-    for ( item <- inputs ) log.info(s"$item\n")
-=======
+
     //for ( item <- inputs ) log.info(s"$item\n")
->>>>>>> mt-vw
->>>>>>> develop
     for ( item <- inputs ) yield vw.learn(item)
 
     // vw.close()
@@ -316,29 +309,6 @@ class SingleGroupTrainer(
   }
 
 
-  /*
-    private def examplesToVWStrings(
-    data: PreparedData,
-    classes: Map[String,Seq[(Int, String)]],
-    userData: Map[String, PropertyMap]): Seq[String] = {
-
-      val inputs: Seq[String] = data.examples.collect.map { example =>
-        val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
-
-      //The magic numbers here are costs: 0.0 in case we see this variant, and it converted, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it
-        val classString: String = testGroupClasses.map { thisClass =>
-          thisClass._1.toString + ":" +
-          (if (thisClass._2 == example.variant && example.converted) "0.0"
-          else if(thisClass._2 == example.variant) "2.0"
-          else "1.0")
-        }.mkString(" ")
-
-        constructVWString(classString, example.user, example.testGroupId, userData)
-      }
-
-    return inputs
-  }
-   */
   def eventsToVWStrings(
     events: Seq[UsageEvent],
     variants: Map[Int, String],
