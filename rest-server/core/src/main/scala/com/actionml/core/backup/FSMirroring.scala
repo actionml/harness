@@ -18,9 +18,11 @@
 package com.actionml.core.backup
 
 import java.io.{File, FileWriter, PrintWriter}
-import java.nio.file.{Files, Path, Paths}
 
+import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.template.Engine
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source
 
@@ -28,60 +30,48 @@ import scala.io.Source
   * Mirroring implementation for local FS.
   */
 
-// TODO: not using injection so need a trait
-//object FSMirroring extends Mirroring {
-trait FSMirroring extends Mirroring {
+class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
 
   val f = new File(mirrorContainer)
-  if( f.exists() && f.isDirectory() && config.getString("mirror.type").nonEmpty) {
-    logger.info(s"Morroring raw un-validated events to ${mirrorContainer}")
-  } else if(config.getString("mirror.type").nonEmpty){
-    logger.error(s"Mirror location: ${mirrorContainer} not configured to accept event mirroring.")
-  } else {
-    logger.warn(s"Mirroring location is set but type is not configured, no mirroring with be done.")
-  }
-
-
+  if (f.exists() && f.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(engineId: String, json: String): Boolean = {
-    var noError = true
-    if(mirrorType == Mirroring.localfs){
+  override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean] = {
+    def mirrorEventError(errMsg: String) =
+      Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
+
       try {
         val resourceCollection = new File(containerName(engineId))
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-        if( !resourceCollection.exists()) new File(s"${containerName(engineId)}").mkdir()
-        val pw = new PrintWriter(new FileWriter(s"${containerName(engineId)}/$batchName.json", true))
+        if (!resourceCollection.exists()) new File(s"${ containerName(engineId) }").mkdir()
+        val pw = new PrintWriter(new FileWriter(s"${ containerName(engineId) }/$batchName.json", true))
         try {
           pw.write(json)
         } finally {
           pw.close()
         }
       } catch {
-        case e: Exception =>
-          logger.error("Problem mirroring while input")
-          e.printStackTrace
-          noError = false
+        case ex: Exception =>
+          val errMsg = "Problem mirroring while input"
+          logger.error(errMsg, ex)
+          mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
-
-    } else {
-      logger.warn("Local filesystem mirroring called, but not configured.")
-      noError = false
-    }
-    noError
+    Valid(true)
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Boolean = {
-    var noError = true
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
+    def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
+      s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
+         | $errMsg""".stripMargin))
     try {
       val mirrorLocation = new File(containerName(engine.engineId))
       val resourceCollection = new File(location)
-      if( mirrorLocation.getCanonicalPath.compare(resourceCollection.getCanonicalPath) != 0) {
+      if (mirrorLocation.getCanonicalPath.compare(resourceCollection.getCanonicalPath) != 0) {
         if (resourceCollection.exists() && resourceCollection.isDirectory) { // read all files as json and input
           val flist = new java.io.File(location).listFiles.filterNot(_.getName.contains(".")) // Spark json will be part-xxxxx files with no extension otherwise
           // .filter(_.getName.endsWith(".json"))
-          logger.info(s"Reading files from directory: ${location}")
+          logger.info(s"Reading files from directory: ${ location }")
           for (file <- flist) {
             Source.fromFile(file).getLines().foreach { line =>
               engine.input(line)
@@ -93,15 +83,18 @@ trait FSMirroring extends Mirroring {
           }
         }
       } else {
-        logger.error(s"Cannot import from mirroring location: $location since imported files are also mirrored causing an infinite loop. Copy or move them first.")
-        noError = false
+        val errMsg =
+          s"""Cannot import from mirroring location: $location since imported files are also
+             |mirrored causing an infinite loop. Copy or move them first.""".stripMargin
+        logger.error(errMsg)
+        importEventsError(errMsg)
       }
     } catch {
-      case e: Exception =>
-        logger.error("Problem while importing saved events")
-        e.printStackTrace
-        noError = false
+      case _: Exception =>
+        val errMsg = "Problem while importing saved events"
+        logger.error(errMsg)
+        importEventsError(errMsg)
     }
-    noError
+    Valid(true)
   }
 }
