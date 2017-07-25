@@ -97,7 +97,7 @@ The Java SDK is currently source and build instructions. You must include the so
 
 # [Python CLI and SDK](commands.md)
 
-The CLI is implemented using the new Python SDK supporting the SSL and authentication methods where needed. 
+The CLI is implemented using the new Python SDK supporting the SSL and authentication methods where needed. In `
   
 # Authentication
 

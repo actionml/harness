@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
+import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -28,11 +28,11 @@ class CBEngine() extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
-  var params: CBEngineParams = _
+  var params: RequiredEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
-      parseAndValidate[CBEngineParams](json).andThen { p =>
+      parseAndValidate[RequiredEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new CBDataset(engineId)
@@ -40,8 +40,8 @@ class CBEngine() extends Engine() with JsonParser {
         drawInfo("Contextual Bandit Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
-          ("Mirror Type: ", mirrorType),
-          ("Mirror Container: ", mirrorContainer)))
+          ("Mirror Type: ", params.mirrorType),
+          ("Mirror Container: ", params.mirrorContainer)))
 
         Valid(p)
       }.andThen { p =>
@@ -137,10 +137,6 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
 }
-
-case class CBEngineParams(
-    engineId: String = "") // required
-  extends EngineParams
 
 /*
 Query
