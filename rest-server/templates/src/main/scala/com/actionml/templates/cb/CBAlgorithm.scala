@@ -299,7 +299,6 @@ class SingleGroupTrainer(
       resourceId)
 
     log.info(s"VW input after escaping:\n")
-
     //for ( item <- inputs ) log.info(s"$item\n")
     for ( item <- inputs ) yield vw.learn(item)
 

@@ -47,42 +47,45 @@ public class EventClientExample {
 
         EventClient client = new EventClient(engineId, serverHost, serverPort);
 
+        // example of JSON for creating an event
+        String json = "{" +
+                "\"eventId\":\"ed15537661f2492cab64615096c93160\"," +
+                "\"event\":\"$set\"," +
+                "\"entityType\":\"testGroup\"," +
+                "\"entityId\":\"9\"," +
+                "\"properties\":{" +
+                    "\"testPeriodStart\":\"2016-07-12T00:00:00.000+09:00\"," +
+                    "\"pageVariants\":[\"17\",\"18\"]," +
+                    "\"testPeriodEnd\":\"2016-08-31T00:00:00.000+09:00\"}," +
+                "\"eventTime\":\"2016-07-12T16:08:49.677+09:00\"," +
+                "\"creationTime\":\"2016-07-12T07:09:58.273Z\"}";
 
-//        String json = "{" +
-//                "\"eventId\":\"ed15537661f2492cab64615096c93160\"," +
-//                "\"event\":\"$set\"," +
-//                "\"entityType\":\"testGroup\"," +
-//                "\"entityId\":\"9\"," +
-//                "\"properties\":{" +
-//                    "\"testPeriodStart\":\"2016-07-12T00:00:00.000+09:00\"," +
-//                    "\"pageVariants\":[\"17\",\"18\"]," +
-//                    "\"testPeriodEnd\":\"2016-08-31T00:00:00.000+09:00\"}," +
-//                "\"eventTime\":\"2016-07-12T16:08:49.677+09:00\"," +
-//                "\"creationTime\":\"2016-07-12T07:09:58.273Z\"}";
-//
-//        Event event = new Event()
-//                .eventId("ed15537661f2492cab64615096c93160")
-//                .event("$set")
-//                .entityType("testGroup")
-//                .entityId("9")
-//                .properties(ImmutableMap.of(
-//                        "testPeriodStart", "2016-07-12T00:00:00.000+09:00",
-//                        "testPeriodEnd", "2016-08-31T00:00:00.000+09:00",
-//                        "pageVariants", ImmutableList.of("17", "18")
-//                ))
-//                .eventTime(new DateTime("2016-07-12T16:08:49.677+09:00"))
-//                .creationTime(new DateTime("2016-07-12T07:09:58.273Z"));
-//
-//
-//        log.info("Send event {}", event.toJsonString());
-//        client.sendEvent(event).whenComplete((response, throwable) -> {
-//            log.info("Response: {}", response);
-//            if (throwable != null) {
-//                log.error("Create event error", throwable);
-//            }
-//            client.close();
-//        });
+        /* This example creates an event from constants
+        Event event = new Event()
+                .eventId("ed15537661f2492cab64615096c93160")
+                .event("$set")
+                .entityType("testGroup")
+                .entityId("9")
+                .properties(ImmutableMap.of(
+                        "testPeriodStart", "2016-07-12T00:00:00.000+09:00",
+                        "testPeriodEnd", "2016-08-31T00:00:00.000+09:00",
+                        "pageVariants", ImmutableList.of("17", "18")
+                ))
+                .eventTime(new DateTime("2016-07-12T16:08:49.677+09:00"))
+                .creationTime(new DateTime("2016-07-12T07:09:58.273Z"));
 
+
+        log.info("Send event {}", event.toJsonString());
+        client.sendEvent(event).whenComplete((response, throwable) -> {
+            log.info("Response: {}", response);
+            if (throwable != null) {
+                log.error("Create event error", throwable);
+            }
+            client.close();
+        });
+        */
+
+        // This examples takes JSON input
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
             List<String> events = br.lines().collect(Collectors.toList());
@@ -107,7 +110,7 @@ public class EventClientExample {
             });
 
         } catch (IOException e) {
-            log.error("Oh!", e);
+            log.error("Oops, we have an error: ", e);
             client.close();
         }
 
