@@ -291,8 +291,9 @@ case class CBUsageEvent(
   event: String,
   entityId: String,
   targetEntityId: String,
-  properties: CBUsageProperties,
-  eventTime: String)
+  properties: CBUsageProperties//,
+  //eventTime: String
+  )
   extends CBEvent {
 
   def toUsageEvent: UsageEvent = {
@@ -301,8 +302,8 @@ case class CBUsageEvent(
       userId = this.entityId,
       itemId = this.targetEntityId,
       testGroupId = this.properties.testGroupId,
-      converted = this.properties.converted,
-      eventTime = new DateTime(this.eventTime)
+      converted = this.properties.converted//,
+      //eventTime = new DateTime(this.eventTime)
     )
   }
 }
@@ -313,8 +314,9 @@ case class UsageEvent(
   userId: String,
   itemId: String,
   testGroupId: String,
-  converted: Boolean,
-  eventTime: DateTime)
+  converted: Boolean//,
+  //eventTime: DateTime
+  )
 
 case class UsageEventDAO(eventColl: MongoCollection) extends SalatDAO[UsageEvent, ObjectId](eventColl)
 

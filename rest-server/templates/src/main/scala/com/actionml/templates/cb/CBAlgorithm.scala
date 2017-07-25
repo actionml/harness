@@ -299,11 +299,7 @@ class SingleGroupTrainer(
       resourceId)
 
     log.info(s"VW input after escaping:\n")
-<<<<<<< HEAD
-    for ( item <- inputs ) log.info(s"$item\n")
-=======
     //for ( item <- inputs ) log.info(s"$item\n")
->>>>>>> mt-vw
     for ( item <- inputs ) yield vw.learn(item)
 
     // vw.close()

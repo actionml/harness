@@ -7,6 +7,8 @@ __version__ = "0.0.10"
 
 # import packages
 import re
+import datetime
+
 
 try:
     import httplib
@@ -62,12 +64,11 @@ class NotFoundError(HttpError):
         super(NotFoundError, self).__init__("Not found: {}".format(response.request), response)
 
 
-
 def time_to_string_if_valid(t):
     """ Validate event_time according to EventAPI Specification."""
 
     if t is None:
-        return datetime.now(pytz.utc)
+        return datetime.now(pytz.utc).isoformat()
 
     if type(t) != datetime:
         raise AttributeError("event_time must be datetime.datetime")
@@ -77,7 +78,8 @@ def time_to_string_if_valid(t):
 
     # EventServer uses milliseconds, but python datetime class uses micro. Hence
     # need to skip the last three digits.
-    return t.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + t.strftime("%z")
+    # pat: from PIO return t.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + t.strftime("%z")
+    return t.isoformat()
 
 
 class BaseClient(object):
@@ -188,9 +190,9 @@ class EventClient(BaseClient):
         self.path = "/engines/%s/events" % (self.engine_id,)
         super(EventClient, self).__init__(url, threads, qsize, timeout)
 
-    def async_create(self, event_id, event, entity_type, entity_id,
+    def async_create(self, event, entity_type, entity_id,
                      target_entity_type=None, target_entity_id=None, properties=None,
-                     event_time=None, creation_time=None):
+                     event_id=None, event_time=None, creation_time=None):
         """
         Asynchronously create an event.
         :param event_id: 
@@ -237,13 +239,13 @@ class EventClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def create(self, event_id, event, entity_type, entity_id,
-               target_entity_type = None, target_entity_id = None, properties = None,
-               event_time = None, creation_time = None):
+    def create(self, event, entity_type, entity_id,
+               target_entity_type=None, target_entity_id=None, properties=None,
+               event_id=None, event_time=None, creation_time=None):
         """Synchronously (blocking) create an event."""
-        return self.async_create(event_id, event, entity_type, entity_id,
+        return self.async_create(event, entity_type, entity_id,
                                  target_entity_type, target_entity_id, properties,
-                                 event_time, creation_time).get_response()
+                                 event_id, event_time, creation_time).get_response()
 
     def async_get(self, event_id):
         """
