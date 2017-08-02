@@ -24,7 +24,7 @@ import akka.http.scaladsl.model.{HttpRequest, Uri}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
-import com.actionml.security.model.{Credentials, User}
+import com.actionml.security.model.{Credentials, ResourceId, Role, User}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,22 +34,27 @@ trait AuthServiceComponent {
   def authService: AuthService
 }
 trait AuthService {
-  def findUserByCredentials(credentials: Credentials): Future[User]
+  def authenticate(credentials: Credentials): Future[User]
+  def authorize(credentials: Credentials, role: Role, resourceId: ResourceId): Future[Unit]
 }
 
 class SimpleAuthService(config: AppConfig)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext)
   extends AuthService with FailFastCirceSupport {
   import io.circe.generic.auto._
 
-  override def findUserByCredentials(credentials: Credentials): Future[User] = {
-    Http().singleRequest(HttpRequest(uri = findUserByCredentialsUri(credentials)))
+  override def authenticate(credentials: Credentials): Future[User] = {
+    Http().singleRequest(HttpRequest(uri = authenticateUri(credentials)))
       .flatMap(Unmarshal(_).to[User])
   }
 
-  private val authServerRoot = Uri(config.restServer.authServerRootUri)
-  private def findUserByCredentialsUri(credentials: Credentials) =
+  override def authorize(credentials: Credentials, role: Role, resourceId: ResourceId): Future[Unit] = {
+    ???
+  }
+
+  private val authServerRoot = Uri(config.auth.uri)
+  private def authenticateUri(credentials: Credentials) =
     authServerRoot
-      .withFragment("users")
+      .withFragment("authenticate")
       .withQuery(Query("credentials" -> credentials))
 }
 

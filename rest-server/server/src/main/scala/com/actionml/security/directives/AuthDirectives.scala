@@ -30,7 +30,7 @@ trait AuthDirectives {
 
   def authenticateUser: AuthenticationDirective[User] = authenticateOAuth2PFAsync[User](Realms.Harness, {
     case Credentials.Provided(secret) =>
-      authService.findUserByCredentials(secret)
+      authService.authenticate(secret)
     case Credentials.Missing =>
       throw new RuntimeException("rejected")
   })

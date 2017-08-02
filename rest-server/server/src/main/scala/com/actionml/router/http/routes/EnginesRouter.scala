@@ -53,7 +53,7 @@ class EnginesRouter(implicit inj: Injector)
 
   override val route: Route = rejectEmptyResponse {
     (pathPrefix("engines") & extractLog & authenticateUser) { (log, user) ⇒
-      (pathEndOrSingleSlash & authorizeUser(user, engine.modify, ResourceId.any)) {
+      (pathEndOrSingleSlash & authorizeUser(user, engine.modify, ResourceId.*)) {
         createEngine(log)
       } ~
       path(Segment) { engineId ⇒
