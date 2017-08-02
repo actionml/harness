@@ -27,8 +27,6 @@ object AppConfig{
   def apply: AppConfig = new AppConfig(
     restServer = config.as[RestServerConfig]("rest-server"),
     actorSystem = config.as[ActorSystemConfig]("actor-system"),
-    auth = config.as[AuthConfig]("auth-server"),
+    auth = config.as[AuthConfig]("auth-server")
   )
-
-
 }

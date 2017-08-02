@@ -48,13 +48,21 @@ class SimpleAuthService(config: AppConfig)(implicit as: ActorSystem, mat: ActorM
   }
 
   override def authorize(credentials: Credentials, role: Role, resourceId: ResourceId): Future[Unit] = {
-    ???
+    Http().singleRequest(HttpRequest(uri = authorizeUri(credentials, role, resourceId)))
+      .map(_ => ???) // todo implement it with common oauth protocol class
   }
 
+
   private val authServerRoot = Uri(config.auth.uri)
+
   private def authenticateUri(credentials: Credentials) =
     authServerRoot
       .withFragment("authenticate")
       .withQuery(Query("credentials" -> credentials))
+
+  private def authorizeUri(credentials: Credentials, role: Role, resourceId: ResourceId) =
+    authServerRoot
+      .withFragment("authorize")
+      .withQuery(Query("credentials" -> credentials, "role" -> role, "resource" -> resourceId))
 }
 
