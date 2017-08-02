@@ -4,8 +4,13 @@ import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
 import com.actionml.router.service._
+import com.actionml.security.Roles.engine
+import com.actionml.security.directives.AuthDirectives
+import com.actionml.security.model.ResourceId
+import com.actionml.security.services.{AuthService, AuthServiceComponent}
 import io.circe.Json
 import scaldi.Injector
 
@@ -37,17 +42,27 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 17:36
   */
-class EnginesRouter(implicit inj: Injector) extends BaseRouter {
+class EnginesRouter(implicit inj: Injector)
+  extends BaseRouter
+    with AuthDirectives
+    with SecurityDirectives
+    with AuthServiceComponent {
 
   private val engineService = inject[ActorRef]('EngineService)
+  override val authService = inject[AuthService]
 
   override val route: Route = rejectEmptyResponse {
-    (pathPrefix("engines") & extractLog) { log ⇒
-      pathEndOrSingleSlash {
+    (pathPrefix("engines") & extractLog & authenticateUser) { (log, user) ⇒
+      (pathEndOrSingleSlash & authorizeUser(user, engine.modify, ResourceId.*)) {
         createEngine(log)
-      } ~ pathPrefix(Segment) { engineId ⇒
-        pathEndOrSingleSlash {
-          getEngine(engineId, log) ~ updateEngine(engineId, log) ~ deleteEngine(engineId, log)
+      } ~
+      path(Segment) { engineId ⇒
+        authorizeUser(user, engine.read, engineId) {
+          getEngine(engineId, log)
+        } ~
+        authorizeUser(user, engine.modify, engineId) {
+          updateEngine(engineId, log) ~
+          deleteEngine(engineId, log)
         }
       }
     }
