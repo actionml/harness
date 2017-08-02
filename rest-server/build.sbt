@@ -15,7 +15,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 lazy val commonSettings = Seq(
   organization := "com.actionml",
   version := "0.1.0-SNAPSHOT",
-  scalaVersion := "2.12.3",
+  scalaVersion := "2.11.8",
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
@@ -36,7 +36,7 @@ lazy val core = (project in file("core")).
     commonSettings,
     libraryDependencies ++= Seq(
       "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.1",
+      "com.github.salat" %% "salat" % "1.11.0",
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
@@ -85,7 +85,7 @@ lazy val server = (project in file("server")).dependsOn(core, templates, admin).
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
-    "de.heikoseeberger" %% "akka-http-circe" % "1.17.0",
+    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
