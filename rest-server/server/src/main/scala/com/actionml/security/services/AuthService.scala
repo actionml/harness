@@ -20,11 +20,10 @@ package com.actionml.security.services
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
-import akka.http.scaladsl.model.{HttpRequest, Uri}
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
-import com.actionml.security.model.{Credentials, ResourceId, Role, User}
+import com.actionml.security.model.{Credentials, ResourceId, Role}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,26 +33,22 @@ trait AuthServiceComponent {
   def authService: AuthService
 }
 trait AuthService {
-  def authenticate(credentials: Credentials): Future[User]
-  def authorize(credentials: Credentials, role: Role, resourceId: ResourceId): Future[Unit]
+  def authorize(credentials: Credentials, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Unit]
 }
 
-class SimpleAuthService(config: AppConfig)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext)
-  extends AuthService with FailFastCirceSupport {
-  import io.circe.generic.auto._
+class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirceSupport {
 
-  override def authenticate(credentials: Credentials): Future[User] = {
-    Http().singleRequest(HttpRequest(uri = authenticateUri(credentials)))
-      .flatMap(Unmarshal(_).to[User])
-  }
-
-  override def authorize(credentials: Credentials, role: Role, resourceId: ResourceId): Future[Unit] = {
+  override def authorize(credentials: Credentials, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Unit] = {
     Http().singleRequest(HttpRequest(uri = authorizeUri(credentials, role, resourceId)))
-      .map(_ => ???) // todo implement it with common oauth protocol class
+      .collect {
+        case HttpResponse(StatusCodes.OK, _, _, _) => ()
+      }.recover {
+        case ex => throw new RuntimeException("Access denied", ex)
+      }
   }
 
 
-  private val authServerRoot = Uri(config.auth.uri)
+  private val authServerRoot = Uri(config.auth.authServerUrl)
 
   private def authenticateUri(credentials: Credentials) =
     authServerRoot

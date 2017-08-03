@@ -3,6 +3,7 @@ package com.actionml.router.config
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
 /**
   *
@@ -19,14 +20,20 @@ case class RestServerConfig(
 case class ActorSystemConfig(
   name: String
 )
-case class AuthConfig(uri: String)
 
-object AppConfig{
+case class AuthConfig(enabled: Boolean,
+                      authServerUrl: String)
+
+object AppConfig {
   private val config = ConfigFactory.load()
 
   def apply: AppConfig = new AppConfig(
     restServer = config.as[RestServerConfig]("rest-server"),
     actorSystem = config.as[ActorSystemConfig]("actor-system"),
-    auth = config.as[AuthConfig]("auth-server")
+    auth = config.as[AuthConfig]("auth")
   )
+}
+
+trait ConfigurationComponent {
+  def config: AppConfig
 }

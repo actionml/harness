@@ -17,26 +17,29 @@
 
 package com.actionml.security.directives
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.server.Directive0
-import akka.http.scaladsl.server.directives.{AuthenticationDirective, Credentials, SecurityDirectives}
+import akka.http.scaladsl.server.directives.{BasicDirectives, Credentials, RouteDirectives, SecurityDirectives}
+import akka.stream.ActorMaterializer
+import com.actionml.router.config.ConfigurationComponent
 import com.actionml.security.Realms
-import com.actionml.security.model.{ResourceId, Role, User}
+import com.actionml.security.model.{ResourceId, Role}
 import com.actionml.security.services.AuthServiceComponent
 
+import scala.concurrent.ExecutionContext
 
-trait AuthDirectives {
+
+trait AuthDirectives extends RouteDirectives with BasicDirectives {
   this: SecurityDirectives
+    with ConfigurationComponent
     with AuthServiceComponent =>
 
-  def authenticateUser: AuthenticationDirective[User] = authenticateOAuth2PFAsync[User](Realms.Harness, {
-    case Credentials.Provided(secret) =>
-      authService.authenticate(secret)
-    case Credentials.Missing =>
-      throw new RuntimeException("rejected")
-  })
-
-  def authorizeUser(user: User, role: Role, resourceId: ResourceId): Directive0 = authorize {
-    user.role == role &&
-      (user.resourceId == ResourceId.* || user.resourceId == resourceId)
+  def authorize(role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Directive0 = {
+    if (config.auth.enabled) {
+      authenticateOAuth2PFAsync(Realms.Harness, {
+        case Credentials.Provided(secret) =>
+          authService.authorize(secret, role, resourceId)
+      }).map(_ => ())
+    } else pass
   }
 }

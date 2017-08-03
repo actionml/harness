@@ -6,6 +6,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
+import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import com.actionml.security.Roles.engine
 import com.actionml.security.directives.AuthDirectives
@@ -46,21 +47,23 @@ class EnginesRouter(implicit inj: Injector)
   extends BaseRouter
     with AuthDirectives
     with SecurityDirectives
+    with ConfigurationComponent
     with AuthServiceComponent {
 
   private val engineService = inject[ActorRef]('EngineService)
   override val authService = inject[AuthService]
+  override val config = inject[AppConfig]
 
   override val route: Route = rejectEmptyResponse {
-    (pathPrefix("engines") & extractLog & authenticateUser) { (log, user) ⇒
-      (pathEndOrSingleSlash & authorizeUser(user, engine.modify, ResourceId.*)) {
+    (pathPrefix("engines") & extractLog) { log ⇒
+      (pathEndOrSingleSlash & authorize(engine.modify, ResourceId.*)) {
         createEngine(log)
       } ~
       path(Segment) { engineId ⇒
-        authorizeUser(user, engine.read, engineId) {
+        authorize(engine.read, engineId).apply {
           getEngine(engineId, log)
         } ~
-        authorizeUser(user, engine.modify, engineId) {
+        authorize(engine.modify, engineId).apply {
           updateEngine(engineId, log) ~
           deleteEngine(engineId, log)
         }
