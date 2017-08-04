@@ -17,7 +17,7 @@
 
 package com.actionml.security.router
 
-import akka.http.scaladsl.server.{MalformedHeaderRejection, MalformedQueryParamRejection}
+import akka.http.scaladsl.server.MalformedHeaderRejection
 import akka.http.scaladsl.server.directives.Credentials
 import com.actionml.router.config.ConfigurationComponent
 import com.actionml.router.http.routes.BaseRouter
@@ -31,7 +31,7 @@ class AuthenticationRouter(implicit inj: Injector) extends BaseRouter {
   this: ConfigurationComponent
     with AuthServiceComponent =>
 
-  override val route = (path("authenticate") & extractLog) { implicit log =>
+  override val route = (path("authenticate") & post & extractLog) { implicit log =>
     if (config.auth.enabled) {
       authenticateOAuth2PFAsync(Realms.Harness, {
         case Credentials.Provided(token) =>
