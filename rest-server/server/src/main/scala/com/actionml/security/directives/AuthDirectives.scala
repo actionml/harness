@@ -18,12 +18,12 @@
 package com.actionml.security.directives
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.server.Directive0
 import akka.http.scaladsl.server.directives.{BasicDirectives, Credentials, RouteDirectives, SecurityDirectives}
+import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive0, Directive1}
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.ConfigurationComponent
 import com.actionml.security.Realms
-import com.actionml.security.model.{ResourceId, Role}
+import com.actionml.security.model.{ResourceId, Role, Secret}
 import com.actionml.security.services.AuthServiceComponent
 
 import scala.concurrent.ExecutionContext
@@ -34,12 +34,21 @@ trait AuthDirectives extends RouteDirectives with BasicDirectives {
     with ConfigurationComponent
     with AuthServiceComponent =>
 
-  def authorize(role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Directive0 = {
+  def extractOauth2Credentials: Directive1[Option[Secret]] = {
     if (config.auth.enabled) {
-      authenticateOAuth2PFAsync(Realms.Harness, {
-        case Credentials.Provided(secret) =>
-          authService.authorize(secret, role, resourceId)
-      }).map(_ => ())
+      authenticateOAuth2PF(Realms.Harness, {
+        case Credentials.Provided(secret) => Some(secret)
+      })
+    } else provide(None)
+  }
+
+  def authorizeUser(secretOpt: Option[Secret], role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Directive0 = {
+    if (config.auth.enabled) {
+      secretOpt.fold[Directive0] {
+        reject(AuthorizationFailedRejection)
+      } { secret =>
+        authorizeAsync(_ => authService.authorize(secret, role, resourceId))
+      }
     } else pass
   }
 }

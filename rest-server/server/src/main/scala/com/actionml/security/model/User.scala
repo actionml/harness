@@ -18,6 +18,6 @@
 package com.actionml.security.model
 
 
-case class User(credentials: Credentials,
+case class User(credentials: Secret,
                 role: Role,
                 resourceId: ResourceId)

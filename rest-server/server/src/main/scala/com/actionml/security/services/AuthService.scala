@@ -21,9 +21,10 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
-import com.actionml.security.model.{Credentials, ResourceId, Role}
+import com.actionml.security.model.{Secret, ResourceId, Role, User}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,24 +34,24 @@ trait AuthServiceComponent {
   def authService: AuthService
 }
 trait AuthService {
-  def authorize(credentials: Credentials, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Unit]
+  def authorize(credentials: Secret, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Boolean]
 }
 
 class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirceSupport {
 
-  override def authorize(credentials: Credentials, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Unit] = {
+  override def authorize(credentials: Secret, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Boolean] = {
     Http().singleRequest(HttpRequest(uri = authorizeUri(credentials, role, resourceId)))
       .collect {
-        case HttpResponse(StatusCodes.OK, _, _, _) => ()
-      }.recover {
-        case ex => throw new RuntimeException("Access denied", ex)
+        case HttpResponse(StatusCodes.OK, _, _, _) => true
+      }.recoverWith {
+        case ex => Future.successful(false)
       }
   }
 
 
   private val authServerRoot = Uri(config.auth.authServerUrl)
 
-  private def authorizeUri(credentials: Credentials, role: Role, resourceId: ResourceId) =
+  private def authorizeUri(credentials: Secret, role: Role, resourceId: ResourceId) =
     authServerRoot
       .withFragment("authorize")
       .withQuery(Query("credentials" -> credentials, "role" -> role, "resource" -> resourceId))

@@ -55,15 +55,15 @@ class EnginesRouter(implicit inj: Injector)
   override val config = inject[AppConfig]
 
   override val route: Route = rejectEmptyResponse {
-    (pathPrefix("engines") & extractLog) { log ⇒
-      (pathEndOrSingleSlash & authorize(engine.modify, ResourceId.*)) {
+    (pathPrefix("engines") & extractLog & extractOauth2Credentials) { (log, creds) ⇒
+      (pathEndOrSingleSlash & authorizeUser(creds, engine.modify, ResourceId.*)) {
         createEngine(log)
       } ~
       path(Segment) { engineId ⇒
-        authorize(engine.read, engineId).apply {
+        authorizeUser(creds, engine.read, engineId).apply {
           getEngine(engineId, log)
         } ~
-        authorize(engine.modify, engineId).apply {
+        authorizeUser(creds, engine.modify, engineId).apply {
           updateEngine(engineId, log) ~
           deleteEngine(engineId, log)
         }
