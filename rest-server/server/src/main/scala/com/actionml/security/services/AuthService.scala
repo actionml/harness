@@ -50,14 +50,8 @@ class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirc
 
   private val authServerRoot = Uri(config.auth.authServerUrl)
 
-  private def authenticateUri(credentials: Credentials) =
-    authServerRoot
-      .withFragment("authenticate")
-      .withQuery(Query("credentials" -> credentials))
-
   private def authorizeUri(credentials: Credentials, role: Role, resourceId: ResourceId) =
     authServerRoot
       .withFragment("authorize")
       .withQuery(Query("credentials" -> credentials, "role" -> role, "resource" -> resourceId))
 }
-
