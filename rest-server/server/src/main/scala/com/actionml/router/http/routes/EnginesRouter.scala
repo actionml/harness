@@ -10,7 +10,7 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import com.actionml.security.Roles.engine
 import com.actionml.security.directives.AuthDirectives
-import com.actionml.security.model.{ResourceId, Secret}
+import com.actionml.security.model.{ResourceId, AccessToken}
 import com.actionml.security.services.{AuthService, AuthServiceComponent}
 import io.circe.Json
 import scaldi.Injector
@@ -54,7 +54,7 @@ class EnginesRouter(implicit inj: Injector)
   override val authService = inject[AuthService]
   override val config = inject[AppConfig]
 
-  override val route: Route = (rejectEmptyResponse & extractOauth2Credentials) { implicit credentials =>
+  override val route: Route = (rejectEmptyResponse & accessToken) { implicit accessToken =>
     (pathPrefix("engines") & extractLog) { implicit log =>
       (pathEndOrSingleSlash & authorizeUser(engine.modify, ResourceId.*)) {
         createEngine

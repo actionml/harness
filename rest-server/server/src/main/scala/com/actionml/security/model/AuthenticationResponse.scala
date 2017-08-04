@@ -17,7 +17,4 @@
 
 package com.actionml.security.model
 
-
-case class User(credentials: Secret,
-                role: Role,
-                resourceId: ResourceId)
+case class AuthenticationResponse(accessToken: String, ttl: Option[Long], refreshToken: Option[String])
