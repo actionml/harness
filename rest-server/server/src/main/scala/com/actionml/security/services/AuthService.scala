@@ -18,13 +18,13 @@
 package com.actionml.security.services
 
 import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
-import com.actionml.security.model.{Secret, ResourceId, Role, User}
+import com.actionml.security.model.{ResourceId, Role, Secret}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,17 +34,27 @@ trait AuthServiceComponent {
   def authService: AuthService
 }
 trait AuthService {
-  def authorize(credentials: Secret, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Boolean]
+  def authorize(credentials: Secret, role: Role, resourceId: ResourceId)
+               (implicit as: ActorSystem,
+                mat: ActorMaterializer,
+                ec: ExecutionContext,
+                log: LoggingAdapter): Future[Boolean]
 }
 
 class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirceSupport {
 
-  override def authorize(credentials: Secret, role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Future[Boolean] = {
+  override def authorize(credentials: Secret, role: Role, resourceId: ResourceId)
+                        (implicit as: ActorSystem,
+                         mat: ActorMaterializer,
+                         ec: ExecutionContext,
+                         log: LoggingAdapter): Future[Boolean] = {
     Http().singleRequest(HttpRequest(uri = authorizeUri(credentials, role, resourceId)))
       .collect {
         case HttpResponse(StatusCodes.OK, _, _, _) => true
       }.recoverWith {
-        case ex => Future.successful(false)
+        case ex =>
+          log.error(ex, "Access denied")
+          Future.successful(false)
       }
   }
 

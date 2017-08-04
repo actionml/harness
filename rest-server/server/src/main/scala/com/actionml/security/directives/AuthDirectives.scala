@@ -18,6 +18,7 @@
 package com.actionml.security.directives
 
 import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.server.directives.{BasicDirectives, Credentials, RouteDirectives, SecurityDirectives}
 import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive0, Directive1}
 import akka.stream.ActorMaterializer
@@ -42,7 +43,12 @@ trait AuthDirectives extends RouteDirectives with BasicDirectives {
     } else provide(None)
   }
 
-  def authorizeUser(secretOpt: Option[Secret], role: Role, resourceId: ResourceId)(implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext): Directive0 = {
+  def authorizeUser(role: Role, resourceId: ResourceId)
+                   (implicit as: ActorSystem,
+                    mat: ActorMaterializer,
+                    ec: ExecutionContext,
+                    secretOpt: Option[Secret],
+                    log: LoggingAdapter): Directive0 = {
     if (config.auth.enabled) {
       secretOpt.fold[Directive0] {
         reject(AuthorizationFailedRejection)

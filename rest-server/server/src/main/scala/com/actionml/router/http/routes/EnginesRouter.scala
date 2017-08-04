@@ -10,7 +10,7 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import com.actionml.security.Roles.engine
 import com.actionml.security.directives.AuthDirectives
-import com.actionml.security.model.ResourceId
+import com.actionml.security.model.{ResourceId, Secret}
 import com.actionml.security.services.{AuthService, AuthServiceComponent}
 import io.circe.Json
 import scaldi.Injector
@@ -54,31 +54,31 @@ class EnginesRouter(implicit inj: Injector)
   override val authService = inject[AuthService]
   override val config = inject[AppConfig]
 
-  override val route: Route = rejectEmptyResponse {
-    (pathPrefix("engines") & extractLog & extractOauth2Credentials) { (log, creds) ⇒
-      (pathEndOrSingleSlash & authorizeUser(creds, engine.modify, ResourceId.*)) {
-        createEngine(log)
+  override val route: Route = (rejectEmptyResponse & extractOauth2Credentials) { implicit credentials =>
+    (pathPrefix("engines") & extractLog) { implicit log =>
+      (pathEndOrSingleSlash & authorizeUser(engine.modify, ResourceId.*)) {
+        createEngine
       } ~
       path(Segment) { engineId ⇒
-        authorizeUser(creds, engine.read, engineId).apply {
-          getEngine(engineId, log)
+        authorizeUser(engine.read, engineId).apply {
+          getEngine(engineId)
         } ~
-        authorizeUser(creds, engine.modify, engineId).apply {
-          updateEngine(engineId, log) ~
-          deleteEngine(engineId, log)
+        authorizeUser(engine.modify, engineId).apply {
+          updateEngine(engineId) ~
+          deleteEngine(engineId)
         }
       }
     }
   }
 
-  private def getEngine(engineId: String, log: LoggingAdapter): Route = get {
+  private def getEngine(engineId: String)(implicit log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? GetEngine(engineId)).mapTo[Response]
     }
   }
 
-  private def createEngine(log: LoggingAdapter): Route = asJson { engineConfig =>
+  private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
       (engineService ? CreateEngine(engineConfig.toString())).mapTo[Response]
@@ -86,7 +86,7 @@ class EnginesRouter(implicit inj: Injector)
   }
 
 
-  private def updateEngine(engineId: String, log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
+  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
     entity(as[Json]) { engineConfig ⇒
       //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
       log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
@@ -103,7 +103,7 @@ class EnginesRouter(implicit inj: Injector)
   }
 
 
-  private def deleteEngine(engineId: String, log: LoggingAdapter): Route = delete {
+  private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
 
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
