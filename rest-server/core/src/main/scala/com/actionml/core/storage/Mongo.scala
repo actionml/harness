@@ -38,6 +38,8 @@ trait Mongo extends Store {
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
+  override def create(): Mongo = this
+
   override def destroy(dbName: String): Mongo = {
     try {
       client.dropDatabase(dbName)

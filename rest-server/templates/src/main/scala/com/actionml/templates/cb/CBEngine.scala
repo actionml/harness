@@ -27,7 +27,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 class CBEngine() extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
+  var algo: CBAlgorithm[CBAlgorithmInput] = _
   var params: RequiredEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
@@ -99,7 +99,13 @@ class CBEngine() extends Engine() with JsonParser {
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
-        algo.train(event.properties.testGroupId)
+        val datum = CBAlgorithmInput(
+          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+          event,
+          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
+          engineId
+        )
+        algo.input(datum)
       case event: GroupParams =>
         algo.add(event._id)
       case event: CBDeleteEvent =>

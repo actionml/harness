@@ -104,11 +104,13 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
           }
 
 
-        case event: CBUserUpdateEvent => // user profile update, modifies use object
+        case event: CBUserUpdateEvent => // user profile update, modifies user object
           logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
-          usersDAO.insert(User(event.entityId, User.propsToMapString(event.properties.get)))
+          val props = event.properties.getOrElse(Map.empty)
+          val userProps = User.propsToMapString(props)
+          usersDAO.insert(User(event.entityId, userProps))
           Valid(event)
 
         case event: GroupParams => // group init event, modifies group definition
@@ -243,7 +245,9 @@ case class User(
 
 object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
   def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
-    props.filter((t) => (t._2.size != 1 && t._2.head != "")).map { case (propId, propSeq) =>
+    props.filter { (t) =>
+      t._2.size != 0 && t._2.head != ""
+    }.map { case (propId, propSeq) =>
       propId -> propSeq.mkString("%")
     }
   }

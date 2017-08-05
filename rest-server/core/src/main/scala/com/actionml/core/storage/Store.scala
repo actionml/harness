@@ -22,8 +22,8 @@ import com.typesafe.scalalogging.LazyLogging
 
 trait Store extends LazyLogging {
 
-  def create(): Store = this
+  def create(): Store
 
-  def destroy(dbName: String): Store
+  def destroy(collectionName: String): Store
 
 }
