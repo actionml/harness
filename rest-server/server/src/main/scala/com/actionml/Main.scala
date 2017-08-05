@@ -6,6 +6,7 @@ import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.actionml.security.router.AuthenticationRouter
 import com.actionml.security.services.{AuthService, SimpleAuthService}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -39,6 +40,7 @@ class BaseModule extends Module{
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
+  bind[AuthenticationRouter] to new AuthenticationRouter(config)
 
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl

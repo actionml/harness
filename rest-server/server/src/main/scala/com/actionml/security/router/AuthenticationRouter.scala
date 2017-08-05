@@ -19,17 +19,16 @@ package com.actionml.security.router
 
 import akka.http.scaladsl.server.MalformedHeaderRejection
 import akka.http.scaladsl.server.directives.Credentials
-import com.actionml.router.config.ConfigurationComponent
+import com.actionml.router.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
 import com.actionml.security.Realms
-import com.actionml.security.services.AuthServiceComponent
+import com.actionml.security.services.AuthService
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
-class AuthenticationRouter(implicit inj: Injector) extends BaseRouter {
-  this: ConfigurationComponent
-    with AuthServiceComponent =>
+class AuthenticationRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
+  val authService = inject[AuthService]
 
   override val route = (path("authenticate") & post & extractLog) { implicit log =>
     if (config.auth.enabled) {
