@@ -53,8 +53,7 @@ import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutp
 import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.config.ConfigFactory
-import vw.VW
-import vw.learner._
+import vowpalWabbit.learner._
 //VWIntLearner vw = VWLearners.create("--quiet --csoaa 3 -f " + model)
 //import scala.reflect.io.File
 
@@ -85,7 +84,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
   // from the Dataset determine which groups are defined and start training on them
 
-  var vw: VWIntLearner = _
+  var vw: VWActionScoresLearner = _
   var events = 0
 
   override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
@@ -124,7 +123,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
   override def destroy(): Unit = {
     // remove old model since it is recreated with each new CBEngine
     // the VW model file may take some time to be deletable after closing vw?????
-    if (vw != null.asInstanceOf[VWIntLearner]) vw.close() //Todo: may have to put in future and wait with timeout
+    if (vw != null.asInstanceOf[VWActionScoresLearner]) vw.close() //Todo: may have to put in future and wait with timeout
     // used by 'time' method
     implicit val baseTime = System.currentTimeMillis
 
@@ -158,7 +157,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     }
   }
 
-  def createVW(params: CBAlgoParams): VWIntLearner = {
+  def createVW(params: CBAlgoParams): VWActionScoresLearner = {
     val regressorType = s" --csoaa 10 "
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
@@ -173,7 +172,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     // the difference is -i for initial model, or -f for new model (I think)
     val initVWConfig = trainedModel + checkpointing
     val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing
-    val newVW: VWIntLearner = if (fileExists(params.modelName)) {
+    val newVW: VWActionScoresLearner = if (fileExists(params.modelName)) {
       logger.info(s"VW: config: \n$initVWConfig\n")
       VWLearners.create(initVWConfig)
 
@@ -201,7 +200,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     // holly crap this is the only way to get a model saved??????????
     val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
-    // vw = VWLearners.create(initVWConfig).asInstanceOf[VWIntLearner] // should open the checkpointed file
+    // vw = VWLearners.create(initVWConfig).asInstanceOf[VWActionScoresLearner] // should open the checkpointed file
     logger.trace(s"Checkpointing with: save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
     vw.learn(s"save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
   }
@@ -272,8 +271,8 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
 
     logger.info(s"Query string to VW: \n$queryText")
-    val pred = vw.predict(queryText).toInt
-    logger.info(s"VW: raw result, not yet run through probability distribution: ${pred}\n\n")
+    val pred = vw.predict(queryText).getActionScores
+    logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
     //vw.close() // not need to save the model for a query
 
     //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
@@ -296,7 +295,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
     val probabilityMap = groupMap.keys.map { keyInt =>
       keyInt -> (
-        if(keyInt == pred)
+        if(keyInt == pred.head.getAction)
           1.0 - epsilonT
         else
           epsilonT / (numClasses - 1.0)
@@ -307,7 +306,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
     // todo: disables sampling
     val pageVariant = groupMap(sampledPred)
-    //val pageVariant = groupMap(pred)
+    //val pageVariant = groupMap(pred.head.getAction)
     CBQueryResult(pageVariant, groupId = query.groupId)
   }
 
@@ -387,7 +386,7 @@ class SingleGroupTrainer(
       input.resourceId)
 
 
-    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWIntLearner]) {
+    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWActionScoresLearner]) {
       log.info(s"Sending the VW formatted string: \n$vwString")
       var result = cbAlgo.vw.learn(vwString)
 /*      examples += 1
