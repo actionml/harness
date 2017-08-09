@@ -84,7 +84,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
   // from the Dataset determine which groups are defined and start training on them
 
-  var vw: VWActionScoresLearner = _
+  var vw: VWMulticlassLearner = _
   var events = 0
 
   override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
@@ -123,7 +123,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
   override def destroy(): Unit = {
     // remove old model since it is recreated with each new CBEngine
     // the VW model file may take some time to be deletable after closing vw?????
-    if (vw != null.asInstanceOf[VWActionScoresLearner]) vw.close() //Todo: may have to put in future and wait with timeout
+    if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close() //Todo: may have to put in future and wait with timeout
     // used by 'time' method
     implicit val baseTime = System.currentTimeMillis
 
@@ -157,7 +157,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     }
   }
 
-  def createVW(params: CBAlgoParams): VWActionScoresLearner = {
+  def createVW(params: CBAlgoParams): VWMulticlassLearner = {
     val regressorType = s" --csoaa 10 "
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
@@ -172,14 +172,11 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     // the difference is -i for initial model, or -f for new model (I think)
     val initVWConfig = trainedModel + checkpointing
     val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing
-    val newVW: VWActionScoresLearner = if (fileExists(params.modelName)) {
+    val newVW: VWMulticlassLearner = if (fileExists(params.modelName)) {
       logger.info(s"VW: config: \n$initVWConfig\n")
       VWLearners.create(initVWConfig)
-
-      //new VW(initVWConfig)
     } else {
       logger.info(s"VW: config: \n$createVWConfig\n")
-      //new VW(initVWConfig)
       VWLearners.create(createVWConfig)
     }
     newVW
@@ -200,9 +197,10 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     // holly crap this is the only way to get a model saved??????????
     val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
-    // vw = VWLearners.create(initVWConfig).asInstanceOf[VWActionScoresLearner] // should open the checkpointed file
+    // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
     logger.trace(s"Checkpointing with: save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
-    vw.learn(s"save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
+    //vw.learn(s"save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
+    vw.saveModel(new File(params.modelName))
   }
 
   def fileExists(modelpath: String): Boolean = {
@@ -271,7 +269,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
 
     logger.info(s"Query string to VW: \n$queryText")
-    val pred = vw.predict(queryText).getActionScores
+    val pred = vw.predict(queryText)
     logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
     //vw.close() // not need to save the model for a query
 
@@ -295,7 +293,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
 
     val probabilityMap = groupMap.keys.map { keyInt =>
       keyInt -> (
-        if(keyInt == pred.head.getAction)
+        if(keyInt == pred)
           1.0 - epsilonT
         else
           epsilonT / (numClasses - 1.0)
@@ -386,7 +384,7 @@ class SingleGroupTrainer(
       input.resourceId)
 
 
-    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWActionScoresLearner]) {
+    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
       log.info(s"Sending the VW formatted string: \n$vwString")
       var result = cbAlgo.vw.learn(vwString)
 /*      examples += 1
