@@ -31,9 +31,13 @@ def execute_queries(client, file):
         # queries are:
         # user-id,group-id
 
-        response = client.send_query({"user": data[0], "groupId": data[1]})
+        print("Query: \"\nuser\": " + data[0] + " groupId: " + data[1])
+        try:
+            response = client.send_query({"user": data[0], "groupId": data[1]})
+            print("Result: \"\nuser\": " + data[0] + response.json_body)
+        except:
+            print("Error sending queries to resource_id: " + args.engine_id)
 
-        print("Result: \"\nuser\": " + data[0] + response.json_body)
         count += 1
 
 if __name__ == '__main__':
@@ -57,6 +61,7 @@ if __name__ == '__main__':
         qsize=500)
 
     execute_queries(query_client, args.queries_file)
+
     query_client.close()
 
     print("Queries for " + args.engine_id_2)

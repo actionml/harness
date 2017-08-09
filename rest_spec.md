@@ -1,6 +1,6 @@
 # Harness Server REST API
 
-REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on the with URLs and HTTP verbs. An HTTP POST (now sometimes called UPDATE) corresponds to the U in CRUD, which in turn stands for Create, Update, Read, Delete. So by combining the HTTP verb with a resource identifying URL most desired operations can be constructed. 
+REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on the with URLs and HTTP verbs. An HTTP POST corresponds to the U in CRUD, which in turn stands for Create, Update, Read, Delete. So by combining the HTTP verb with a resource identifying URL most desired operations can be constructed. 
 
 There are many cases where these simple methods so not off good ways to encode operations so we do not enforce REST style where is does not fit well. Those places will be noted
 

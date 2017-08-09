@@ -198,8 +198,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
     // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
-    logger.trace(s"Checkpointing with: save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
-    //vw.learn(s"save_${resourceId}_cp_${DateTime.now().toString("HH_mm_ss_dd_MM_yyyy")}")
+    logger.trace(s"Checkpointing model")
     vw.saveModel(new File(params.modelName))
   }
 
