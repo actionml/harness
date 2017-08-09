@@ -18,19 +18,15 @@
 package com.actionml.core.template
 
 import cats.data.Validated
+import cats.data.Validated.Valid
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
-/**
-  * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
-  * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
-  * which differ in how they get data and update models
-  */
-abstract class Algorithm extends LazyLogging {
-  def init(json: String, rsrcId: String): Validated[ValidateError, Boolean]
-  def destroy(): Unit
-  def start(): Algorithm = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
-  def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
+/** Adds a method for input, which is expected to update the model immediately. */
+trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
+
+  def input[A <: T](datum: A): Validated[ValidateError, Boolean]
+
 }
 
-trait AlgorithmParams
+trait AlgorithmInput

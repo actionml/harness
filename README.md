@@ -97,11 +97,15 @@ The Java SDK is currently source and build instructions. You must include the so
 
 # [Python CLI and SDK](commands.md)
 
-The CLI is implemented using the new Python SDK supporting the SSL and authentication methods where needed. 
+The CLI is implemented using the new Python SDK supporting the SSL and authentication methods where needed. In `
   
+# Authentication
+
+We will use bearer token OAuth2 to authenticate connections and identify the server making connections. This will be built into the Java and Python SDK and so is simple to implement on the client side.
+
 # Authorization
 
-ACLs are set through the Harness CLI so new signatures can be generated and permission granted to endpoints being added at runtime. Each signature may be granted access to all or a small subset of REST Routes. This is useful for administration where the CLI needs to have access to all routes and for external clients who may only have access to a certain engine-id with the associated `events` and `queries` routes. See the [Commands](commands.md) for details.
+ACLs are set through the Harness CLI so new tokens/signatures can be granted permission REST routes and can be added at runtime. Each signature may be granted access to all or a small subset of REST Routes. This is useful for administration where the CLI needs to have access to all routes and for external clients who may only have access to a certain engine-id with the associated `events` and `queries` routes. See the [Commands](commands.md) for details.
 
 # [Config](harness_config.md)
 

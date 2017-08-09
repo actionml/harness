@@ -1,7 +1,5 @@
 package com.actionml;
 
-import vw.jni.NativeUtils;
-
 import java.io.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -20,19 +20,19 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.template.{Engine, EngineParams, Query, QueryResult}
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.template._
+import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
-  var params: CBEngineParams = _
+  var algo: CBAlgorithm[CBAlgorithmInput] = _
+  var params: RequiredEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
-      parseAndValidate[CBEngineParams](json).andThen { p =>
+      parseAndValidate[RequiredEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new CBDataset(engineId)
@@ -40,8 +40,8 @@ class CBEngine() extends Engine() with JsonParser {
         drawInfo("Contextual Bandit Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
-          ("Mirror Type: ", mirrorType),
-          ("Mirror Container: ", mirrorContainer)))
+          ("Mirror Type: ", params.mirrorType),
+          ("Mirror Container: ", params.mirrorContainer)))
 
         Valid(p)
       }.andThen { p =>
@@ -89,7 +89,7 @@ class CBEngine() extends Engine() with JsonParser {
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
     if(super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process(_)).map(_ => true)
+      dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true) // Some error like an ExecutionError in super.input happened
     // todo: pass back indication of deeper error
@@ -99,7 +99,13 @@ class CBEngine() extends Engine() with JsonParser {
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
-        algo.train(event.properties.testGroupId)
+        val datum = CBAlgorithmInput(
+          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+          event,
+          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
+          engineId
+        )
+        algo.input(datum)
       case event: GroupParams =>
         algo.add(event._id)
       case event: CBDeleteEvent =>
@@ -116,12 +122,12 @@ class CBEngine() extends Engine() with JsonParser {
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): Validated[ValidateError, String] = {
-    logger.trace(s"Got a query JSON string: ${json}")
+    logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
         val result = algo.predict(query)
-        Valid(result.toJson)
+        Valid(result.toJson())
       } else {
         Invalid(WrongParams(s"Query for non-existent group: $json"))
       }
@@ -131,16 +137,12 @@ class CBEngine() extends Engine() with JsonParser {
   override def status(): String = {
     s"""
       |    Engine: ${this.getClass.getName}
-      |    Resource ID: ${engineId}
+      |    Resource ID: $engineId
       |    Number of active groups: ${algo.trainers.size}
     """.stripMargin
   }
 
 }
-
-case class CBEngineParams(
-    engineId: String = "") // required
-  extends EngineParams
 
 /*
 Query

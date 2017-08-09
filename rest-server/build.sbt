@@ -1,3 +1,5 @@
+import sbt.Keys.resolvers
+
 name := "harness"
 
 version := "0.1.0-SNAPSHOT"
@@ -16,6 +18,10 @@ lazy val commonSettings = Seq(
   organization := "com.actionml",
   version := "0.1.0-SNAPSHOT",
   scalaVersion := "2.11.8",
+  updateOptions := updateOptions.value.withLatestSnapshots(false),
+  resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
+  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+  resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
@@ -56,7 +62,7 @@ lazy val templates = (project in file("templates")).dependsOn(core).
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1",
 
-      "com.github.johnlangford" % "vw-jni" % "8.0.0"
+      "com.github.johnlangford" % "vw-jni" % "8.4.1-SNAPSHOT"
     )
   )
 

@@ -143,7 +143,7 @@ This file provide the parameters and config for anything that is Template/Engine
         "engineId": "some_resource_id"
         "engineFactory": "org.actionml.templates.name.SomeEngineFatory"
         "mirrorType": "hdfs" | "localfs", // optional, turn on a type of mirroring
-        "mirrorLocation": "path/to/mirror", // optional, where to mirror input
+        "mirrorContainer": "path/to/mirror", // optional, where to mirror input
         "params": {
             "algorithm": {
                 algorithm specific parameters, see Template docs
@@ -171,13 +171,15 @@ Some special events like `$set`, `$unset`, `$delete` may cause mutable database 
 
 To accomplish this, you must set up mirroring for the Harness Server. Once the server is launched with a mirrored configuration all events sent to `/engines/resource-id/events` will be mirrored to a location set in `some-engine.json`. Best practice would be to start with mirroring and then turn if off once everything is running correctly since mirroring will save all events and grow without limit, like unrotated server logs. 
 
-In the future HDFS can be used and mirrored file rotation will be implemented to solve the problem. We will also allow mirroring to be enabled and disabled per engine-id, but these are not implemented yet.
+In the future HDFS can be used and mirrored file rotation will be implemented to solve the problem. We also allow mirroring to be enabled and disabled per engine-id.
 
-To enable add the following to `bin/harness-env`:
+To enable add the following to the `some-engine.json` that you want to mirror events:
 
-    export MIRROR_TYPE=localfs
-    export MIRROR_CONTAINER_NAME=/path/to/mirror/directory
-    
+    "mirrorType": "hdfs" | "localfs", // optional, turn on a type of mirroring
+    "mirrorContainer": "path/to/mirror", // optional, where to mirror input
+
+set these in the global engine params, not in algorithm params as in the "Required Parameters" section above. 
+
 To use mirrored files, for instance to re-run a test with different algorithm parameters:
 
     harness delete <some-resource-id>

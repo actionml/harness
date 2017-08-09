@@ -19,13 +19,12 @@ package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core._
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Engine, RequiredEngineParams}
 import com.actionml.core.validate._
-import com.actionml.core._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
-import salat.dao.SalatDAO
 
 class MongoAdministrator extends Administrator with JsonParser with Mongo {
 
@@ -72,15 +71,15 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     parseAndValidate[RequiredEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> newEngineInstance(params.engineFactory).initAndGet(json))
       if (engines(params.engineId) != null) {
-        if(enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
+        if (enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
           // re-initialize
-          logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+          logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
           val query = MongoDBObject("engineId" -> params.engineId)
           val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
           enginesCollection.findAndModify(query, update)
         } else {
           //add new
-          logger.trace(s"Initializing new engine for resource-id: ${params.engineId} with params $json")
+          logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
           val builder = MongoDBObject.newBuilder
           builder += "engineId" -> params.engineId
           builder += "engineFactory" -> params.engineFactory
@@ -92,8 +91,8 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       } else {
         // init failed
         engines = engines - params.engineId //remove bad engine
-        logger.error(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        Invalid(ParseError(s"Failed to re-initializing engine for resource-id: ${params.engineId} with new params $json"))
+        logger.error(s"Failed to re-initializing engine for resource-id: ${ params.engineId } with new params $json")
+        Invalid(ParseError(s"Failed to re-initializing engine for resource-id: ${ params.engineId } with new params $json"))
       }
     }
   }
@@ -113,7 +112,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   }
 
   override def list(resourceType: String): Validated[ValidateError, String] = {
-    Valid("\n\n"+engines.mapValues(_.status()).toSeq.mkString("\n\n"))
+    Valid("\n\n" + engines.mapValues(_.status()).toSeq.mkString("\n\n"))
   }
 
   override def updateEngine(
@@ -133,16 +132,10 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
         engine.destroy()
         engine.init(params)
       }
-      if(input.nonEmpty) {
-        if( engines(engineId).importEvents(engines(engineId), input.get) ) Valid(true) else
-          Invalid(ValidRequestExecutionError(s"Unable to import from: ${input.get} on the servers file system to engineId:" +
-            s" ${engineId}. See server logs"))
-      } else {
-        Valid(true)
-      }
+      if (input.nonEmpty) engines(engineId).mirroring.importEvents(engines(engineId), input.get) else Valid(true)
     } else {
-      logger.error(s"Unable to update to a non-existent engineId: ${engineId}")
-      Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${engineId}"))
+      logger.error(s"Unable to update to a non-existent engineId: ${ engineId }")
+      Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${ engineId }"))
     }
   }
 
