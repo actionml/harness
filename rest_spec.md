@@ -46,10 +46,10 @@ These APIs allow the admin user to create new users with access to certain resou
 
 # Auth-Server REST API
 
-When Harness receives **any** REST API request, the user is authenticated and authorized via the Auth-Server microservice. It uses these calls.
+HTTP code 200 and body {“success”: “true”} if authorization succeed; otherwise, HTTP code 403.
 
 | HTTP Verb | URL | Request | Response | Function |
 | --- | --- | :---  | :---  | :--- |
 | POST | `/auth/api/v1/authenticate` | `{“token”: “string”}` | HTTP 200 + `{“accessToken”:“string”, “ttl”:<optional long>, “refreshToken”:“optional string”}` or HTTP 401 | authenticates user's access and returns a session token or denies access with HTTP 401 |
-| POST | `/auth/api/v1/authorize` | `{“accessToken”:“string”`, ` “role”:”string”`, ` “resourceId”:“string”}` and HTTP 200 or, on failure  HTTP 403 | Given a session/access token authorize the access requested or return an error code |
+| POST | `/auth/api/v1/authorize` | `{“accessToken”:“string”`, ` “role”:”string”`, ` “resourceId”:“string”}` | HTTP 200 and body `{“success”: “true”}` if authorization succeed; otherwise, HTTP 403 | Given a session/access token authorize the access requested or return an error code |
 
