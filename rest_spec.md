@@ -1,4 +1,4 @@
-# Harness Server REST API
+# The Harness REST Specification
 
 REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on them with URIs and HTTP verbs. For instance an HTTP POST corresponds to the C in CRUD, which in turn stands for Create, Update, Read, Delete. So by combining the HTTP verb with a resource identifying URi most desired operations can be constructed. 
 

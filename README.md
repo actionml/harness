@@ -69,9 +69,13 @@ URI fragments when naming resources. The resources defined in Harness are:
  - **queries**: queries are made to engines to return information based on their models. since they are completely Template specific their format, validation, and results are described in the Template documentation.
  - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status. An example of this is when a command may take long to complete.
 
+For the full Harness REST API and response codes, see the [Harness REST Specification](rest_spec.md)
+
 ## Input and Query
 
-See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending Engine events and making queries.
+See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sending Engine events and making queries. The SDK handles TLS and Authentication, and Authorization based on OAuth2 bearer tokens so it is recommended to use an SDK but since we follow standard OAuth2 one can create their own requests and SDK.
+
+Disregarding the optional TLS and Auth, simple input and queries look like this:
 
     POST /engines/<engine-id>/events
         Request Body: JSON for PIO-like event
@@ -81,7 +85,7 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
         Request Body: JSON for query
         Response Body: JSON for results
 
-For specifics of the format and use of events and queries see the Template documentation. For example the [Contextual Bandit docs](the_contextual_bandit.md).    
+For specifics of the format and use of events and queries see the Template documentation. For example the [Contextual Bandit docs](the_contextual_bandit.md). For the full API requests and response codes see the [Harness REST Specification](rest_spec.md)
 
 # [Commands](commands.md)
 
@@ -101,11 +105,11 @@ The CLI is implemented using the new Python SDK supporting the SSL and authentic
   
 # Authentication
 
-We will use bearer token OAuth2 to authenticate connections and identify the server making connections. This will be built into the Java and Python SDK and so is simple to implement on the client side.
+We will use bearer token OAuth2 to authenticate connections and identify the server making connections. This is built into the Java and Python SDK and so is simple to implement on the client side.
 
 # Authorization
 
-ACLs are set through the Harness CLI so new tokens/signatures can be granted permission REST routes and can be added at runtime. Each signature may be granted access to all or a small subset of REST Routes. This is useful for administration where the CLI needs to have access to all routes and for external clients who may only have access to a certain engine-id with the associated `events` and `queries` routes. See the [Commands](commands.md) for details.
+ACLs are set through the Harness CLI so new tokens/signatures can be granted permission for CRUD access to REST resources and can be added at runtime. Each token may be granted access to all or a small subset of REST resources. This is useful for administration where the CLI needs to have access to all resources ] and for external users who may only have access to a certain engine-id with the associated `events` and `queries`. See the [Commands](commands.md) for details.
 
 # [Config](harness_config.md)
 
