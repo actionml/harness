@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-# Type of mirroring, localfs is the only supported method currently
-# export MIRROR_TYPE=localfs
-# The root of mirroring, the engine-id will be appended to this and collections of raw events will be timestamped
-# export MIRROR_CONTAINER_NAME=/path/to/mirror/directory
+# Mirroring data is not configured per Engine in the engine.json file used to create the engine
+# See examples in rest-server/data/test_resource.json file
 
 export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
 export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}

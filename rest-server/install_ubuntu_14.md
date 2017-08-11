@@ -1,5 +1,7 @@
 # Install Harness on Ubuntu 14.04 From Source
 
+##Warning: Vowpal Wabbit is no longer buildable on Ubuntu 14.04 so see installation.md in the harnes directory##
+
 Due to a limitation in the Java JNI build of VW the Contextual Bandit is not easy to get running on newer versions of Ubuntu but Harness requires newer versions of tools than are standard on Ubuntu 14.04. So here is how to install on 14.04. Many steps would be required on any OS
 
 We start from a clean new machine logged into the user account `aml`
