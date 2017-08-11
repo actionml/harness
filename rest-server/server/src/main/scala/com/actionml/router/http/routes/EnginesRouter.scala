@@ -10,7 +10,7 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import com.actionml.security.Roles.engine
 import com.actionml.security.directives.AuthDirectives
-import com.actionml.security.model.{ResourceId, AccessToken}
+import com.actionml.security.model.ResourceId
 import com.actionml.security.services.{AuthService, AuthServiceComponent}
 import io.circe.Json
 import scaldi.Injector
@@ -85,7 +85,6 @@ class EnginesRouter(implicit inj: Injector)
     }
   }
 
-
   private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
     entity(as[Json]) { engineConfig ⇒
       //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
@@ -102,7 +101,6 @@ class EnginesRouter(implicit inj: Injector)
 
   }
 
-
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
 
     log.info("Delete engine: {}", engineId)
@@ -110,5 +108,4 @@ class EnginesRouter(implicit inj: Injector)
       (engineService ? DeleteEngine(engineId)).mapTo[Response]
     }
   }
-
 }
