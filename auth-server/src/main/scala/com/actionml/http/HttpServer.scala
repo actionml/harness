@@ -5,9 +5,10 @@ import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.AppConfig
+import com.actionml.security.routes.SecurityController
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -20,20 +21,20 @@ import scala.concurrent.Future
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 18.02.17 19:18
   */
-class HttpServer(implicit inj: Injector) extends AkkaInjectable {
+class HttpServer(securityController: SecurityController)(implicit inj: Injector) extends AkkaInjectable {
 
   implicit private val actorSystem = inject[ActorSystem]
   implicit private val executor = actorSystem.dispatcher
   implicit private val materializer: ActorMaterializer = ActorMaterializer()
 
-  private val config = inject[AppConfig].restServer
-  private val oAuthRoutes = inject[OAuthRoutes].routes
+  private val config = inject[AppConfig].authServer
+  private val securityRoutes = securityController.route
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.ssl) {
       Http().setDefaultServerHttpContext(https)
     }
-    Http().bindAndHandle(oAuthRoutes, host, port)
+    Http().bindAndHandle(securityRoutes, host, port)
   }
 
   private def https = {

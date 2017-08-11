@@ -6,7 +6,7 @@ scalaVersion := "2.12.1"
 
 val akkaVersion = "2.4.17"
 val akkaHttpVersion = "10.0.3"
-lazy val circeVersion = "0.7.0"
+val circeVersion = "0.7.0"
 
 libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.8",
@@ -21,6 +21,8 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
+
+  "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
 
   "com.typesafe" % "config" % "1.3.1",
   "com.iheart" %% "ficus" % "1.4.0",
