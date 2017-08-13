@@ -43,6 +43,12 @@ lazy val core = (project in file("core")).
     )
   )
 
+lazy val common = (project in file("common")).
+  settings(
+    commonSettings,
+    libraryDependencies ++= Seq()
+  )
+
 lazy val templates = (project in file("templates")).dependsOn(core).
   settings(
     commonSettings,
@@ -79,7 +85,7 @@ lazy val drivers = (project in file("drivers")).dependsOn(core, templates, admin
   )
 )
 
-lazy val server = (project in file("server")).dependsOn(core, templates, admin).settings(
+lazy val server = (project in file("server")).dependsOn(core, common, templates, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
@@ -95,7 +101,7 @@ lazy val server = (project in file("server")).dependsOn(core, templates, admin).
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, templates, admin)
 
-lazy val authServer = (project in file("auth-server")).dependsOn(core).settings(
+lazy val authServer = (project in file("auth-server")).dependsOn(common).settings(
   commonSettings,
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.1.8",
