@@ -5,7 +5,7 @@ version := "0.1.0-SNAPSHOT"
 scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.18"
-lazy val akkaHttpVersion = "10.0.7"
+lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 
@@ -107,21 +107,20 @@ lazy val authServer = (project in file("auth-server")).dependsOn(common).setting
     "ch.qos.logback" % "logback-classic" % "1.1.8",
     "org.slf4j" % "log4j-over-slf4j" % "1.7.22",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-    "com.nulab-inc" %% "scala-oauth2-core" % "1.3.0",
-    "com.nulab-inc" %% "akka-http-oauth2-provider" % "1.3.0",
 
-    "de.heikoseeberger" %% "akka-http-circe" % "1.12.0",
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion,
+    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
     "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
 
     "com.typesafe" % "config" % "1.3.1",
     "com.iheart" %% "ficus" % "1.4.0",
-    "org.scaldi" %% "scaldi-akka" % "0.5.8",
-    "joda-time" % "joda-time" % "2.9.7"
+
+    "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )
 )

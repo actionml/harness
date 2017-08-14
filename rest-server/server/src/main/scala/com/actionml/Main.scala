@@ -6,8 +6,8 @@ import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-import com.actionml.security.router.AuthenticationRouter
-import com.actionml.security.services.{AuthService, SimpleAuthService}
+import com.actionml.authserver.router.AuthenticationRouter
+import com.actionml.authserver.services.{AuthService, SimpleAuthService}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 /**
