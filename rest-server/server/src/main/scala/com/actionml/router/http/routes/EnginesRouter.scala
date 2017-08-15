@@ -10,7 +10,8 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthDirectives
-import com.actionml.authserver.model.ResourceId
+import com.actionml.authserver
+import com.actionml.authserver.ResourceId
 import com.actionml.authserver.services.{AuthService, AuthServiceComponent}
 import io.circe.Json
 import scaldi.Injector

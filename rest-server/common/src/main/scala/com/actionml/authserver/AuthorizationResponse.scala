@@ -15,6 +15,6 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver.model
+package com.actionml.authserver
 
-case class AuthenticationResponse(accessToken: String, ttl: Option[Long], refreshToken: Option[String])
+case class AuthorizationResponse(accessToken: String, ttl: Option[Long], refreshToken: Option[String])

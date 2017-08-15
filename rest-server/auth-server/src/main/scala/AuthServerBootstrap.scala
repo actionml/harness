@@ -3,7 +3,7 @@ import akka.event.Logging
 import com.actionml.authserver.AuthServer
 import com.actionml.core.ExecutionContextComponent
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.routes.SecurityController
+import com.actionml.authserver.routes.AuthorizationController
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -35,7 +35,7 @@ class BaseModule extends Module {
     override def executionContext: ExecutionContext = actorSystem.dispatcher
   }
 
-  bind[SecurityController] to new SecurityController
+  bind[AuthorizationController] to new AuthorizationController
 
   bind[AuthServer] to new AuthServer
 }

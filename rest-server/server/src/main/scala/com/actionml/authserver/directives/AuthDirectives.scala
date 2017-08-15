@@ -24,7 +24,7 @@ import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive0, Dire
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.ConfigurationComponent
 import com.actionml.authserver.Realms
-import com.actionml.authserver.model.{ResourceId, Role, AccessToken}
+import com.actionml.authserver.{ResourceId, RoleId, AccessToken}
 import com.actionml.authserver.services.AuthServiceComponent
 
 import scala.concurrent.ExecutionContext
@@ -43,7 +43,7 @@ trait AuthDirectives extends RouteDirectives with BasicDirectives {
     } else provide(None)
   }
 
-  def authorizeUser(role: Role, resourceId: ResourceId)
+  def authorizeUser(role: RoleId, resourceId: ResourceId)
                    (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, accessTokenOpt: Option[AccessToken], log: LoggingAdapter): Directive0 = {
     if (config.auth.enabled) {
       accessTokenOpt.fold[Directive0] {

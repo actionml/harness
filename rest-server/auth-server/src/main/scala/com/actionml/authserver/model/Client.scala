@@ -15,26 +15,6 @@
  * limitations under the License.
  */
 
-package com.actionml.oauth2.entities
+package com.actionml.authserver.model
 
-import com.actionml.oauth2.entities.AccessTokenRequest.GrantTypes
-import com.actionml.oauth2.entities.AccessTokenRequest.GrantTypes.GrantType
-import io.circe.generic.auto._
-
-trait AccessTokenRequest {
-  def grantType: GrantType
-  def scope: Option[String]
-}
-
-case class PasswordAccessTokenRequest(username: String, password: String, scope: Option[String]) extends AccessTokenRequest {
-  override val grantType = GrantTypes.password
-}
-
-object AccessTokenRequest {
-  object GrantTypes extends Enumeration {
-    type GrantType = Value
-
-    val password = Value("password")
-    val refreshToken = Value("refresh_token")
-  }
-}
+case class Client(id: String, secretHash: String)
