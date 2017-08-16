@@ -4,6 +4,6 @@ import com.actionml.authserver.model.Permission
 
 import scala.concurrent.Future
 
-trait PermissionDao {
+trait PermissionsDao {
   def findByBearerToken(token: String): Future[Iterable[Permission]]
 }

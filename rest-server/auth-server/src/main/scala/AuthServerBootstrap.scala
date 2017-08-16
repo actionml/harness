@@ -3,7 +3,10 @@ import akka.event.Logging
 import com.actionml.authserver.AuthServer
 import com.actionml.core.ExecutionContextComponent
 import com.actionml.authserver.config.AppConfig
+import com.actionml.authserver.dal.{AccessTokensDao, PermissionsDao}
+import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, PermissionsDaoImpl}
 import com.actionml.authserver.routes.AuthorizationController
+import com.actionml.authserver.service.{AuthService, AuthServiceImpl}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -28,12 +31,13 @@ class BaseModule extends Module {
 
   implicit lazy val actorSystem = ActorSystem(inject[AppConfig].actorSystem.name)
   bind[ActorSystem] to actorSystem destroyWith(_.terminate())
+  bind[ExecutionContext] to actorSystem.dispatcher
 
   binding identifiedBy 'log to ((logSource: Class[_]) ⇒ Logging(inject[ActorSystem], logSource))
 
-  trait ActorSystemExecutionContextComponent extends ExecutionContextComponent {
-    override def executionContext: ExecutionContext = actorSystem.dispatcher
-  }
+  bind[PermissionsDao] to new PermissionsDaoImpl
+  bind[AccessTokensDao] to new AccessTokensDaoImpl
+  bind[AuthService] to new AuthServiceImpl
 
   bind[AuthorizationController] to new AuthorizationController
 
