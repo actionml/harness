@@ -3,7 +3,7 @@ package com.actionml.authserver.routes
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenges}
 import akka.http.scaladsl.server.AuthenticationFailedRejection.{CredentialsMissing, CredentialsRejected}
 import akka.http.scaladsl.server._
-import com.actionml.authserver.model.{Client, ClientId}
+import com.actionml.authserver.ClientId
 import com.actionml.authserver.service.AuthService
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
 import com.actionml.oauth2.entities.{AccessTokenResponse, PasswordAccessTokenRequest}
@@ -17,8 +17,6 @@ import scaldi.akka.AkkaInjectable
 import scala.concurrent.{ExecutionContext, Future}
 
 class AuthorizationController(implicit injector: Injector) extends Directives with AkkaInjectable with FailFastCirceSupport {
-  private implicit val ec = inject[ExecutionContext]
-  private val authService = inject[AuthService]
 
   def route: Route = (post & pathPrefix("auth") & authenticateClient) { clientId =>
     (path("token") & extractTokenRequest) { request =>
@@ -26,6 +24,7 @@ class AuthorizationController(implicit injector: Injector) extends Directives wi
     } ~
     (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
   }
+
 
   private def authenticateClient: Directive1[ClientId] = extractCredentials.flatMap {
     case Some(BasicHttpCredentials(clientId, password)) =>
@@ -56,5 +55,7 @@ class AuthorizationController(implicit injector: Injector) extends Directives wi
     onSuccess(authService.authorize(accessToken, roleId, resourceId))(result => complete(Map("success" -> result).asJson))
   }
 
-  implicit val accessTokenResponseEncoder: Encoder[AccessTokenResponse] = Encoder.instance(a => a.asJson)
+  private implicit val ec = inject[ExecutionContext]
+  private val authService = inject[AuthService]
+  implicit private val accessTokenResponseEncoder: Encoder[AccessTokenResponse] = Encoder.instance(a => a.asJson)
 }

@@ -1,7 +1,6 @@
 import akka.actor.ActorSystem
 import akka.event.Logging
 import com.actionml.authserver.AuthServer
-import com.actionml.core.ExecutionContextComponent
 import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.dal.{AccessTokensDao, PermissionsDao}
 import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, PermissionsDaoImpl}

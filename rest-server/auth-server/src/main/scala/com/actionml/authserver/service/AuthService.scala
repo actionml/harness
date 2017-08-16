@@ -4,7 +4,7 @@ import java.security.MessageDigest
 import java.time.LocalDateTime
 
 import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, PermissionsDao}
-import com.actionml.authserver.model.{AccessToken, Client, ClientId}
+import com.actionml.authserver.model.{AccessToken, Client}
 import com.actionml.authserver.{ResourceId, RoleId}
 import com.actionml.oauth2.entities.AccessTokenResponse
 import scaldi.Injector

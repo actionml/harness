@@ -17,7 +17,8 @@
 
 package com.actionml.authserver.dal
 
-import com.actionml.authserver.model.{Client, ClientId}
+import com.actionml.authserver.ClientId
+import com.actionml.authserver.model.Client
 
 import scala.concurrent.Future
 

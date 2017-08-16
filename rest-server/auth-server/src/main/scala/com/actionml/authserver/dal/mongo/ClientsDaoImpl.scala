@@ -17,8 +17,9 @@
 
 package com.actionml.authserver.dal.mongo
 
+import com.actionml.authserver.ClientId
 import com.actionml.authserver.dal.ClientsDao
-import com.actionml.authserver.model.{Client, ClientId}
+import com.actionml.authserver.model.Client
 import com.mongodb.client.model.Filters
 import scaldi.{Injectable, Injector}
 
