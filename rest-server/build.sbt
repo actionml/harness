@@ -117,6 +117,10 @@ lazy val authServer = (project in file("auth-server")).dependsOn(common).setting
     "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
     "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
+    "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
+    "org.mongodb" % "bson" % "3.4.2",
+    "org.mongodb" % "mongodb-driver-core" % "3.4.2",
+    "org.mongodb" % "mongodb-driver-async" % "3.4.2",
 
     "com.typesafe" % "config" % "1.3.1",
     "com.iheart" %% "ficus" % "1.4.0",

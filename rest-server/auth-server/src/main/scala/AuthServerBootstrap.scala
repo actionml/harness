@@ -2,8 +2,8 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import com.actionml.authserver.AuthServer
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.dal.{AccessTokensDao, PermissionsDao}
-import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, PermissionsDaoImpl}
+import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, PermissionsDao}
+import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, ClientsDaoImpl, PermissionsDaoImpl}
 import com.actionml.authserver.routes.AuthorizationController
 import com.actionml.authserver.service.{AuthService, AuthServiceImpl}
 import scaldi.Module
@@ -36,6 +36,7 @@ class BaseModule extends Module {
 
   bind[PermissionsDao] to new PermissionsDaoImpl
   bind[AccessTokensDao] to new AccessTokensDaoImpl
+  bind[ClientsDao] to new ClientsDaoImpl
   bind[AuthService] to new AuthServiceImpl
 
   bind[AuthorizationController] to new AuthorizationController

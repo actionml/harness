@@ -41,7 +41,7 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Akka
 
   override def authenticateClient(clientId: String, password: String): Future[Boolean] = {
     clientsDao.find(clientId).collect {
-      case Some(Client(id, secretHash)) if id == clientId => hash(password) == secretHash
+      case Client(id, secretHash) if id == clientId => hash(password) == secretHash
       case _ => false
     }
   }
