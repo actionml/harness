@@ -22,21 +22,20 @@ import akka.http.scaladsl.server.directives.Credentials
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
 import com.actionml.authserver.Realms
-import com.actionml.authserver.services.AuthService
+import com.actionml.authserver.services.AuthServerClientService
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
-class AuthenticationRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
-  val authService = inject[AuthService]
+class AuthorizationRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
+  val authService = inject[AuthServerClientService]
 
-  override val route = (path("authenticate") & post & extractLog) { implicit log =>
+  override val route = (path("auth" / "token") & post & extractRequest & extractLog) { (req, log) =>
+    implicit val _ = log
+    log.debug(s"Trying to proxy connection to auth server. Authorization ${if(config.auth.enabled) "enabled" else "disabled"}.")
     if (config.auth.enabled) {
-      authenticateOAuth2PFAsync(Realms.Harness, {
-        case Credentials.Provided(token) =>
-          authService.authenticate(token)
-      }) {
-        authResponse => complete(authResponse.asJson.noSpaces)
+      onSuccess(authService.proxyAccessTokenRequest(req)) {
+        complete(_)
       }
     } else reject(MalformedHeaderRejection("Authorization", "Header not supported"))
   }

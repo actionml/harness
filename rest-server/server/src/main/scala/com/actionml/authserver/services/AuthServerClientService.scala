@@ -22,40 +22,32 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
-import com.actionml.router.config.AppConfig
 import com.actionml.authserver._
+import com.actionml.router.config.AppConfig
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-trait AuthServiceComponent {
-  def authService: AuthService
-}
-trait AuthService {
-  def authenticate(bearerToken: BearerToken)
-                  (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[AuthorizationResponse]
+trait AuthServerClientService {
+  def proxyAccessTokenRequest(request: HttpRequest)
+                             (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse]
 
   def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId)
                (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[Boolean]
 }
 
-class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirceSupport {
+class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientService with FailFastCirceSupport {
 
-  def authenticate(bearerToken: BearerToken)
-                  (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[AuthorizationResponse] = {
-    import io.circe.generic.auto._
-    Http().singleRequest(mkAuthenticateRequest(bearerToken))
-      .flatMap {
-        case HttpResponse(StatusCodes.OK, _, body, _) =>
-          Unmarshal(body).to[AuthorizationResponse]
-      }.recoverWith {
+  def proxyAccessTokenRequest(request: HttpRequest)
+                             (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse] = {
+    Http().singleRequest(mkAccessTokenRequest(request))
+      .recoverWith {
         case ex =>
-          log.error(ex, "Authentication failed")
+          log.error(ex, "Proxy authorization call failed")
           Future.failed(AuthenticationFailedException(ex))
-        }
+      }
   }
 
   override def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId)
@@ -73,15 +65,16 @@ class SimpleAuthService(config: AppConfig) extends AuthService with FailFastCirc
 
   private val authServerRoot = Uri(config.auth.authServerUrl)
 
-  private def mkAuthenticateRequest(bearerToken: BearerToken) =
-    HttpRequest(method = HttpMethods.POST,
-      uri = authServerRoot
-        .withFragment("authenticate")
-        .withQuery(Query("bearerToken" -> bearerToken)))
+  private def mkAccessTokenRequest(req: HttpRequest) =
+    HttpRequest(method = req.method,
+      uri = authServerRoot.withFragment("token"),
+      entity = req.entity,
+      headers = req.headers
+    )
 
   private def mkAuthorizeRequest(accessToken: AccessToken, role: RoleId, resourceId: ResourceId) =
     HttpRequest(method = HttpMethods.POST,
       uri = authServerRoot
         .withFragment("authorize")
-        .withQuery(Query("accessToken" -> accessToken, "role" -> role, "resource" -> resourceId)))
+        .withQuery(Query("accessToken" -> accessToken, "roleId" -> role, "resourceId" -> resourceId)))
 }

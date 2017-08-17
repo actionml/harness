@@ -6,13 +6,12 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
-import com.actionml.router.config.{AppConfig, ConfigurationComponent}
-import com.actionml.router.service._
+import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthDirectives
-import com.actionml.authserver
-import com.actionml.authserver.ResourceId
-import com.actionml.authserver.services.{AuthService, AuthServiceComponent}
+import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.router.config.{AppConfig, ConfigurationComponent}
+import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
 
@@ -48,11 +47,10 @@ class EnginesRouter(implicit inj: Injector)
   extends BaseRouter
     with AuthDirectives
     with SecurityDirectives
-    with ConfigurationComponent
-    with AuthServiceComponent {
+    with ConfigurationComponent {
 
   private val engineService = inject[ActorRef]('EngineService)
-  override val authService = inject[AuthService]
+  override val authServerClientService = inject[AuthServerClientService]
   override val config = inject[AppConfig]
 
   override val route: Route = (rejectEmptyResponse & accessToken) { implicit accessToken =>

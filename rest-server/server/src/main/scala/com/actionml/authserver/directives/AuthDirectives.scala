@@ -24,16 +24,17 @@ import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive0, Dire
 import akka.stream.ActorMaterializer
 import com.actionml.router.config.ConfigurationComponent
 import com.actionml.authserver.Realms
-import com.actionml.authserver.{ResourceId, RoleId, AccessToken}
-import com.actionml.authserver.services.AuthServiceComponent
+import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.authserver.{AccessToken, ResourceId, RoleId}
 
 import scala.concurrent.ExecutionContext
 
 
 trait AuthDirectives extends RouteDirectives with BasicDirectives {
   this: SecurityDirectives
-    with ConfigurationComponent
-    with AuthServiceComponent =>
+    with ConfigurationComponent =>
+
+  val authServerClientService: AuthServerClientService
 
   def accessToken: Directive1[Option[AccessToken]] = {
     if (config.auth.enabled) {
@@ -49,7 +50,7 @@ trait AuthDirectives extends RouteDirectives with BasicDirectives {
       accessTokenOpt.fold[Directive0] {
         reject(AuthorizationFailedRejection)
       } { secret =>
-        authorizeAsync(_ => authService.authorize(secret, role, resourceId))
+        authorizeAsync(_ => authServerClientService.authorize(secret, role, resourceId))
       }
     } else pass
   }
