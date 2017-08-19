@@ -63,7 +63,8 @@ These APIs allow the admin user to create new users with access to certain resou
 
 | HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
 | --- | --- | :---  | :---  | :---  | :--- |
-| POST | `/users/user-id/permissions` | `{"userId": "user-id", "roleSetId": "client\|admin","resourceId": "*\|some id"}` | See Collection responses | `{"userId": "user_id", “bearerToken”: "token"}` | Create a new user and assign a bearer token and user-id, setup internal management of the user-id that does not require saving the bearer token and attached the named `roleSet` for the `resource-id` to the new user |
+| POST | `/users` | `{"roleSetId": "client\|admin", "resourceId": "*\|some id"}` | See Collection responses | `{"userId": "user_id", “bearerToken”: "token"}` | Create a new user and assign a bearer token and user-id, setup internal management of the user-id that does not require saving the bearer token and attached the named `roleSet` for the `resource-id` to the new user |
+| POST | `/users/user-id/permissions` | `{"userId": "user-id", "roleSetId": "client\|admin","resourceId": "*\|some id"}` | See Collection responses |  | Grant named `roleSet` for the `resource-id` to the user with `user-id` |
 | DELETE | `/users/user-id/permissions` | `{"roleSetId": "client\|admin", "resourceId": "*\|<some-user-id>"}` | See Item responses | `{"bearerToken": "token"}` | Removes the user and all access rules from the system |
 
 # Auth-Server REST API (Private)
