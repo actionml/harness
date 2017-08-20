@@ -7,9 +7,12 @@ import org.mongodb.scala.connection.ClusterSettings
 import org.mongodb.scala._
 import org.mongodb.scala.{MongoClient, MongoDatabase, ServerAddress}
 
+import scala.reflect.ClassTag
+
 trait MongoSupport {
-  def mongoClient: MongoClient = MongoSupport.mongoClient
-  def mongoDb: MongoDatabase = MongoSupport.mongoDatabase
+  def collection[T](name: String)(implicit ct: ClassTag[T]) = {
+    MongoSupport.mongoDatabase.getCollection[T](name)
+  }
 }
 
 object MongoSupport {
@@ -17,17 +20,17 @@ object MongoSupport {
 
   import scala.collection.JavaConversions._
   private val settings = MongoClientSettings.builder
-    .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress(config.uri))).build)
+    .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress("localhost"))).build)
     .codecRegistry(codecRegistry)
     .build
-  private lazy val mongoClient = MongoClient(config.uri)
-  private lazy val mongoDatabase = mongoClient.getDatabase(config.dbName).withCodecRegistry(codecRegistry)
+  private lazy val mongoClient = MongoClient(settings)
+  private lazy val mongoDatabase = mongoClient.getDatabase(config.dbName)
 
   import org.mongodb.scala.bson.codecs.Macros._
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
   import org.bson.codecs.configuration.CodecRegistries.{fromRegistries, fromProviders}
   private lazy val codecRegistry = fromRegistries(
-    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission]),
-    DEFAULT_CODEC_REGISTRY
+    DEFAULT_CODEC_REGISTRY,
+    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission])
   )
 }

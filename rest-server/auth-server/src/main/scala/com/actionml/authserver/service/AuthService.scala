@@ -14,8 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait AuthService {
   def authenticateClient(clientId: String, password: String): Future[Boolean]
-  def authenticateUser(username: String, password: String): Future[Boolean]
-  def createAccessToken(username: String, clientId: String): Future[AccessTokenResponse]
+  def createAccessToken(username: String, password: String, clientId: String): Future[AccessTokenResponse]
   def authorize(accessToken: String, roleId: RoleId, resourceId: ResourceId): Future[Boolean]
 }
 
@@ -41,17 +40,18 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Akka
 
   override def authenticateClient(clientId: String, password: String): Future[Boolean] = {
     clientsDao.find(clientId).collect {
-      case Client(id, secretHash) if id == clientId => hash(password) == secretHash
+      case Client(id, secretHash) if id == clientId => password == secretHash
       case _ => false
     }
   }
+
+  override def createAccessToken(username: String, password: String, clientId: String): Future[AccessTokenResponse] = {
+    ???
+  }
+
 
   private def hash(x: String): String = {
     val md = MessageDigest.getInstance("SHA")
     new String(md.digest(x.getBytes()))
   }
-
-  override def authenticateUser(username: String, password: String): Future[Boolean] = Future.successful(true)
-
-  override def createAccessToken(username: String, clientId: String): Future[AccessTokenResponse] = ???
 }

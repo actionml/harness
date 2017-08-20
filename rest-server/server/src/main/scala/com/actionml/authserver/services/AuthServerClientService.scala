@@ -20,7 +20,7 @@ package com.actionml.authserver.services
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.Uri.Query
+import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import com.actionml.authserver._
@@ -42,7 +42,8 @@ class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientS
 
   def proxyAccessTokenRequest(request: HttpRequest)
                              (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse] = {
-    Http().singleRequest(mkAccessTokenRequest(request))
+    val proxyRequest = mkAccessTokenRequest(request)
+    Http().singleRequest(proxyRequest)
       .recoverWith {
         case ex =>
           log.error(ex, "Proxy authorization call failed")
@@ -67,7 +68,7 @@ class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientS
 
   private def mkAccessTokenRequest(req: HttpRequest) =
     HttpRequest(method = req.method,
-      uri = authServerRoot.withFragment("token"),
+      uri = authServerRoot.copy(path = authServerRoot.path + "/token"),
       entity = req.entity,
       headers = req.headers
     )

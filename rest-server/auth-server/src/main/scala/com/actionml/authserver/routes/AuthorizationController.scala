@@ -1,9 +1,11 @@
 package com.actionml.authserver.routes
 
+import akka.http.scaladsl.model.FormData
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenges}
 import akka.http.scaladsl.server.AuthenticationFailedRejection.{CredentialsMissing, CredentialsRejected}
 import akka.http.scaladsl.server._
-import com.actionml.authserver.ClientId
+import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.stream.Materializer
 import com.actionml.authserver.service.AuthService
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
 import com.actionml.oauth2.entities.{AccessTokenResponse, PasswordAccessTokenRequest}
@@ -26,14 +28,15 @@ class AuthorizationController(implicit injector: Injector) extends Directives wi
   }
 
 
-  private def authenticateClient: Directive1[ClientId] = extractCredentials.flatMap {
+  private def authenticateClient: Directive1[String] = extractCredentials.flatMap {
     case Some(BasicHttpCredentials(clientId, password)) =>
       onSuccess(authService.authenticateClient(clientId, password).map(_ => clientId))
     case None =>
-      reject(new AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.basic(Realms.Harness))): Directive1[ClientId]
+      reject(new AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.basic(Realms.Harness))): Directive1[String]
   }.recover(_ => reject(new AuthenticationFailedRejection(CredentialsRejected, HttpChallenges.basic(Realms.Harness))))
 
-  private def extractTokenRequest: Directive1[PasswordAccessTokenRequest] = formFieldMap.flatMap { params =>
+  private def extractTokenRequest: Directive1[PasswordAccessTokenRequest] = formFieldSeq.flatMap { l => {
+    val params = l.toMap
     (for {
       grantType <- params.get("grant_type") if grantType == "password"
       username <- params.get("username")
@@ -41,13 +44,10 @@ class AuthorizationController(implicit injector: Injector) extends Directives wi
     } yield PasswordAccessTokenRequest(username, password, scope = None)).fold(
       reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness))): Directive1[PasswordAccessTokenRequest]
     )(provide)
-  }
+  }}
 
-  private def createToken(request: PasswordAccessTokenRequest, clientId: ClientId): Future[AccessTokenResponse] = {
-    import request.{password, username}
-    authService.authenticateUser(username, password).flatMap { _ =>
-      authService.createAccessToken(username, clientId)
-    }
+  private def createToken(request: PasswordAccessTokenRequest, clientId: String): Future[AccessTokenResponse] = {
+    authService.createAccessToken(request.username, request.password, clientId)
   }
 
   private def checkAuthorization: AuthorizationCheckRequest => Route = authCheckRequest => {

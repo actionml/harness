@@ -17,22 +17,21 @@
 
 package com.actionml.authserver.dal.mongo
 
-import com.actionml.authserver.ClientId
 import com.actionml.authserver.dal.ClientsDao
 import com.actionml.authserver.model.Client
-import com.mongodb.client.model.Filters
 import org.mongodb.scala._
+import org.mongodb.scala.model.Filters._
 import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientsDaoImpl(implicit inj: Injector) extends ClientsDao with MongoSupport with Injectable {
-  override def find(id: ClientId): Future[Client] = {
-    clients.find(Filters.eq("id" -> id))
+  override def find(id: String): Future[Client] = {
+    clients.find(equal("id", id))
       .first
-      .head
+      .toFuture
   }
 
   implicit private val ec = inject[ExecutionContext]
-  private def clients = mongoDb.getCollection[Client]("clients")
+  private def clients = collection[Client]("clients")
 }

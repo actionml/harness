@@ -17,4 +17,4 @@
 
 package com.actionml.authserver.model
 
-case class Client(id: String, secretHash: String)
+case class Client(id: String, password: String)
