@@ -18,14 +18,15 @@
 package com.actionml.oauth2.entities
 
 import com.actionml.oauth2.entities.AccessTokenErrorResponse.ErrorCodes.ErrorCode
+import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes
 import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes.TokenType
 
 
 case class AccessTokenResponse(accessToken: String,
-                               tokenType: TokenType,
-                               expiresIn: Option[Long],
-                               refreshToken: Option[String],
-                               scope: Option[String])
+                               tokenType: TokenType = TokenTypes.bearer,
+                               expiresIn: Option[Long] = None,
+                               refreshToken: Option[String] = None,
+                               scope: Option[String] = None)
 
 object AccessTokenResponse {
   object TokenTypes extends Enumeration {

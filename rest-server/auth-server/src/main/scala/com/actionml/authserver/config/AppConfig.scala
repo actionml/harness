@@ -24,7 +24,11 @@ object AppConfig {
   )
 }
 
-case class HttpServerConfig(host: String, port: Int, ssl: Boolean, mongoDb: MongoDbConfig)
+case class HttpServerConfig(host: String,
+                            port: Int = 9099,
+                            ssl: Boolean,
+                            mongoDb: MongoDbConfig,
+                            accessTokenTtl: Long = 2 * 60 * 60 * 1000)
 
 case class ActorSystemConfig(name: String)
 

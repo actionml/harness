@@ -46,7 +46,12 @@ lazy val core = (project in file("core")).
 lazy val common = (project in file("common")).
   settings(
     commonSettings,
-    libraryDependencies ++= Seq()
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "de.heikoseeberger" %% "akka-http-circe" % "1.16.0"
+    )
   )
 
 lazy val templates = (project in file("templates")).dependsOn(core).
@@ -91,11 +96,6 @@ lazy val server = (project in file("server")).dependsOn(core, common, templates,
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
-    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
-
-    "io.circe" %% "circe-core" % circeVersion,
-    "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
 
     "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )
@@ -110,11 +110,6 @@ lazy val authServer = (project in file("auth-server")).dependsOn(common).setting
 
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-
-    "io.circe" %% "circe-core" % circeVersion,
-    "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
-    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
     "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
     "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
