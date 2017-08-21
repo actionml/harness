@@ -2,9 +2,9 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import com.actionml.authserver.AuthServer
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, PermissionsDao}
-import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, ClientsDaoImpl, PermissionsDaoImpl}
-import com.actionml.authserver.routes.AuthorizationController
+import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, UsersDao}
+import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, ClientsDaoImpl, UsersDaoImpl}
+import com.actionml.authserver.routes.OAuth2Router
 import com.actionml.authserver.service.{AuthService, AuthServiceImpl}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -34,12 +34,12 @@ class BaseModule extends Module {
 
   binding identifiedBy 'log to ((logSource: Class[_]) ⇒ Logging(inject[ActorSystem], logSource))
 
-  bind[PermissionsDao] to new PermissionsDaoImpl
+  bind[UsersDao] to new UsersDaoImpl
   bind[AccessTokensDao] to new AccessTokensDaoImpl
   bind[ClientsDao] to new ClientsDaoImpl
   bind[AuthService] to new AuthServiceImpl
 
-  bind[AuthorizationController] to new AuthorizationController
+  bind[OAuth2Router] to new OAuth2Router
 
   bind[AuthServer] to new AuthServer
 }

@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.routes.AuthorizationController
+import com.actionml.authserver.routes.OAuth2Router
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -28,7 +28,7 @@ class AuthServer(implicit inj: Injector) extends AkkaInjectable {
   implicit private val materializer: ActorMaterializer = ActorMaterializer()
 
   private val config = inject[AppConfig].authServer
-  private val securityController = inject[AuthorizationController]
+  private val securityController = inject[OAuth2Router]
   private val securityRoutes = securityController.route
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {

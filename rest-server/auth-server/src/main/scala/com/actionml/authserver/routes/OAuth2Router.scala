@@ -3,30 +3,39 @@ package com.actionml.authserver.routes
 import akka.http.scaladsl.model.headers.{BasicHttpCredentials, HttpChallenges}
 import akka.http.scaladsl.server.AuthenticationFailedRejection.{CredentialsMissing, CredentialsRejected}
 import akka.http.scaladsl.server._
+import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
+import com.actionml.authserver.model.Permission
 import com.actionml.authserver.service.AuthService
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
 import com.actionml.circe.CirceSupport
 import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes
 import com.actionml.oauth2.entities.{AccessTokenResponse, PasswordAccessTokenRequest}
-import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
+import io.circe.{Encoder, Json}
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class AuthorizationController(implicit injector: Injector) extends Directives with AkkaInjectable with CirceSupport {
+class OAuth2Router(implicit injector: Injector) extends Directives with AkkaInjectable with CirceSupport {
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
 
-  def route: Route = (post & pathPrefix("auth") & authenticateClient) { clientId =>
-    (path("token") & extractTokenRequest) { request =>
-      onSuccess(createToken(request, clientId))(token => complete(token))
-    } ~
-    (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
+  def route: Route = handleExceptions(oAuthExceptionHandler) {
+    (post & pathPrefix("auth") & authenticateClient) { clientId =>
+      (path("token") & extractTokenRequest) { request =>
+        onSuccess(createToken(request, clientId))(token => complete(token))
+      } ~
+      (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
+    }
   }
 
+
+  private def oAuthExceptionHandler = ExceptionHandler {
+    case AccessDeniedException => reject(AuthorizationFailedRejection)
+    case TokenExpiredException => complete(Json.obj("error" -> Json.fromString("token expired")))
+  }
 
   private def authenticateClient: Directive1[String] = extractCredentials.flatMap {
     case Some(BasicHttpCredentials(clientId, password)) =>
@@ -46,7 +55,8 @@ class AuthorizationController(implicit injector: Injector) extends Directives wi
   }
 
   private def createToken(request: PasswordAccessTokenRequest, clientId: String): Future[AccessTokenResponse] = {
-    authService.createAccessToken(request.username, request.password, clientId)
+    val permissions = Seq(Permission(clientId, Map.empty))
+    authService.createAccessToken(request.username, request.password, permissions)
   }
 
   private def checkAuthorization: AuthorizationCheckRequest => Route = authCheckRequest => {
