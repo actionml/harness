@@ -2,6 +2,7 @@ package com.actionml.authserver.dal.mongo
 
 import com.actionml.authserver.dal.AccessTokensDao
 import com.actionml.authserver.model.AccessToken
+import org.bson.conversions.Bson
 import org.mongodb.scala.model.Filters._
 import scaldi.{Injectable, Injector}
 
@@ -11,9 +12,9 @@ class AccessTokensDaoImpl(implicit inj: Injector) extends AccessTokensDao with M
   private implicit val executionContext = inject[ExecutionContext]
   private val accessTokens = collection[AccessToken]("accessTokens")
 
-  override def findByAccessToken(token: String): Future[Option[AccessToken]] = {
+  override def findByAccessToken(tokenString: String): Future[Option[AccessToken]] = {
     accessTokens
-      .find(equal("token", token))
+      .find(byToken(tokenString))
       .toFuture
       .map(_.headOption)
   }
@@ -21,4 +22,12 @@ class AccessTokensDaoImpl(implicit inj: Injector) extends AccessTokensDao with M
   override def store(accessToken: AccessToken): Future[_] = {
     accessTokens.insertOne(accessToken).toFuture
   }
+
+  override def remove(tokenString: String): Future[_] = {
+    accessTokens.deleteOne(byToken(tokenString))
+      .toFuture
+  }
+
+
+  private def byToken: String => Bson = s => equal("token", s)
 }

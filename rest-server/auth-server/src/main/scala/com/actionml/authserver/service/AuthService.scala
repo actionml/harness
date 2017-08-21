@@ -31,13 +31,13 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Akka
 
 
   def authorize(accessToken: String, roleId: String, resourceId: String): Future[Boolean] = {
-    accessTokensDao.findByAccessToken(accessToken)
-      .collect {
-        case Some(AccessToken(_, _, permissions, createdAt)) =>
-          if (createdAt.isBefore(LocalDateTime.now)) throw TokenExpiredException
-          else permissions.exists(_.hasAccess(roleId, resourceId))
-        case _ => false
-      }
+    for {
+      tokenOpt <- accessTokensDao.findByAccessToken(accessToken)
+      token = tokenOpt.getOrElse(throw AccessDeniedException)
+      _ <- if (token.createdAt.plusSeconds(config.authServer.accessTokenTtl).isBefore(LocalDateTime.now)) {
+        accessTokensDao.remove(accessToken).andThen(throw TokenExpiredException)
+      } else Future.successful(())
+    } yield token.permissions.exists(_.hasAccess(roleId, resourceId))
   }
 
   override def authenticateClient(clientId: String, password: String): Future[Boolean] = {
