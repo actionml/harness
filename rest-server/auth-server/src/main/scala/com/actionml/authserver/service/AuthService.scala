@@ -1,7 +1,9 @@
 package com.actionml.authserver.service
 
+import java.math.BigInteger
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.concurrent.ThreadLocalRandom
 
 import com.actionml.authserver.config.AppConfig
@@ -34,7 +36,7 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Akka
     for {
       tokenOpt <- accessTokensDao.findByAccessToken(accessToken)
       token = tokenOpt.getOrElse(throw AccessDeniedException)
-      _ <- if (token.createdAt.plusSeconds(config.authServer.accessTokenTtl).isBefore(LocalDateTime.now)) {
+      _ <- if (token.createdAt.plusSeconds(config.authServer.accessTokenTtl).isBefore(Instant.now)) {
         accessTokensDao.remove(accessToken).andThen(throw TokenExpiredException)
       } else Future.successful(())
     } yield token.permissions.exists(_.hasAccess(roleId, resourceId))
@@ -52,13 +54,14 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Akka
     for {
       userOpt <- usersDao.find(username, hash(password))
       user = userOpt.getOrElse(throw AccessDeniedException)
-      _ <- accessTokensDao.store(AccessToken(token, user.id, permissions, LocalDateTime.now))
+      _ <- accessTokensDao.store(AccessToken(token, user.id, permissions, Instant.now))
     } yield AccessTokenResponse(token, expiresIn = Some(config.authServer.accessTokenTtl))
   }
 
 
-  private val sha = MessageDigest.getInstance("SHA")
+  private val sha1 = MessageDigest.getInstance("SHA-1")
   private def hash(x: String): String = {
-    new String(sha.digest(x.getBytes()))
+    val digest = sha1.digest(x.getBytes(StandardCharsets.UTF_8))
+    String.format("%064x", new BigInteger(1, digest))
   }
 }

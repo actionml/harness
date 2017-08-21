@@ -1,8 +1,13 @@
 package com.actionml.authserver.dal.mongo
 
+import java.time.{Instant, LocalDateTime, ZoneId}
+
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.model.{Client, Permission, UserAccount}
+import com.actionml.authserver.model.{AccessToken, Client, Permission, UserAccount}
 import com.mongodb.async.client.MongoClientSettings
+import org.bson.{BsonReader, BsonWriter}
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
+import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.connection.ClusterSettings
 import org.mongodb.scala._
 import org.mongodb.scala.{MongoClient, MongoDatabase, ServerAddress}
@@ -31,6 +36,13 @@ object MongoSupport {
   import org.bson.codecs.configuration.CodecRegistries.{fromRegistries, fromProviders}
   private lazy val codecRegistry = fromRegistries(
     DEFAULT_CODEC_REGISTRY,
-    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission])
+    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission], classOf[AccessToken]),
+    CodecRegistries.fromCodecs(new InstantCodec)
   )
+
+  class InstantCodec extends Codec[Instant] {
+    override def decode(reader: BsonReader, dc: DecoderContext) = Instant.ofEpochMilli(reader.readDateTime)
+    override def encode(writer: BsonWriter, value: Instant, ec: EncoderContext) = writer.writeDateTime(value.toEpochMilli)
+    override def getEncoderClass = classOf[Instant]
+  }
 }
