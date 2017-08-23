@@ -2,10 +2,10 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import com.actionml.authserver.AuthServer
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, UsersDao}
-import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, ClientsDaoImpl, UsersDaoImpl}
-import com.actionml.authserver.routes.OAuth2Router
-import com.actionml.authserver.service.{AuthService, AuthServiceImpl}
+import com.actionml.authserver.dal.mongo.{AccessTokensDaoImpl, ClientsDaoImpl, RoleSetsDaoImpl, UsersDaoImpl}
+import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, RoleSetsDao, UsersDao}
+import com.actionml.authserver.routes.{OAuth2Router, UsersRouter}
+import com.actionml.authserver.service.{AuthService, AuthServiceImpl, UsersService, UsersServiceImpl}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -37,9 +37,13 @@ class BaseModule extends Module {
   bind[UsersDao] to new UsersDaoImpl
   bind[AccessTokensDao] to new AccessTokensDaoImpl
   bind[ClientsDao] to new ClientsDaoImpl
+  bind[RoleSetsDao] to new RoleSetsDaoImpl
+
   bind[AuthService] to new AuthServiceImpl
+  bind[UsersService] to new UsersServiceImpl
 
   bind[OAuth2Router] to new OAuth2Router
+  bind[UsersRouter] to new UsersRouter
 
   bind[AuthServer] to new AuthServer
 }

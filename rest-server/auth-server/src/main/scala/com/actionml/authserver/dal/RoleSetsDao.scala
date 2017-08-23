@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver.model
+package com.actionml.authserver.dal
 
-case class UserAccount(id: String, secretHash: String, clientId: String, permissions: List[Permission])
+import com.actionml.authserver.model.RoleSet
+
+import scala.concurrent.Future
+
+trait RoleSetsDao {
+  def find(id: String): Future[Option[RoleSet]]
+}

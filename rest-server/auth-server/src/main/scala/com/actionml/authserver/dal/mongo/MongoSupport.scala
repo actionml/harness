@@ -1,16 +1,15 @@
 package com.actionml.authserver.dal.mongo
 
-import java.time.{Instant, LocalDateTime, ZoneId}
+import java.time.Instant
 
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.model.{AccessToken, Client, Permission, UserAccount}
+import com.actionml.authserver.model._
 import com.mongodb.async.client.MongoClientSettings
-import org.bson.{BsonReader, BsonWriter}
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.codecs.configuration.CodecRegistries
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
+import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.connection.ClusterSettings
-import org.mongodb.scala._
-import org.mongodb.scala.{MongoClient, MongoDatabase, ServerAddress}
+import org.mongodb.scala.{MongoClient, ServerAddress}
 
 import scala.reflect.ClassTag
 
@@ -31,12 +30,12 @@ object MongoSupport {
   private lazy val mongoClient = MongoClient(settings)
   private lazy val mongoDatabase = mongoClient.getDatabase(config.dbName)
 
-  import org.mongodb.scala.bson.codecs.Macros._
+  import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-  import org.bson.codecs.configuration.CodecRegistries.{fromRegistries, fromProviders}
+  import org.mongodb.scala.bson.codecs.Macros._
   private lazy val codecRegistry = fromRegistries(
     DEFAULT_CODEC_REGISTRY,
-    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission], classOf[AccessToken]),
+    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission], classOf[AccessToken], classOf[RoleSet]),
     CodecRegistries.fromCodecs(new InstantCodec)
   )
 

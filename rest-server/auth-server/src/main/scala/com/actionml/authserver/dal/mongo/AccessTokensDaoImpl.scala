@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class AccessTokensDaoImpl(implicit inj: Injector) extends AccessTokensDao with MongoSupport with Injectable {
   private implicit val executionContext = inject[ExecutionContext]
-  private val accessTokens = collection[AccessToken]("accessTokens")
+  private lazy val accessTokens = collection[AccessToken]("accessTokens")
 
   override def findByAccessToken(tokenString: String): Future[Option[AccessToken]] = {
     accessTokens

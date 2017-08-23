@@ -15,6 +15,22 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver.model
+package com.actionml.authserver.dal.mongo
 
-case class UserAccount(id: String, secretHash: String, clientId: String, permissions: List[Permission])
+import com.actionml.authserver.dal.RoleSetsDao
+import com.actionml.authserver.model.RoleSet
+import scaldi.{Injectable, Injector}
+import org.mongodb.scala.model.Filters._
+
+import scala.concurrent.{ExecutionContext, Future}
+
+class RoleSetsDaoImpl(implicit inj: Injector) extends RoleSetsDao with Injectable with MongoSupport {
+  private implicit val _ = inject[ExecutionContext]
+  private lazy val roleSets = collection[RoleSet]("roleSets")
+
+  override def find(id: String): Future[Option[RoleSet]] = {
+    roleSets.find(equal("id", id))
+      .toFuture()
+      .map(_.headOption)
+  }
+}

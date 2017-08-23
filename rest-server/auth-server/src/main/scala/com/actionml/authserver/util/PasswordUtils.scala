@@ -15,6 +15,17 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver.model
+package com.actionml.authserver.util
 
-case class UserAccount(id: String, secretHash: String, clientId: String, permissions: List[Permission])
+import java.math.BigInteger
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+
+trait PasswordUtils {
+  private val sha1 = MessageDigest.getInstance("SHA-1")
+
+  def hash(x: String): String = {
+    val digest = sha1.digest(x.getBytes(StandardCharsets.UTF_8))
+    String.format("%064x", new BigInteger(1, digest))
+  }
+}
