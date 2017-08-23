@@ -43,26 +43,21 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 17:36
   */
-class EnginesRouter(implicit inj: Injector)
-  extends BaseRouter
-    with AuthDirectives
-    with SecurityDirectives
-    with ConfigurationComponent {
-
+class EnginesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectives {
   private val engineService = inject[ActorRef]('EngineService)
   override val authServerClientService = inject[AuthServerClientService]
   override val config = inject[AppConfig]
 
-  override val route: Route = (rejectEmptyResponse & accessToken) { implicit accessToken =>
+  override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     (pathPrefix("engines") & extractLog) { implicit log =>
-      (pathEndOrSingleSlash & authorizeUser(engine.modify, ResourceId.*)) {
+      (pathEndOrSingleSlash & hasAccess(engine.modify, ResourceId.*)) {
         createEngine
       } ~
       path(Segment) { engineId ⇒
-        authorizeUser(engine.read, engineId).apply {
+        hasAccess(engine.read, engineId).apply {
           getEngine(engineId)
         } ~
-        authorizeUser(engine.modify, engineId).apply {
+        hasAccess(engine.modify, engineId).apply {
           updateEngine(engineId) ~
           deleteEngine(engineId)
         }

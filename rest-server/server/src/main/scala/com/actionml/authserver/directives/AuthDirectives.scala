@@ -22,21 +22,18 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.server.directives.{BasicDirectives, Credentials, RouteDirectives, SecurityDirectives}
 import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive0, Directive1}
 import akka.stream.ActorMaterializer
-import com.actionml.router.config.ConfigurationComponent
-import com.actionml.authserver.Realms
 import com.actionml.authserver.services.AuthServerClientService
-import com.actionml.authserver.{AccessToken, ResourceId, RoleId}
+import com.actionml.authserver.{AccessToken, Realms, ResourceId, RoleId}
+import com.actionml.router.config.AppConfig
 
 import scala.concurrent.ExecutionContext
 
 
-trait AuthDirectives extends RouteDirectives with BasicDirectives {
-  this: SecurityDirectives
-    with ConfigurationComponent =>
-
+trait AuthDirectives extends RouteDirectives with BasicDirectives with SecurityDirectives {
   val authServerClientService: AuthServerClientService
+  val config: AppConfig
 
-  def accessToken: Directive1[Option[AccessToken]] = {
+  def extractAccessToken: Directive1[Option[AccessToken]] = {
     if (config.auth.enabled) {
       authenticateOAuth2PF(Realms.Harness, {
         case Credentials.Provided(secret) => Some(secret)
@@ -44,8 +41,8 @@ trait AuthDirectives extends RouteDirectives with BasicDirectives {
     } else provide(None)
   }
 
-  def authorizeUser(role: RoleId, resourceId: ResourceId)
-                   (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, accessTokenOpt: Option[AccessToken], log: LoggingAdapter): Directive0 = {
+  def hasAccess(role: RoleId, resourceId: ResourceId)
+               (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, accessTokenOpt: Option[AccessToken], log: LoggingAdapter): Directive0 = {
     if (config.auth.enabled) {
       accessTokenOpt.fold[Directive0] {
         reject(AuthorizationFailedRejection)
