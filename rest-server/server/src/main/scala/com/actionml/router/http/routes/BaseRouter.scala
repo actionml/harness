@@ -3,6 +3,7 @@ package com.actionml.router.http.routes
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.{Directive, Directives, Route}
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -26,6 +27,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Fa
 
   implicit protected val actorSystem: ActorSystem = inject[ActorSystem]
   implicit protected val executor: ExecutionContext = actorSystem.dispatcher
+  implicit protected val materializer: ActorMaterializer = ActorMaterializer()
   implicit val timeout = Timeout(5 seconds)
   val route: Route
   protected val putOrPost: Directive[Unit] = post | put

@@ -7,7 +7,7 @@ version := "0.1.0-SNAPSHOT"
 scalaVersion := "2.11.8"
 
 lazy val akkaVersion = "2.4.18"
-lazy val akkaHttpVersion = "10.0.7"
+lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 
@@ -49,6 +49,17 @@ lazy val core = (project in file("core")).
     )
   )
 
+lazy val common = (project in file("common")).
+  settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "de.heikoseeberger" %% "akka-http-circe" % "1.16.0"
+    )
+  )
+
 lazy val templates = (project in file("templates")).dependsOn(core).
   settings(
     commonSettings,
@@ -85,18 +96,36 @@ lazy val drivers = (project in file("drivers")).dependsOn(core, templates, admin
   )
 )
 
-lazy val server = (project in file("server")).dependsOn(core, templates, admin).settings(
+lazy val server = (project in file("server")).dependsOn(core, common, templates, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
-    "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
-
-    "io.circe" %% "circe-core" % circeVersion,
-    "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
 
     "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, templates, admin)
+
+lazy val authServer = (project in file("auth-server")).dependsOn(common).settings(
+  commonSettings,
+  libraryDependencies ++= Seq(
+    "ch.qos.logback" % "logback-classic" % "1.1.8",
+    "org.slf4j" % "log4j-over-slf4j" % "1.7.22",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+
+    "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+    "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+
+    "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
+    "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
+    "org.mongodb" % "bson" % "3.4.2",
+    "org.mongodb" % "mongodb-driver-core" % "3.4.2",
+    "org.mongodb" % "mongodb-driver-async" % "3.4.2",
+
+    "com.typesafe" % "config" % "1.3.1",
+    "com.iheart" %% "ficus" % "1.4.0",
+
+    "org.scaldi" %% "scaldi-akka" % "0.5.8"
+  )
+)
