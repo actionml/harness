@@ -40,7 +40,7 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthDirective
   val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     pathPrefix("engines" / Segment) { engineId =>
       (pathPrefix("events") & extractLog) { implicit log =>
-        (pathEndOrSingleSlash & hasAccess(event.modify, ResourceId.*)) {
+        (pathEndOrSingleSlash & hasAccess(event.create, ResourceId.*)) {
           createEvent(engineId, log)
         } ~
         path(Segment) { eventId ⇒

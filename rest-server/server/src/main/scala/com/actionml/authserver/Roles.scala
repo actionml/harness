@@ -20,12 +20,20 @@ package com.actionml.authserver
 object Roles {
 
   object engine {
+    val create = "engine_create"
     val modify = "engine_modify"
     val read = "engine_read"
   }
 
   object event {
+    val create = "event_create"
     val modify = "event_modify"
     val read = "event_read"
+  }
+
+  object query {
+    val create = "query_create"
+    val modify = "query_modify"
+    val read = "query_read"
   }
 }
