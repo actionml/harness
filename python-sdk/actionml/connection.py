@@ -35,7 +35,7 @@ MAX_RETRY = 1  # 0 means no retry
 # logger
 logger = None
 DEBUG_LOG = False
-AUTH_ENABLED = True
+AUTH_ENABLED = False
 
 
 def enable_log(filename=None):
