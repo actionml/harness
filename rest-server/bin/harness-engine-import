@@ -2,27 +2,32 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
+# harness import resource-id file-or-dir-name
+#               ^ shifted to
+
 while [ -n "$1" ]; do
     case "$1" in
-        -i) FILENAME=$2
-            echo "Filename: ${FILENAME}"
-            shift ;;
-        *) RESOURCE_ID=$1 ;;
+        *) RESOURCE_ID=$1
+            FILENAME=$2
+            #echo "Filename: ${FILENAME}"
+            ;;
     esac
     shift
+    shift # no more CLI should be in args
 done
 
 
 if [ -z "$RESOURCE_ID" ]; then
     echo -e "${RED}Engine resource id not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness import <some-resource-id> [-i <some-directory> | -i <some-file>]${NC}"
+    echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
+    echo "The engine-id is missing."
     exit 1
 fi
 
 if [ ! -f ${FILENAME} ]; then
     echo -e "${RED}Engine events JSON file [${FILENAME}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness import <some-resource-id> [-i <some-directory> | -i <some-file>]${NC}"
-    echo -e "Verify that the correct file or directory path is specified."
+    echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
+    echo -e "Verify that the correct directory or file path is specified."
     exit 1
 fi
 

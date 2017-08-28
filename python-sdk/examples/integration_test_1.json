@@ -1,0 +1,17 @@
+{
+  "engineId": "integration_test_1",
+  "engineFactory": "com.actionml.templates.cb.CBEngine",
+  "mirrorType": "localfs",
+  "comment": "This should be a location on your system,",
+  "mirrorContainer": "/Users/pat/big-data/harness/mirrors/",
+  "algorithm":{
+    "maxIter": 100,
+    "regParam": 0.0,
+    "stepSize": 0.1,
+    "bitPrecision": 24,
+    "comment": "modelContainer should be a full directory path on your local fs",
+    "modelContainer": "/Users/pat/big-data/harness/models/",
+    "comment": "namespace is being deprecated and should not be used",
+    "maxClasses": 3
+  }
+}

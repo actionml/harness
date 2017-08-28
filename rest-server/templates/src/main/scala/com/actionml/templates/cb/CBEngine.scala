@@ -17,6 +17,7 @@
 
 package com.actionml.templates.cb
 
+import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
@@ -70,6 +71,14 @@ class CBEngine() extends Engine() with JsonParser {
   override def stop(): Unit = {
     logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
     algo.stop() // Todo: should have a timeout and do something on timeout here
+  }
+
+  override def status(): Validated[ValidateError, String] = {
+    logger.trace(s"Status of base Engine with engineId:$engineId")
+    Valid(CBStatus(
+      engineParams = this.params,
+      algorithmParams = algo.params,
+      activeGroups = algo.trainers.size).toJson)
   }
 
   override def destroy(): Unit = {
@@ -127,21 +136,21 @@ class CBEngine() extends Engine() with JsonParser {
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
         val result = algo.predict(query)
-        Valid(result.toJson())
+        Valid(result.toJson)
       } else {
         Invalid(WrongParams(s"Query for non-existent group: $json"))
       }
     }
   }
 
-  override def status(): String = {
+/*  override def status(): String = {
     s"""
       |    Engine: ${this.getClass.getName}
       |    Resource ID: $engineId
       |    Number of active groups: ${algo.trainers.size}
     """.stripMargin
   }
-
+*/
 }
 
 /*
@@ -168,10 +177,31 @@ case class CBQueryResult(
     groupId: String = "")
   extends QueryResult {
 
-  def toJson() = {
-  s"""
+  def toJson: String = {
+    s"""
      |"variant": $variant,
      |"groupId": $groupId
-   """.stripMargin
+    """.stripMargin
+  }
+}
+
+case class CBStatus(
+    description: String = "Contextual Bandit Algorithm",
+    engineType: String = "Backed by the Vowpal Wabbit compute engine.",
+    engineParams: RequiredEngineParams,
+    algorithmParams: AlgorithmParams,
+    activeGroups: Int)
+  extends Status {
+
+  def toJson: String = {
+    s"""
+      |{
+      |  "description": $description,
+      |  "engineType": $engineType,
+      |  "engineParams": $engineParams,
+      |  "algorithmParams": $algorithmParams,
+      |  "activeGroups": $activeGroups
+      |}
+    """.stripMargin
   }
 }

@@ -171,8 +171,8 @@ class BaseClient(object):
 
 class EventClient(BaseClient):
     """
-    Client for importing data into ActionML PIO Kappa Server.
-    :param url: the url of ActionML PIO Kappa Server.
+    Client for importing data into ActionML Harness Server.
+    :param url: the url of ActionML Harness Server.
     :param threads: number of threads to handle ActionML API requests.
           Must be >= 1.
     :param qsize: the max size of the request queue (optional).
@@ -249,7 +249,7 @@ class EventClient(BaseClient):
 
     def async_get(self, event_id):
         """
-        Asynchronously get an event from PIO Kappa Server.
+        Asynchronously get an event from Harness Server.
         :param event_id: event id returned by the EventServer when creating the event.
         :returns: AsyncRequest object.
         """
@@ -259,11 +259,11 @@ class EventClient(BaseClient):
         return request
 
     def get(self, event_id):
-        """Synchronouly get an event from PIO Kappa Server."""
+        """Synchronouly get an event from Harness Server."""
         return self.async_get(event_id).get_response()
 
     def async_delete(self, event_id):
-        """Asynchronouly delete an event from PIO Kappa Server.
+        """Asynchronouly delete an event from Harness Server.
     :param event_id: event id returned by the EventServer when creating the
       event.
     :returns:
@@ -275,7 +275,7 @@ class EventClient(BaseClient):
         return request
 
     def delete(self, event_id):
-        """Synchronously delete an event from PIO Kappa Server."""
+        """Synchronously delete an event from Harness Server."""
         return self.async_delete(event_id).get_response()
 
 
@@ -286,11 +286,14 @@ class EngineClient(BaseClient):
 
     def async_get(self, engine_id):
         """
-        Asynchronously get an engine info from PIO Kappa Server.
+        Asynchronously get an engine info from Harness Server.
         :param engine_id:
         :returns: AsyncRequest object.
         """
-        request = AsyncRequest("GET", self._add_segment(self.path, engine_id))
+        if engine_id is None:
+            request = AsyncRequest("GET", self.path)
+        else:
+            request = AsyncRequest("GET", self._add_segment(engine_id))
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request

@@ -13,7 +13,7 @@ For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugg
 
 When using the source from GitHub follow these instructions to build and deploy.
 
-**Requirements:**
+**General Requirements:**
 
  - Scala 2.11, install using `apt-get`, `yum`, or `brew`
  - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to thee environment
@@ -23,6 +23,14 @@ When using the source from GitHub follow these instructions to build and deploy.
 # The Contextual Bandit
  
 Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
+
+ - For Ubuntu get VW dependencies:
+
+    ```
+    sudo apt-get install libboost-program-options-dev zlib1g-dev
+    sudo apt-get install clang
+    sudo apt-get install maven
+    ```
 
  - Get Vowpal Wabbit, the compute engine used for the Contextual Bandit Harness Template. This is a requirement for building Harness since this Template is used in integration tests and to run the Contextual bandit.
     

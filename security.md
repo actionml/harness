@@ -16,50 +16,16 @@ If an authenticated user has been granted access permission for resource, then t
 
 # OAuth2
 
-We use OAuth2 "bearer tokens" for Auth. Here is the flow between client and Harness server during Auth. 
+We use OAuth2 "bearer tokens" for Auth. The Bearer Token is used as credentials like a username+password. It is created by the Harness Server, using the Auth-server as a microservice, by an admin user then conveyed to the user of Harness. This allows separation of Engines in a multi-tenant manner with some Engines accessible to some Users and other Engines inaccessible to protect one User's data from another User accessing it.
 
-![](https://docs.google.com/drawings/d/1_uPiP5UGkphF62PsdIM0Zu8Ugbp4XAKnLYP5CyKrfLo/pub?w=1148&h=572) 
+Some of this data flow is done by humans (the offline part) and some by the SDK to Harness communication (the online part).  
 
- 1. Client sends authorization request to Harness REST server. It directs authorization request to Harness authorization server.
- 1. Harness authorization server authenticates REST server via its credentials, searches for authorization rules for that client and REST server and then
- 1. generates a resource and sends back to REST server access token for that client
- 1. client gets access token
- 1. and sends request for protected resource with that access token to Harness REST server
- 1. REST server checks access token via authorization server and
- 1. sends back protected resource to the client
-Authorization Rules
-Collection ‘users’ store information about end user’s credentials and roles.
- 1. Responce to REST API invocation
+Here is the OAuth2 Bearer Token Protocol mapped onto Harness, the microservice Auth-Server, and the humans involved. 
 
-```
-users: [ // Token holders
-  {
-    "secret": "bearer token",
-    "role": "human readable role id, for example engine.read, engine.modify, resource.read, resource.modify and so on",
-    "resourceId": "UUID of the resource, it can also be a wildcard *"
-  },
-  ...
-]
-```
+![](https://docs.google.com/drawings/d/e/2PACX-1vSu_7RpWjYZhhxPfZIvzLfMoCL0traBHs_ATWsEQXeGpYZE6taMMqYFfO-ahcyOQ52Me5zLrTt_tJPM/pub?w=1741&h=2415) 
 
-Auth-Server REST API
+# Users and Permissions
 
-    /POST /auth/api/v1/authenticate
-    Request body: {“token”: “string”}
-    Response: HTTP code 200 and body {“accessToken”:“string”, “ttl”:<optional long>, “refreshToken”:“optional string”} if authentication was successful; otherwise, HTTP code 401.
-    
-    /POST /auth/api/v1/authorize
-    Request body: {“accessToken”:“string”, “role”:”string”, “resourceId”:“string”}
-    Response: HTTP code 200 and body {“success”: “true”} if authorization succeed; otherwise, HTTP code 403.
-    
-Harness REST API for security management
+The see the REST API used to implement User management see the later portion if the [REST Spec](rest_spec.md)
 
-    /POST /auth/api/v1/user
-    Request body: {“roleSetId”: “client|admin”, “resourceId”: “*|some id”}
-    Response: HTTP status 200 and body {“bearerToken”: “token”}
-    
-    /DELETE /auth/api/v1/user
-    Request body: {“bearerToken”: “token”}
-    Response: HTTP status 200 and body {“success”: “true”}
-
-
+For the CLI that manages users see the [Commands Spec](commands.md)

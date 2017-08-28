@@ -19,13 +19,13 @@ done
 
 if [ -z "$ENGINE_CONFIG" ] && [ -z "$RESOURCE_ID" ]; then
     echo -e "${RED}Engine config file or resource id not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
     exit 1
 fi
 
 if [ ! -f ${ENGINE_CONFIG} ]; then
     echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
     echo -e "Verify that the correct path is specified."
     exit 1
 fi

@@ -41,7 +41,7 @@ abstract class Administrator extends LazyLogging {
     dataDelete: Boolean = false,
     force: Boolean = false,
     input: Option[String] = None): Validated[ValidateError, Boolean]
-  def list(resourceType: String): Validated[ValidateError, String]
+  def status(resourceId: Option[String] = None): Validated[ValidateError, String]
 
   // startup and shutdown
   def init(): Administrator = this

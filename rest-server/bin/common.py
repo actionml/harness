@@ -10,6 +10,7 @@ parser.add_argument("-c", "--config", type=str, default=None)
 parser.add_argument("--data-delete", "-d", dest='delete', default=False, action='store_true')
 parser.add_argument("--force", "-f", default=False, action='store_true')
 parser.add_argument("--input", "-i", type=str, default=None)
+parser.add_argument("--all-engines", "-a", default=False, action='store_true')
 args = parser.parse_args()
 
 
