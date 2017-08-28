@@ -34,7 +34,7 @@ case ${command} in
 
     stop) ${HARNESS_HOME}/bin/harness-stop ;;
 
-    status) ${HARNESS_HOME}/bin/harness-status ;;
+    status) ${HARNESS_HOME}/bin/harness-status $1 $2 ;;
 
     add) ${HARNESS_HOME}/bin/harness-engine-add $1 $2 ;;
 

@@ -51,6 +51,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectiv
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     (pathPrefix("engines") & extractLog) { implicit log =>
       (pathEndOrSingleSlash & hasAccess(engine.create, ResourceId.*)) {
+        getEngines ~
         createEngine
       } ~
       path(Segment) { engineId ⇒
@@ -71,6 +72,14 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectiv
       (engineService ? GetEngine(engineId)).mapTo[Response]
     }
   }
+
+  private def getEngines(implicit log: LoggingAdapter): Route = get {
+    log.info("Get engines information")
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? GetEngines()).mapTo[Response]
+    }
+  }
+
 
   private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)

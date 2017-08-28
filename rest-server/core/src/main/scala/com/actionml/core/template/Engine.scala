@@ -57,6 +57,15 @@ abstract class Engine extends LazyLogging with JsonParser {
   def destroy(): Unit
   def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
   def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
+  def status(): Validated[ValidateError, String] = {
+    logger.trace(s"Status of base Engine with engineId:$engineId")
+    Valid(
+      s"""
+         |{
+         |  "Message": "Status of base Engine with engineId:$engineId"
+         |}
+       """.stripMargin)
+  }
 
   def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] =
@@ -64,7 +73,6 @@ abstract class Engine extends LazyLogging with JsonParser {
   Valid(())
 
   def query(json: String): Validated[ValidateError, String]
-  def status(): String = "Does not support status message."
 }
 
 case class RequiredEngineParams(
@@ -76,3 +84,4 @@ case class RequiredEngineParams(
 trait EngineParams
 trait QueryResult
 trait Query
+trait Status

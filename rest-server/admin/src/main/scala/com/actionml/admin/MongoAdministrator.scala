@@ -111,8 +111,19 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  override def list(resourceType: String): Validated[ValidateError, String] = {
-    Valid("\n\n" + engines.mapValues(_.status()).toSeq.mkString("\n\n"))
+  override def status(resourceId: Option[String] = None): Validated[ValidateError, String] = {
+    if (resourceId.nonEmpty) {
+      if (engines.contains(resourceId.get)) {
+        logger.trace(s"Getting status for ${resourceId.get}")
+        Valid(engines(resourceId.get).status().toString)
+      } else {
+        logger.error(s"Non-existent engine-id: ${resourceId.get}")
+        Invalid(WrongParams(s"Non-existent engine-id: ${resourceId.get}"))
+      }
+    } else {
+      logger.trace("Getting status for all Engines")
+      Valid(engines.mapValues(_.status()).toSeq.mkString("\n"))
+    }
   }
 
   override def updateEngine(

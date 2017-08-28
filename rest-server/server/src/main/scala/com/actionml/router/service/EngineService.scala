@@ -41,12 +41,11 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
   override def receive: Receive = {
     case GetEngine(engineId) ⇒
       log.info("Get engine, {}", engineId)
-      // TODO: Not Implemented in engine
-      sender() ! Invalid(NotImplemented("Not Implemented in engine"))
+      sender() ! admin.status(Some(engineId)).map(_.asJson)
 
-    case GetEngines(resourceId) ⇒
-      log.info("Get all engines")
-      sender() ! admin.list(resourceId).map(_.asJson)
+    case GetEngines() ⇒
+      log.info("Get one or all engine status")
+      sender() ! admin.status().map(_.asJson)
 
     case CreateEngine(engineJson) ⇒
       log.info("Create new engine, {}", engineJson)
@@ -68,7 +67,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
 sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
-case class GetEngines(resourceId: String) extends EngineAction
+case class GetEngines() extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
 case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
 case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction

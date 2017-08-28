@@ -19,7 +19,7 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
   override val route: Route = rejectEmptyResponse {
     pathPrefix("commands") {
-      pathPrefix("list") {
+/*      pathPrefix("list") { // this is should be done with GET /commands/ or GET /engines/
         pathPrefix(Segment) { segment ⇒
           pathEndOrSingleSlash {
             segment match {
@@ -28,7 +28,9 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
             }
           }
         }
-      } ~ pathPrefix("batch-train") {
+      } ~
+*/
+      pathPrefix("batch-train") {
         runCommand
       } ~ pathPrefix(Segment) { commandId ⇒
         get {
@@ -55,6 +57,7 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
     complete(StatusCodes.OK, UUID.randomUUID().toString)
   }
 
+/* this is done via GET /engines/ and GET /commands/
   private def getCommandList = (get & extractLog) { log ⇒
     log.info("Get commands list")
     complete(StatusCodes.OK, Seq.empty[String].asJson)
@@ -66,5 +69,6 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
       (engineService ? GetEngines("???")).mapTo[Response]
     }
   }
+*/
 
 }

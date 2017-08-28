@@ -13,7 +13,7 @@ For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugg
 
 When using the source from GitHub follow these instructions to build and deploy.
 
-**Requirements:**
+**General Requirements:**
 
  - Scala 2.11, install using `apt-get`, `yum`, or `brew`
  - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to thee environment
@@ -23,6 +23,17 @@ When using the source from GitHub follow these instructions to build and deploy.
 # The Contextual Bandit
  
 Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
+
+**For macOS** get dependencies:
+
+ - `sudo brew install boost maven clang`
+
+
+**For Ubuntu 16.04+ or Debian** get dependencies:
+
+ - `sudo apt-get install libboost-program-options-dev zlib1g-dev clang maven`
+
+**Get, Build, and Install VW binary lib and JNI wrapper**
 
  - Get Vowpal Wabbit, the compute engine used for the Contextual Bandit Harness Template. This is a requirement for building Harness since this Template is used in integration tests and to run the Contextual bandit.
     
@@ -37,6 +48,7 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     scala> System.getProperty("java.library.path")
     res0: String = /usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
     ```
+    We will use the JNI lib location `/usr/lib/jni` or its equivalent on your system
     
     Build VW and install it in the right place.
     
@@ -102,4 +114,13 @@ harness stop
 ```
 
 **Note**: if you have put the `harness` script on your path commands can be executed from anywhere
+
+# Running the Integration Test
+
+```
+cd harness/python-sdk
+./integration-test.sh
+```
+
+You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end is not blank the test fails.
 

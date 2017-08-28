@@ -16,9 +16,9 @@ if args.action == 'train':
 elif args.action == 'status':
     try:
         res = command_client.get_status()
-        print_success(res, 'Connect to HarnessEventServer[{}] is '.format(url))
+        print_success(res, 'Connection to Harness[{}] is '.format(url))
     except HttpError as err:
-        print_failure(err, 'Error connecting to HarnessEventServer[{}]'.format(url))
+        print_failure(err, 'Error connecting to Harness[{}]'.format(url))
 
 else:
     print_warning("Unknown action: %{}".format(args.action))

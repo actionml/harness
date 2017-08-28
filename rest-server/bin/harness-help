@@ -10,31 +10,28 @@ echo -e "   ${CYAN}harness stop${NC}"
 echo -e "       Gracefully stops harness and all engines."
 echo ""
 
-echo -e "   ${CYAN}harness add [-c <some-engine.json> | <some-resource-id>]${NC}"
+echo -e "   ${CYAN}harness add <some-engine.json>${NC}"
 echo -e "       Create a new engine and set it's configuration"
 echo ""
 
-echo -e "   ${CYAN}harness update [-c <some-engine.json> | <some-resource-id>] [-d | --data-delete] [-f | --force]${NC}"
-echo -e "       Stops the engine, modifies the parameters and restarts the engine. WARNING: non-operational, instead perform harness delete then add"
-echo ""
-
-echo -e "   ${CYAN}harness delete [-c <some-engine.json> | <some-resource-id>]${NC}"
-echo -e "       Deletes engine and all data"
-echo ""
-
-echo -e "   ${CYAN}harness import [-c <some-engine.json> | <some-resource-id>] [-i <some-directory> | <some-file>] ${NC}"
-echo -e "       Import JSON events, just as they would have been sent as input. Used to replay mirrored data or import bootstrap data."
-echo ""
-
-echo -e "   ${CYAN}harness train [-c <some-engine.json> | <some-resource-id>]${NC}"
-echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: non-operational."
-echo ""
-
-echo -e "   ${CYAN}harness status [[-c <some-engine.json> | <some-resource-id>]]${NC}"
-echo -e "       Prints a status message for harness or for the engine specified. Note: prints only server status."
-echo ""
-
-echo -e "   ${CYAN}harness import <some-resource-id> -i <path/to/events/json/files> ${NC}"
+echo -e "   ${CYAN}harness import <engine-id> <path/to/events/json/files> ${NC}"
 echo -e "       Imports events into the engine specified. The path can be to a directory or a single file."
 echo -e "       The files should contain one event per line of JSON. Files starting with '.' or '_' will be ignored."
 echo ""
+
+#echo -e "   ${CYAN}harness update [-c <some-engine.json> | <engine-id>] [-d | --data-delete] [-f | --force]${NC}"
+#echo -e "       Stops the engine, modifies the parameters and restarts the engine. WARNING: not implemented, instead perform harness delete then add"
+#echo ""
+
+echo -e "   ${CYAN}harness delete <engine-id>${NC}"
+echo -e "       Deletes engine and all data"
+echo ""
+
+#echo -e "   ${CYAN}harness train [-c <some-engine.json> | <engine-id>]${NC}"
+#echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: not implemented."
+#echo ""
+
+echo -e "   ${CYAN}harness status [[ -a | <engine-id>]]${NC}"
+echo -e "       Prints a status message for the harness server, all engines or the engine specified."
+echo ""
+
