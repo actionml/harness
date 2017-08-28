@@ -4,14 +4,16 @@ import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.{ConnectionContext, Http}
+import akka.event.Logging
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.DebuggingDirectives
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
+import com.actionml.authserver.router.AuthorizationRouter
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
-import akka.http.scaladsl.server.Directives._
-import com.actionml.authserver.router.AuthorizationRouter
 import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
@@ -39,7 +41,9 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   private val queries = inject[QueriesRouter]
   private val auth = inject[AuthorizationRouter]
 
-  private val route: Route = auth.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
+  private val route: Route = DebuggingDirectives.logRequestResult("Harness-Server", Logging.InfoLevel) {
+    auth.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
+  }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.ssl) {

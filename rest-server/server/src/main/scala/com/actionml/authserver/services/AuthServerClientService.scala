@@ -20,12 +20,15 @@ package com.actionml.authserver.services
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.Uri.{Path, Query}
+import akka.http.scaladsl.model.HttpEntity.Strict
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
+import akka.util.ByteString
 import com.actionml.authserver._
+import com.actionml.circe.CirceSupport
 import com.actionml.router.config.AppConfig
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +41,7 @@ trait AuthServerClientService {
                (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[Boolean]
 }
 
-class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientService with FailFastCirceSupport {
+class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientService with CirceSupport {
 
   def proxyAccessTokenRequest(request: HttpRequest)
                              (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse] = {
@@ -56,6 +59,7 @@ class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientS
     Http().singleRequest(mkAuthorizeRequest(accessToken, role, resourceId))
       .collect {
         case HttpResponse(StatusCodes.OK, _, _, _) => true
+        case HttpResponse(_, _, _, _) => false
       }.recoverWith {
         case ex =>
           log.error(ex, "Access denied")
@@ -73,9 +77,11 @@ class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientS
       headers = req.headers
     )
 
-  private def mkAuthorizeRequest(accessToken: AccessToken, role: RoleId, resourceId: ResourceId) =
+  private def mkAuthorizeRequest(accessToken: AccessToken, role: RoleId, resourceId: ResourceId) = {
+    val body = Strict(ContentTypes.`application/json`, ByteString(AuthorizationCheckRequest(accessToken, role, resourceId).asJson.noSpaces))
     HttpRequest(method = HttpMethods.POST,
-      uri = authServerRoot
-        .withFragment("authorize")
-        .withQuery(Query("accessToken" -> accessToken, "roleId" -> role, "resourceId" -> resourceId)))
+      uri = authServerRoot.copy(path = authServerRoot.path + "/authorize"),
+      entity = body
+    )
+  }
 }

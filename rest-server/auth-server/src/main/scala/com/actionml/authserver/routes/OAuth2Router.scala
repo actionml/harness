@@ -21,8 +21,8 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   private val authService = inject[AuthService]
 
   def route: Route = handleExceptions(oAuthExceptionHandler) {
-    (post & pathPrefix("auth") & authenticateClient(authService.authenticateClient)) { clientId =>
-      (path("token") & extractTokenRequest) { request =>
+    (pathPrefix("auth") & post) {
+      (path("token") & authenticateClient(authService.authenticateClient) & extractTokenRequest) { (clientId, request) =>
         onSuccess(createToken(request, clientId))(token => complete(token))
       } ~
       (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
@@ -55,4 +55,8 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   }
 
   implicit private val tokenTypesEncoder = Encoder.enumEncoder(TokenTypes)
+  implicit private val accessTokenEncoder: Encoder[AccessTokenResponse] =
+    Encoder.forProduct5("access_token", "token_type", "expires_in", "refresh_token", "scope") { a =>
+      (a.accessToken, a.tokenType, a.expiresIn, a.refreshToken, a.scope)
+    }
 }
