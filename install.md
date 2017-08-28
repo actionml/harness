@@ -115,3 +115,12 @@ harness stop
 
 **Note**: if you have put the `harness` script on your path commands can be executed from anywhere
 
+# Running the Integration Test
+
+```
+cd harness/python-sdk
+./integration-test.sh
+```
+
+You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end is not blank the test fails.
+
