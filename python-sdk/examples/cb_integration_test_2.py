@@ -7,7 +7,8 @@ import argparse
 import random
 import datetime
 import pytz
-#import time
+
+# import time
 
 """
 example for importing events through the POST /engines/resource-id/events endpoint
@@ -17,6 +18,7 @@ Todo: may want to use JSON for the CB
 CSV_DELIM = ","
 PROPERTIES_DELIMITER = ":"
 SEED = 0xdeadbeef
+
 
 def import_events(client, file):
     f = open(file, 'r')  # json or csv? setup for csv for now
@@ -46,6 +48,8 @@ def import_events(client, file):
         entity_id="1",
         event_time=current_date,
         creation_time=current_date,
+        user_id='29090802-1cb2-47c0-80f3-9b271dd7dee6',
+        user_secret='000000000000000000000000a6e9c336e13819cf1dd0222d1ae5e53a97c3ef46',
         properties={"pageVariants": ["1", "2"],
                     "testPeriodStart": "2017-06-02T16:05:51.832+05:30"
                     }  # no test period end
@@ -115,10 +119,11 @@ def execute_queries(client, file):
         # user-id,group-id
 
         response = client.send_query({"user": data[0], "groupId": data[1]})
-        #time.sleep(0.5)
+        # time.sleep(0.5)
 
         print("Result: \"\nuser\": " + data[0] + response.json_body)
         count += 1
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -175,4 +180,3 @@ if __name__ == '__main__':
 
     execute_queries(query_client, args.queries_file)
     query_client.close()
-

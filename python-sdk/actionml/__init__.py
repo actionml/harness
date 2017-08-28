@@ -108,7 +108,9 @@ class BaseClient(object):
             threads=self.threads,
             qsize=self.qsize,
             https=self.https,
-            timeout=self.timeout
+            timeout=self.timeout,
+            client_id="Aladdin",
+            client_secret="OpenSesame"
         )
 
     def close(self):
@@ -192,10 +194,13 @@ class EventClient(BaseClient):
 
     def async_create(self, event, entity_type, entity_id,
                      target_entity_type=None, target_entity_id=None, properties=None,
-                     event_id=None, event_time=None, creation_time=None):
+                     event_id=None, event_time=None, creation_time=None,
+                     user_id=None, user_secret=None):
         """
         Asynchronously create an event.
-        :param event_id: 
+        :param user_id: end-user id
+        :param user_secret: end-user secret (bearer token)
+        :param event_id:
         :param event: event name. type str.
         :param entity_type: entity type. It is the namespace of the entityId and
           analogous to the table name of a relational database. The entityId must be
@@ -234,18 +239,20 @@ class EventClient(BaseClient):
 
         data["creationTime"] = time_to_string_if_valid(creation_time)
 
-        request = AsyncRequest("POST", self.path, **data)
+        request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret, **data)
         request.set_response_handler(self._create_response_handler)
         self._connection.make_request(request)
         return request
 
     def create(self, event, entity_type, entity_id,
                target_entity_type=None, target_entity_id=None, properties=None,
-               event_id=None, event_time=None, creation_time=None):
+               event_id=None, event_time=None, creation_time=None,
+               user_id=None, user_secret=None):
         """Synchronously (blocking) create an event."""
         return self.async_create(event, entity_type, entity_id,
                                  target_entity_type, target_entity_id, properties,
-                                 event_id, event_time, creation_time).get_response()
+                                 event_id, event_time, creation_time,
+                                 user_id, user_secret).get_response()
 
     def async_get(self, event_id):
         """

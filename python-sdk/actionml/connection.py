@@ -21,6 +21,7 @@ except ImportError:
 import datetime
 import json
 import logging
+import base64
 
 # use generators for python2 and python3
 try:
@@ -34,6 +35,7 @@ MAX_RETRY = 1  # 0 means no retry
 # logger
 logger = None
 DEBUG_LOG = False
+AUTH_ENABLED = True
 
 
 def enable_log(filename=None):
@@ -69,10 +71,13 @@ class AsyncRequest(object):
     """AsyncRequest object
     """
 
-    def __init__(self, method, path, **params):
+    def __init__(self, method, path, user_id=None, user_secret=None, **params):
         self.method = method  # "GET" "POST" etc
         # the sub path eg. POST /v1/users.json  GET /v1/users/1.json
         self.path = path
+        # user credentials
+        self.user_id = user_id
+        self.user_secret = user_secret
         # dictionary format eg. {"appkey" : 123, "id" : 3}
         self.params = params
         # use queue to implement response, store AsyncResponse object
@@ -202,7 +207,10 @@ class AsyncResponse(object):
 
 
 class ActionMLHttpConnection(object):
-    def __init__(self, host, https=True, timeout=5):
+    def __init__(self, host, https=True, timeout=5, client_id=None, client_secret=None):
+        self.access_token = None
+        self.client_id = client_id
+        self.client_secret = client_secret
         if https:  # https connection
             self._connection = httplib.HTTPSConnection(host, timeout=timeout)
         else:
@@ -214,7 +222,30 @@ class ActionMLHttpConnection(object):
     def close(self):
         self._connection.close()
 
-    def request(self, method, url, body={}, headers={}):
+    def get_access_token_header(self, user_id, user_secret):
+        body = 'grant_type=password&username={username}&password={password}'.format(username=user_id, password=user_secret)
+        basic_string = '{username}:{password}'.format(username=self.client_id, password=self.client_secret)
+        client_creds = base64.b64encode(basic_string.encode('utf-8')).decode('utf-8')
+        headers = {"Authorization": ('Basic ' + client_creds), "Content-Type": "application/x-www-form-urlencoded"}
+        self._connection.request("POST", "/auth/token", body, headers)
+        resp = self._connection.getresponse()
+        resp_body = resp.read().decode()
+        j = json.loads(resp_body)
+        token = j["access_token"]
+        return 'Bearer ' + token
+
+    def with_auth_header(self, headers, user_id, user_secret):
+        if AUTH_ENABLED:
+            if self.access_token is None:
+                token = self.get_access_token_header(user_id, user_secret)
+            else:
+                token = self.access_token
+            headers["Authorization"] = token
+            return headers
+        else:
+            return headers
+
+    def request(self, method, url, body={}, headers={}, user_id=None, user_secret=None):
         """
         http request wrapper function, with retry capability in case of error.
         catch error exception and store it in AsyncResponse object
@@ -233,14 +264,14 @@ class ActionMLHttpConnection(object):
             retry_limit = MAX_RETRY
             mod_headers = dict(headers)  # copy the headers
             mod_headers["Connection"] = "keep-alive"
+            mod_headers = self.with_auth_header(mod_headers, user_id, user_secret)
             enc_body = None
             if body:  # if body is not empty
                 # enc_body = urlencode(body)
                 # mod_headers[
                 # "Content-type"] = "application/x-www-form-urlencoded"
                 enc_body = json.dumps(body)
-                mod_headers[
-                    "Content-type"] = "application/json"
+                mod_headers["Content-type"] = "application/json"
                 # mod_headers["Accept"] = "text/plain"
         except Exception as e:
             response.set_error(e)
@@ -292,7 +323,7 @@ class ActionMLHttpConnection(object):
         return response  # AsyncResponse object
 
 
-def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
+def connection_worker(host, request_queue, https=True, timeout=5, loop=True, client_id=None, client_secret=None):
     """worker function which establishes connection and wait for request jobs
     from the request_queue
     Args:
@@ -306,14 +337,16 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
       timeout: timeout for HTTP connection attempts and requests in seconds
       loop: This worker function stays in a loop waiting for request
         For testing purpose only. should always be set to True.
-        :param loop: 
+        :param client_id: client id of that app (in terms of oauth2 spec)
+        :param client_secret: client password
+        :param loop:
         :param timeout: 
         :param request_queue: 
         :param https: 
         :param host:  
     """
 
-    connect = ActionMLHttpConnection(host, https, timeout)
+    connect = ActionMLHttpConnection(host, https, timeout, client_id, client_secret)
 
     # loop waiting for job form request queue
     killed = not loop
@@ -323,16 +356,18 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
         request = request_queue.get(True)  # NOTE: blocking get
         # print "get request %s" % request
         method = request.method
+        user_id = request.user_id
+        user_secret = request.user_secret
         if method == "GET":
             path = request.qpath
-            d = connect.request("GET", path)
+            d = connect.request("GET", path, user_id=user_id, user_secret=user_secret)
         elif method == "POST":
             path = request.path
             body = request.params
-            d = connect.request("POST", path, body)
+            d = connect.request("POST", path, body, user_id=user_id, user_secret=user_secret)
         elif method == "DELETE":
             path = request.qpath
-            d = connect.request("DELETE", path)
+            d = connect.request("DELETE", path, user_id=user_id, user_secret=user_secret)
         elif method == "KILL":
             # tell the thread to kill the connection
             killed = True
@@ -357,7 +392,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5):
+    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5, client_id=None, client_secret=None):
         """constructor
         Args:
           host: host of the server.
@@ -367,6 +402,8 @@ class Connection(object):
           timeout: timeout for HTTP connection attempts and requests in
             seconds
         """
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.host = host
         self.https = https
         self.q = Queue.Queue(qsize)  # if qsize=0, means infinite
@@ -380,7 +417,8 @@ class Connection(object):
             self.tid[i] = threading.Thread(
                 target=connection_worker, name=tname,
                 kwargs={'host': self.host, 'request_queue': self.q,
-                        'https': self.https, 'timeout': self.timeout})
+                        'https': self.https, 'timeout': self.timeout,
+                        'client_id': self.client_id, 'client_secret': self.client_secret})
             self.tid[i].setDaemon(True)
             self.tid[i].start()
 
