@@ -24,13 +24,16 @@ When using the source from GitHub follow these instructions to build and deploy.
  
 Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
 
- - For Ubuntu get VW dependencies:
+**For macOS** get dependencies:
 
-    ```
-    sudo apt-get install libboost-program-options-dev zlib1g-dev
-    sudo apt-get install clang
-    sudo apt-get install maven
-    ```
+ - `sudo brew install boost maven clang`
+
+
+**For Ubuntu 16.04+ or Debian** get dependencies:
+
+ - `sudo apt-get install libboost-program-options-dev zlib1g-dev clang maven`
+
+**Get, Build, and Install VW binary lib and JNI wrapper**
 
  - Get Vowpal Wabbit, the compute engine used for the Contextual Bandit Harness Template. This is a requirement for building Harness since this Template is used in integration tests and to run the Contextual bandit.
     
@@ -45,6 +48,7 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     scala> System.getProperty("java.library.path")
     res0: String = /usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
     ```
+    We will use the JNI lib location `/usr/lib/jni` or its equivalent on your system
     
     Build VW and install it in the right place.
     
