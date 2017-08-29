@@ -457,3 +457,31 @@ class CommandClient(BaseClient):
 
     def cancel_command(self, command_id):
         return self.async_cancel_command(command_id).get_response()
+
+
+class UsersClient(BaseClient):
+
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+        self.path = "/auth/users"
+        super().__init__(url, threads, qsize, timeout)
+
+    def create_user(self, user_id=None, user_secret=None, role_set_id=None, resource_id=None):
+        request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret, roleSetId=role_set_id, resourceId=resource_id)
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+
+class PermissionsClient(BaseClient):
+
+    def __init__(self, user_perm_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+        self.path = "/auth/users/{}/permissions".format(user_perm_id)
+        super().__init__(url, threads, qsize, timeout)
+
+    def grant_permission(self, user_id=None, user_secret=None, user_perm_id=None, role_set_id=None, resource_id=None):
+        request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret,
+                               roleSetId=role_set_id, resourceId=resource_id, userPermId=user_perm_id)
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
