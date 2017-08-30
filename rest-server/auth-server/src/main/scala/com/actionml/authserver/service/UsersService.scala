@@ -22,7 +22,7 @@ import java.util.UUID
 
 import com.actionml.authserver.dal.mongo.MongoSupport
 import com.actionml.authserver.dal.{RoleSetsDao, UsersDao}
-import com.actionml.authserver.exceptions.InvalidRoleSetException
+import com.actionml.authserver.exceptions.{InvalidRoleSetException, UserNotFoundException}
 import com.actionml.authserver.model.{Permission, UserAccount}
 import com.actionml.authserver.routes.UsersRouter.CreateUserResponse
 import com.actionml.authserver.util.PasswordUtils
@@ -33,7 +33,8 @@ import scala.util.Random
 
 trait UsersService {
   def create(roleSetId: String, resourceId: String): Future[CreateUserResponse]
-  def find(userId: String): Future[Option[UserAccount]]
+  def grantPermissions(userId: String, roleSetId: String, resourceId: String): Future[_]
+  def revokePermissions(userId: String, roleSetId: String): Future[_]
 }
 
 class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSupport with Injectable with PasswordUtils {
@@ -43,8 +44,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
 
   override def create(roleSetId: String, resourceId: String): Future[CreateUserResponse] = {
     for {
-      roleSetOpt <- roleSetsDao.find(roleSetId)
-      roleSet = roleSetOpt.getOrElse(throw InvalidRoleSetException)
+      roleSet <- roleSetsDao.find(roleSetId).map(_.getOrElse(throw InvalidRoleSetException))
       permissions = roleSet.roles.map(Permission(_, List(resourceId)))
       userId = UUID.randomUUID().toString
       secret = generateUserSecret
@@ -54,8 +54,27 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
     } yield CreateUserResponse(userId, secret, roleSetId, resourceId)
   }
 
+  override def grantPermissions(userId: String, roleSetId: String, resourceId: String): Future[_] = {
+    for {
+      roleSet <- roleSetsDao.find(roleSetId).map(_.getOrElse(throw InvalidRoleSetException))
+      user <- usersDao.find(userId).map(_.getOrElse(throw UserNotFoundException))
+      grantedPermissions = roleSet.roles.map(Permission(_, List(resourceId)))
+      newPermissions = (user.permissions ++ grantedPermissions).distinct
+      newUser = user.copy(permissions = newPermissions)
+      _ <- usersDao.update(newUser)
+    } yield ()
+  }
+
+  override def revokePermissions(userId: String, roleSetId: String): Future[_] = {
+    for {
+      roleSet <- roleSetsDao.find(roleSetId).map(_.getOrElse(throw InvalidRoleSetException))
+      user <- usersDao.find(userId).map(_.getOrElse(throw UserNotFoundException))
+      newPermissions = user.permissions.filterNot(r => roleSet.roles.contains(r.roleId))
+      newUser = user.copy(permissions = newPermissions)
+      _ <- usersDao.update(newUser)
+    } yield ()
+  }
+
 
   private def generateUserSecret = new Random(new SecureRandom()).alphanumeric.take(64).mkString
-
-  override def find(userId: String): Future[Option[UserAccount]] = ???
 }

@@ -20,10 +20,11 @@ package com.actionml.authserver.routes
 import akka.actor.ActorSystem
 import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route, ValidationRejection}
 import akka.stream.ActorMaterializer
+import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.user
 import com.actionml.authserver.directives.AuthDirectives
 import com.actionml.authserver.exceptions.InvalidRoleSetException
-import com.actionml.authserver.routes.UsersRouter.CreateUserRequest
+import com.actionml.authserver.routes.UsersRouter.{CreateUserRequest, PermissionsRequest, PermissionsResponse}
 import com.actionml.authserver.service.{AuthorizationService, UsersService}
 import com.actionml.circe.CirceSupport
 import io.circe.generic.auto._
@@ -32,18 +33,26 @@ import scaldi.{Injectable, Injector}
 import scala.concurrent.ExecutionContext
 
 class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthDirectives {
-  private val usersService = inject[UsersService]
   override val authorizationService = inject[AuthorizationService]
   override val authEnabled = true
-  private implicit val actorSystem = inject[ActorSystem]
-  private implicit val materializer = inject[ActorMaterializer]
-  private implicit val executionContext = inject[ExecutionContext]
 
   def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
-    (pathPrefix("auth") & extractAccessToken) { implicit token =>
-      (path("users") & post & hasAccess(user.create) & entity(as[CreateUserRequest])) {
+    (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
+      (pathEndOrSingleSlash & post & hasAccess(user.create) & entity(as[CreateUserRequest])) {
         case CreateUserRequest(roleSetId, resourceId) =>
-          onSuccess(usersService.create(roleSetId, resourceId))(resp => complete(resp))
+          onSuccess(usersService.create(roleSetId, resourceId))(complete(_))
+      } ~
+      (path(Segment / "permissions") & hasAccess(user.permissions)) { userId =>
+        (post & entity(as[PermissionsRequest])) { case PermissionsRequest(roleSetId, resourceId) =>
+          onSuccess(usersService.grantPermissions(userId, roleSetId, resourceId)) { _ =>
+            complete(PermissionsResponse(userId, roleSetId, resourceId))
+          }
+        } ~
+        (delete & parameter('roleSetId)) { roleSetId =>
+          onSuccess(usersService.revokePermissions(userId, roleSetId)) { _ =>
+            complete(PermissionsResponse(userId, roleSetId, ResourceId.*))
+          }
+        }
       }
     }
   }
@@ -52,9 +61,16 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
   private def exceptionHandler = ExceptionHandler {
     case ex@InvalidRoleSetException => reject(ValidationRejection("", Some(ex)))
   }
+  private val usersService = inject[UsersService]
+  private implicit val actorSystem = inject[ActorSystem]
+  private implicit val materializer = inject[ActorMaterializer]
+  private implicit val executionContext = inject[ExecutionContext]
 }
 
 object UsersRouter {
   case class CreateUserRequest(roleSetId: String, resourceId: String)
   case class CreateUserResponse(userId: String, secret: String, roleSetId: String, resourceId: String)
+
+  case class PermissionsRequest(roleSetId: String, resourceId: String)
+  case class PermissionsResponse(userId: String, roleSetId: String, resourceId: String)
 }

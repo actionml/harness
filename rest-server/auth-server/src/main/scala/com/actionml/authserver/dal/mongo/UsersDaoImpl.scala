@@ -12,14 +12,20 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
   private val users = collection[UserAccount]("users")
   private implicit val ec = inject[ExecutionContext]
 
+  override def find(id: String): Future[Option[UserAccount]] = {
+    users.find(equal("id", id))
+      .toFuture
+      .recover { case _ => List.empty }
+      .map(_.headOption)
+  }
+
   override def find(id: String, secretHash: String): Future[Option[UserAccount]] = {
     users.find(and(
       equal("id", id),
       equal("secretHash", secretHash)
     )).toFuture
-      .recover {
-        case e => e.printStackTrace(); List.empty
-      }.map(_.headOption)
+      .recover { case _ => List.empty }
+      .map(_.headOption)
   }
 
   override def update(user: UserAccount): Future[_] = {
