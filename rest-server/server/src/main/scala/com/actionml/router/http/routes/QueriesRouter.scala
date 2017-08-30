@@ -41,7 +41,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectiv
     }
   }
 
-  private def getPrediction(engineId: String, log: LoggingAdapter): Route = (get & asJson) { query =>
+  private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & asJson) { query =>
     log.debug("Receive query: {}", query)
     completeByValidated(StatusCodes.OK) {
       (queryService ? GetPrediction(engineId, query.toString())).mapTo[Response]

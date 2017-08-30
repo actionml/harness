@@ -28,9 +28,9 @@ import scala.concurrent.Future
   */
 class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport with LazyLogging{
 
-  implicit private val actorSystem = inject[ActorSystem]
-  implicit private val executor = actorSystem.dispatcher
-  implicit private val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val actorSystem = inject[ActorSystem]
+  implicit val executor = actorSystem.dispatcher
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private val config = inject[AppConfig].restServer
 
