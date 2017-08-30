@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 trait AuthServerProxyService {
-  def proxyAccessTokenRequest(request: HttpRequest): Future[HttpResponse]
+  def proxyAuthRequest(request: HttpRequest): Future[HttpResponse]
 }
 
 class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxyService with CirceSupport with Injectable {
@@ -44,8 +44,8 @@ class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxy
   private implicit val actorSystem = inject[ActorSystem]
   private implicit val materializer = inject[Materializer]
 
-  override def proxyAccessTokenRequest(request: HttpRequest): Future[HttpResponse] = {
-    val proxyRequest = mkAccessTokenRequest(request)
+  override def proxyAuthRequest(request: HttpRequest): Future[HttpResponse] = {
+    val proxyRequest = mkProxyRequest(request)
     Http().singleRequest(proxyRequest)
       .recoverWith {
         case ex =>
@@ -56,9 +56,9 @@ class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxy
 
   private val authServerRoot = Uri(config.auth.authServerUrl)
 
-  private def mkAccessTokenRequest(req: HttpRequest) =
+  private def mkProxyRequest(req: HttpRequest) =
     HttpRequest(method = req.method,
-      uri = authServerRoot.copy(path = authServerRoot.path + "/token"),
+      uri = authServerRoot.copy(path = authServerRoot.path ++ req.uri.path, rawQueryString = req.uri.rawQueryString),
       entity = req.entity,
       headers = req.headers
     )

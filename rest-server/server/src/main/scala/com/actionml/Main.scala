@@ -7,7 +7,7 @@ import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-import com.actionml.authserver.router.AuthorizationRouter
+import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, ClientAuthorizationService}
 import scaldi.Module
@@ -46,7 +46,7 @@ class BaseModule extends Module{
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
-  bind[AuthorizationRouter] to new AuthorizationRouter(config)
+  bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl

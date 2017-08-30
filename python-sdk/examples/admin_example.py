@@ -1,7 +1,7 @@
 import actionml
 
 if __name__ == '__main__':
-    url = "http://localhost:9099"
+    url = "http://localhost:9090"
     client_id = "Aladdin"
     client_secret = "OpenSesame"
     user_id = 'f7731339-bc0d-4885-aa1c-2cd37e689ef0'

@@ -10,7 +10,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
-import com.actionml.authserver.router.AuthorizationRouter
+import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
@@ -39,7 +39,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   private val events = inject[EventsRouter]
   private val engines = inject[EnginesRouter]
   private val queries = inject[QueriesRouter]
-  private val auth = inject[AuthorizationRouter]
+  private val auth = inject[AuthServerProxyRouter]
 
   private val route: Route = DebuggingDirectives.logRequestResult("Harness-Server", Logging.InfoLevel) {
     auth.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
