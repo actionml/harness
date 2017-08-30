@@ -5,9 +5,9 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
-import com.actionml.authserver.{ResourceId, Roles}
+import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthDirectives
-import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.authserver.service.AuthorizationService
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import scaldi.Injector
@@ -24,8 +24,9 @@ import scaldi.Injector
   * 25.02.17 11:10
   */
 class QueriesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectives {
-  override val authServerClientService = inject[AuthServerClientService]
-  override val config = inject[AppConfig]
+  override val authorizationService = inject[AuthorizationService]
+  private val config = inject[AppConfig]
+  override val authEnabled = config.auth.enabled
   private val queryService = inject[ActorRef]('QueryService)
 
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>

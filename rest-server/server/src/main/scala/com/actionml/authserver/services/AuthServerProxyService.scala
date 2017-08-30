@@ -18,51 +18,48 @@
 package com.actionml.authserver.services
 
 import akka.actor.ActorSystem
-import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpEntity.Strict
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.util.ByteString
 import com.actionml.authserver._
+import com.actionml.authserver.service.AuthorizationService
 import com.actionml.circe.CirceSupport
 import com.actionml.router.config.AppConfig
 import io.circe.generic.auto._
 import io.circe.syntax._
+import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-trait AuthServerClientService {
-  def proxyAccessTokenRequest(request: HttpRequest)
-                             (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse]
-
-  def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId)
-               (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[Boolean]
+trait AuthServerProxyService {
+  def proxyAccessTokenRequest(request: HttpRequest): Future[HttpResponse]
 }
 
-class SimpleAuthServerClientService(config: AppConfig) extends AuthServerClientService with CirceSupport {
+class AuthServerClientService(implicit inj: Injector) extends AuthServerProxyService with AuthorizationService with CirceSupport with Injectable {
+  private val config = inject[AppConfig]
+  private implicit val ec = inject[ExecutionContext]
+  private implicit val actorSystem = inject[ActorSystem]
+  private implicit val materializer = inject[Materializer]
 
-  def proxyAccessTokenRequest(request: HttpRequest)
-                             (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[HttpResponse] = {
+  override def proxyAccessTokenRequest(request: HttpRequest): Future[HttpResponse] = {
     val proxyRequest = mkAccessTokenRequest(request)
     Http().singleRequest(proxyRequest)
       .recoverWith {
         case ex =>
-          log.error(ex, "Proxy authorization call failed")
           Future.failed(AuthenticationFailedException(ex))
       }
   }
 
-  override def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId)
-                        (implicit as: ActorSystem, mat: ActorMaterializer, ec: ExecutionContext, log: LoggingAdapter): Future[Boolean] = {
+  override def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId): Future[Boolean] = {
     Http().singleRequest(mkAuthorizeRequest(accessToken, role, resourceId))
       .collect {
         case HttpResponse(StatusCodes.OK, _, _, _) => true
         case HttpResponse(_, _, _, _) => false
       }.recoverWith {
         case ex =>
-          log.error(ex, "Access denied")
           Future.successful(false)
       }
   }

@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver.dal.mongo
+package com.actionml.authserver
 
-import com.actionml.authserver.dal.ClientsDao
-import com.actionml.authserver.model.Client
-import org.mongodb.scala._
-import org.mongodb.scala.model.Filters._
-import scaldi.{Injectable, Injector}
+object Roles {
 
-import scala.concurrent.{ExecutionContext, Future}
+  object engine {
+    val create = "engine_create"
+    val modify = "engine_modify"
+    val read = "engine_read"
+  }
 
-class ClientsDaoImpl(implicit inj: Injector) extends ClientsDao with MongoSupport with Injectable {
-  implicit private val ec = inject[ExecutionContext]
-  private val clients = collection[Client]("clients")
+  object event {
+    val create = "event_create"
+    val modify = "event_modify"
+    val read = "event_read"
+  }
 
-  override def find(id: String): Future[Option[Client]] = {
-    clients.find(equal("id", id))
-      .first
-      .toFuture
-      .map(Option.apply)
+  object query {
+    val create = "query_create"
+    val modify = "query_modify"
+    val read = "query_read"
+  }
+
+  object user {
+    val create = "user_create"
   }
 }

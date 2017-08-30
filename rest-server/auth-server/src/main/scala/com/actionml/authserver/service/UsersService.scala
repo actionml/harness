@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 trait UsersService {
-  def create(clientId: String, roleSetId: String, resourceId: String): Future[CreateUserResponse]
+  def create(roleSetId: String, resourceId: String): Future[CreateUserResponse]
   def find(userId: String): Future[Option[UserAccount]]
 }
 
@@ -41,7 +41,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
   private val usersDao = inject[UsersDao]
   private val roleSetsDao = inject[RoleSetsDao]
 
-  override def create(clientId: String, roleSetId: String, resourceId: String): Future[CreateUserResponse] = {
+  override def create(roleSetId: String, resourceId: String): Future[CreateUserResponse] = {
     for {
       roleSetOpt <- roleSetsDao.find(roleSetId)
       roleSet = roleSetOpt.getOrElse(throw InvalidRoleSetException)
@@ -49,7 +49,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
       userId = UUID.randomUUID().toString
       secret = generateUserSecret
       secretHash = hash(secret)
-      user = UserAccount(userId, secretHash, clientId, permissions)
+      user = UserAccount(userId, secretHash, permissions)
       _ <- usersDao.update(user)
     } yield CreateUserResponse(userId, secret, roleSetId, resourceId)
   }

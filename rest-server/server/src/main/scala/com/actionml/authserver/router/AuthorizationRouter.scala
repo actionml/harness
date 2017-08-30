@@ -22,13 +22,13 @@ import akka.http.scaladsl.server.directives.Credentials
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
 import com.actionml.authserver.Realms
-import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.authserver.services.AuthServerProxyService
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
 class AuthorizationRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
-  val authService = inject[AuthServerClientService]
+  val authService = inject[AuthServerProxyService]
 
   override val route = (path("auth" / "token") & post & extractRequest & extractLog) { (req, log) =>
     implicit val _ = log

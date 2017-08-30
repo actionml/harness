@@ -4,7 +4,7 @@ import akka.http.scaladsl.model.headers.HttpChallenges
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import akka.http.scaladsl.server._
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
-import com.actionml.authserver.service.AuthService
+import com.actionml.authserver.service.{AuthService, AuthorizationService}
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
 import com.actionml.circe.CirceSupport
 import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes
@@ -19,6 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class OAuth2Router(implicit injector: Injector) extends Directives with Injectable with CirceSupport with ClientAuthentication {
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
+  private val authorizationService = inject[AuthorizationService]
 
   def route: Route = handleExceptions(oAuthExceptionHandler) {
     (pathPrefix("auth") & post) {
@@ -51,7 +52,7 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
 
   private def checkAuthorization: AuthorizationCheckRequest => Route = authCheckRequest => {
     import authCheckRequest._
-    onSuccess(authService.authorize(accessToken, roleId, resourceId))(result => complete(Map("success" -> result).asJson))
+    onSuccess(authorizationService.authorize(accessToken, roleId, resourceId))(result => complete(Map("success" -> result).asJson))
   }
 
   implicit private val tokenTypesEncoder = Encoder.enumEncoder(TokenTypes)
