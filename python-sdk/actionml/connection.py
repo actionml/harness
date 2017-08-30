@@ -241,9 +241,7 @@ class ActionMLHttpConnection(object):
             else:
                 token = self.access_token
             headers["Authorization"] = token
-            return headers
-        else:
-            return headers
+        return headers
 
     def request(self, method, url, body={}, headers={}, user_id=None, user_secret=None):
         """

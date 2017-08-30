@@ -83,7 +83,7 @@ def time_to_string_if_valid(t):
 
 
 class BaseClient(object):
-    def __init__(self, url, threads=1, qsize=0, timeout=5):
+    def __init__(self, url, threads=1, qsize=0, timeout=5, client_id=None, client_secret=None):
         """Constructor of Client object."""
         self.threads = threads
         self.url = url
@@ -109,8 +109,8 @@ class BaseClient(object):
             qsize=self.qsize,
             https=self.https,
             timeout=self.timeout,
-            client_id="Aladdin",
-            client_secret="OpenSesame"
+            client_id=client_id,
+            client_secret=client_secret
         )
 
     def close(self):
@@ -461,15 +461,15 @@ class CommandClient(BaseClient):
 
 class UsersClient(BaseClient):
 
-    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, client_id=None, client_secret=None):
         self.path = "/auth/users"
-        super().__init__(url, threads, qsize, timeout)
+        super().__init__(url, threads, qsize, timeout, client_id, client_secret)
 
     def create_user(self, user_id=None, user_secret=None, role_set_id=None, resource_id=None):
         request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret, roleSetId=role_set_id, resourceId=resource_id)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
-        return request
+        return request.get_response()
 
 
 class PermissionsClient(BaseClient):

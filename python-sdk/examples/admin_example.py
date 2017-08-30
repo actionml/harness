@@ -1,8 +1,8 @@
 import actionml
 
 if __name__ == '__main__':
-    users_client = actionml.UsersClient(url="http://localhost:9090", threads=5, qsize=500)
-    user_id = '29090802-1cb2-47c0-80f3-9b271dd7dee6'
-    user_secret = '000000000000000000000000a6e9c336e13819cf1dd0222d1ae5e53a97c3ef46'
-    response = users_client.create_user(user_id, user_secret, role_set_id="event_read", resource_id="*")
+    users_client = actionml.UsersClient(url="http://localhost:9099", threads=5, qsize=500, client_id="Aladdin", client_secret="OpenSesame")
+    user_id = 'f7731339-bc0d-4885-aa1c-2cd37e689ef0'
+    user_secret = 'yvr65Ygf07BtIJMhaUcHm5HSmr5U6IwNS5pHo9A71hEYBFnQHYzQY8fU1nd94BhM'
+    response = users_client.create_user(user_id=user_id, user_secret=user_secret, role_set_id="admin", resource_id="*")
     print(response)
