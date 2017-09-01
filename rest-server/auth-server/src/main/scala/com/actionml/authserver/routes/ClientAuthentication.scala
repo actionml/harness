@@ -27,9 +27,9 @@ import scala.concurrent.Future
 
 trait ClientAuthentication extends Directives {
 
-  def authenticateClient(fn: (String, String) => Future[_]): Directive1[String] = extractCredentials.flatMap {
-    case Some(BasicHttpCredentials(clientId, password)) =>
-      onSuccess(fn(clientId, password)).map(_ => clientId)
+  def basicAuth(fn: (String, String) => Future[_]): Directive1[String] = extractCredentials.flatMap {
+    case Some(BasicHttpCredentials(username, password)) =>
+      onSuccess(fn(username, password)).map(_ => username)
     case None =>
       reject(new AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.basic(Realms.Harness))): Directive1[String]
   }.recover(_ => reject(new AuthenticationFailedRejection(CredentialsRejected, HttpChallenges.basic(Realms.Harness))))

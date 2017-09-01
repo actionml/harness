@@ -3,6 +3,7 @@ package com.actionml.authserver.routes
 import akka.http.scaladsl.model.headers.HttpChallenges
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import akka.http.scaladsl.server._
+import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
 import com.actionml.authserver.service.{AuthService, AuthorizationService}
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
@@ -20,13 +21,19 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
   private val authorizationService = inject[AuthorizationService]
+  private val config = inject[AppConfig]
+  private val authEnabled = !config.authServer.authorizationDisabled
 
   def route: Route = handleExceptions(oAuthExceptionHandler) {
     (pathPrefix("auth") & post) {
-      (path("token") & authenticateClient(authService.authenticateClient) & extractTokenRequest) { (clientId, request) =>
-        onSuccess(createToken(request, clientId))(token => complete(token))
+      (path("token") & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
+        onSuccess(createToken(username))(token => complete(token))
       } ~
-      (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
+      (path("authorize") & entity(as[AuthorizationCheckRequest])) { request =>
+        if (authEnabled) {
+          basicAuth(authService.authenticateClient)(_ => checkAuthorization(request))
+        } else checkAuthorization(request)
+      }
     }
   }
 
@@ -36,18 +43,13 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
     case TokenExpiredException => complete(Json.obj("error" -> Json.fromString("token expired")))
   }
 
-  private def extractTokenRequest: Directive1[PasswordAccessTokenRequest] = formFieldMap.flatMap { params =>
-    (for {
-      grantType <- params.get("grant_type") if grantType == "password"
-      username <- params.get("username")
-      password <- params.get("password")
-    } yield PasswordAccessTokenRequest(username, password, scope = None)).fold(
-      reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness))): Directive1[PasswordAccessTokenRequest]
-    )(provide)
+  private def checkGrantType: Directive0 = formFieldMap.flatMap { params =>
+    if (params.get("grant_type").contains("client_credentials")) pass
+    else reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness)))
   }
 
-  private def createToken(request: PasswordAccessTokenRequest, clientId: String): Future[AccessTokenResponse] = {
-    authService.createAccessToken(request.username, request.password, clientId)
+  private def createToken(username: String): Future[AccessTokenResponse] = {
+    authService.createAccessToken(username)
   }
 
   private def checkAuthorization: AuthorizationCheckRequest => Route = authCheckRequest => {

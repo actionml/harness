@@ -6,9 +6,8 @@ import java.util.concurrent.ThreadLocalRandom
 import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, UsersDao}
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
-import com.actionml.authserver.model.{AccessToken, Client}
+import com.actionml.authserver.model.{AccessToken, Client, UserAccount}
 import com.actionml.authserver.util.PasswordUtils
-import com.actionml.authserver.{ResourceId, RoleId}
 import com.actionml.oauth2.entities.AccessTokenResponse
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
@@ -17,8 +16,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 trait AuthService {
+  def authenticateUser(username: String, password: String): Future[_]
   def authenticateClient(clientId: String, password: String): Future[_]
-  def createAccessToken(username: String, password: String, clientId: String): Future[AccessTokenResponse]
+  def createAccessToken(username: String): Future[AccessTokenResponse]
 }
 
 class AuthServiceImpl(implicit injector: Injector) extends AuthService with AuthorizationService with AkkaInjectable with PasswordUtils {
@@ -39,6 +39,13 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     } yield token.permissions.exists(_.hasAccess(roleId, resourceId))
   }
 
+  override def authenticateUser(userName: String, userPassword: String): Future[_] = {
+    usersDao.find(userName).map {
+      case Some(UserAccount(id, passwordHash, _)) if userName == id && passwordHash == hash(userPassword) => true
+      case _ => throw AccessDeniedException
+    }
+  }
+
   override def authenticateClient(clientId: String, clientPassword: String): Future[_] = {
     clientsDao.find(clientId).map {
       case Some(Client(id, password)) if clientId == id && clientPassword == password => true
@@ -46,11 +53,9 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     }
   }
 
-  override def createAccessToken(username: String,
-                                 password: String,
-                                 clientId: String): Future[AccessTokenResponse] = {
+  override def createAccessToken(username: String): Future[AccessTokenResponse] = {
     for {
-      userOpt <- usersDao.find(id = username, hash(password))
+      userOpt <- usersDao.find(id = username)
       user = userOpt.getOrElse(throw AccessDeniedException)
       token = new Random(ThreadLocalRandom.current()).alphanumeric.take(40).mkString
       _ <- accessTokensDao.store(AccessToken(token, user.id, user.permissions, Instant.now))

@@ -22,6 +22,7 @@ import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route, Validatio
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.user
+import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.directives.AuthDirectives
 import com.actionml.authserver.exceptions.InvalidRoleSetException
 import com.actionml.authserver.routes.UsersRouter.{CreateUserRequest, PermissionsRequest, PermissionsResponse}
@@ -34,7 +35,8 @@ import scala.concurrent.ExecutionContext
 
 class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthDirectives {
   override val authorizationService = inject[AuthorizationService]
-  override val authEnabled = true
+  private val config = inject[AppConfig]
+  override val authEnabled = !config.authServer.authorizationDisabled
 
   def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
     (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
