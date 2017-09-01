@@ -17,7 +17,7 @@ import scala.util.Random
 
 trait AuthService {
   def authenticateUser(username: String, password: String): Future[_]
-  def authenticateClient(clientId: String, password: String): Future[_]
+  def authenticateClient(clientId: String, password: String): Future[Unit]
   def createAccessToken(username: String): Future[AccessTokenResponse]
 }
 
@@ -46,9 +46,9 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     }
   }
 
-  override def authenticateClient(clientId: String, clientPassword: String): Future[_] = {
+  override def authenticateClient(clientId: String, clientPassword: String): Future[Unit] = {
     clientsDao.find(clientId).map {
-      case Some(Client(id, password)) if clientId == id && clientPassword == password => true
+      case Some(Client(id, password)) if clientId == id && clientPassword == password => ()
       case _ => throw AccessDeniedException
     }
   }

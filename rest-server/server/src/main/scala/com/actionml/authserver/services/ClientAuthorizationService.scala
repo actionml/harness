@@ -19,18 +19,20 @@ package com.actionml.authserver.services
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
-import com.actionml.authserver.service.AuthorizationService
 import akka.http.scaladsl.model.HttpEntity.Strict
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.util.ByteString
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
 import com.actionml.circe.CirceSupport
 import com.actionml.router.config.AppConfig
-import scaldi.{Injectable, Injector}
 import io.circe.generic.auto._
 import io.circe.syntax._
+import scaldi.{Injectable, Injector}
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport with Injectable {
@@ -40,7 +42,8 @@ class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationSe
   private implicit val materializer = inject[Materializer]
 
   override def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId): Future[Boolean] = {
-    Http().singleRequest(mkAuthorizeRequest(accessToken, role, resourceId))
+    val request = mkAuthorizeRequest(accessToken, role, resourceId)
+    Http().singleRequest(request)
       .collect {
         case HttpResponse(StatusCodes.OK, _, _, _) => true
         case HttpResponse(_, _, _, _) => false
@@ -54,10 +57,12 @@ class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationSe
   private def mkAuthorizeRequest(accessToken: AccessToken, role: RoleId, resourceId: ResourceId) = {
     val body = Strict(ContentTypes.`application/json`, ByteString(AuthorizationCheckRequest(accessToken, role, resourceId).asJson.noSpaces))
     HttpRequest(method = HttpMethods.POST,
-      uri = authServerRoot.copy(path = authServerRoot.path + "/authorize"),
-      entity = body
+      uri = authServerRoot.copy(path = authServerRoot.path + "/auth/authorize"),
+      entity = body,
+      headers = immutable.Seq(authorizationHeader)
     )
   }
 
-  private val authServerRoot = Uri(config.auth.authServerUrl)
+  private val authServerRoot = Uri(config.auth.serverUrl)
+  private val authorizationHeader: HttpHeader = Authorization(BasicHttpCredentials.apply(config.auth.clientId, config.auth.clientSecret))
 }

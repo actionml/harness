@@ -19,16 +19,11 @@ package com.actionml.authserver.services
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpEntity.Strict
 import akka.http.scaladsl.model._
 import akka.stream.Materializer
-import akka.util.ByteString
 import com.actionml.authserver._
-import com.actionml.authserver.service.AuthorizationService
 import com.actionml.circe.CirceSupport
 import com.actionml.router.config.AppConfig
-import io.circe.generic.auto._
-import io.circe.syntax._
 import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -54,7 +49,7 @@ class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxy
   }
 
 
-  private val authServerRoot = Uri(config.auth.authServerUrl)
+  private val authServerRoot = Uri(config.auth.serverUrl)
 
   private def mkProxyRequest(req: HttpRequest) =
     HttpRequest(method = req.method,

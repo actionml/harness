@@ -21,21 +21,16 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
   private val authorizationService = inject[AuthorizationService]
-  private val config = inject[AppConfig]
-  private val authEnabled = !config.authServer.authorizationDisabled
 
-  def route: Route = handleExceptions(oAuthExceptionHandler) {
-    (pathPrefix("auth") & post) {
-      (path("token") & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
+  def route: Route =
+    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler)) {
+      (path("token") & post & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
         onSuccess(createToken(username))(token => complete(token))
       } ~
-      (path("authorize") & entity(as[AuthorizationCheckRequest])) { request =>
-        if (authEnabled) {
-          basicAuth(authService.authenticateClient)(_ => checkAuthorization(request))
-        } else checkAuthorization(request)
+      (path("authorize") & post & entity(as[AuthorizationCheckRequest]) & basicAuth(authService.authenticateClient)) { (request, _) =>
+        checkAuthorization(request)
       }
     }
-  }
 
 
   private def oAuthExceptionHandler = ExceptionHandler {
