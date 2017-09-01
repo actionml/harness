@@ -27,16 +27,21 @@ object MongoSupport {
     .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress("localhost"))).build)
     .codecRegistry(codecRegistry)
     .build
-  private lazy val mongoClient = MongoClient(settings)
-  private lazy val mongoDatabase = mongoClient.getDatabase(config.dbName)
+  private val mongoClient = MongoClient(settings)
+  private val mongoDatabase = mongoClient.getDatabase(config.dbName)
 
   import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
   private lazy val codecRegistry = fromRegistries(
-    DEFAULT_CODEC_REGISTRY,
-    fromProviders(classOf[Client], classOf[UserAccount], classOf[Permission], classOf[AccessToken], classOf[RoleSet]),
-    CodecRegistries.fromCodecs(new InstantCodec)
+    CodecRegistries.fromCodecs(new InstantCodec),
+    /*
+     looks like list inside fromProviders should be in usage order (accessToken and userAccount contains permissions, so,
+     permissions should be declared first.
+     It also can correspond to https://jira.mongodb.org/browse/SCALA-338
+     */
+    fromProviders(classOf[Client], classOf[RoleSet], classOf[Permission], classOf[AccessToken], classOf[UserAccount]),
+    DEFAULT_CODEC_REGISTRY
   )
 
   class InstantCodec extends Codec[Instant] {

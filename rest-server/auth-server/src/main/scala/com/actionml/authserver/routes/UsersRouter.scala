@@ -23,7 +23,7 @@ import akka.stream.ActorMaterializer
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.user
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.directives.AuthDirectives
+import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.exceptions.InvalidRoleSetException
 import com.actionml.authserver.routes.UsersRouter.{CreateUserRequest, PermissionsRequest, PermissionsResponse}
 import com.actionml.authserver.service.{AuthorizationService, UsersService}
@@ -33,7 +33,7 @@ import scaldi.{Injectable, Injector}
 
 import scala.concurrent.ExecutionContext
 
-class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthDirectives {
+class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthorizationDirectives {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
   override val authEnabled = !config.authServer.authorizationDisabled

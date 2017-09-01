@@ -25,7 +25,7 @@ import com.actionml.authserver.Realms
 import scala.concurrent.Future
 
 
-trait ClientAuthentication extends Directives {
+trait AuthenticationDirectives extends Directives {
 
   def basicAuth(fn: (String, String) => Future[_]): Directive1[String] = extractCredentials.flatMap {
     case Some(BasicHttpCredentials(username, password)) =>

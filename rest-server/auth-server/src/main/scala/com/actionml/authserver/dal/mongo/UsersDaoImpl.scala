@@ -15,7 +15,7 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
   override def find(id: String): Future[Option[UserAccount]] = {
     users.find(equal("id", id))
       .toFuture
-      .recover { case _ => List.empty }
+      .recover { case e => e.printStackTrace(); List.empty }
       .map(_.headOption)
   }
 

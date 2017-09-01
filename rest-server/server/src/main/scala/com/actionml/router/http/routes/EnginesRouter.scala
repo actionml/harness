@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
-import com.actionml.authserver.directives.AuthDirectives
+import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.AuthServerProxyService
 import com.actionml.router.config.{AppConfig, ConfigurationComponent}
@@ -44,7 +44,7 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 17:36
   */
-class EnginesRouter(implicit inj: Injector) extends BaseRouter with AuthDirectives {
+class EnginesRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
   private val engineService = inject[ActorRef]('EngineService)
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]

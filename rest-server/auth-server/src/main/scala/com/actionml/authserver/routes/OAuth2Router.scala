@@ -17,7 +17,7 @@ import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class OAuth2Router(implicit injector: Injector) extends Directives with Injectable with CirceSupport with ClientAuthentication {
+class OAuth2Router(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthenticationDirectives {
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
   private val authorizationService = inject[AuthorizationService]

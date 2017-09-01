@@ -28,7 +28,7 @@ import com.actionml.authserver.{AccessToken, Realms, ResourceId, RoleId}
 import scala.concurrent.ExecutionContext
 
 
-trait AuthDirectives extends RouteDirectives with BasicDirectives with SecurityDirectives {
+trait AuthorizationDirectives extends RouteDirectives with BasicDirectives with SecurityDirectives {
   val authorizationService: AuthorizationService
   val authEnabled: Boolean
 

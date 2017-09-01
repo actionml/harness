@@ -47,10 +47,12 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
   }
 
   override def authenticateClient(clientId: String, clientPassword: String): Future[Unit] = {
-    clientsDao.find(clientId).map {
-      case Some(Client(id, password)) if clientId == id && clientPassword == password => ()
-      case _ => throw AccessDeniedException
-    }
+    if (config.authServer.clients.contains(Client(clientId, clientPassword))) Future.successful(())
+    else Future.failed(AccessDeniedException)
+//    clientsDao.find(clientId).map {
+//      case Some(Client(id, password)) if clientId == id && clientPassword == password => ()
+//      case _ => throw AccessDeniedException
+//    }
   }
 
   override def createAccessToken(username: String): Future[AccessTokenResponse] = {
