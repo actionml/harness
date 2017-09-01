@@ -207,10 +207,8 @@ class AsyncResponse(object):
 
 
 class ActionMLHttpConnection(object):
-    def __init__(self, host, https=True, timeout=5, client_id=None, client_secret=None):
+    def __init__(self, host, https=True, timeout=5):
         self.access_token = None
-        self.client_id = client_id
-        self.client_secret = client_secret
         if https:  # https connection
             self._connection = httplib.HTTPSConnection(host, timeout=timeout)
         else:
@@ -223,15 +221,14 @@ class ActionMLHttpConnection(object):
         self._connection.close()
 
     def get_access_token_header(self, user_id, user_secret):
-        body = 'grant_type=password&username={username}&password={password}'.format(username=user_id, password=user_secret)
-        basic_string = '{username}:{password}'.format(username=self.client_id, password=self.client_secret)
-        client_creds = base64.b64encode(basic_string.encode('utf-8')).decode('utf-8')
-        headers = {"Authorization": ('Basic ' + client_creds), "Content-Type": "application/x-www-form-urlencoded"}
+        body = 'grant_type=client_credentials'
+        basic_string = '{username}:{password}'.format(username=user_id, password=user_secret)
+        user_creds = base64.b64encode(basic_string.encode('utf-8')).decode('utf-8')
+        headers = {"Authorization": ('Basic ' + user_creds), "Content-Type": "application/x-www-form-urlencoded"}
         self._connection.request("POST", "/auth/token", body, headers)
         resp = self._connection.getresponse()
         resp_body = resp.read().decode()
-        j = json.loads(resp_body)
-        token = j["access_token"]
+        token = json.loads(resp_body)["access_token"]
         return 'Bearer ' + token
 
     def with_auth_header(self, headers, user_id, user_secret):
@@ -321,7 +318,7 @@ class ActionMLHttpConnection(object):
         return response  # AsyncResponse object
 
 
-def connection_worker(host, request_queue, https=True, timeout=5, loop=True, client_id=None, client_secret=None):
+def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
     """worker function which establishes connection and wait for request jobs
     from the request_queue
     Args:
@@ -335,8 +332,6 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True, cli
       timeout: timeout for HTTP connection attempts and requests in seconds
       loop: This worker function stays in a loop waiting for request
         For testing purpose only. should always be set to True.
-        :param client_id: client id of that app (in terms of oauth2 spec)
-        :param client_secret: client password
         :param loop:
         :param timeout: 
         :param request_queue: 
@@ -344,7 +339,7 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True, cli
         :param host:  
     """
 
-    connect = ActionMLHttpConnection(host, https, timeout, client_id, client_secret)
+    connect = ActionMLHttpConnection(host, https, timeout)
 
     # loop waiting for job form request queue
     killed = not loop
@@ -390,7 +385,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5, client_id=None, client_secret=None):
+    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5):
         """constructor
         Args:
           host: host of the server.
@@ -400,8 +395,6 @@ class Connection(object):
           timeout: timeout for HTTP connection attempts and requests in
             seconds
         """
-        self.client_id = client_id
-        self.client_secret = client_secret
         self.host = host
         self.https = https
         self.q = Queue.Queue(qsize)  # if qsize=0, means infinite
@@ -415,8 +408,7 @@ class Connection(object):
             self.tid[i] = threading.Thread(
                 target=connection_worker, name=tname,
                 kwargs={'host': self.host, 'request_queue': self.q,
-                        'https': self.https, 'timeout': self.timeout,
-                        'client_id': self.client_id, 'client_secret': self.client_secret})
+                        'https': self.https, 'timeout': self.timeout})
             self.tid[i].setDaemon(True)
             self.tid[i].start()
 

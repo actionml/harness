@@ -48,8 +48,8 @@ def import_events(client, file):
         entity_id="1",
         event_time=current_date,
         creation_time=current_date,
-        user_id='29090802-1cb2-47c0-80f3-9b271dd7dee6',
-        user_secret='000000000000000000000000a6e9c336e13819cf1dd0222d1ae5e53a97c3ef46',
+        user_id='63fbe1ef-3847-4d5f-a513-c5b84facaece',
+        user_secret='0sQK6ggMY0VaeAiu3a9Ek2LJ3heFdZ4tVVsCyEjuiiTo10t93uvzKkApRoXOTfkk',
         properties={"pageVariants": ["1", "2"],
                     "testPeriodStart": "2017-06-02T16:05:51.832+05:30"
                     }  # no test period end
