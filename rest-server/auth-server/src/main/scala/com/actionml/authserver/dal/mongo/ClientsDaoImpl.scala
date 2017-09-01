@@ -27,11 +27,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ClientsDaoImpl(implicit inj: Injector) extends ClientsDao with MongoSupport with Injectable {
   implicit private val ec = inject[ExecutionContext]
-  private val clients = collection[Client]("clients")
+  private lazy val clients = collection[Client]("clients")
 
-  override def find(id: String): Future[Client] = {
+  override def find(id: String): Future[Option[Client]] = {
     clients.find(equal("id", id))
       .first
       .toFuture
+      .map(Option.apply)
   }
 }

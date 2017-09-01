@@ -20,7 +20,8 @@ package com.actionml.circe
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import io.circe.Printer
 
+
 trait CirceSupport extends FailFastCirceSupport {
 
-  implicit val jsonPrinter = Printer.spaces2.copy(dropNullKeys = true)
+  implicit val jsonPrinter: Printer = Printer.spaces2.copy(dropNullKeys = true)
 }

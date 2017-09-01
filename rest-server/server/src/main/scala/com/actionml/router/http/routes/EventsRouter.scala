@@ -7,8 +7,9 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
-import com.actionml.authserver.directives.AuthDirectives
-import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.authserver.directives.AuthorizationDirectives
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.services.AuthServerProxyService
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json
@@ -32,10 +33,11 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 12:53
   */
-class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthDirectives {
+class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
   private val eventService = inject[ActorRef]('EventService)
-  override val authServerClientService = inject[AuthServerClientService]
-  override val config = inject[AppConfig]
+  override val authorizationService = inject[AuthorizationService]
+  private val config = inject[AppConfig]
+  override val authEnabled = config.auth.enabled
 
   val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     pathPrefix("engines" / Segment) { engineId =>

@@ -5,7 +5,9 @@ import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
+import akka.event.Logging
 import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.config.AppConfig
@@ -31,7 +33,9 @@ class AuthServer(implicit inj: Injector) extends AkkaInjectable with Directives 
   private val config = inject[AppConfig].authServer
   private val oauth2Router = inject[OAuth2Router]
   private val usersRouter = inject[UsersRouter]
-  private val securityRouter = oauth2Router.route ~ usersRouter.route
+  private val securityRouter = DebuggingDirectives.logRequestResult("Auth-Server", Logging.InfoLevel) {
+    oauth2Router.route ~ usersRouter.route
+  }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.ssl) {

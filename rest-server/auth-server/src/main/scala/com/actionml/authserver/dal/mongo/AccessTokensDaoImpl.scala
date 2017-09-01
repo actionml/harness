@@ -16,6 +16,7 @@ class AccessTokensDaoImpl(implicit inj: Injector) extends AccessTokensDao with M
     accessTokens
       .find(byToken(tokenString))
       .toFuture
+      .recover { case e => e.printStackTrace(); List.empty}
       .map(_.headOption)
   }
 

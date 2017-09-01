@@ -3,8 +3,9 @@ package com.actionml.authserver.routes
 import akka.http.scaladsl.model.headers.HttpChallenges
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import akka.http.scaladsl.server._
+import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
-import com.actionml.authserver.service.AuthService
+import com.actionml.authserver.service.{AuthService, AuthorizationService}
 import com.actionml.authserver.{AuthorizationCheckRequest, Realms}
 import com.actionml.circe.CirceSupport
 import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes
@@ -16,18 +17,20 @@ import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class OAuth2Router(implicit injector: Injector) extends Directives with Injectable with CirceSupport with ClientAuthentication {
+class OAuth2Router(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthenticationDirectives {
   private implicit val ec = inject[ExecutionContext]
   private val authService = inject[AuthService]
+  private val authorizationService = inject[AuthorizationService]
 
-  def route: Route = handleExceptions(oAuthExceptionHandler) {
-    (post & pathPrefix("auth") & authenticateClient(authService.authenticateClient)) { clientId =>
-      (path("token") & extractTokenRequest) { request =>
-        onSuccess(createToken(request, clientId))(token => complete(token))
+  def route: Route =
+    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler)) {
+      (path("token") & post & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
+        onSuccess(createToken(username))(token => complete(token))
       } ~
-      (path("authorize") & entity(as[AuthorizationCheckRequest])) { checkAuthorization }
+      (path("authorize") & post & entity(as[AuthorizationCheckRequest]) & basicAuth(authService.authenticateClient)) { (request, _) =>
+        checkAuthorization(request)
+      }
     }
-  }
 
 
   private def oAuthExceptionHandler = ExceptionHandler {
@@ -35,24 +38,23 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
     case TokenExpiredException => complete(Json.obj("error" -> Json.fromString("token expired")))
   }
 
-  private def extractTokenRequest: Directive1[PasswordAccessTokenRequest] = formFieldMap.flatMap { params =>
-    (for {
-      grantType <- params.get("grant_type") if grantType == "password"
-      username <- params.get("username")
-      password <- params.get("password")
-    } yield PasswordAccessTokenRequest(username, password, scope = None)).fold(
-      reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness))): Directive1[PasswordAccessTokenRequest]
-    )(provide)
+  private def checkGrantType: Directive0 = formFieldMap.flatMap { params =>
+    if (params.get("grant_type").contains("client_credentials")) pass
+    else reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness)))
   }
 
-  private def createToken(request: PasswordAccessTokenRequest, clientId: String): Future[AccessTokenResponse] = {
-    authService.createAccessToken(request.username, request.password, clientId)
+  private def createToken(username: String): Future[AccessTokenResponse] = {
+    authService.createAccessToken(username)
   }
 
   private def checkAuthorization: AuthorizationCheckRequest => Route = authCheckRequest => {
     import authCheckRequest._
-    onSuccess(authService.authorize(accessToken, roleId, resourceId))(result => complete(Map("success" -> result).asJson))
+    onSuccess(authorizationService.authorize(accessToken, roleId, resourceId))(result => complete(Map("success" -> result).asJson))
   }
 
   implicit private val tokenTypesEncoder = Encoder.enumEncoder(TokenTypes)
+  implicit private val accessTokenEncoder: Encoder[AccessTokenResponse] =
+    Encoder.forProduct5("access_token", "token_type", "expires_in", "refresh_token", "scope") { a =>
+      (a.accessToken, a.tokenType, a.expiresIn, a.refreshToken, a.scope)
+    }
 }

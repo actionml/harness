@@ -7,7 +7,8 @@ import argparse
 import random
 import datetime
 import pytz
-#import time
+
+# import time
 
 """
 example for importing events through the POST /engines/resource-id/events endpoint
@@ -17,6 +18,7 @@ Todo: may want to use JSON for the CB
 CSV_DELIM = ","
 PROPERTIES_DELIMITER = ":"
 SEED = 0xdeadbeef
+
 
 def import_events(client, file):
     f = open(file, 'r')  # json or csv? setup for csv for now
@@ -115,12 +117,17 @@ def execute_queries(client, file):
         # user-id,group-id
 
         response = client.send_query({"user": data[0], "groupId": data[1]})
-        #time.sleep(0.5)
+        # time.sleep(0.5)
 
         print("Result: \"\nuser\": " + data[0] + response.json_body)
         count += 1
 
+
 if __name__ == '__main__':
+
+    user_id = '8c24137d-24ed-498d-a5d6-f21051db9ce5'
+    user_secret = 'sILCF14ljZZdnqbzzg9SDJemz6wDY3YMH1rdbZ4r7RLzsA2vIh5R9H68WSMJN6ry'
+
     parser = argparse.ArgumentParser(
         description="Import sample data for recommendation engine")
     parser.add_argument('--engine_id', default='test_resource')
@@ -138,7 +145,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
     print(events_client.host)
 
     import_events(events_client, args.events_file_2)
@@ -149,7 +158,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
     print(events_client.host)
 
     import_events(events_client, args.events_file)
@@ -161,7 +172,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
 
     execute_queries(query_client, args.queries_file)
     query_client.close()
@@ -171,8 +184,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
 
     execute_queries(query_client, args.queries_file)
     query_client.close()
-

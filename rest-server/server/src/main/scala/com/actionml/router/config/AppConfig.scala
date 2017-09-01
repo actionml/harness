@@ -22,7 +22,9 @@ case class ActorSystemConfig(
 )
 
 case class AuthConfig(enabled: Boolean,
-                      authServerUrl: String)
+                      serverUrl: String,
+                      clientId: String,
+                      clientSecret: String)
 
 object AppConfig {
   private val config = ConfigFactory.load()

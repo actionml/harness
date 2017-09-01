@@ -22,5 +22,5 @@ import com.actionml.authserver.model.Client
 import scala.concurrent.Future
 
 trait ClientsDao {
-  def find(id: String): Future[Client]
+  def find(id: String): Future[Option[Client]]
 }

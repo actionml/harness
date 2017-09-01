@@ -22,22 +22,21 @@ import akka.http.scaladsl.server.directives.Credentials
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
 import com.actionml.authserver.Realms
-import com.actionml.authserver.services.AuthServerClientService
+import com.actionml.authserver.services.AuthServerProxyService
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.Injector
 
-class AuthorizationRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
-  val authService = inject[AuthServerClientService]
+class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
+  val authService = inject[AuthServerProxyService]
 
-  override val route = (path("auth" / "token") & post & extractRequest & extractLog) { (req, log) =>
-    implicit val _ = log
-    log.debug(s"Trying to proxy connection to auth server. Authorization ${if(config.auth.enabled) "enabled" else "disabled"}.")
-    if (config.auth.enabled) {
-      onSuccess(authService.proxyAccessTokenRequest(req)) {
-        complete(_)
-      }
-    } else reject(MalformedHeaderRejection("Authorization", "Header not supported"))
-  }
-
+  override val route =
+    (pathPrefix("auth") & extractRequest & extractLog) { (req, log) =>
+      log.debug(s"Trying to proxy connection to auth server. Authorization ${if (config.auth.enabled) "enabled" else "disabled"}.")
+      if (config.auth.enabled) {
+        onSuccess(authService.proxyAuthRequest(req)) {
+          complete(_)
+        }
+      } else reject(MalformedHeaderRejection("Authorization", "Header not supported"))
+    }
 }
