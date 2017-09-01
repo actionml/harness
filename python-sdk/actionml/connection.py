@@ -71,13 +71,11 @@ class AsyncRequest(object):
     """AsyncRequest object
     """
 
-    def __init__(self, method, path, user_id=None, user_secret=None, **params):
+    def __init__(self, method, path, **params):
         self.method = method  # "GET" "POST" etc
         # the sub path eg. POST /v1/users.json  GET /v1/users/1.json
         self.path = path
         # user credentials
-        self.user_id = user_id
-        self.user_secret = user_secret
         # dictionary format eg. {"appkey" : 123, "id" : 3}
         self.params = params
         # use queue to implement response, store AsyncResponse object
@@ -385,7 +383,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5):
+    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5, user_id=None, user_secret=None):
         """constructor
         Args:
           host: host of the server.
@@ -400,6 +398,8 @@ class Connection(object):
         self.q = Queue.Queue(qsize)  # if qsize=0, means infinite
         self.threads = threads
         self.timeout = timeout
+        self.user_id = user_id
+        self.user_secret = user_secret
         # start thread based on threads number
         self.tid = {}  # dictionary of thread object
 
@@ -415,6 +415,8 @@ class Connection(object):
     def make_request(self, request):
         """put the request into the q
         """
+        request.user_id = self.user_id
+        request.user_secret = self.user_secret
         self.q.put(request)
 
     def pending_requests(self):

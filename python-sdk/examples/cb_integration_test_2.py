@@ -48,8 +48,6 @@ def import_events(client, file):
         entity_id="1",
         event_time=current_date,
         creation_time=current_date,
-        user_id='63fbe1ef-3847-4d5f-a513-c5b84facaece',
-        user_secret='0sQK6ggMY0VaeAiu3a9Ek2LJ3heFdZ4tVVsCyEjuiiTo10t93uvzKkApRoXOTfkk',
         properties={"pageVariants": ["1", "2"],
                     "testPeriodStart": "2017-06-02T16:05:51.832+05:30"
                     }  # no test period end
@@ -126,6 +124,10 @@ def execute_queries(client, file):
 
 
 if __name__ == '__main__':
+
+    user_id = '0ff6420f-bd30-4e6c-9c82-a1820e611b08'
+    user_secret = 'b5wYNcEX6joVSs4KwDl6KDWdlbdKcYngMPqxVIoLlmEteZbLLE4V8oZhNUOAQVkM'
+
     parser = argparse.ArgumentParser(
         description="Import sample data for recommendation engine")
     parser.add_argument('--engine_id', default='test_resource')
@@ -143,7 +145,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
     print(events_client.host)
 
     import_events(events_client, args.events_file_2)
@@ -154,7 +158,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
     print(events_client.host)
 
     import_events(events_client, args.events_file)
@@ -166,7 +172,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
 
     execute_queries(query_client, args.queries_file)
     query_client.close()
@@ -176,7 +184,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=user_id,
+        user_secret=user_secret)
 
     execute_queries(query_client, args.queries_file)
     query_client.close()

@@ -83,7 +83,7 @@ def time_to_string_if_valid(t):
 
 
 class BaseClient(object):
-    def __init__(self, url, threads=1, qsize=0, timeout=5):
+    def __init__(self, url, threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         """Constructor of Client object."""
         self.threads = threads
         self.url = url
@@ -108,7 +108,9 @@ class BaseClient(object):
             threads=self.threads,
             qsize=self.qsize,
             https=self.https,
-            timeout=self.timeout
+            timeout=self.timeout,
+            user_id=user_id,
+            user_secret=user_secret
         )
 
     def close(self):
@@ -184,20 +186,17 @@ class EventClient(BaseClient):
     Default value is 5.
     """
 
-    def __init__(self, engine_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, engine_id, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         assert type(engine_id) is str, "engine_id must be string."
         self.engine_id = engine_id
         self.path = "/engines/%s/events" % (self.engine_id,)
-        super(EventClient, self).__init__(url, threads, qsize, timeout)
+        super(EventClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_create(self, event, entity_type, entity_id,
                      target_entity_type=None, target_entity_id=None, properties=None,
-                     event_id=None, event_time=None, creation_time=None,
-                     user_id=None, user_secret=None):
+                     event_id=None, event_time=None, creation_time=None):
         """
         Asynchronously create an event.
-        :param user_id: end-user id
-        :param user_secret: end-user secret (bearer token)
         :param event_id:
         :param event: event name. type str.
         :param entity_type: entity type. It is the namespace of the entityId and
@@ -237,20 +236,18 @@ class EventClient(BaseClient):
 
         data["creationTime"] = time_to_string_if_valid(creation_time)
 
-        request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret, **data)
+        request = AsyncRequest("POST", self.path, **data)
         request.set_response_handler(self._create_response_handler)
         self._connection.make_request(request)
         return request
 
     def create(self, event, entity_type, entity_id,
                target_entity_type=None, target_entity_id=None, properties=None,
-               event_id=None, event_time=None, creation_time=None,
-               user_id=None, user_secret=None):
+               event_id=None, event_time=None, creation_time=None):
         """Synchronously (blocking) create an event."""
         return self.async_create(event, entity_type, entity_id,
                                  target_entity_type, target_entity_id, properties,
-                                 event_id, event_time, creation_time,
-                                 user_id, user_secret).get_response()
+                                 event_id, event_time, creation_time).get_response()
 
     def async_get(self, event_id):
         """
@@ -285,9 +282,9 @@ class EventClient(BaseClient):
 
 
 class EngineClient(BaseClient):
-    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/engines"
-        super(EngineClient, self).__init__(url, threads, qsize, timeout)
+        super(EngineClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_get(self, engine_id):
         """
@@ -374,10 +371,10 @@ class QueryClient(BaseClient):
     :param timeout: timeout for HTTP connection attempts and requests in seconds (optional). Default value is 5.
     """
 
-    def __init__(self, engine_id, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, engine_id, url = "http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.engine_id = engine_id
         self.path = "/engines/{}/queries".format(self.engine_id)
-        super(QueryClient, self).__init__(url, threads, qsize, timeout)
+        super(QueryClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_send_query(self, data):
         """
@@ -403,9 +400,9 @@ class QueryClient(BaseClient):
 
 
 class CommandClient(BaseClient):
-    def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/commands"
-        super(CommandClient, self).__init__(url, threads, qsize, timeout)
+        super(CommandClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_get_engines_list(self):
         request = AsyncRequest("GET", self.path + "/list/engines")
@@ -459,12 +456,12 @@ class CommandClient(BaseClient):
 
 class UsersClient(BaseClient):
 
-    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/auth/users"
-        super().__init__(url, threads, qsize, timeout)
+        super().__init__(url, threads, qsize, timeout, user_id, user_secret)
 
-    def create_user(self, user_id=None, user_secret=None, role_set_id=None, resource_id=None):
-        request = AsyncRequest("POST", self.path, user_id=user_id, user_secret=user_secret, roleSetId=role_set_id, resourceId=resource_id)
+    def create_user(self, role_set_id=None, resource_id=None):
+        request = AsyncRequest("POST", self.path, roleSetId=role_set_id, resourceId=resource_id)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request.get_response()
@@ -472,22 +469,20 @@ class UsersClient(BaseClient):
 
 class PermissionsClient(BaseClient):
 
-    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5):
+    def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/auth/users"
-        super().__init__(url, threads, qsize, timeout)
+        super().__init__(url, threads, qsize, timeout, user_id, user_secret)
 
-    def grant_permission(self, user_id, user_secret, permitted_user_id, role_set_id, resource_id):
+    def grant_permission(self, permitted_user_id, role_set_id, resource_id):
         path = self.path + "/{}/permissions".format(permitted_user_id)
-        request = AsyncRequest("POST", path, user_id=user_id, user_secret=user_secret,
-                               roleSetId=role_set_id, resourceId=resource_id)
+        request = AsyncRequest("POST", path, roleSetId=role_set_id, resourceId=resource_id)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request.get_response()
 
-    def revoke_permission(self, user_id, user_secret, permitted_user_id, role_set_id):
+    def revoke_permission(self, permitted_user_id, role_set_id):
         path = self.path + "/{}/permissions".format(permitted_user_id)
-        request = AsyncRequest("DELETE", path, user_id=user_id, user_secret=user_secret,
-                               roleSetId=role_set_id)
+        request = AsyncRequest("DELETE", path, roleSetId=role_set_id)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request.get_response()
