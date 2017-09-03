@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 18.02.17 19:26
   */
-object AuthServerBootstrap extends App with AkkaInjectable {
+object Main extends App with AkkaInjectable {
 
   implicit val injector = new BaseModule
 
