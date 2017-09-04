@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+. "${HARNESS_AUTH_HOME}/bin/harness-env"
+
+# Harness Server
+echo -e "${GREEN}Stopping Harness Auth Server...${NC}"
+PIDFILE=${HARNESS_AUTH_HOME}/authserver.pid
+if [ -e ${PIDFILE} ]; then
+    cat ${PIDFILE} | xargs kill
+    rm ${PIDFILE}
+else
+    echo -e "${RED}Pid file not found!${NC}"
+fi

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+. "${HARNESS_AUTH_HOME}/bin/harness-auth-env"
+
+PIDFILE=${HARNESS_AUTH_HOME}/authserver.pid
+
+if [ ! -f "${HARNESS_AUTH_HOME}/bin/main" ]; then
+    echo -e "${RED}Main file '${HARNESS_AUTH_HOME}/bin/main' not found!${NC}"
+    exit 1
+fi
+
+HARNESS_AUTH_CONFIG=${HARNESS_AUTH_HOME}/conf/application.conf
+HARNESS_AUTH_LOG_CONFIG=${HARNESS_AUTH_HOME}/conf/logback.xml
+
+echo -e "${GLINE}"
+echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
+echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
+echo ""
+echo "Run ${HARNESS_AUTH_HOME}/bin/main"
+echo "Create pid file: ${PIDFILE}"
+
+if [ ! -f ${PIDFILE} ]; then
+    exec ${HARNESS_AUTH_HOME}/bin/main \
+    -Dconfig.file=${HARNESS_AUTH_CONFIG} \
+    -Dlogback.configurationFile=${HARNESS_AUTH_LOG_CONFIG} \
+    <&- > /dev/null 2>&1 &
+    echo $! > ${PIDFILE}
+fi
+
+echo "PID.................$(cat ${PIDFILE})"
+echo -e "${RLINE}"

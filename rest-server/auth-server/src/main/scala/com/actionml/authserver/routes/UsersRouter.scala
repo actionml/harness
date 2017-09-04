@@ -36,7 +36,7 @@ import scala.concurrent.ExecutionContext
 class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthorizationDirectives {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
-  override val authEnabled = !config.authServer.authorizationDisabled
+  override val authEnabled = config.authServer.authorizationEnabled
 
   def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
     (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
