@@ -30,7 +30,7 @@ case class AuthServerConfig(host: String,
                             ssl: Boolean,
                             mongoDb: MongoDbConfig,
                             accessTokenTtl: Long = 2 * 60 * 60 * 1000,
-                            authorizationEnabled: Boolean = false,
+                            authorizationEnabled: Boolean,
                             clients: List[Client],
                             roleSets: List[RoleSet])
 
