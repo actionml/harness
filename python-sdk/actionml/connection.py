@@ -35,7 +35,6 @@ MAX_RETRY = 1  # 0 means no retry
 # logger
 logger = None
 DEBUG_LOG = False
-AUTH_ENABLED = False
 
 
 def enable_log(filename=None):
@@ -75,12 +74,14 @@ class AsyncRequest(object):
         self.method = method  # "GET" "POST" etc
         # the sub path eg. POST /v1/users.json  GET /v1/users/1.json
         self.path = path
-        # user credentials
         # dictionary format eg. {"appkey" : 123, "id" : 3}
         self.params = params
         # use queue to implement response, store AsyncResponse object
         self.response_q = Queue.Queue(1)
-        self.qpath = "%s?%s" % (self.path, urlencode(self.params))
+        if method in ["GET", "HEAD", "DELETE"]:
+            self.qpath = "%s?%s" % (self.path, urlencode(self.params))
+        else:
+            self.qpath = self.path
         self._response = None
         # response function to be called to handle the response
         self.response_handler = None
@@ -230,7 +231,8 @@ class ActionMLHttpConnection(object):
         return 'Bearer ' + token
 
     def with_auth_header(self, headers, user_id, user_secret):
-        if AUTH_ENABLED:
+        auth_enabled = (user_id is not None) & (user_secret is not None)
+        if auth_enabled:
             if self.access_token is None:
                 token = self.get_access_token_header(user_id, user_secret)
             else:

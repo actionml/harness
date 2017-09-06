@@ -33,7 +33,7 @@ class AuthServer(implicit inj: Injector) extends AkkaInjectable with Directives 
   private val config = inject[AppConfig].authServer
   private val oauth2Router = inject[OAuth2Router]
   private val usersRouter = inject[UsersRouter]
-  private val securityRouter = DebuggingDirectives.logRequestResult("Auth-Server", Logging.DebugLevel) {
+  private val securityRouter = DebuggingDirectives.logRequestResult("Auth-Server", Logging.InfoLevel) {
     oauth2Router.route ~ usersRouter.route
   }
 
