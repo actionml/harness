@@ -31,13 +31,9 @@ class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends B
   val authService = inject[AuthServerProxyService]
 
   override val route =
-    (pathPrefix("auth") & extractRequest & extractLog) { (req, log) =>
-      log.debug(s"Trying to proxy connection to auth server. Authorization ${if (config.auth.enabled) "enabled" else "disabled"}.")
-      //if (config.auth.enabled) {
-        val res = onSuccess(authService.proxyAuthRequest(req)) {
-          complete(_)
-        }
-        res
-      //} else reject(MalformedHeaderRejection("Authorization", "Header not supported"))
+    (pathPrefix("auth") & extractRequest) { req =>
+      onSuccess(authService.proxyAuthRequest(req)) {
+        complete(_)
+      }
     }
 }
