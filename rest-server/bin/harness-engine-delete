@@ -22,10 +22,10 @@ if [ ! -f ${ENGINE_CONFIG} ]; then
 fi
 
 PYTHON_ARGS="delete"
-if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
-if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG}"; fi
+if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID} $USER_ARGS"; fi
+if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG} $USER_ARGS"; fi
 
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS} ${NC}"
 
-${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
+${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}

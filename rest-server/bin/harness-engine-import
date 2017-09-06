@@ -36,6 +36,6 @@ if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
 if [ -n "$FILENAME" ]; then PYTHON_ARGS="${PYTHON_ARGS} --input ${FILENAME}"; fi
 echo "CLI to Python: ${PYTHON_ARGS}"
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
-${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
+${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}

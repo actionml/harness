@@ -74,7 +74,8 @@ lazy val templates = (project in file("templates")).dependsOn(core).
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1",
 
-      "com.github.johnlangford" % "vw-jni" % "8.4.1-SNAPSHOT"
+      // the dynamic lib must be hand installed for this Java JNI wrapper to find it
+      "com.github.johnlangford" % "vw-jni" % "8.4.1"
     )
   )
 

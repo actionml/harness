@@ -12,6 +12,28 @@ export MONGO_PORT=${MONGO_PORT:-27017}
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
 export HARNESS_LOG_PATH="${HARNESS_HOME}/logs"
 
+# Harness Auth
+#export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
+export HARNESS_AUTH_ENABLED=true
+
+# Harness's Auth Server microservice auth
+#export HARNESS_AUTH_SERVER_PROTECTED=${HARNESS_AUTH_SERVER_PROTECTED:-false}
+export HARNESS_AUTH_SERVER_PROTECTED=true
+
+# Can be hard-coded here or exported with the ENV, defaults to no id
+# export ADMIN_USER_ID=some-user-id
+export ADMIN_USER_ID=57df7d8b-309e-48e5-b2b6-41e1c9ac6b04
+# Can override where this is stored, the default is where the CLI user's ssh keys are stored
+export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
+
+if [ -z "$ADMIN_USER_ID" ]; then
+    USER_ARGS=""
+else
+    echo "ADMIN_USER_ID set to \"${ADMIN_USER_ID}\""
+    USER_ARGS=" --client_user_id ${ADMIN_USER_ID} --client_user_secret_location ${ADMIN_USER_SECRET_LOCATION} "
+fi
+export USER_ARGS
+
 # Reset
 NC='\033[0m'           # Text Reset
 

@@ -10,13 +10,12 @@ echo -e "   ${CYAN}harness stop${NC}"
 echo -e "       Gracefully stops harness and all engines."
 echo ""
 
-echo -e "   ${CYAN}harness add <some-engine.json>${NC}"
+echo -e "   ${CYAN}harness add </path/to/some-engine.json>${NC}"
 echo -e "       Create a new engine and set it's configuration"
 echo ""
 
 echo -e "   ${CYAN}harness import <engine-id> <path/to/events/json/files> ${NC}"
 echo -e "       Imports events into the engine specified. The path can be to a directory or a single file."
-echo -e "       The files should contain one event per line of JSON. Files starting with '.' or '_' will be ignored."
 echo ""
 
 #echo -e "   ${CYAN}harness update [-c <some-engine.json> | <engine-id>] [-d | --data-delete] [-f | --force]${NC}"
@@ -27,11 +26,31 @@ echo -e "   ${CYAN}harness delete <engine-id>${NC}"
 echo -e "       Deletes engine and all data"
 echo ""
 
-#echo -e "   ${CYAN}harness train [-c <some-engine.json> | <engine-id>]${NC}"
+#echo -e "   ${CYAN}harness train engine-id${NC}"
 #echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: not implemented."
 #echo ""
 
-echo -e "   ${CYAN}harness status [[ -a | <engine-id>]]${NC}"
-echo -e "       Prints a status message for the harness server, all engines or the engine specified."
+echo -e "   ${CYAN}harness status [[ engines | engines <engine-id>]]${NC}"
+echo -e "       Prints a status message for the harness server, all engines, or the engine specified."
 echo ""
 
+echo -e "   ${CYAN}harness user-add${NC}"
+echo -e "       Returns the user-id for the new user and their credentials bearer token but does not"
+echo -e "       grant permissions (see \"grant\" command to add permissions"
+echo ""
+
+echo -e "   ${CYAN}harness user-delete${NC}"
+echo -e "       Returns the user-id for the deleted user and deletes all attached permissions."
+echo ""
+
+echo -e "   ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
+echo -e "       Returns true if permissions are added to the user-id"
+echo ""
+
+echo -e "   ${CYAN}harness revoke <user-id> [<engine-id> | *]${NC}"
+echo -e "       Revokes the user permissions for the engine specified"
+echo ""
+
+echo -e "   ${CYAN}harness status users [<user-id>]${NC}"
+echo -e "       Prints the permissions for all users, or the user specified."
+echo ""

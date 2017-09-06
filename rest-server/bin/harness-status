@@ -2,9 +2,10 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-ENGINE_ID=$1
+RESOURCE_TYPE=$1
+RESOURCE_ID=$2
 
-if [ -z "$ENGINE_ID" ]; then
+if [ -z "$RESOURCE_TYPE" ] ; then
     echo -e "${CYAN}Getting Harness Server status${NC}"
     echo -e "${GLINE}"
     echo "HARNESS_HOME........${HARNESS_HOME}"
@@ -15,31 +16,54 @@ if [ -z "$ENGINE_ID" ]; then
     echo "HARNESS_LOG_CONFIG..${HARNESS_LOG_CONFIG}"
     echo "HARNESS_LOG_PATH....${HARNESS_LOG_PATH}"
     echo -e "${RLINE}"
-    ${HARNESS_HOME}/bin/command.py status
+    ${HARNESS_HOME}/bin/commands.py status
     exit 1
 fi
 
-if [ ${ENGINE_ID} = "engines" ]; then
-    echo -e "${CYAN}Getting status for all Engines:${NC}"
-    PYTHON_ARGS="status --all-engines"
+if [ ${RESOURCE_TYPE} = "engines" ]; then
 
-    echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+    if [ -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --all_engines $USER_ARGS"
 
-    ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
-    exit $?
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+    if [ ! -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status -e ${RESOURCE_ID} $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
 fi
 
-if [ ! -z ${ENGINE_ID} ]; then
-    echo -e "${CYAN}Getting status for engine-id: ${ENGINE_ID}${NC}"
-    PYTHON_ARGS="status ${ENGINE_ID}"
+if [ ${RESOURCE_TYPE} = "users" ]; then
+    if [ -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --all_users $USER_ARGS"
 
-    echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
-    ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
-    exit $?
+        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+    if [ ! -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --user_id ${RESOURCE_ID} $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
 fi
 
-echo -e "   ${RED}Error in command, should be: harness status [[ -a | <engine-id>]]${NC}"
+echo -e "   ${RED}Error in command, should be:  harness status [[ engines | engines <engine-id>]]${NC}"
 echo -e "       Prints a status message for the harness server, all engines or for the engine specified."
 echo ""
 

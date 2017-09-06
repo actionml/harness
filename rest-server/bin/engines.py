@@ -4,7 +4,12 @@ from actionml import EngineClient, HttpError
 
 from common import *
 
-engine_client = EngineClient(url=url)
+engine_client = EngineClient(
+    url=url,
+    user_id=client_user_id,
+    user_secret=client_user_secret
+)
+
 
 if args.action == 'create':
     with open(args.config) as data_file:
@@ -32,7 +37,7 @@ elif args.action == 'delete':
         print_failure(err, 'Error deleting engine-id: {}\n'.format(engine_id))
 
 elif args.action == 'status':
-    engine_id = args.engine_id
+    engine_id = args.engineid
     try:
         if engine_id is not None:
             res = engine_client.get(engine_id=engine_id)

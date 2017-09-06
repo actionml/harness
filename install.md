@@ -16,9 +16,10 @@ When using the source from GitHub follow these instructions to build and deploy.
 **General Requirements:**
 
  - Scala 2.11, install using `apt-get`, `yum`, or `brew`
- - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to thee environment
+ - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
  - Boost 1.55.0 or higher is fine. This is only for Vowpal Wabbit
  - Git
+ - MongoDB 3.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. For example, these instructions [install Mongo 3.4 on Ubuntu](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
 
 # The Contextual Bandit
  
@@ -55,18 +56,21 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     ```
     git clone https://github.com/pferrel/vowpal_wabbit.git vw
     cd vw
-    git checkout 1aa674a136c0c793dae33b12debcc66c0efbc884
+    git checkout 10bd09ab06f59291e04ad7805e88fd3e693b7159
     make java
     cd java
+    # for linux
     cp target/libvw_jni.so /usr/lib/jni # take from Scala above
-    mvn install
+    # for macOS
+    cp target/libvw_jni.dylib /Users/<yourname>/Library/Java/Extensions/
+    mvn test # we will get the Java wrapper from maven when
+    # we build Harness so this is only to test that VW is set
+    # up to be used by the JVM
     ```
     
-    This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. For macOS, follow the same steps but the copy-to location will be different and VW will be in `target/libvw_jni.dylib` 
+    This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. You are now ready to build the Harness Server. This includes the CLI and services the Harness REST API.
 
-    You are now ready to build the rest-server portion of Harness. This includes the CLI and services the Harness REST API.
-
-# Harness Rest-Server
+# Harness Server
 
  - Get and build source:
  
@@ -82,6 +86,8 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     
     ```
     export PATH=$PATH:/home/aml/harness/rest-server/Harness-0.1.0-SNAPSHOT/bin/
+    # substitute your path to the distribution's "bin" directory
+    # it should have the .../bin/main file
     ```
     
     Then source the `.profile` with 

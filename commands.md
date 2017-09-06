@@ -31,75 +31,140 @@ Set your path to include to the directory containing the `harness` script. Comma
 # Engine Management
 
  - **`harness add <some-engine-json-file>`** creates and starts an instance of the template defined in `some-engine-json-file`, which is a path to the template specific parameters file.
- - **`harness delete [<some-resource-id>]`** The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
- - **`harness import <some-resource-id> [<some-directory> | <some-file>]`** This is typically used to replay previously mirrored events or bootstrap events created from application logs. It is safest to import into an empty new engine since some events cause DB changes and others have no side effects. **Note**: `-i` may be required before the file or directory name. run `harness help` for current implementation.
- - **&dagger;**`harness train [-c <some-engine-json-file> | <some-resource-id>]` in the Lambda model this trains the algorithm on all previously accumulated data.
+ - **`harness delete [<some-engine-id>]`** The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
+ - **`harness import <some-engine-id> [<some-directory> | <some-file>]`** This is typically used to replay previously mirrored events or bootstrap events created from application logs. It is safest to import into an empty new engine since some events cause DB changes and others have no side effects. **Note**: `-i` may be required before the file or directory name. run `harness help` for current implementation.
+ - **&dagger;**`harness train <some-engine-id>` in the Lambda model this trains the algorithm on all previously accumulated data.
  - **`harness status`** prints a status message for harness.
- - **`harness status -a`** lists all engines and stats about them.  **Note**: this will be changed to `harness status engines`
- - **`harness status <engine-id>`** status of and Engine.
- - **&dagger;**`harness status commands` lists any currently active long running commands like `harness train ...`
+ - **`harness status engines [<some-engine-id>]`** lists all engines and stats about them, or only the engine specified.
+ - **&dagger;**`harness status commands [<some-command-id>]` lists any currently active long running commands like `harness train ...`
 
 # User and Permission Management
 
 When using Authentication with Harness we define Users and give them Permissions. Two Permissions are predefined: client and admin. Clients are typically granted access to any number of Engines by ID and all of their sub-resources: Events and Queries. The admin has access to all parts of Harness. In order to manage Users and Permissions the User must be an admin so these commands will only work for an admin.
 
- - **`harness user-add`** returns the bearer token credentials for the user and a unique user-id.
- - **`harness user-delete <user-id>`** removes the user and any permissions they have, in effect revoking their bearer token.
- - **`harness grant <user-id> [client | admin] [<engine-id> \| *]`** grants client or admin access to an engine for a user-id
- - **`harness revoke <user-id> [<engine-id> \| *]`** revokes all permissions for the engine-id
- - **`harness status users`** list all users and their permissions
+ - **`harness user-add [client | admin] [<some-engine-id>]`** returns the user-id and secret that gives `roleSet` access to the engine-id specified. Not that the engine-id is not needed for creating an admin user which, as a superuser, has access to all resources.
+ - **`harness user-delete <some-user-id>`** removes the user and any permissions they have, in effect revoking their credentials. A warning will be generated when deleting an admin user.
+ - **`harness grant <some-user-id> <some-engine-id>`** grants client or access to an engine-id for a user-id. **Note**: This is only needed if more than one engine-id is used by a "client" since creating a "client" requires an initializing engine-id. Also this is never needed for an admin user since they are created with superuser access to all resources.
+ - **`harness revoke <some-user-id> [<some-engine-id> | *]`** revokes all permissions for a user-id to the engine-id(s) specified. The wild-card revokes access to all engine-ids. And error is reported if this is used to revoke admin permissions since all admins are superusers.
+ - **`harness status users [<some-user-id>]`** list all users and their permissions or only permissions for requested user.
 
-# Harness Workflow (no auth)
+# Harness Workflow
 
-Following typical workflow for launching and managing the Harness server the following commands are available:
+Startup all services needed by all templates. For Harness with the Contextual Bandit this will be MongoDB and Vowpal Wabbit (see the Template docs for installing services). Other Templates may require other services. Each type of engine will allow config for connecting to the services it needs in its JSON config file. But the services must be running before Harness and the Engine is started or it will not be able to connect to them.
 
- 1. Startup all needed services needed by a template. For Harness with the Contextual Bandit this will be MongoDB only, but other Templates may require other services. Each type of engine will allows config for connecting to the services it needs in engine.json. But the services must be running before the Engine is started or it will not be able to connect to the services.
+## Workflow Without Auth
 
- 1. Start the Harness server but none of the component services like Spark, DBs, etc., :
+ 1. Start the Harness server after the component services like Spark, DBs, etc:
         
         harness start 
-        # default port if not specified in harness-env is 9090
          
  1. Create a new Engine and set it's configuration:
 
-        harness add <some-engine.json>
-        # the engine-id in the json file will be used for the resource-id
+        harness add </path/to/some-engine.json>
+        # the engine-id in the JSON file will be used for the resource-id
         # in the REST API
         
- 1. **&dagger;**Once the engine is created and receiving input through it's REST `events` input endpoint any Kappa style learner will respond to the REST engine `queries` endpoint. To use a Lambda style (batch/background) style learner or to bulk train the Kappa on saved up input run:
-    
-        harness train <some-engine.json>
+ 1. The end user sends events to the engine-id using the SDK and the engine does what it does. Some engines (Kappa style) will update the model in real time, others (Lambda style) will save up data until they are told to "train" when the model will be completely updated.
         
+ 1. **&dagger;**Once the engine is created and receiving input Events, any Kappa style learner will respond to queries so skip to the next step. To use a Lambda style (batch/background) style learner run:
+    
+        harness train <some-engine-id>
+        # creates or updates the engine's model
+
+ 1. Once the Engine has data and has created or updated its model Harness will respond to queries.    
  1. If you wish to **remove all data** and the engine to start fresh:
 
-        harness delete <some-engine.json>
+        harness delete <some-engine-id>
 
  1. To bring the server down:
 
         harness stop
-        # stop may take some time and it's usually safe to 
-        # just kill the harness PID
+        # stop may take some small amount of time
+        
+## Creating an Admin and Enabling Auth
 
-# Authorization
+Creating admin right after installation can be done with the following steps:
 
-In the above workflow when using the Auth-Server we would have to create a user and grant them client access to the Engine once it is created. The Bearer Token would be used to construct the Java or Python SDK client for the resource-type, such as the EventsClient and the QueriesClient. In this sense the Bearer Token acts as credentials.   
+1. Make sure the python-sdk, the auth-server’s, and the Harness server’s auth is disabled (it is disabled by default after installation)
+
+1. **`harness start`**
+1. **`auth-server start`** Normally the auth-server is only started when harness is using auth this is the only case it is needed without auth enabled.
+1. `harness user-add admin` # this returns user-id and a secret
+1. `harness stop` and `auth-server stop`
+1. Enable auth for the python-sdk, harness, and the auth-server by editing `harness/bin/harness-env` in the distrubution built using `make-distribution.sh` and `auth-server/bin/auth-server-env` in the location of your Auth Server build. The auth enabling variable is documented in both files.
+ - **The user-id** for the admin can be in the ENV in clear text. 
+ - **The "secret"** used as the OAuth2 Bearer Token should have an ENV variable that points to a file with read/write permission only for the linux user running harness, much like the permissions used for ssh private keys. The secret should be in a file in ~/.ssh/harness-user-key with RW permission only for the user of the SDK or the user who has lunched Harness. This mechanism is used on the client-side with the Java or Python SDK as well as the CLI (which uses the Python SDK).
+1. Once the ENV is setup, the user-id and secret are stored securely the CLI will use these to access Harness when auth is enabled.
+2. Set ENV in both servers `-env` files to require TLS.
+1. `harness start` and `auth-server start` these will now require a user-id and credentials for any access since all resources are protected. These have been setup in the ENV in step #6.
+
+**&dagger;**The above process will be wrapped in a `setup-auth.sh` script that will run all the steps and report user-id and credentials while also configuring the ENV and doing all the start/stop of servers to make it functional. This is not yet available. **Note**: setting up a remote admin on another machine who connects to Harness across the internet securely is quite possible but the above steps should be executed on the 2 different machines and will not be scripted.
+ 
+## Workflow With Auth   
+
+The primary difference between using the CLI with auth and without is that users are not required without auth and the Auth Server is not launched. Any access to the resources of Harness is allowed without auth. So enabling auth requires at least 2 users, one "admin" and one "client". The remote user of the SDK will usually be a "client" accessing one or more engine-ids via the Events and Queries resource types. The "admin" user runs the CLI.
+
+**Warning**: It is unsafe to use Auth without TLS/SSL enabled since the user secret credentials (Bearer Token) can be seen in clear text by any man-in-the-middle attack. See [Security](security.md) for a description of how to enable server side TLS and OAuth2.
+
+In the above workflow when using the Auth-Server we will need to create a user and grant them "client" access to the Engine once it is created. The Bearer Token would be used to construct the Java or Python SDK client such as the `EventsClient` and the `QueriesClient`. In this sense the secret/ OAuth2 Bearer Token acts as credentials.   
+
+ 1. Create the Admin user and enable auth with TLS as described in the section above.
+ 
+ 1. Start the Harness server **after** the component services like MongoDB and others required by the templates used:
+        
+        harness start 
+         
+ 1. Create a new Engine and set it's configuration:
+
+        harness add </path/to/some-engine.json>
+        # the engine-id in the json file will be used for the resource-id
+        # in the REST API
+ 
+ 1. With Auth in place we must create a user with credentials then grant them client access to the engine-id:
+
+        harness user-add client <some-engine-id>
+        # a user-id and secret will be returned   
+        
+ At this point the admin is expected to send the user-id and secret to the end user so they can use it with the SDK.
+ 
+ 1. The end user sends events to the engine-id using the SDK and the engine does what it does. Some engines (Kappa style) will update the model in real time, others (Lambda style) will save up data until they are told to "train" when the model will be completely updated.
+        
+ 1. **&dagger;**Once the engine is created and receiving input Events, any Kappa style learner will respond to queries so skip to the next step. To use a Lambda style (batch/background) style learner run:
     
+        harness train <some-engine-id>
+        # creates or updates the engine's model
+
+ 1. Once the Engine has data and has created or updated its model Harness will respond to queries.    
+        
+ 1. If you wish to **remove all data** and the engine to start fresh:
+
+        harness delete <some-engine-id>
+ 
+ 1. If the end user only has access to this resource they will no linger be able to use Harness but if you wish to refuse connections you may also want to remove the user with:
+
+        harness user-delete <some-user-id>    
+
+ 1. To bring the server down:
+
+        harness stop
+        # stop may take some small amount of time
+
 # Configuration Parameters
 
-All config of Harness and it's component services is done with `harness-env` or in the service config specific to the services used.
+All config of Harness is done with `harness-env`. Any needed services are to be started and configured in their usual way. `harness-env` only tells Harness how to use the services, Harness does not manage them and only requires a DB for User and Engine metadata.
 
 ## `harness-env`
 
-`harness-env` is a Bash shell script that is sourced before any command is run. All required variable should be defined like this:
+`harness-env` is a Bash shell script that is sourced before any command is run. All required variables can be overridden here if needed:
 
     export MONGO_HOST=<some-host-name>
     export MONGO_PORT=<some-port-number>
     
-A full list of these will be provided in a bash shell script that sets up any overrides before launching Harness
+A full list of these will be provided in a `harness-env` and `auth-server-env`.
 
 ## `some-engine.json` Required Parameters
 
-This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are required by the Harness framework:
+This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are used by the Harness framework for functions that are available to all Engines like mirroring.
 
     {
         "engineId": "some_resource_id"
@@ -109,10 +174,6 @@ This file provide the parameters and config for anything that is Template/Engine
         "params": {
             "algorithm": {
                 algorithm specific parameters, see Template docs
-                ...
-            },
-            "dataset": {
-                optional dataset specific parameters, see Template docs
                 ...
             },
             "other": {
@@ -125,19 +186,19 @@ This file provide the parameters and config for anything that is Template/Engine
         }
     }
     
-The `"other"` section or sections are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit, or a Template may need a new server type that is only used by it. For instance The Universal Recommender will need an `"elasticsearch"` section. The Template will configure any component that is not part of the minimal subset defined by Harness.
+The `"other"` section or section(s) are named according to what the Template defines since the engine may use components of it's own choosing. For instance one Template may use TensorFlow, another Spark, another Vowpal Wabbit. For instance The Universal Recommender will need an `"elasticsearch"` section. This config tells the Engine how to use the Service but if it must be launched, this must be done before the Engine is added to a running Harness Server and is outside of `harness start`.
 
 # Input Mirroring
 
 Some special events like `$set`, `$unset`, `$delete` may cause mutable database data to be modified as they are received, while events that do not use the reserved "$" names represent an immutable event stream. That is to say sequence matters with input and some state is mutable and some immutable. In order to provide for replay or modification of the event stream, we provide mirroring of all events with no validation. This is useful if you wanted to change the params for an engine and re-create it using all past data.
 
-To accomplish this, you must set up mirroring for the Harness Server. Once the server is launched with a mirrored configuration all events sent to `/engines/resource-id/events` will be mirrored to a location set in `some-engine.json`. Best practice would be to start with mirroring and then turn if off once everything is running correctly since mirroring will save all events and grow without limit, like unrotated server logs. 
+To accomplish this, you must set up mirroring for the Harness Server. Once the Engine is launched with a mirrored configuration all events sent to `/engines/resource-id/events` will be mirrored to a location set in `some-engine.json`. **Note** that best practice would be to start with mirroring and then turn if off once everything is running correctly since mirroring will save all events and grow without limit, like unrotated server logs. This can easily lead to out-of-disk type errors. 
 
-In the future HDFS can be used and mirrored file rotation will be implemented to solve the problem. We also allow mirroring to be enabled and disabled per engine-id.
+*In the future HDFS* can be used and mirrored file rotation will be implemented to solve this problem. We also allow mirroring to be enabled and disabled per engine-id.
 
-To enable add the following to the `some-engine.json` that you want to mirror events:
+To enable mirroring add the following to the `some-engine.json` that you want to mirror events:
 
-    "mirrorType": "hdfs" | "localfs", // optional, turn on a type of mirroring
+    "mirrorType": "localfs", // optional, turn on a type of mirroring
     "mirrorContainer": "path/to/mirror", // optional, where to mirror input
 
 set these in the global engine params, not in algorithm params as in the "Required Parameters" section above. 
@@ -146,23 +207,14 @@ To use mirrored files, for instance to re-run a test with different algorithm pa
 
     harness delete <some-resource-id>
     # change algo parameters in some-engine.json
-    harness add -c <some-engine.json>
+    harness add </path/to/some-engine.json>
     # you cannot import from the mirrored directory since every event
     # will be also mirrored, causing an infinite loop so move them first
-    mv </path/to/mirrored/events> <some-new-path>
-    harness import -i <some-new-path>   
+    mv </path/to/mirrored/events> </some/new/path>
+    harness import -i </some/new/path>   
 
-**Note**: any event sent to `POST /engines/<engine-id>/events` will be mirrored to `$MIRROR_CONTAINER_NAME/engine-id/dd-MM-yy.json` as long as the POSTing app has write access to the endpoint even if there is no Engine installed at that resource-id yet (`harness add -c <engine.json>` had not been run).
+**Note**: any Event sent to an Engine will be mirrored to `$MIRROR_CONTAINER_NAME/engine-id/dd-MM-yy.json` as long as the event source app has write access to the endpoint, with no validation.
 
+# Importing and Bootstrapping
 
-
-# Importing and Bootstrapping (not implemented yet)
-
-The `harness import` command is useful when json events have been derived from past log history or from events mirrored from another Engine.
-
-# Generating Authentication Tokens (not implemented yet)
-
-The `harness grant <access.json>` command will grant access to the resources defined in the access.json file and generate the tokens to be used in authentication. Likewise `harness deny <token> <access.json>` will remove access rights for the token to the routes defined.
-
-The format of the json route file is TBD as well as the method of generating tokens.
-         
+The `harness import </path/to/events>` command is useful when json events have been derived from past log history or from mirrored Events, perhaps from another Engine.

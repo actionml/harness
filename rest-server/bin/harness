@@ -44,6 +44,14 @@ case ${command} in
 
     import) ${HARNESS_HOME}/bin/harness-engine-import $1 $2 $3;;
 
+    user-add) ${HARNESS_HOME}/bin/harness-user-add $1 $2 $3 $4;;
+
+    user-delete) ${HARNESS_HOME}/bin/harness-user-delete $1;;
+
+    grant) ${HARNESS_HOME}/bin/harness-grant $1 $2 $3;;
+
+    revoke) ${HARNESS_HOME}/bin/harness-revoke $1 $2 ;;
+
     train) ${HARNESS_HOME}/bin/harness-engine-train $1 $2 ;;
 
     *) ${HARNESS_HOME}/bin/harness-help ;;

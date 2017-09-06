@@ -4,7 +4,7 @@ Harness optionally uses TLS (formerly called SSL) and OAuth2 "bearer token" Serv
 
 ## TLS Support
 
-Uses [http-akka TLS support](http://doc.akka.io/docs/akka-http/current/scala/http/server-side-https-support.html).
+Uses http-akka [server](http://doc.akka.io/docs/akka-http/current/scala/http/server-side/server-https-support.html) and [client](http://doc.akka.io/docs/akka-http/current/scala/http/client-side/client-https-support.html) TLS support.
 
 ## Authentication
 
