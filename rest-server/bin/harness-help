@@ -2,6 +2,9 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
+echo
+echo -e "${CYAN}Harness CLI Help${NC}"
+echo
 echo -e "   ${CYAN}harness start${NC}"
 echo -e "       Starts the Harness server and prints configuration information. Starts all active engines."
 echo ""
