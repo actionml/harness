@@ -22,7 +22,6 @@ import datetime
 import json
 import logging
 import base64
-import os
 
 # use generators for python2 and python3
 try:

@@ -17,14 +17,9 @@
 
 package com.actionml.authserver.router
 
-import akka.http.scaladsl.server.MalformedHeaderRejection
-import akka.http.scaladsl.server.directives.Credentials
+import com.actionml.authserver.services.AuthServerProxyService
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
-import com.actionml.authserver.Realms
-import com.actionml.authserver.services.AuthServerProxyService
-import io.circe.generic.auto._
-import io.circe.syntax._
 import scaldi.Injector
 
 class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {

@@ -7,6 +7,7 @@ import argparse
 import random
 import datetime
 import pytz
+import os
 
 # import time
 
@@ -125,8 +126,8 @@ def execute_queries(client, file):
 
 if __name__ == '__main__':
 
-    user_id = 'd669a063-b004-42b1-afa5-9d24242464db'
-    user_secret = 'UcefLpFXYq6VbZWcE9hEryoE1NCmgsNVoYSvkU4nb5AxGoBN4LrHUxd3HnysVZVE'
+    user_id = os.getenv('HARNESS_USER_ID', None)
+    user_secret = os.getenv('HARNESS_USER_SECRET', None)
 
     parser = argparse.ArgumentParser(
         description="Import sample data for recommendation engine")
