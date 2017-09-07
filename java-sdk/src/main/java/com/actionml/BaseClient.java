@@ -17,11 +17,13 @@
 
 package com.actionml;
 
+import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.http.javadsl.ConnectHttp;
 import akka.http.javadsl.HostConnectionPool;
 import akka.http.javadsl.Http;
 import akka.http.javadsl.model.*;
+import akka.http.javadsl.model.headers.Authorization;
 import akka.japi.Pair;
 import akka.japi.function.Function;
 import akka.stream.ActorMaterializer;
@@ -32,9 +34,14 @@ import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.util.ByteString;
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import scala.util.Try;
 
+import java.net.PasswordAuthentication;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -110,6 +117,12 @@ public class BaseClient {
         return createRequest(method, uri).withEntity(ContentTypes.APPLICATION_JSON, json);
     }
 
+    protected HttpRequest createAccessTokenRequest(PasswordAuthentication credentials) {
+        return createRequest(HttpMethods.POST, Uri.create("/auth/token"))
+                .withEntity(FormData.create(Pair.create("grant_type", "client_credentials")).toEntity())
+                .addHeader(Authorization.basic(credentials.getUserName(), new String(credentials.getPassword())));
+    }
+
     protected HttpRequest createRequest(HttpMethod method, Uri uri) {
         return HttpRequest.create().withMethod(method).withUri(uri);
     }
@@ -139,12 +152,22 @@ public class BaseClient {
         return future;
     }
 
-    public JsonElement toJsonElement(String json) {
-        return parser.parse(json);
+    protected Source<Optional<String>, NotUsed> withAuth(PasswordAuthentication creds) {
+        return Source.single(creds)
+                .map(this::createAccessTokenRequest)
+                .map(t -> Pair.create(t, 0L))
+                .via(this.poolClientFlow)
+                .flatMapConcat(p -> p.first().map(response ->
+                    response.entity().getDataBytes().map(body -> {
+                        JsonElement json = toJsonElement(body.decodeString("UTF-8"));
+                        AccessTokenResponse tokenResponse = gson.fromJson(json, AccessTokenResponse.class);
+                        return Optional.of(tokenResponse.access_token);
+                    })
+                ).getOrElse(() -> { throw new RuntimeException(); }));
     }
 
-    public <T> T toPojo(JsonElement jsonElement, Class<T> classOfT) throws JsonSyntaxException {
-        return gson.fromJson(jsonElement, classOfT);
+    public JsonElement toJsonElement(String json) {
+        return parser.parse(json);
     }
 
     public Materializer getMaterializer() {
@@ -156,5 +179,10 @@ public class BaseClient {
         Http.get(system)
                 .shutdownAllConnectionPools()
                 .whenComplete((s, f) -> system.terminate());
+    }
+
+
+    private class AccessTokenResponse {
+        String access_token;
     }
 }

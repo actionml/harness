@@ -19,7 +19,11 @@ package com.actionml;
 
 import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
+import akka.stream.javadsl.Keep;
+import akka.stream.javadsl.Sink;
 
+import java.net.PasswordAuthentication;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -28,11 +32,16 @@ import java.util.concurrent.CompletionStage;
 public class QueryClient extends RestClient {
 
     public QueryClient(String engineId, String host, Integer port) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"));
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), Optional.empty());
+    }
+
+    public QueryClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> credentials) {
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), credentials);
     }
 
     public CompletionStage<Pair<Integer, String>> sendQuery(String query) {
-        return this.create(query);
+        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
+                .thenCompose(optionalToken -> this.create(query, optionalToken));
     }
 
 }

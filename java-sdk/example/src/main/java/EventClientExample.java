@@ -21,10 +21,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.PasswordAuthentication;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -32,9 +34,7 @@ import java.util.stream.Collectors;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 18:46
  */
-public class EventClientExample {
-
-    private static Logger log = LoggerFactory.getLogger(EventClientExample.class);
+public class EventClientExample { private static Logger log = LoggerFactory.getLogger(EventClientExample.class);
 
     public static void main(String[] args) {
 
@@ -45,7 +45,14 @@ public class EventClientExample {
 
         log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
 
-        EventClient client = new EventClient(engineId, serverHost, serverPort);
+        Map<String, String> env = System.getenv();
+        Optional<String> optUsername = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_ID", null));
+        Optional<String> optPassword = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_SECRET", null));
+        Optional<PasswordAuthentication> optionalCreds = optUsername.flatMap(username -> optPassword.map( password ->
+                new PasswordAuthentication(username, password.toCharArray())
+        ));
+
+        EventClient client = new EventClient(engineId, serverHost, serverPort, optionalCreds);
 
         // example of JSON for creating an event
         String json = "{" +
