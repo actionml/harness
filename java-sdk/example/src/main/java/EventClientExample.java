@@ -46,8 +46,8 @@ public class EventClientExample { private static Logger log = LoggerFactory.getL
         log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
 
         Map<String, String> env = System.getenv();
-        Optional<String> optUsername = Optional.ofNullable(env.getOrDefault("HARNESS_USER_ID", null));
-        Optional<String> optPassword = Optional.ofNullable(env.getOrDefault("HARNESS_USER_SECRET", null));
+        Optional<String> optUsername = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_ID", null));
+        Optional<String> optPassword = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_SECRET", null));
         Optional<PasswordAuthentication> optionalCreds = optUsername.flatMap(username -> optPassword.map( password ->
                 new PasswordAuthentication(username, password.toCharArray())
         ));
