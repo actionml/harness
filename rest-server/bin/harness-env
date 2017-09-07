@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-# Type of mirroring, localfs is the only supported method currently
-# export MIRROR_TYPE=localfs
-# The root of mirroring, the engine-id will be appended to this and collections of raw events will be timestamped
-# export MIRROR_CONTAINER_NAME=/path/to/mirror/directory
+# Mirroring data is not configured per Engine in the engine.json file used to create the engine
+# See examples in rest-server/data/test_resource.json file
 
 export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
 export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
@@ -14,19 +12,17 @@ export MONGO_PORT=${MONGO_PORT:-27017}
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
 export HARNESS_LOG_PATH="${HARNESS_HOME}/logs"
 
-# Reset
-NC='\033[0m'           # Text Reset
+# Harness Auth
+#export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
+export HARNESS_AUTH_ENABLED=true
 
-# Regular Colors
-RED='\033[0;31m'          # Red
-GREEN='\033[0;32m'        # Green
-YELLOW='\033[0;33m'       # Yellow
-BLUE='\033[0;34m'         # Blue
-PURPLE='\033[0;35m'       # Purple
-CYAN='\033[0;36m'         # Cyan
-WHITE='\033[0;37m'        # White
+# Harness's Auth Server microservice auth
+#export HARNESS_AUTH_SERVER_PROTECTED=${HARNESS_AUTH_SERVER_PROTECTED:-false}
+export HARNESS_AUTH_SERVER_PROTECTED=true
 
-LINE="=================================================================="
+# Can be hard-coded here or exported with the ENV, defaults to no id
+# export ADMIN_USER_ID=some-user-id
+export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fc2bft
+# Can override where this is stored, the default is where the CLI user's ssh keys are stored
+export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
 
-GLINE="${GREEN}${LINE}"
-RLINE="${LINE}${NC}"

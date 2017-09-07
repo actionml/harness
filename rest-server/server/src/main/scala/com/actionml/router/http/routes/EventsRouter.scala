@@ -5,6 +5,12 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
+import com.actionml.authserver.ResourceId
+import com.actionml.authserver.Roles.event
+import com.actionml.authserver.directives.AuthorizationDirectives
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.services.AuthServerProxyService
+import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
@@ -27,17 +33,22 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 12:53
   */
-class EventsRouter(implicit inj: Injector) extends BaseRouter {
-
+class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
   private val eventService = inject[ActorRef]('EventService)
+  override val authorizationService = inject[AuthorizationService]
+  private val config = inject[AppConfig]
+  override val authEnabled = config.auth.enabled
 
-  val route: Route = rejectEmptyResponse {
-    (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
-      pathPrefix("events") {
-        pathEndOrSingleSlash {
+  val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
+    pathPrefix("engines" / Segment) { engineId =>
+      (pathPrefix("events") & extractLog) { implicit log =>
+        (pathEndOrSingleSlash & hasAccess(event.create, ResourceId.*)) {
           createEvent(engineId, log)
-        } ~ path(Segment) { eventId ⇒
-          getEvent(engineId, eventId, log)
+        } ~
+        path(Segment) { eventId ⇒
+          hasAccess(event.read, eventId).apply {
+            getEvent(engineId, eventId, log)
+          }
         }
       }
     }

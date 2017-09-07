@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+if [ -z ${HARNESS_AUTH_HOME} ] ; then
+  HARNESS_AUTH_FILE=$(readlink -f $0 2>/dev/null)
+  if [ $? = 0 ] ; then
+    export HARNESS_AUTH_HOME="$(cd $(dirname ${HARNESS_AUTH_FILE})/..; pwd)"
+  else
+    CURRENT_DIR=`pwd`
+    TARGET_FILE="$0"
+    cd "$(dirname "$TARGET_FILE")"
+    TARGET_FILE=$(basename "$TARGET_FILE")
+
+    while [ -L "$TARGET_FILE" ]
+    do
+      TARGET_FILE=$(readlink "$TARGET_FILE")
+      cd "$(dirname "$TARGET_FILE")"
+      TARGET_FILE=$(basename "$TARGET_FILE")
+    done
+
+    export HARNESS_AUTH_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+    cd "$CURRENT_DIR"
+  fi
+fi
+
+. "${HARNESS_AUTH_HOME}/bin/harness-auth-env"
+
+command="$1"
+shift
+
+
+case ${command} in
+
+    start) ${HARNESS_AUTH_HOME}/bin/harness-auth-start ;;
+
+    stop) ${HARNESS_AUTH_HOME}/bin/harness-auth-stop ;;
+
+    *) ${HARNESS_AUTH_HOME}/bin/harness-auth-help ;;
+esac

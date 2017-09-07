@@ -2,14 +2,70 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-echo -e "${GLINE}"
-echo "HARNESS_HOME........${HARNESS_HOME}"
-echo "REST_SERVER_HOST....${REST_SERVER_HOST}"
-echo "REST_SERVER_PORT....${REST_SERVER_PORT}"
-echo "MONGO_HOST..........${MONGO_HOST}"
-echo "MONGO_PORT..........${MONGO_PORT}"
-echo "HARNESS_LOG_CONFIG..${HARNESS_LOG_CONFIG}"
-echo "HARNESS_LOG_PATH....${HARNESS_LOG_PATH}"
-echo -e "${RLINE}"
+RESOURCE_TYPE=$1
+RESOURCE_ID=$2
 
-${HARNESS_HOME}/bin/command.py status
+if [ -z "$RESOURCE_TYPE" ] ; then
+    echo -e "${CYAN}Getting Harness Server status${NC}"
+    echo -e "${GLINE}"
+    echo "HARNESS_HOME........${HARNESS_HOME}"
+    echo "REST_SERVER_HOST....${REST_SERVER_HOST}"
+    echo "REST_SERVER_PORT....${REST_SERVER_PORT}"
+    echo "MONGO_HOST..........${MONGO_HOST}"
+    echo "MONGO_PORT..........${MONGO_PORT}"
+    echo "HARNESS_LOG_CONFIG..${HARNESS_LOG_CONFIG}"
+    echo "HARNESS_LOG_PATH....${HARNESS_LOG_PATH}"
+    echo -e "${RLINE}"
+    ${HARNESS_HOME}/bin/commands.py status
+    exit 1
+fi
+
+if [ ${RESOURCE_TYPE} = "engines" ]; then
+
+    if [ -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --all_engines $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+    if [ ! -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status -e ${RESOURCE_ID} $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+fi
+
+if [ ${RESOURCE_TYPE} = "users" ]; then
+    if [ -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --all_users $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+    if [ ! -z ${RESOURCE_ID} ]; then
+        PYTHON_ARGS="status --user_id ${RESOURCE_ID} $USER_ARGS"
+
+        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+
+        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
+        exit $?
+    fi
+
+fi
+
+echo -e "   ${RED}Error in command, should be:  harness status [[ engines | engines <engine-id>]]${NC}"
+echo -e "       Prints a status message for the harness server, all engines or for the engine specified."
+echo ""
+
+
+

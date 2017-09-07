@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 
+# Reset
+export NC='\033[0m'           # Text Reset
+
+# Regular Colors
+export RED='\033[0;31m'          # Red--error
+export GREEN='\033[0;32m'        # Green
+export YELLOW='\033[0;33m'       # Yellow
+export BLUE='\033[0;34m'         # Blue
+export PURPLE='\033[0;35m'       # Purple
+export CYAN='\033[0;36m'         # Cyan--hints and info messages
+export WHITE='\033[0;37m'        # White
+
+export LINE="=================================================================="
+
+export GLINE="${GREEN}${LINE}"
+export RLINE="${LINE}${NC}"
+
 if [ -z ${HARNESS_HOME} ] ; then
   HARNESS_FILE=$(readlink -f $0 2>/dev/null)
   if [ $? = 0 ] ; then
@@ -24,6 +41,20 @@ fi
 
 . "${HARNESS_HOME}/bin/harness-env"
 
+if [ $HARNESS_AUTH_ENABLED != "true" ] && [ $HARNESS_AUTH_SERVER_PROTECTED != "true" ]; then
+    USER_ARGS=""
+    echo -e "${CYAN}Auth disabled, no ADMIN_USER_ID needed. ${NC}"
+elif [ ! -z "$ADMIN_USER_ID" ] && [ ! -z "$ADMIN_USER_SECRET_LOCATION" ] && [ $HARNESS_AUTH_ENABLED = "true" ] && [ $HARNESS_AUTH_SERVER_PROTECTED = "true" ]; then
+    echo -e "${CYAN}Auth enabled, ADMIN_USER_ID: \"${ADMIN_USER_ID}\"${NC}"
+    USER_ARGS=" --client_user_id ${ADMIN_USER_ID} --client_user_secret_location ${ADMIN_USER_SECRET_LOCATION} "
+else
+    echo -e "${RED}Admin ID and Auth mis-configured see bin/harness-env. If you want auth enabled all these must be set ${NC}"
+    echo -e "${RED}ADMIN_USER_ID, ADMIN_USER_SECRET_LOCATION, HARNESS_AUTH_ENABLED, HARNESS_AUTH_SERVER_PROTECTED${NC}"
+    exit 1
+fi
+
+export USER_ARGS
+
 command="$1"
 shift
 
@@ -34,7 +65,7 @@ case ${command} in
 
     stop) ${HARNESS_HOME}/bin/harness-stop ;;
 
-    status) ${HARNESS_HOME}/bin/harness-status ;;
+    status) ${HARNESS_HOME}/bin/harness-status $1 $2 ;;
 
     add) ${HARNESS_HOME}/bin/harness-engine-add $1 $2 ;;
 
@@ -43,6 +74,14 @@ case ${command} in
     delete) ${HARNESS_HOME}/bin/harness-engine-delete $1 $2 ;;
 
     import) ${HARNESS_HOME}/bin/harness-engine-import $1 $2 $3;;
+
+    user-add) ${HARNESS_HOME}/bin/harness-user-add $1 $2 $3 $4;;
+
+    user-delete) ${HARNESS_HOME}/bin/harness-user-delete $1;;
+
+    grant) ${HARNESS_HOME}/bin/harness-grant $1 $2 $3;;
+
+    revoke) ${HARNESS_HOME}/bin/harness-revoke $1 $2 ;;
 
     train) ${HARNESS_HOME}/bin/harness-engine-train $1 $2 ;;
 

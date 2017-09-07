@@ -2,6 +2,9 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
+echo
+echo -e "${CYAN}Harness CLI Help${NC}"
+echo
 echo -e "   ${CYAN}harness start${NC}"
 echo -e "       Starts the Harness server and prints configuration information. Starts all active engines."
 echo ""
@@ -10,31 +13,47 @@ echo -e "   ${CYAN}harness stop${NC}"
 echo -e "       Gracefully stops harness and all engines."
 echo ""
 
-echo -e "   ${CYAN}harness add [-c <some-engine.json> | <some-resource-id>]${NC}"
+echo -e "   ${CYAN}harness add </path/to/some-engine.json>${NC}"
 echo -e "       Create a new engine and set it's configuration"
 echo ""
 
-echo -e "   ${CYAN}harness update [-c <some-engine.json> | <some-resource-id>] [-d | --data-delete] [-f | --force]${NC}"
-echo -e "       Stops the engine, modifies the parameters and restarts the engine. WARNING: non-operational, instead perform harness delete then add"
+echo -e "   ${CYAN}harness import <engine-id> <path/to/events/json/files> ${NC}"
+echo -e "       Imports events into the engine specified. The path can be to a directory or a single file."
 echo ""
 
-echo -e "   ${CYAN}harness delete [-c <some-engine.json> | <some-resource-id>]${NC}"
+#echo -e "   ${CYAN}harness update [-c <some-engine.json> | <engine-id>] [-d | --data-delete] [-f | --force]${NC}"
+#echo -e "       Stops the engine, modifies the parameters and restarts the engine. WARNING: not implemented, instead perform harness delete then add"
+#echo ""
+
+echo -e "   ${CYAN}harness delete <engine-id>${NC}"
 echo -e "       Deletes engine and all data"
 echo ""
 
-echo -e "   ${CYAN}harness import [-c <some-engine.json> | <some-resource-id>] [-i <some-directory> | <some-file>] ${NC}"
-echo -e "       Import JSON events, just as they would have been sent as input. Used to replay mirrored data or import bootstrap data."
+#echo -e "   ${CYAN}harness train engine-id${NC}"
+#echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: not implemented."
+#echo ""
+
+echo -e "   ${CYAN}harness status [[ engines | engines <engine-id>]]${NC}"
+echo -e "       Prints a status message for the harness server, all engines, or the engine specified."
 echo ""
 
-echo -e "   ${CYAN}harness train [-c <some-engine.json> | <some-resource-id>]${NC}"
-echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: non-operational."
+echo -e "   ${CYAN}harness user-add${NC}"
+echo -e "       Returns the user-id for the new user and their credentials bearer token but does not"
+echo -e "       grant permissions (see \"grant\" command to add permissions"
 echo ""
 
-echo -e "   ${CYAN}harness status [[-c <some-engine.json> | <some-resource-id>]]${NC}"
-echo -e "       Prints a status message for harness or for the engine specified. Note: prints only server status."
+echo -e "   ${CYAN}harness user-delete${NC}"
+echo -e "       Returns the user-id for the deleted user and deletes all attached permissions."
 echo ""
 
-echo -e "   ${CYAN}harness import <some-resource-id> -i <path/to/events/json/files> ${NC}"
-echo -e "       Imports events into the engine specified. The path can be to a directory or a single file."
-echo -e "       The files should contain one event per line of JSON. Files starting with '.' or '_' will be ignored."
+echo -e "   ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
+echo -e "       Returns true if permissions are added to the user-id"
+echo ""
+
+echo -e "   ${CYAN}harness revoke <user-id> [<engine-id> | *]${NC}"
+echo -e "       Revokes the user permissions for the engine specified"
+echo ""
+
+echo -e "   ${CYAN}harness status users [<user-id>]${NC}"
+echo -e "       Prints the permissions for all users, or the user specified."
 echo ""

@@ -1,0 +1,567 @@
+Namespace(engine_id='integration_test_1', engine_id_2='integration_test_2', events_file='examples/cb_events.csv', events_file_2='examples/cb_events_2.csv', queries_file='examples/cb_queries.csv', url='http://localhost:9090')
+Events for integration_test_2
+localhost:9090
+Importing data...
+Event: ['$set', 'user', 'user_1', 'location:Hanoi']
+Event: ['$set', 'user', 'user_2', 'location:Bangkok']
+Event: ['$set', 'user', 'user_3', 'location:Bangkok']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'true']
+Events for integration_test_1
+localhost:9090
+Importing data...
+Event: ['$set', 'user', 'user_1', 'location:Hanoi']
+Event: ['$set', 'user', 'user_2', 'location:Bangkok']
+Event: ['$set', 'user', 'user_3', 'location:Bangkok']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_2', '1', '1', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_2', '1', '2', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Event: ['page-view-conversion', 'user_1', '1', '1', 'true']
+Event: ['page-view-conversion', 'user_1', '1', '2', 'false']
+Queries for integration_test_1
+Making queries...
+Result: "
+user": user_1
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 2,
+"groupId": 1
+    
+Queries for integration_test_2
+Making queries...
+Result: "
+user": user_1
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_1
+"variant": 2,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_2
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 1,
+"groupId": 1
+    
+Result: "
+user": user_3
+"variant": 1,
+"groupId": 1
+    

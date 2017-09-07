@@ -1,13 +1,19 @@
 package com.actionml
 
 import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import com.actionml.admin.{Administrator, MongoAdministrator}
 import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
+import com.actionml.authserver.router.AuthServerProxyRouter
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, ClientAuthorizationService}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
+
+import scala.concurrent.ExecutionContext
 /**
   *
   *
@@ -24,11 +30,14 @@ object Main extends App with AkkaInjectable{
 
 class BaseModule extends Module{
 
-  bind[AppConfig] to AppConfig.apply
+  val config = AppConfig.apply
+  bind[AppConfig] to config
 
   bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(_.terminate())
 
   implicit lazy val system: ActorSystem = inject [ActorSystem]
+  bind[ExecutionContext] to system.dispatcher
+  bind[ActorMaterializer] to ActorMaterializer()
 
   bind[RestServer] to new RestServer
 
@@ -37,10 +46,14 @@ class BaseModule extends Module{
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
+  bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl
   bind[QueryService] to new QueryServiceImpl
+
+  bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
+  bind[AuthorizationService] to new ClientAuthorizationService
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")

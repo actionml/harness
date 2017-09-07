@@ -29,20 +29,17 @@ setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
         'Topic :: Scientific/Engineering :: Information Analysis',
         'Topic :: Software Development :: Libraries :: Python Modules'],
-    long_description="""ActionML Python SDK
-                       ActionML is a prediction server for building smart
-                       applications. While you search data through a database
-                       server, you can make prediction through ActionML.
-                       With ActionML, you can write apps
-                       - that predict user behaviors based on solid data
-                         science
-                       - using your choice of state-of-the-art machine
-                         learning algorithms
-                       - without worrying about scalability
+    long_description="""Harness Python SDK from ActionML
+                       Harness is a machine learning server for building smart
+                       applications. Adding Templates for different algorithms
+                       (recommenders, classifiers, deep learning/ neural nets, etc.)
+                       allows Harness to take input and serve ML type queries
+                       for just about any ML algorithm using most any compute engine
+                       (Spark, TensorFlow, Mahout, Vowpal Wabbit, etc.)
                        Detailed documentation is available on our
                        `documentation site <a href="http://actionml.com/docs">docs</a>`.
                        This module provides convenient access of the
-                       ActionML API to Python programmers so that they
+                       Harness REST API for Python programmers so that they
                        can focus on their application logic.
                        """,
     install_requires=["pytz >= 2017.2", ],

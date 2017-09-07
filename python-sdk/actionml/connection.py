@@ -21,6 +21,13 @@ except ImportError:
 import datetime
 import json
 import logging
+import base64
+import os
+
+try:
+    import ssl
+except ImportError:
+    print("error: no ssl support")
 
 # use generators for python2 and python3
 try:
@@ -77,7 +84,10 @@ class AsyncRequest(object):
         self.params = params
         # use queue to implement response, store AsyncResponse object
         self.response_q = Queue.Queue(1)
-        self.qpath = "%s?%s" % (self.path, urlencode(self.params))
+        if method in ["GET", "HEAD", "DELETE"]:
+            self.qpath = "%s?%s" % (self.path, urlencode(self.params))
+        else:
+            self.qpath = self.path
         self._response = None
         # response function to be called to handle the response
         self.response_handler = None
@@ -203,7 +213,9 @@ class AsyncResponse(object):
 
 class ActionMLHttpConnection(object):
     def __init__(self, host, https=True, timeout=5):
+        self.access_token = None
         if https:  # https connection
+            # ssl._create_default_https_context = ssl._create_unverified_context
             self._connection = httplib.HTTPSConnection(host, timeout=timeout)
         else:
             self._connection = httplib.HTTPConnection(host, timeout=timeout)
@@ -214,7 +226,28 @@ class ActionMLHttpConnection(object):
     def close(self):
         self._connection.close()
 
-    def request(self, method, url, body={}, headers={}):
+    def get_access_token_header(self, user_id, user_secret):
+        body = 'grant_type=client_credentials'
+        basic_string = '{username}:{password}'.format(username=user_id, password=user_secret)
+        user_creds = base64.b64encode(basic_string.encode('utf-8')).decode('utf-8')
+        headers = {"Authorization": ('Basic ' + user_creds), "Content-Type": "application/x-www-form-urlencoded"}
+        self._connection.request("POST", "/auth/token", body, headers)
+        resp = self._connection.getresponse()
+        resp_body = resp.read().decode()
+        token = json.loads(resp_body)["access_token"]
+        return 'Bearer ' + token
+
+    def with_auth_header(self, headers, user_id, user_secret):
+        auth_enabled = (user_id is not None) & (user_secret is not None)
+        if auth_enabled:
+            if self.access_token is None:
+                token = self.get_access_token_header(user_id, user_secret)
+            else:
+                token = self.access_token
+            headers["Authorization"] = token
+        return headers
+
+    def request(self, method, url, body={}, headers={}, user_id=None, user_secret=None):
         """
         http request wrapper function, with retry capability in case of error.
         catch error exception and store it in AsyncResponse object
@@ -233,14 +266,14 @@ class ActionMLHttpConnection(object):
             retry_limit = MAX_RETRY
             mod_headers = dict(headers)  # copy the headers
             mod_headers["Connection"] = "keep-alive"
+            mod_headers = self.with_auth_header(mod_headers, user_id, user_secret)
             enc_body = None
             if body:  # if body is not empty
                 # enc_body = urlencode(body)
                 # mod_headers[
                 # "Content-type"] = "application/x-www-form-urlencoded"
                 enc_body = json.dumps(body)
-                mod_headers[
-                    "Content-type"] = "application/json"
+                mod_headers["Content-type"] = "application/json"
                 # mod_headers["Accept"] = "text/plain"
         except Exception as e:
             response.set_error(e)
@@ -306,7 +339,7 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
       timeout: timeout for HTTP connection attempts and requests in seconds
       loop: This worker function stays in a loop waiting for request
         For testing purpose only. should always be set to True.
-        :param loop: 
+        :param loop:
         :param timeout: 
         :param request_queue: 
         :param https: 
@@ -323,16 +356,18 @@ def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
         request = request_queue.get(True)  # NOTE: blocking get
         # print "get request %s" % request
         method = request.method
+        user_id = request.user_id
+        user_secret = request.user_secret
         if method == "GET":
             path = request.qpath
-            d = connect.request("GET", path)
+            d = connect.request("GET", path, user_id=user_id, user_secret=user_secret)
         elif method == "POST":
             path = request.path
             body = request.params
-            d = connect.request("POST", path, body)
+            d = connect.request("POST", path, body, user_id=user_id, user_secret=user_secret)
         elif method == "DELETE":
             path = request.qpath
-            d = connect.request("DELETE", path)
+            d = connect.request("DELETE", path, user_id=user_id, user_secret=user_secret)
         elif method == "KILL":
             # tell the thread to kill the connection
             killed = True
@@ -357,7 +392,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5):
+    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5, user_id=None, user_secret=None):
         """constructor
         Args:
           host: host of the server.
@@ -372,6 +407,8 @@ class Connection(object):
         self.q = Queue.Queue(qsize)  # if qsize=0, means infinite
         self.threads = threads
         self.timeout = timeout
+        self.user_id = user_id
+        self.user_secret = user_secret
         # start thread based on threads number
         self.tid = {}  # dictionary of thread object
 
@@ -387,6 +424,8 @@ class Connection(object):
     def make_request(self, request):
         """put the request into the q
         """
+        request.user_id = self.user_id
+        request.user_secret = self.user_secret
         self.q.put(request)
 
     def pending_requests(self):

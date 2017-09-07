@@ -19,13 +19,13 @@ done
 
 if [ -z "$ENGINE_CONFIG" ] && [ -z "$RESOURCE_ID" ]; then
     echo -e "${RED}Engine config file or resource id not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
     exit 1
 fi
 
 if [ ! -f ${ENGINE_CONFIG} ]; then
     echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <some-resource-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
     echo -e "Verify that the correct path is specified."
     exit 1
 fi
@@ -37,6 +37,6 @@ if [ -n "$DATA_DELETE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${DATA_DELETE}"; fi
 if [ -n "$FORCE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${FORCE}"; fi
 if [ -n "$INPUT_LOCATION" ]; then PYTHON_ARGS="${PYTHON_ARGS} -i ${INPUT_LOCATION}"; fi
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}${NC}"
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
-${HARNESS_HOME}/bin/engine.py ${PYTHON_ARGS}
+${HARNESS_HOME}/bin/eengines.py ${PYTHON_ARGS}

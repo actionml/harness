@@ -18,4 +18,4 @@ if [ ! -f ${ENGINE_CONFIG} ]; then
     exit 1
 fi
 
-${HARNESS_HOME}/bin/command.py train ${ENGINE_CONFIG}
+${HARNESS_HOME}/bin/commands.py train ${ENGINE_CONFIG}

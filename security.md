@@ -4,7 +4,7 @@ Harness optionally uses TLS (formerly called SSL) and OAuth2 "bearer token" Serv
 
 ## TLS Support
 
-Uses [http-akka TLS support](http://doc.akka.io/docs/akka-http/current/scala/http/server-side-https-support.html).
+Uses http-akka [server](http://doc.akka.io/docs/akka-http/current/scala/http/server-side/server-https-support.html) and [client](http://doc.akka.io/docs/akka-http/current/scala/http/client-side/client-https-support.html) TLS support.
 
 ## Authentication
 
@@ -16,50 +16,39 @@ If an authenticated user has been granted access permission for resource, then t
 
 # OAuth2
 
-We use OAuth2 "bearer tokens" for Auth. Here is the flow between client and Harness server during Auth. 
+We use OAuth2 "bearer tokens" for Auth. The Bearer Token is used as credentials like a username+password. It is created by the Harness Server, using the Auth-server as a microservice, by an admin user then conveyed to the user of Harness. This allows separation of Engines in a multi-tenant manner with some Engines accessible to some Users and other Engines inaccessible to protect one User's data from another User accessing it.
 
-![](https://docs.google.com/drawings/d/1_uPiP5UGkphF62PsdIM0Zu8Ugbp4XAKnLYP5CyKrfLo/pub?w=1148&h=572) 
+Some of this data flow is done by humans (the offline part) and some by the SDK to Harness communication (the online part).  
 
- 1. Client sends authorization request to Harness REST server. It directs authorization request to Harness authorization server.
- 1. Harness authorization server authenticates REST server via its credentials, searches for authorization rules for that client and REST server and then
- 1. generates a resource and sends back to REST server access token for that client
- 1. client gets access token
- 1. and sends request for protected resource with that access token to Harness REST server
- 1. REST server checks access token via authorization server and
- 1. sends back protected resource to the client
-Authorization Rules
-Collection ‘users’ store information about end user’s credentials and roles.
- 1. Responce to REST API invocation
+Here is the OAuth2 Bearer Token Protocol mapped onto Harness, the microservice Auth-Server, and the humans involved. 
 
-```
-users: [ // Token holders
-  {
-    "secret": "bearer token",
-    "role": "human readable role id, for example engine.read, engine.modify, resource.read, resource.modify and so on",
-    "resourceId": "UUID of the resource, it can also be a wildcard *"
-  },
-  ...
-]
-```
+![](https://docs.google.com/drawings/d/e/2PACX-1vSu_7RpWjYZhhxPfZIvzLfMoCL0traBHs_ATWsEQXeGpYZE6taMMqYFfO-ahcyOQ52Me5zLrTt_tJPM/pub?w=1741&h=2415) 
 
-Auth-Server REST API
+# Users and Permissions
 
-    /POST /auth/api/v1/authenticate
-    Request body: {“token”: “string”}
-    Response: HTTP code 200 and body {“accessToken”:“string”, “ttl”:<optional long>, “refreshToken”:“optional string”} if authentication was successful; otherwise, HTTP code 401.
-    
-    /POST /auth/api/v1/authorize
-    Request body: {“accessToken”:“string”, “role”:”string”, “resourceId”:“string”}
-    Response: HTTP code 200 and body {“success”: “true”} if authorization succeed; otherwise, HTTP code 403.
-    
-Harness REST API for security management
+The see the REST API used to implement User management see the later portion if the [REST Spec](rest_spec.md)
 
-    /POST /auth/api/v1/user
-    Request body: {“roleSetId”: “client|admin”, “resourceId”: “*|some id”}
-    Response: HTTP status 200 and body {“bearerToken”: “token”}
-    
-    /DELETE /auth/api/v1/user
-    Request body: {“bearerToken”: “token”}
-    Response: HTTP status 200 and body {“success”: “true”}
+For the CLI that manages users see the [Commands Spec](commands.md)
 
+## Create Admin User and Enabling Auth
+
+The typical configuration of Harness is with the Harness and Auth Servers running on the same machine with the CLI installed. Although these can all run on different machines we describe the simple case here:
+
+Creating admin right after installation can be done with the following steps:
+
+1. Make sure the python-sdk, the auth-server’s, and the Harness server’s auth is disabled (it is disabled by default after installation)
+
+1. After building both Harness and the Auth Server make suer that the path to both distribution build's `bin/` directories are in the path.
+1. **`harness-auth-start`** Normally the auth-server is only started when harness is using auth this is the only case it is needed without auth enabled.
+2. **`harness start`**
+1. **`harness user-add admin`** # this returns user-id and a secret
+1. **`harness stop`** and **`auth-server stop`**
+1. Enable auth for the python-sdk, Harness, and the Auth Server by editing `harness/bin/harness-env` in the distrubution built using `make-distribution.sh` and `auth-server/bin/auth-server-env` in the location of your Auth Server build. The auth enabling variable is documented in both files.
+ - **The user-id** for the admin can be in the ENV in clear text. 
+ - **The "secret"** used as the OAuth2 Bearer Token should have an ENV variable that points to a file with read/write permission only for the linux user running harness, much like the permissions used for ssh private keys. The secret should be in a file in ~/.ssh/harness-user-key with RW permission only for the user of the SDK or the user who has lunched Harness. This mechanism is used on the client-side with the Java or Python SDK as well as the CLI (which uses the Python SDK).
+1. Once the ENV is setup, the user-id and secret are stored securely the CLI will use these to access Harness when auth is enabled.
+2. Set ENV in both servers `-env` files to require TLS.
+1. `harness start` and `auth-server start` these will now require a user-id and credentials for any access since all resources are protected. These have been setup in the ENV in step #6.
+
+**&dagger;**The above process will be wrapped in a `setup-auth.sh` script that will run all the steps and report user-id and credentials while also configuring the ENV and doing all the start/stop of servers to make it functional. This is not yet available. **Note**: setting up a remote admin on another machine who connects to Harness across the internet securely is quite possible but the above steps should be executed on the 2 different machines and will not be scripted.
 
