@@ -22,7 +22,7 @@ export HARNESS_AUTH_SERVER_PROTECTED=true
 
 # Can be hard-coded here or exported with the ENV, defaults to no id
 # export ADMIN_USER_ID=some-user-id
-export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fc2bft
+export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fc2bf
 # Can override where this is stored, the default is where the CLI user's ssh keys are stored
 export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
 

@@ -3,21 +3,30 @@
 . "${HARNESS_HOME}/bin/harness-env"
 
 USER_ID=$1
-RESOURCE_ID=$2
+ROLE_SET=$2
+RESOURCE_ID=$3
 
-if [ ! -z $3 ] ; then
-    echo -e "${RED}Malformed command, too many parameters${NC}"
-    echo -e "Expected command: ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
-    exit 1
-fi
 
-if [ -z "$USER_ID" ] || [ -z "$RESOURCE_ID" ] ; then
+# if [[ "$ROLE_SET" != "admin" ]] && [[ -z "$USER_ID"  || -z "$ROLE_SET"  || -z "$RESOURCE_ID" ]]; then
+if [[ "$ROLE_SET" != "admin" ]] && [[ -z "$USER_ID"  || -z "$ROLE_SET" ]]; then
     echo -e "${RED}Malformed command, not enough parameters${NC}"
-    echo -e "Expected command: ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
+    # the following is wrong, should revoke for aa resource-id not a role-set
+    echo -e "Expected command: ${CYAN}harness revoke <user-id> [client | admin]${NC}"
     exit 1
 fi
 
-PYTHON_ARGS="revoke -u $USER_ID -e $RESOURCE_ID"
+#if [ $ROLE_SET = "admin" ] && [ ! -z $RESOURCE_ID ]; then
+#    echo -e "${RED}You cannot revoke an admin permission for an specific engine.${NC}"
+#    echo -e "${RED}Admins have permissions for all engines.${NC}"
+#    exit 1
+#fi
+
+if [ $ROLE_SET = "admin" ] && [ -z $RESOURCE_ID ]; then
+    RESOURCE_ID="X"
+fi
+
+# wrong should pass in resource id
+PYTHON_ARGS="revoke --user_id $USER_ID --role_set $ROLE_SET  $USER_ARGS"
 
 echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 

@@ -26,29 +26,59 @@ Here is the OAuth2 Bearer Token Protocol mapped onto Harness, the microservice A
 
 # Users and Permissions
 
+There are 2 role types. In typical use the `client` user-id and secret are used by the SDK on client machines and the admin user-id is used where the CLI is run. Clients have permission to send Events and Queries to specific Engines. Admins have access to all and this is needed to run the CLI.
+
 The see the REST API used to implement User management see the later portion if the [REST Spec](rest_spec.md)
 
 For the CLI that manages users see the [Commands Spec](commands.md)
 
-## Create Admin User and Enabling Auth
+# Creating Users and Enabling Auth
 
-The typical configuration of Harness is with the Harness and Auth Servers running on the same machine with the CLI installed. Although these can all run on different machines we describe the simple case here:
+The typical configuration of Harness is with the Harness and Auth Servers running on the same machine with the CLI installed. Although these can all run on different machines we describe the simple case below.
 
-Creating admin right after installation can be done with the following steps:
+To create Users the CLI is used and so this is run on the Harness Server. A `client` type user is created for every Engine but only an `admin` user can do this.
+
+ - **`client`**: is used to access engines by sending and events and queries. This is the user role typically used by the Java SDK. The Python SDK can use this too for events and queries
+ - **`admin`**: this user role allows superuser type access to all of the REST API and so is only granted to administrators, especially a user of the CLI. Some commands will fail unless the CLI user is an `admin`.
+
+Client users can access only the engine-id they have access to. In this way a multi-tenant setup of Harness will protect one Engine from access by other users. All users (except the admins) are blocked from all Engines unless expressly granted permission when the user-id is created or a later grant of permission is made.
+
+# Auth Setup for Server-side
+
+Creating an `admin` user right after installation can be done with the following steps:
 
 1. Make sure the python-sdk, the auth-server’s, and the Harness server’s auth is disabled (it is disabled by default after installation)
 
-1. After building both Harness and the Auth Server make suer that the path to both distribution build's `bin/` directories are in the path.
-1. **`harness-auth-start`** Normally the auth-server is only started when harness is using auth this is the only case it is needed without auth enabled.
-2. **`harness start`**
-1. **`harness user-add admin`** # this returns user-id and a secret
-1. **`harness stop`** and **`auth-server stop`**
-1. Enable auth for the python-sdk, Harness, and the Auth Server by editing `harness/bin/harness-env` in the distrubution built using `make-distribution.sh` and `auth-server/bin/auth-server-env` in the location of your Auth Server build. The auth enabling variable is documented in both files.
- - **The user-id** for the admin can be in the ENV in clear text. 
- - **The "secret"** used as the OAuth2 Bearer Token should have an ENV variable that points to a file with read/write permission only for the linux user running harness, much like the permissions used for ssh private keys. The secret should be in a file in ~/.ssh/harness-user-key with RW permission only for the user of the SDK or the user who has lunched Harness. This mechanism is used on the client-side with the Java or Python SDK as well as the CLI (which uses the Python SDK).
-1. Once the ENV is setup, the user-id and secret are stored securely the CLI will use these to access Harness when auth is enabled.
-2. Set ENV in both servers `-env` files to require TLS.
-1. `harness start` and `auth-server start` these will now require a user-id and credentials for any access since all resources are protected. These have been setup in the ENV in step #6.
+1. Build both Harness and the Auth Server distributions and make sure that the path to both build's `bin/` directories are in the path.
+1. **`harness-auth start`** This starts the Auth Server, but does not enable auth. By default the Auth Server runs without auth required. The Auth Server manages users and so can be useful without auth enabled. See instructions below for enabling auth.
+2. **`harness start`** This will run harness without auth enabled.
+1. **`harness user-add admin`** # this returns user-id and a secret for an `admin` user who can run the CLI when auth is enabled. **Make note of the user-id and secret** they are not stored anywhere by this command and are needed in setup below.
+1. **`harness stop`** and **`harness-auth stop`** stop the servers running without auth.
+1. Enable auth for the python-sdk, Harness, and the Auth Server by editing `harness-env` in the distribution build and `harness-auth-env/bin/auth-server-env` in the location of your Auth Server build. The auth enabling variable is documented in both files.
+ - **Auth Server Auth Enable**: In `harness-auth-env` set the env variable: 
+  `export HARNESS_AUTH_SERVER_PROTECTED=true`
+  
+ - **Harness Auth Enable**: in `harness-env` set:
+  `export HARNESS_AUTH_ENABLED=true`
+  `export ADMIN_USER_ID=<user-id-returned-when-creating-the-admin-user>`
+  `export ADMIN_USER_SECRET_LOCATION=/path/to/admin.secret`
+  
+      The file referenced by `ADMIN_USER_SECRET_LOCATION` should contain the secret returned when the admin user was created. Best practice is to add this file to the CLI user's `.ssh/` directory and give it the same permission as the ssh private key.
+      
+ - **CLI Auth Usage**: the CLI uses the Python SDK to access Harness and reads the ENV variables setup above to find credentials to run. No other setup is required.
 
-**&dagger;**The above process will be wrapped in a `setup-auth.sh` script that will run all the steps and report user-id and credentials while also configuring the ENV and doing all the start/stop of servers to make it functional. This is not yet available. **Note**: setting up a remote admin on another machine who connects to Harness across the internet securely is quite possible but the above steps should be executed on the 2 different machines and will not be scripted.
+2. TLS (formerly known as SSL) should be configured for the Harness Server. Instructions TBD.
+1. **`harness start`** and **`harness-auth start`** The Harness Server will now require the `admin` user's id and credentials setup in `harness-env`.
+
+**&dagger;**The above process will be wrapped in a shell script that will run all the steps and report user-id and credentials while also configuring the ENV and doing all the start/stop of servers to make it functional. This is not yet available.
+
+## Auth Usage of the Java and Python SDK
+
+The SDK construct `Client` objects like `EventClient` etc. In their constructors each of these objects takes optional credentials for accessing the Engine(s) they have access to. See examples provided with the libraries for specifics.
+
+If the credentials (user-id and secret) are not provided the SDK will communicate without Auth, if they are provided they will send the user-id and secret when needed according to the OAuth2 protocol implemented in the diagram above.
+
+## TLS/SSL for the Client-side
+
+An additional ENV variable must be provided to allow the SDK to trust the cert of the Harness Server. Further instructions TBD.
 

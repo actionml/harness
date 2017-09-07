@@ -46,11 +46,11 @@ echo -e "   ${CYAN}harness user-delete${NC}"
 echo -e "       Returns the user-id for the deleted user and deletes all attached permissions."
 echo ""
 
-echo -e "   ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
+echo -e "   ${CYAN}harness grant <user-id> [client <engine-id> | admin]${NC}"
 echo -e "       Returns true if permissions are added to the user-id"
 echo ""
 
-echo -e "   ${CYAN}harness revoke <user-id> [<engine-id> | *]${NC}"
+echo -e "   ${CYAN}harness revoke <user-id> [client | admin]${NC}"
 echo -e "       Revokes the user permissions for the engine specified"
 echo ""
 

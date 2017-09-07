@@ -84,11 +84,12 @@ def id_or_config():
     return engine_id, config
 
 
+""""
 def user_id():
     print(args)
     user_id=args.user_id
     return user_id
-
+"""
 
 def get_client_user_secret(client_user_secret_location=None):
     if client_user_secret_location is not None:
