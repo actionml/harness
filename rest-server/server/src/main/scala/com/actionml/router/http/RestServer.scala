@@ -59,8 +59,8 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
     val password: Array[Char] = sslConfig.config.keyManagerConfig.keyStoreConfigs.head.password.get.toCharArray
 
-    val ks = KeyStore.getInstance("JKS")
-    val keystore = getClass.getClassLoader.getResourceAsStream("keys/localhost.jks")
+    val ks = KeyStore.getInstance("PKCS12")
+    val keystore = getClass.getClassLoader.getResourceAsStream("keys/harness.jks")
 
     require(keystore != null, "Keystore required!")
     ks.load(keystore, password)
@@ -71,7 +71,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     val tmf = TrustManagerFactory.getInstance("SunX509")
     tmf.init(ks)
 
-    val sslContext = SSLContext.getInstance("TLS")
+    val sslContext = SSLContext.getInstance("SSL")
     sslContext.init(keyManagerFactory.getKeyManagers, tmf.getTrustManagers, new SecureRandom)
     ConnectionContext.https(sslContext)
   }
