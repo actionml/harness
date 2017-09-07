@@ -23,6 +23,7 @@ import akka.http.javadsl.ConnectHttp;
 import akka.http.javadsl.HostConnectionPool;
 import akka.http.javadsl.Http;
 import akka.http.javadsl.model.*;
+import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.http.javadsl.model.headers.Authorization;
 import akka.japi.Pair;
 import akka.japi.function.Function;
@@ -81,16 +82,19 @@ public class BaseClient {
         this.host = host;
         this.port = port;
 
-//        ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
-//        poolClientFlow = Http.get(system).cachedHostConnectionPool(
-//                ConnectHttp.toHostHttps(host, port),
-//                settings,
-//                system.log(),
-//                materializer);
-
-        poolClientFlow = Http.get(system).cachedHostConnectionPool(
-                ConnectHttp.toHost(host, port),
-                materializer);
+        Boolean isHttps = host.startsWith("https");
+        if (isHttps) {
+            ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
+            poolClientFlow = Http.get(system).cachedHostConnectionPool(
+                    ConnectHttp.toHostHttps(host, port),
+                    settings,
+                    system.log(),
+                    materializer);
+        } else {
+            poolClientFlow = Http.get(system).cachedHostConnectionPool(
+                    ConnectHttp.toHost(host, port),
+                    materializer);
+        }
     }
 
     public CompletionStage<HttpResponse> single(HttpRequest request) {

@@ -22,6 +22,12 @@ import datetime
 import json
 import logging
 import base64
+import os
+
+try:
+    import ssl
+except ImportError:
+    print("error: no ssl support")
 
 # use generators for python2 and python3
 try:
@@ -209,6 +215,7 @@ class ActionMLHttpConnection(object):
     def __init__(self, host, https=True, timeout=5):
         self.access_token = None
         if https:  # https connection
+            # ssl._create_default_https_context = ssl._create_unverified_context
             self._connection = httplib.HTTPSConnection(host, timeout=timeout)
         else:
             self._connection = httplib.HTTPConnection(host, timeout=timeout)
