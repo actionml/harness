@@ -122,6 +122,10 @@ if __name__ == '__main__':
     parser.add_argument('--url', default="http://localhost:9090")
     parser.add_argument('--events_file', default="./cb_events.csv")
     parser.add_argument('--queries_file', default="./cb_queries.csv")
+    parser.add_argument('--user_id', default=None)
+    parser.add_argument('--user_id_2', default=None)
+    parser.add_argument('--secret', default=None)
+    parser.add_argument('--secret_2', default=None)
 
     args = parser.parse_args()
     print(args)
@@ -130,7 +134,9 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=args.user_id,
+        user_secret=args.secret)
     print(events_client.host)
 
     import_events(events_client, args.events_file)
@@ -139,7 +145,10 @@ if __name__ == '__main__':
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
-        qsize=500)
+        qsize=500,
+        user_id=args.user_id,
+        user_secret=args.secret
+    )
 
     execute_queries(query_client, args.queries_file)
 

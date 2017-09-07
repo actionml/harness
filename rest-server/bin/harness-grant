@@ -6,14 +6,35 @@ USER_ID=$1
 ROLE_SET=$2
 RESOURCE_ID=$3
 
-if [ -z "$USER_ID" ] || [ -z "$ROLE_SET" ] || [ -z "$RESOURCE_ID" ] ; then
+
+if [[ "$ROLE_SET" != "admin" ]] && [[ -z "$USER_ID"  || -z "$ROLE_SET"  || -z "$RESOURCE_ID" ]]; then
     echo -e "${RED}Malformed command, not enough parameters${NC}"
-    echo -e "Expected command: ${CYAN}harness grant <user-id> [client | admin] [<engine-id> | *]${NC}"
+    echo -e "Expected command: ${CYAN}harness grant <user-id> [client <engine-id> | admin]${NC}"
     exit 1
 fi
 
-PYTHON_ARGS="grant -u $USER_ID -r $ROLE_SET -e $RESOURCE_ID"
+# Todo: add a -f, --force param to skip
+if [ $ROLE_SET = "admin" ] && [ ! -z $RESOURCE_ID ]; then
+    echo -e "${CYAN}No need to grant an admin permission for an engine, admins have permissions for all engines.${NC}"
+    echo -e "${CYAN}This will nmake user: $USER_ID an \"admin\" with access to all resources${NC}"
+    while true; do
+        echo -e "${CYAN}Are you sure? [y/N] ${NC}"
+        read -r -p "Are you sure? [y/N] " yn
+        case $yn in
+            [Yy]* ) break;;
+            [NnCc]* ) echo -e "${RED}Aborting!${NC}"; exit 1;; # throw in c for cancel
+            * ) echo -e "${CYAN}Please answer yes (y) or no (n).${NC}";;
+        esac
+    done
+fi
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+if [ $ROLE_SET = "admin" ] && [ -z $RESOURCE_ID ]; then
+    RESOURCE_ID="X"
+fi
+
+
+PYTHON_ARGS="grant --user_id $USER_ID --role_set $ROLE_SET --engineid $RESOURCE_ID $USER_ARGS"
+
+echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS} ${NC}"
 
 ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
