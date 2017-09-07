@@ -17,13 +17,18 @@
 
 package com.actionml;
 
+import akka.NotUsed;
 import akka.http.javadsl.model.Uri;
 import akka.japi.Pair;
+import akka.stream.javadsl.Keep;
+import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import com.actionml.entity.Event;
 
+import java.net.PasswordAuthentication;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -33,7 +38,11 @@ import java.util.concurrent.CompletionStage;
 public class EventClient extends RestClient {
 
     public EventClient(String engineId, String host, Integer port) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"));
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), Optional.empty());
+    }
+
+    public EventClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds);
     }
 
     /**
@@ -43,11 +52,13 @@ public class EventClient extends RestClient {
      * @return Event
      */
     public CompletionStage<Pair<Integer, String>> getEvent(String eventId) {
-        return this.get(eventId);
+        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
+                .thenCompose(optionalToken -> this.get(eventId, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(String event) {
-        return this.create(event);
+        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
+                .thenCompose(optionalToken -> this.create(event, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(Event event) {
@@ -55,18 +66,20 @@ public class EventClient extends RestClient {
     }
 
     public CompletionStage<List<Pair<Long, Pair<Integer, String>>>> createEvents(List<String> events) {
-        return Source.from(events)
-                .map(this::createPost)
-                .zipWithIndex()
-                .map(pair -> pair.copy(pair.first(), (Long) pair.second()))
-                .via(this.poolClientFlow)
-                .mapAsync(1, this::extractResponse)
-                .mapAsync(1, this::extractResponses)
-//                .map(this::toBoolean)
-                .runFold(new ArrayList<>(), (acc, pair) -> {
-                    acc.add(pair);
-                    return acc;
-                }, this.materializer);
+        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
+                .thenCompose(optionalToken ->
+                        Source.from(events)
+                                .map(event -> this.createPost(event, optionalToken))
+                                .zipWithIndex()
+                                .map(pair -> pair.copy(pair.first(), (Long) pair.second()))
+                                .via(this.poolClientFlow)
+                                .mapAsync(1, this::extractResponse)
+                                .mapAsync(1, this::extractResponses)
+                                .runFold(new ArrayList<>(), (acc, pair) -> {
+                                    acc.add(pair);
+                                    return acc;
+                                }, this.materializer)
+                );
     }
 
 }
