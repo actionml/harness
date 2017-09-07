@@ -17,25 +17,33 @@
 
 package com.actionml;
 
+import akka.NotUsed;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
 import akka.http.javadsl.model.Uri;
+import akka.http.javadsl.model.headers.Authorization;
 import akka.japi.Pair;
+import akka.stream.javadsl.Source;
 
+import java.net.PasswordAuthentication;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         05.02.17 14:21
  */
-abstract class RestClient extends BaseClient{
+abstract class RestClient extends BaseClient {
 
     // Resource location
     protected final Uri uri;
+    protected final Optional<PasswordAuthentication> credentials;
 
-    RestClient(String host, Integer port, Uri uri) {
+    RestClient(String host, Integer port, Uri uri, Optional<PasswordAuthentication> optionalCreds) {
         super(host, port);
         this.uri = uri;
+        this.credentials = optionalCreds;
+
     }
 
     /**
@@ -44,8 +52,8 @@ abstract class RestClient extends BaseClient{
      * @param id ID Resource
      * @return Resource as JsonElement
      */
-    public CompletionStage<Pair<Integer, String>> get(String id) {
-        return single(createGet(id)).thenCompose(this::extractResponse);
+    public CompletionStage<Pair<Integer, String>> get(String id, Optional<String> optionalAccessToken) {
+        return single(createGet(id, optionalAccessToken)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -53,8 +61,8 @@ abstract class RestClient extends BaseClient{
      *
      * @return ID resource
      */
-    public CompletionStage<Pair<Integer, String>> create() {
-        return single(createPost("{}")).thenCompose(this::extractResponse);
+    public CompletionStage<Pair<Integer, String>> create(Optional<String> optionalAccessToken) {
+        return single(createPost("{}", optionalAccessToken)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -63,8 +71,8 @@ abstract class RestClient extends BaseClient{
      * @param json Resource as json string
      * @return ID resource
      */
-    public CompletionStage<Pair<Integer, String>> create(String json) {
-        return single(createPost(json)).thenCompose(this::extractResponse);
+    public CompletionStage<Pair<Integer, String>> create(String json, Optional<String> optionalAccessToken) {
+        return single(createPost(json, optionalAccessToken)).thenCompose(this::extractResponse);
     }
 
     /**
@@ -98,7 +106,7 @@ abstract class RestClient extends BaseClient{
         return single(createDelete(id)).thenCompose(this::extractResponse);
     }
 
-    protected HttpRequest createGet(String id) {
+    protected HttpRequest createGet(String id, Optional<String> optionalAccessToken) {
         return createGet(uri.addPathSegment(id));
     }
 
@@ -106,8 +114,11 @@ abstract class RestClient extends BaseClient{
         return createPost(uri.addPathSegment(id), json);
     }
 
-    protected HttpRequest createPost(String json) {
-        return createPost(uri, json);
+    protected HttpRequest createPost(String json, Optional<String> optionalAccessToken) {
+        HttpRequest request = createPost(uri, json);
+        return optionalAccessToken.map(accessToken ->
+                request.addHeader(Authorization.oauth2(accessToken))
+        ).orElse(request);
     }
 
     protected HttpRequest createDelete(String id) {
@@ -118,4 +129,7 @@ abstract class RestClient extends BaseClient{
         return extractResponse(pair.second()).thenApply(response -> Pair.create(pair.first(), response));
     }
 
+    protected Source<Optional<String>, NotUsed> withAuth() {
+        return this.credentials.map(this::withAuth).orElse(Source.single(Optional.empty()));
+    }
 }
