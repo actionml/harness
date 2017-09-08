@@ -22,11 +22,9 @@ args = parser.parse_args()
 harness_host = os.getenv('REST_SERVER_HOST', 'localhost')
 harness_port = os.getenv('REST_SERVER_PORT', 9090)
 
-if os.getenv('HARNESS_AUTH_SERVER_PROTECTED') == 'true' and os.getenv('HARNESS_AUTH_ENABLED') == 'true':
+if os.getenv('HARNESS_AUTH_SERVER_PROTECTED') == 'true' or os.getenv('HARNESS_AUTH_ENABLED') == 'true':
     auth_enabled = True
     print('Auth enabled')
-elif os.getenv('HARNESS_AUTH_SERVER_PROTECTED') != os.getenv('HARNESS_AUTH_ENABLED'):
-    raise RuntimeError("Configuration Error: HARNESS_AUTH_SERVER_PROTECTED is not the same as HARNESS_AUTH_ENABLED")
 else:
     auth_enabled = False
     print('Auth disabled')
