@@ -2,7 +2,7 @@
 
 . "${HARNESS_HOME}/bin/harness-auth-env"
 
-echo -e "   ${CYAN}harness-auth start${NC}"
+echo -e "   ${CYAN}harness-auth start [-f]${NC}"
 echo -e "       Starts the Harness Auth Server."
 echo ""
 

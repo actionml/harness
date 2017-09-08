@@ -6,26 +6,45 @@ PIDFILE=${HARNESS_AUTH_HOME}/authserver.pid
 
 if [ ! -f "${HARNESS_AUTH_HOME}/bin/main" ]; then
     echo -e "${RED}Main file '${HARNESS_AUTH_HOME}/bin/main' not found!${NC}"
+    echo -e "${RED}The Harness Auth Server must be run after doing a distribution build${NC}"
     exit 1
 fi
 
 HARNESS_AUTH_CONFIG=${HARNESS_AUTH_HOME}/conf/application.conf
 HARNESS_AUTH_LOG_CONFIG=${HARNESS_AUTH_HOME}/conf/logback.xml
 
-echo -e "${GLINE}"
-echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
-echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
-echo ""
-echo "Run ${HARNESS_AUTH_HOME}/bin/main"
-echo "Create pid file: ${PIDFILE}"
+if [[ ! -f ${PIDFILE} || $1 = "-f" ]]; then
+    if [[ $1 = "-f"  &&  -f ${PIDFILE} ]]; then
+        echo -e "${CYAN}Trying to stop the Harness Auth Server from existing PID file before restarting${NC}"
+        harness-auth-stop
+        if [ $? != 0 ];then
+            echo -e "${RED}Unable to stop Harness Auth Server${NC}"
+            exit 1
+        fi
+    fi
 
-if [ ! -f ${PIDFILE} ]; then
+    echo -e "${GLINE}"
+    echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
+    echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
+    echo ""
+    echo "Run ${HARNESS_AUTH_HOME}/bin/main"
+    echo "Create pid file: ${PIDFILE}"
+
     exec ${HARNESS_AUTH_HOME}/bin/main \
     -Dconfig.file=${HARNESS_AUTH_CONFIG} \
     -Dlogback.configurationFile=${HARNESS_AUTH_LOG_CONFIG} \
     <&- > /dev/null 2>&1 &
-    echo $! > ${PIDFILE}
+    echo -e "status returned from auth server launch: $?"
+    if [ $? == 0 ]; then
+        echo $! > ${PIDFILE}
+        echo "PID.................$(cat ${PIDFILE})"
+        echo -e "${RLINE}"
+    else
+        echo -e "${RED}Unable to start the Harness Auth Server, remove $PIDFILE,${NC}"
+        echo -e "${RED}kill any running Harness Auth Server and try starting again${NC}"
+    fi
+else
+    echo -e "${RED}There is an existing PID file, this means the Harness Auth Server may be running, stop it first.${NC}"
+    echo -e "${RED}If you have killed the Auth Server, run \"harness start -f\" to force a restart${NC}"
 fi
 
-echo "PID.................$(cat ${PIDFILE})"
-echo -e "${RLINE}"

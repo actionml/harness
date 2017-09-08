@@ -6,6 +6,7 @@ PIDFILE=${HARNESS_HOME}/eventserver.pid
 
 if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
     echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
+    echo -e "${RED}The Harness Server must be run after doing a distribution build${NC}"
     exit 1
 fi
 
@@ -21,7 +22,11 @@ echo ""
 echo "Run ${HARNESS_HOME}/bin/main"
 echo "Create pid file: ${PIDFILE}"
 
-if [ ! -f ${PIDFILE} ]; then
+if [ ! -f ${PIDFILE} ] || [ $2 = "-f" ]; then
+    if [ $2 = "-f" ] && [ -f ${PIDFILE} ]; then
+        echo -e "${CYAN}Trying to stop Harness from existing PID file before restarting${NC}"
+        harness-stop
+    fi
     exec ${HARNESS_HOME}/bin/main \
     -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
     -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
@@ -31,7 +36,11 @@ if [ ! -f ${PIDFILE} ]; then
     -Dmongo.port=${MONGO_PORT} \
     <&- > /dev/null 2>&1 &
     echo $! > ${PIDFILE}
+else
+    echo -e "${RED}There is an existing PID file, this means Harness may be running, stop it first.${NC}"
+    echo -e "${RED}If you have killed Harness, run \"harness start -f\" to force a restart${NC}"
 fi
+
 
 echo "PID.................$(cat ${PIDFILE})"
 echo -e "${RLINE}"
