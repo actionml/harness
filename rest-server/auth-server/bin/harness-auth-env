@@ -9,6 +9,8 @@ export AUTH_MONGO_PORT=${AUTH_MONGO_PORT:-27017}
 export AUTH_LOG_CONFIG="${HARNESS_AUTH_HOME}/conf/logback.xml"
 export AUTH_LOG_PATH="${HARNESS_AUTH_HOME}/logs"
 
+export HARNESS_AUTH_SERVER_PROTECTED=${HARNESS_AUTH_SERVER_PROTECTED:-false}
+
 # Reset
 NC='\033[0m'           # Text Reset
 
