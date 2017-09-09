@@ -37,7 +37,7 @@ client_user_secret = None
 if args.client_user_id is not None and args.client_user_secret_location is not None and auth_enabled:
     client_user_id = args.client_user_id
     with open(args.client_user_secret_location) as secret_file:
-        client_user_secret = secret_file.read()
+        client_user_secret = secret_file.read().rstrip("\n")
     print('Auth enabled with user_id: {} and secret: {}'.format(client_user_id, client_user_secret))
 else:
     if auth_enabled:
@@ -93,7 +93,7 @@ def get_client_user_secret(client_user_secret_location=None):
     if client_user_secret_location is not None:
         try:
             with open(client_user_secret_location) as secret_file:
-                client_user_secret = secret_file.read
+                client_user_secret = secret_file.read().rstrip("\n")
                 print('User secret: {}', client_user_secret)
                 return client_user_secret
         except OSError as exc:
