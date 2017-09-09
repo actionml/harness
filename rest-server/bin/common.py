@@ -29,7 +29,10 @@ else:
     auth_enabled = False
     print('Auth disabled')
 
-url = 'http://{}:{}'.format(harness_host, harness_port)
+if os.getenv('HARNESS_SSL_ENABLED') == 'true':
+    url = 'https://{}:{}'.format(harness_host, harness_port)
+else:
+    url = 'http://{}:{}'.format(harness_host, harness_port)
 
 client_user_id = None
 client_user_secret = None
