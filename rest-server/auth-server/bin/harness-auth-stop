@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_AUTH_HOME}/bin/harness-auth-env"
+. "${HARNESS_AUTH_HOME}/bin/harness-env"
 
 # Harness Server
 echo -e "${GREEN}Stopping Harness Auth Server...${NC}"

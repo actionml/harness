@@ -22,16 +22,17 @@ args = parser.parse_args()
 harness_host = os.getenv('REST_SERVER_HOST', 'localhost')
 harness_port = os.getenv('REST_SERVER_PORT', 9090)
 
-if os.getenv('HARNESS_AUTH_SERVER_PROTECTED') == 'true' and os.getenv('HARNESS_AUTH_ENABLED') == 'true':
+if os.getenv('HARNESS_AUTH_SERVER_PROTECTED') == 'true' or os.getenv('HARNESS_AUTH_ENABLED') == 'true':
     auth_enabled = True
     print('Auth enabled')
-elif os.getenv('HARNESS_AUTH_SERVER_PROTECTED') != os.getenv('HARNESS_AUTH_ENABLED'):
-    raise RuntimeError("Configuration Error: HARNESS_AUTH_SERVER_PROTECTED is not the same as HARNESS_AUTH_ENABLED")
 else:
     auth_enabled = False
     print('Auth disabled')
 
-url = 'http://{}:{}'.format(harness_host, harness_port)
+if os.getenv('HARNESS_SSL_ENABLED') == 'true':
+    url = 'https://{}:{}'.format(harness_host, harness_port)
+else:
+    url = 'http://{}:{}'.format(harness_host, harness_port)
 
 client_user_id = None
 client_user_secret = None
@@ -39,7 +40,7 @@ client_user_secret = None
 if args.client_user_id is not None and args.client_user_secret_location is not None and auth_enabled:
     client_user_id = args.client_user_id
     with open(args.client_user_secret_location) as secret_file:
-        client_user_secret = secret_file.read()
+        client_user_secret = secret_file.read().rstrip("\n")
     print('Auth enabled with user_id: {} and secret: {}'.format(client_user_id, client_user_secret))
 else:
     if auth_enabled:
@@ -95,7 +96,7 @@ def get_client_user_secret(client_user_secret_location=None):
     if client_user_secret_location is not None:
         try:
             with open(client_user_secret_location) as secret_file:
-                client_user_secret = secret_file.read
+                client_user_secret = secret_file.read().rstrip("\n")
                 print('User secret: {}', client_user_secret)
                 return client_user_secret
         except OSError as exc:

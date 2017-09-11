@@ -215,8 +215,9 @@ class ActionMLHttpConnection(object):
     def __init__(self, host, https=True, timeout=5):
         self.access_token = None
         if https:  # https connection
-            # ssl._create_default_https_context = ssl._create_unverified_context
-            self._connection = httplib.HTTPSConnection(host, timeout=timeout)
+            ca_file = os.getenv("HARNESS_SERVER_CERT_PATH", "harness.pem")
+            ssl_context = ssl.create_default_context(cafile=ca_file)
+            self._connection = httplib.HTTPSConnection(host, timeout=timeout, context=ssl_context)
         else:
             self._connection = httplib.HTTPConnection(host, timeout=timeout)
 

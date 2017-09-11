@@ -51,16 +51,16 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     ```
     We will use the JNI lib location `/usr/lib/jni` or its equivalent on your system
     
-    Build VW and install it in the right place.
+    Build VW and install it in the right place. First find the path above using the Scala REPL shell, then make sure the directory exists, you may need to create it, then copy the binary dynamic lib to the jni location.
     
     ```
     git clone https://github.com/pferrel/vowpal_wabbit.git vw
     cd vw
     git checkout 10bd09ab06f59291e04ad7805e88fd3e693b7159
-    make java
+    make java # this builds the vw dynamic lib and the Java JNI wrapper
     cd java
     # for linux
-    cp target/libvw_jni.so /usr/lib/jni # take from Scala above
+    cp target/libvw_jni.so /usr/lib/jni/ # take from Scala above
     # for macOS
     cp target/libvw_jni.dylib /Users/<yourname>/Library/Java/Extensions/
     mvn test # we will get the Java wrapper from maven when
@@ -130,3 +130,49 @@ cd harness/python-sdk
 
 You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end is not blank the test fails.
 
+# Security
+
+So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
+
+# Auth Server
+
+Auth starts by creating users see [Commands](commands.md) for User and Permission Management. At minimum you must have an `admin` user to use the CLI. This user can also be used to send test events but typically you will create `client` users for that purpose.
+
+    harness user-add admin
+
+This will report back a user-id and secret, make note of them. To use the default setup in `bin/harness-env` copy the secret to a file named with the user-id:
+
+    echo <user-secret> > ~/.ssh/<user-id>.secret
+
+This creates a file in the admin user's .ssh directory containing the secret. Now all you need to do is open `bin/harness-env` and add the user's id by adding:
+
+    export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
+
+
+# TLS/SSL Server
+
+TLS must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
+
+    export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
+    export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
+    export HARNESS_SERVER_CERT_PATH=${HARNESS_SERVER_CERT_PATH:-$HARNESS_HOME/harness.pem}
+    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+    
+# Auth Client
+
+The following must be setup to use the CLI event if it is run on the same Machine as the Harness Server:
+
+    export HARNESS_CLIENT_USER_ID=<client-user-id>
+    # the value returned when creating a client or admin user
+    export HARNESS_CLIENT_USER_SECRET=<user-secret>
+    # the value returned as the user secret when creating
+    # and admin or client user with access to the resource
+    # the SDK will use
+
+# TLS/SSL Client
+
+The following must be setup to use either the Java or Python SDK
+
+    export HARNESS_CA_CERT=/path/to/harness/server/cert.pem
+    # points to the server's .pem file, used for self-signed
+   
