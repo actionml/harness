@@ -18,10 +18,11 @@
 package com.actionml.authserver.model
 
 import com.actionml.authserver.{ResourceId, RoleId}
+import com.actionml.authserver.ResourceId.*
 
 case class Permission(roleId: String, resourcesIds: List[String]) {
 
   def hasAccess(role: RoleId, resourceId: ResourceId): Boolean = {
-    role == roleId && resourcesIds.exists(x => x == ResourceId.* || x == resourceId)
+    role == roleId && resourcesIds.exists(x => x == * || x == resourceId)
   }
 }

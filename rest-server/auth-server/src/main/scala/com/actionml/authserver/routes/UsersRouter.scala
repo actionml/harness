@@ -40,19 +40,26 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
 
   def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
     (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
-      (pathEndOrSingleSlash & post & hasAccess(user.create) & entity(as[CreateUserRequest])) {
-        case CreateUserRequest(roleSetId, resourceId) =>
-          onSuccess(usersService.create(roleSetId, resourceId))(complete(_))
+      pathEndOrSingleSlash {
+        (get & parameters('offset.as[Int] ? 0, 'limit.as[Int] ? 0) & hasAccess(user.permissions)) { (offset, limit) =>
+          onSuccess(usersService.list(offset = offset, limit = limit))(complete(_))
+        } ~
+        (post & entity(as[CreateUserRequest]) & hasAccess(user.create)) {
+          case CreateUserRequest(roleSetId, resourceId) =>
+            onSuccess(usersService.create(roleSetId, resourceId.getOrElse(ResourceId.*)))(complete(_))
+        }
       } ~
       (path(Segment / "permissions") & hasAccess(user.permissions)) { userId =>
-        (post & entity(as[PermissionsRequest])) { case PermissionsRequest(roleSetId, resourceId) =>
-          onSuccess(usersService.grantPermissions(userId, roleSetId, resourceId)) { _ =>
-            complete(PermissionsResponse(userId, roleSetId, resourceId))
+        (post & entity(as[PermissionsRequest])) { req =>
+          val resourceId = req.resourceId.getOrElse(ResourceId.*)
+          onSuccess(usersService.grantPermissions(userId, req.roleSetId, resourceId)) {
+            complete(PermissionsResponse(userId, req.roleSetId, resourceId))
           }
         } ~
-        (delete & parameter('roleSetId)) { roleSetId =>
-          onSuccess(usersService.revokePermissions(userId, roleSetId)) { _ =>
-            complete(PermissionsResponse(userId, roleSetId, ResourceId.*))
+        (delete & parameters('roleSetId, 'resourceId ?)) { (roleSetId, resourceIdOpt) =>
+          val resourceId = resourceIdOpt.getOrElse(ResourceId.*)
+          onSuccess(usersService.revokePermissions(userId, roleSetId, resourceId)) {
+            complete(PermissionsResponse(userId, roleSetId, resourceId))
           }
         }
       }
@@ -70,9 +77,10 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
 }
 
 object UsersRouter {
-  case class CreateUserRequest(roleSetId: String, resourceId: String)
+  case class CreateUserRequest(roleSetId: String, resourceId: Option[String])
   case class CreateUserResponse(userId: String, secret: String, roleSetId: String, resourceId: String)
+  case class ListUserResponse(userId: String, roleSetId: String, engines: Iterable[String])
 
-  case class PermissionsRequest(roleSetId: String, resourceId: String)
+  case class PermissionsRequest(roleSetId: String, resourceId: Option[String])
   case class PermissionsResponse(userId: String, roleSetId: String, resourceId: String)
 }

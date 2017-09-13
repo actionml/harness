@@ -28,6 +28,17 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
       .map(_.headOption)
   }
 
+  override def list(offset: Int, limit: Int): Future[Iterable[UserAccount]] = {
+    users.find()
+      .skip(offset)
+      .limit(limit)
+      .toFuture
+      .recover {
+        case ex: Throwable =>
+          List.empty
+      }
+  }
+
   override def update(user: UserAccount): Future[_] = {
     users.insertOne(user)
       .toFuture
