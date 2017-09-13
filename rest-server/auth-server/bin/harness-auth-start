@@ -26,6 +26,7 @@ if [[ ! -f ${PIDFILE} || $1 = "-f" ]]; then
     echo -e "${GLINE}"
     echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
     echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
+    echo "HARNESS_AUTH_SERVER_PROTECTED..${HARNESS_AUTH_SERVER_PROTECTED:-false}"
     echo ""
     echo "Run ${HARNESS_AUTH_HOME}/bin/main"
     echo "Create pid file: ${PIDFILE}"

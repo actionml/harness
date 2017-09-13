@@ -21,10 +21,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.PasswordAuthentication;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -44,7 +46,13 @@ public class QueryClientExample {
         Integer serverPort = 9090;
 
         log.info("Args: {}, {}, {}, {}", engineId, fileName, serverHost, serverPort);
-        QueryClient client = new QueryClient(engineId, serverHost, serverPort);
+        Map<String, String> env = System.getenv();
+        Optional<String> optUsername = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_ID", null));
+        Optional<String> optPassword = Optional.ofNullable(env.getOrDefault("HARNESS_CLIENT_USER_SECRET", null));
+        Optional<PasswordAuthentication> optionalCreds = optUsername.flatMap(username -> optPassword.map(password ->
+                new PasswordAuthentication(username, password.toCharArray())
+        ));
+        QueryClient client = new QueryClient(engineId, serverHost, serverPort, optionalCreds);
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
