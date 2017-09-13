@@ -1,5 +1,6 @@
 package com.actionml.authserver.routes
 
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.headers.HttpChallenges
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import akka.http.scaladsl.server._
@@ -23,7 +24,7 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   private val authorizationService = inject[AuthorizationService]
 
   def route: Route =
-    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler)) {
+    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler) & extractLog) { implicit log =>
       (path("token") & post & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
         onSuccess(createToken(username))(token => complete(token))
       } ~
@@ -43,7 +44,7 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
     else reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness)))
   }
 
-  private def createToken(username: String): Future[AccessTokenResponse] = {
+  private def createToken(username: String)(implicit log: LoggingAdapter): Future[AccessTokenResponse] = {
     authService.createAccessToken(username)
   }
 

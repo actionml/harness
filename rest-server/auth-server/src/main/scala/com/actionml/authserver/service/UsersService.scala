@@ -64,8 +64,8 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
     usersDao.list(offset = offset, limit = limit)
       .map { _.flatMap { u =>
         val resourcesIds = u.permissions.flatMap(_.resourcesIds).distinct
-        u.permissions.map { permission =>
-          ListUserResponse(u.id, toRoleSetId(permission.roleId), resourcesIds)
+        toRoleSetIds(u.permissions.map(_.roleId)).map { roleSetId =>
+          ListUserResponse(u.id, roleSetId, resourcesIds)
         }
       }}
   }
@@ -101,8 +101,10 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
     config.authServer.roleSets.find(_.id == id)
   }
 
-  private[service] def toRoleSetId(roleId: String): String = {
-    config.authServer.roleSets.find(_.roles.exists(_ == roleId)).getOrElse(throw InvalidRoleSetException).id
+  private[service] def toRoleSetIds(roleIds: List[String]): List[String] = {
+    roleIds.flatMap { roleId =>
+      config.authServer.roleSets.find(_.roles.exists(_ == roleId)).map(_.id)
+    }.distinct
   }
 
   private def generateUserSecret = Future.fromTry {

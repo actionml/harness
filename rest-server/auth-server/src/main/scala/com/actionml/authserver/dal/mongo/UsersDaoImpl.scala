@@ -1,5 +1,6 @@
 package com.actionml.authserver.dal.mongo
 
+import akka.event.LoggingAdapter
 import com.actionml.authserver.dal.UsersDao
 import com.actionml.authserver.model.UserAccount
 import org.mongodb.scala._
@@ -12,36 +13,42 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
   private val users = collection[UserAccount]("users")
   private implicit val ec = inject[ExecutionContext]
 
-  override def find(id: String): Future[Option[UserAccount]] = {
+  override def find(id: String)(implicit log: LoggingAdapter): Future[Option[UserAccount]] = {
     users.find(equal("id", id))
       .toFuture
-      .recover { case e => e.printStackTrace(); List.empty }
-      .map(_.headOption)
+      .recover { case e =>
+        log.error(s"Can't find user with id $id", e)
+        List.empty
+      }.map(_.headOption)
   }
 
-  override def find(id: String, secretHash: String): Future[Option[UserAccount]] = {
+  override def find(id: String, secretHash: String)(implicit log: LoggingAdapter): Future[Option[UserAccount]] = {
     users.find(and(
       equal("id", id),
       equal("secretHash", secretHash)
     )).toFuture
-      .recover { case _ => List.empty }
-      .map(_.headOption)
+      .recover { case e =>
+        log.error(s"Can't find user with id $id and password hash $secretHash")
+        List.empty
+      }.map(_.headOption)
   }
 
-  override def list(offset: Int, limit: Int): Future[Iterable[UserAccount]] = {
+  override def list(offset: Int, limit: Int)(implicit log: LoggingAdapter): Future[Iterable[UserAccount]] = {
     users.find()
       .skip(offset)
       .limit(limit)
       .toFuture
       .recover {
-        case ex: Throwable =>
+        case e: Throwable =>
+          log.error("Can't list users", e)
           List.empty
       }
   }
 
-  override def update(user: UserAccount): Future[_] = {
+  override def update(user: UserAccount)(implicit log: LoggingAdapter): Future[Unit] = {
     users.insertOne(user)
       .toFuture
+      .map(_ => ())
   }
 }
 

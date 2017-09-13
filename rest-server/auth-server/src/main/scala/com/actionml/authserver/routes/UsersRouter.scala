@@ -41,7 +41,7 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
   def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
     (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
       pathEndOrSingleSlash {
-        (get & parameters('offset.as[Int] ? 0, 'limit.as[Int] ? 0) & hasAccess(user.permissions)) { (offset, limit) =>
+        (get & parameters('offset.as[Int] ? 0, 'limit.as[Int] ? Int.MaxValue) & hasAccess(user.permissions)) { (offset, limit) =>
           onSuccess(usersService.list(offset = offset, limit = limit))(complete(_))
         } ~
         (post & entity(as[CreateUserRequest]) & hasAccess(user.create)) {

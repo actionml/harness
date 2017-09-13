@@ -3,6 +3,7 @@ package com.actionml.authserver.service
 import java.time.Instant
 import java.util.concurrent.ThreadLocalRandom
 
+import akka.event.LoggingAdapter
 import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, UsersDao}
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
@@ -16,16 +17,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 trait AuthService {
-  def authenticateUser(username: String, password: String): Future[_]
+  def authenticateUser(username: String, password: String)(implicit log: LoggingAdapter): Future[Unit]
   def authenticateClient(clientId: String, password: String): Future[Unit]
-  def createAccessToken(username: String): Future[AccessTokenResponse]
+  def createAccessToken(username: String)(implicit log: LoggingAdapter): Future[AccessTokenResponse]
 }
 
 class AuthServiceImpl(implicit injector: Injector) extends AuthService with AuthorizationService with AkkaInjectable with PasswordUtils {
   private implicit val ec = inject[ExecutionContext]
   private val accessTokensDao = inject[AccessTokensDao]
   private val usersDao = inject[UsersDao]
-  private val clientsDao = inject[ClientsDao]
   private val config = inject[AppConfig]
 
 
@@ -39,9 +39,9 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     } yield token.permissions.exists(_.hasAccess(roleId, resourceId))
   }
 
-  override def authenticateUser(userName: String, userPassword: String): Future[_] = {
+  override def authenticateUser(userName: String, userPassword: String)(implicit log: LoggingAdapter): Future[Unit] = {
     usersDao.find(userName).map {
-      case Some(UserAccount(id, passwordHash, _)) if userName == id && passwordHash == hash(userPassword) => true
+      case Some(UserAccount(id, passwordHash, _)) if userName == id && passwordHash == hash(userPassword) => ()
       case _ => throw AccessDeniedException
     }
   }
@@ -51,7 +51,7 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     else Future.failed(AccessDeniedException)
   }
 
-  override def createAccessToken(username: String): Future[AccessTokenResponse] = {
+  override def createAccessToken(username: String)(implicit log: LoggingAdapter): Future[AccessTokenResponse] = {
     for {
       userOpt <- usersDao.find(id = username)
       user = userOpt.getOrElse(throw AccessDeniedException)

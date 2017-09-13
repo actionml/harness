@@ -26,7 +26,7 @@ import scaldi.NilInjector
 class UsersServiceSpec extends FlatSpec with Matchers {
 
   "toRoleSetId" should "throw exception with no match" in {
-    usersService.toRoleSetId("engine_read") should be ("client")
+    usersService.toRoleSetIds(List("engine_read")) should contain theSameElementsAs (List("client"))
   }
 
   def usersService = {
