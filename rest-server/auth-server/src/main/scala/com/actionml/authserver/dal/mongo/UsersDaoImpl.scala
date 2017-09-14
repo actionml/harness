@@ -39,14 +39,20 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
       .limit(limit)
       .toFuture
       .recover {
-        case e: Throwable =>
-          log.error("Can't list users", e)
+        case e: Exception =>
+          log.error(s"Can't list users: ${e.getMessage}", e)
           List.empty
       }
   }
 
   override def update(user: UserAccount)(implicit log: LoggingAdapter): Future[Unit] = {
     users.insertOne(user)
+      .toFuture
+      .map(_ => ())
+  }
+
+  def delete(userId: String)(implicit log: LoggingAdapter): Future[Unit] = {
+    users.deleteOne(equal("id", userId))
       .toFuture
       .map(_ => ())
   }

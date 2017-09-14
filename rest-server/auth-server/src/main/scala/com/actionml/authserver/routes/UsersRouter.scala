@@ -18,6 +18,9 @@
 package com.actionml.authserver.routes
 
 import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
+import akka.http.scaladsl.marshalling.ToResponseMarshallable
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route, ValidationRejection}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.ResourceId
@@ -31,15 +34,15 @@ import com.actionml.circe.CirceSupport
 import io.circe.generic.auto._
 import scaldi.{Injectable, Injector}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthorizationDirectives {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
   override val authEnabled = config.authServer.authorizationEnabled
 
-  def route: Route = (handleExceptions(exceptionHandler) & extractLog) { implicit log =>
-    (pathPrefix("auth" / "users") & extractAccessToken) { implicit token =>
+  def route: Route = extractLog { implicit log =>
+    (pathPrefix("auth" / "users") & handleExceptions(exceptionHandler(log)) & extractAccessToken) { implicit token =>
       pathEndOrSingleSlash {
         (get & parameters('offset.as[Int] ? 0, 'limit.as[Int] ? Int.MaxValue) & hasAccess(user.permissions)) { (offset, limit) =>
           onSuccess(usersService.list(offset = offset, limit = limit))(complete(_))
@@ -49,17 +52,23 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
             onSuccess(usersService.create(roleSetId, resourceId.getOrElse(ResourceId.*)))(complete(_))
         }
       } ~
-      (path(Segment / "permissions") & hasAccess(user.permissions)) { userId =>
-        (post & entity(as[PermissionsRequest])) { req =>
-          val resourceId = req.resourceId.getOrElse(ResourceId.*)
-          onSuccess(usersService.grantPermissions(userId, req.roleSetId, resourceId)) {
-            complete(PermissionsResponse(userId, req.roleSetId, resourceId))
-          }
+      (pathPrefix(Segment) & hasAccess(user.permissions)) { userId =>
+        pathEndOrSingleSlash {
+          get { getUser(userId) } ~
+          delete { deleteUser(userId) }
         } ~
-        (delete & parameters('roleSetId, 'resourceId ?)) { (roleSetId, resourceIdOpt) =>
-          val resourceId = resourceIdOpt.getOrElse(ResourceId.*)
-          onSuccess(usersService.revokePermissions(userId, roleSetId, resourceId)) {
-            complete(PermissionsResponse(userId, roleSetId, resourceId))
+        path("permissions") {
+          (post & entity(as[PermissionsRequest])) { req =>
+            val resourceId = req.resourceId.getOrElse(ResourceId.*)
+            onSuccess(usersService.grantPermissions(userId, req.roleSetId, resourceId)) {
+              complete(PermissionsResponse(userId, req.roleSetId, resourceId))
+            }
+          } ~
+          (delete & parameters('roleSetId, 'resourceId ?)) { (roleSetId, resourceIdOpt) =>
+            val resourceId = resourceIdOpt.getOrElse(ResourceId.*)
+            onSuccess(usersService.revokePermissions(userId, roleSetId, resourceId)) {
+              complete(PermissionsResponse(userId, roleSetId, resourceId))
+            }
           }
         }
       }
@@ -67,9 +76,27 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
   }
 
 
-  private def exceptionHandler = ExceptionHandler {
-    case ex@InvalidRoleSetException => reject(ValidationRejection("", Some(ex)))
+  private def getUser(userId: String)(implicit log: LoggingAdapter): Route = {
+    onSuccess(usersService.find(userId).map(_.getOrElse(throw NotFoundException("User not found"))))(complete(_))
   }
+
+  private def deleteUser(userId: String)(implicit log: LoggingAdapter): Route = {
+    onSuccess(usersService.delete(userId))(complete(Map("userId" -> userId)))
+  }
+
+  private case class NotFoundException(msg: String) extends RuntimeException(msg)
+  private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
+    case e@InvalidRoleSetException =>
+      log.error("Invalid role set id", e)
+      reject(ValidationRejection("Invalid role", None))
+    case e@NotFoundException(msg) =>
+      log.error(msg, e)
+      complete(StatusCodes.NotFound)
+    case e: Throwable =>
+      log.error("Router error", e)
+      complete(StatusCodes.InternalServerError)
+  }
+
   private val usersService = inject[UsersService]
   private implicit val actorSystem = inject[ActorSystem]
   private implicit val materializer = inject[ActorMaterializer]

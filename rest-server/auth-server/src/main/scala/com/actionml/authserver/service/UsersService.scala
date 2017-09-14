@@ -36,6 +36,8 @@ import scala.util.{Random, Try}
 trait UsersService {
   def create(roleSetId: String, resourceId: String)(implicit log: LoggingAdapter): Future[CreateUserResponse]
   def list(offset: Int, limit: Int)(implicit log: LoggingAdapter): Future[Iterable[ListUserResponse]]
+  def find(userId: String)(implicit log: LoggingAdapter): Future[Option[ListUserResponse]]
+  def delete(userId: String)(implicit log: LoggingAdapter): Future[Unit]
   def grantPermissions(userId: String, roleSetId: String, resourceId: String)(implicit log: LoggingAdapter): Future[Unit]
   def revokePermissions(userId: String, roleSetId: String, resourceId: String)(implicit log: LoggingAdapter): Future[Unit]
 }
@@ -62,12 +64,25 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
   override def list(offset: Int, limit: Int)(implicit log: LoggingAdapter): Future[Iterable[ListUserResponse]] = {
     log.debug(s"Trying to list $limit users with offset $offset")
     usersDao.list(offset = offset, limit = limit)
-      .map { _.flatMap { u =>
-        val resourcesIds = u.permissions.flatMap(_.resourcesIds).distinct
-        toRoleSetIds(u.permissions.map(_.roleId)).map { roleSetId =>
-          ListUserResponse(u.id, roleSetId, resourcesIds)
-        }
-      }}
+      .map { _.flatMap { toListUserResponse }}
+  }
+
+  private def toListUserResponse(u: UserAccount): Iterable[ListUserResponse] = {
+    val resourcesIds = u.permissions.flatMap(_.resourcesIds).distinct
+    toRoleSetIds(u.permissions.map(_.roleId)).map { roleSetId =>
+      ListUserResponse(u.id, roleSetId, resourcesIds)
+    }
+  }
+
+  def find(userId: String)(implicit log: LoggingAdapter): Future[Option[ListUserResponse]] = {
+    log.debug(s"Trying to find user with id $userId")
+    usersDao.find(userId)
+      .map(_.flatMap(toListUserResponse(_).headOption))
+  }
+
+  def delete(userId: String)(implicit log: LoggingAdapter): Future[Unit] = {
+    log.debug(s"Trying to delete user with id $userId")
+    usersDao.delete(userId)
   }
 
   override def grantPermissions(userId: String, roleSetId: String, resourceId: String)(implicit log: LoggingAdapter): Future[Unit] = {
