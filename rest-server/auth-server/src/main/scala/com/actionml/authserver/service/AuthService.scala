@@ -4,11 +4,12 @@ import java.time.Instant
 import java.util.concurrent.ThreadLocalRandom
 
 import com.actionml.authserver.config.AppConfig
-import com.actionml.authserver.dal.{AccessTokensDao, ClientsDao, UsersDao}
+import com.actionml.authserver.dal.{AccessTokensDao, UsersDao}
 import com.actionml.authserver.exceptions.{AccessDeniedException, TokenExpiredException}
 import com.actionml.authserver.model.{AccessToken, Client, UserAccount}
 import com.actionml.authserver.util.PasswordUtils
 import com.actionml.oauth2.entities.AccessTokenResponse
+import com.typesafe.scalalogging.LazyLogging
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -16,18 +17,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 trait AuthService {
-  def authenticateUser(username: String, password: String): Future[_]
+  def authenticateUser(username: String, password: String): Future[Unit]
   def authenticateClient(clientId: String, password: String): Future[Unit]
   def createAccessToken(username: String): Future[AccessTokenResponse]
 }
 
-class AuthServiceImpl(implicit injector: Injector) extends AuthService with AuthorizationService with AkkaInjectable with PasswordUtils {
+class AuthServiceImpl(implicit injector: Injector) extends AuthService with AuthorizationService with AkkaInjectable
+  with PasswordUtils with LazyLogging {
+
   private implicit val ec = inject[ExecutionContext]
   private val accessTokensDao = inject[AccessTokensDao]
   private val usersDao = inject[UsersDao]
-  private val clientsDao = inject[ClientsDao]
   private val config = inject[AppConfig]
-
 
   override def authorize(accessToken: String, roleId: String, resourceId: String): Future[Boolean] = {
     for {
@@ -39,9 +40,9 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
     } yield token.permissions.exists(_.hasAccess(roleId, resourceId))
   }
 
-  override def authenticateUser(userName: String, userPassword: String): Future[_] = {
+  override def authenticateUser(userName: String, userPassword: String): Future[Unit] = {
     usersDao.find(userName).map {
-      case Some(UserAccount(id, passwordHash, _)) if userName == id && passwordHash == hash(userPassword) => true
+      case Some(UserAccount(id, passwordHash, _)) if userName == id && passwordHash == hash(userPassword) => ()
       case _ => throw AccessDeniedException
     }
   }
@@ -49,10 +50,6 @@ class AuthServiceImpl(implicit injector: Injector) extends AuthService with Auth
   override def authenticateClient(clientId: String, clientPassword: String): Future[Unit] = {
     if (config.authServer.clients.contains(Client(clientId, clientPassword))) Future.successful(())
     else Future.failed(AccessDeniedException)
-//    clientsDao.find(clientId).map {
-//      case Some(Client(id, password)) if clientId == id && clientPassword == password => ()
-//      case _ => throw AccessDeniedException
-//    }
   }
 
   override def createAccessToken(username: String): Future[AccessTokenResponse] = {

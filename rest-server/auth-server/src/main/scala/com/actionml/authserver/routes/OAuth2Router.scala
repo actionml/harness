@@ -1,5 +1,6 @@
 package com.actionml.authserver.routes
 
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.headers.HttpChallenges
 import akka.http.scaladsl.server.AuthenticationFailedRejection.CredentialsMissing
 import akka.http.scaladsl.server._
