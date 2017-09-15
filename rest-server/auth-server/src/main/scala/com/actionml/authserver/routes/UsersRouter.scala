@@ -19,7 +19,6 @@ package com.actionml.authserver.routes
 
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route, ValidationRejection}
 import akka.stream.ActorMaterializer
@@ -27,14 +26,14 @@ import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.user
 import com.actionml.authserver.config.AppConfig
 import com.actionml.authserver.directives.AuthorizationDirectives
-import com.actionml.authserver.exceptions.InvalidRoleSetException
+import com.actionml.authserver.exceptions.{InvalidRoleSetException, NotFoundException, UserNotFoundException}
 import com.actionml.authserver.routes.UsersRouter.{CreateUserRequest, PermissionsRequest, PermissionsResponse}
 import com.actionml.authserver.service.{AuthorizationService, UsersService}
 import com.actionml.circe.CirceSupport
 import io.circe.generic.auto._
 import scaldi.{Injectable, Injector}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class UsersRouter(implicit injector: Injector) extends Directives with Injectable with CirceSupport with AuthorizationDirectives {
   override val authorizationService = inject[AuthorizationService]
@@ -77,20 +76,19 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
 
 
   private def getUser(userId: String): Route = {
-    onSuccess(usersService.find(userId).map(_.getOrElse(throw NotFoundException("User not found"))))(complete(_))
+    onSuccess(usersService.find(userId).map(_.getOrElse(throw UserNotFoundException)))(complete(_))
   }
 
   private def deleteUser(userId: String): Route = {
     onSuccess(usersService.delete(userId))(complete(Map("userId" -> userId)))
   }
 
-  private case class NotFoundException(msg: String) extends RuntimeException(msg)
   private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
     case e@InvalidRoleSetException =>
       log.error("Invalid role set id", e)
       reject(ValidationRejection("Invalid role", None))
-    case e@NotFoundException(msg) =>
-      log.error(msg, e)
+    case e: NotFoundException =>
+      log.error("Not found", e)
       complete(StatusCodes.NotFound)
     case e: Throwable =>
       log.error("Router error", e)

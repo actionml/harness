@@ -1,6 +1,7 @@
 package com.actionml.authserver.dal.mongo
 
 import com.actionml.authserver.dal.UsersDao
+import com.actionml.authserver.exceptions.UserNotFoundException
 import com.actionml.authserver.model.UserAccount
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala._
@@ -54,7 +55,7 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
   def delete(userId: String): Future[Unit] = {
     users.deleteOne(equal("id", userId))
       .toFuture
-      .map(_ => ())
+      .map(result => if (result.getDeletedCount == 1) () else throw UserNotFoundException)
   }
 }
 
