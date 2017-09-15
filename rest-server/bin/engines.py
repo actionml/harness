@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from actionml import EngineClient, HttpError
+from actionml import EnginesClient, HttpError
 
 from common import *
 
-engine_client = EngineClient(
+engine_client = EnginesClient(
     url=url,
     user_id=client_user_id,
     user_secret=client_user_secret
