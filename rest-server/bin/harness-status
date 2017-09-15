@@ -6,18 +6,23 @@ RESOURCE_TYPE=$1
 RESOURCE_ID=$2
 
 if [ -z "$RESOURCE_TYPE" ] ; then
-    echo -e "${CYAN}Getting Harness Server status${NC}"
+    echo -e "${CYAN}Harness Server settings${NC}"
     echo -e "${GLINE}"
-    echo "HARNESS_HOME........${HARNESS_HOME}"
-    echo "REST_SERVER_HOST....${REST_SERVER_HOST}"
-    echo "REST_SERVER_PORT....${REST_SERVER_PORT}"
-    echo "MONGO_HOST..........${MONGO_HOST}"
-    echo "MONGO_PORT..........${MONGO_PORT}"
-    echo "HARNESS_LOG_CONFIG..${HARNESS_LOG_CONFIG}"
-    echo "HARNESS_LOG_PATH....${HARNESS_LOG_PATH}"
+    echo "HARNESS_HOME................${HARNESS_HOME}"
+    echo "REST_SERVER_HOST............${REST_SERVER_HOST}"
+    echo "REST_SERVER_PORT............${REST_SERVER_PORT}"
+    echo "MONGO_HOST..................${MONGO_HOST}"
+    echo "MONGO_PORT..................${MONGO_PORT}"
+    echo "HARNESS_LOG_CONFIG..........${HARNESS_LOG_CONFIG}"
+    echo "HARNESS_LOG_PATH............${HARNESS_LOG_PATH}"
+    echo "HARNESS_SSL_ENABLED.........${HARNESS_SSL_ENABLED}"
+    echo "HARNESS_AUTH_ENABLED........${HARNESS_AUTH_ENABLED}"
+    echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
+    echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
     echo -e "${RLINE}"
+    echo -e "${CYAN}Checking Harness Server status${NC}"
     ${HARNESS_HOME}/bin/commands.py status
-    exit 1
+    exit $?
 fi
 
 if [ ${RESOURCE_TYPE} = "engines" ]; then

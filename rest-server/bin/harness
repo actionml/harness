@@ -43,9 +43,9 @@ fi
 
 if [ $HARNESS_AUTH_ENABLED != "true" ]; then
     USER_ARGS=""
-    echo -e "${CYAN}Auth disabled, no ADMIN_USER_ID needed. ${NC}"
+    # echo -e "${CYAN}Auth disabled, no ADMIN_USER_ID needed. ${NC}"
 elif [ ! -z "$ADMIN_USER_ID" ] && [ ! -z "$ADMIN_USER_SECRET_LOCATION" ] && [ $HARNESS_AUTH_ENABLED = "true" ]; then
-    echo -e "${CYAN}Auth enabled, ADMIN_USER_ID: \"${ADMIN_USER_ID}\"${NC}"
+    # echo -e "${CYAN}Auth enabled, ADMIN_USER_ID: \"${ADMIN_USER_ID}\"${NC}"
     USER_ARGS=" --client_user_id ${ADMIN_USER_ID} --client_user_secret_location ${ADMIN_USER_SECRET_LOCATION} "
 else
     echo -e "${RED}Admin ID and Auth mis-configured see bin/harness-env. If you want auth enabled all these must be set ${NC}"

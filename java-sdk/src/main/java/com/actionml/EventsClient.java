@@ -35,13 +35,13 @@ import java.util.concurrent.CompletionStage;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 17:50
  */
-public class EventClient extends RestClient {
+public class EventsClient extends RestClient {
 
-    public EventClient(String engineId, String host, Integer port) {
+    public EventsClient(String engineId, String host, Integer port) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), Optional.empty());
     }
 
-    public EventClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
+    public EventsClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds);
     }
 

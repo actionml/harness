@@ -21,7 +21,7 @@ We start from a clean new machine logged into the user account `aml`
     sudo apt-get install git
     sudo ln -s -f /usr/bin/python3 /usr/bin/python # make python3 the default
     sudo easy_install3 pip
-    sudo pip install actionml # get the actionml python sdk
+    sudo pip install harness # get the harness python sdk
     sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
     echo "deb http://repo.mongodb.org/apt/ubuntu "$(lsb_release -sc)"/mongodb-org/3.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.0.list
     sudo apt-get update

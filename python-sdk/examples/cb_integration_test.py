@@ -2,7 +2,7 @@
 Import sample data for recommendation engine
 """
 
-import actionml
+import harness
 import argparse
 import random
 import datetime
@@ -130,7 +130,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    events_client = actionml.EventClient(
+    events_client = harness.EventsClient(
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
     import_events(events_client, args.events_file)
 
-    query_client = actionml.QueryClient(
+    query_client = harness.QueriesClient(
         engine_id=args.engine_id,
         url=args.url,
         threads=5,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from actionml import HttpError, UsersClient, PermissionsClient
+from harness import HttpError, UsersClient, PermissionsClient
 
 from common import *
 

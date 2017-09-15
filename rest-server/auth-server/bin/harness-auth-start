@@ -13,39 +13,21 @@ fi
 HARNESS_AUTH_CONFIG=${HARNESS_AUTH_HOME}/conf/application.conf
 HARNESS_AUTH_LOG_CONFIG=${HARNESS_AUTH_HOME}/conf/logback.xml
 
-if [[ ! -f ${PIDFILE} || $1 = "-f" ]]; then
-    if [[ $1 = "-f"  &&  -f ${PIDFILE} ]]; then
-        echo -e "${CYAN}Trying to stop the Harness Auth Server from existing PID file before restarting${NC}"
-        harness-auth-stop
-        if [ $? != 0 ];then
-            echo -e "${RED}Unable to stop Harness Auth Server${NC}"
-            exit 1
-        fi
-    fi
+echo -e "${GLINE}"
+echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
+echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
+echo "HARNESS_AUTH_SERVER_PROTECTED..${HARNESS_AUTH_SERVER_PROTECTED:-false}"
+echo ""
+echo "Run ${HARNESS_AUTH_HOME}/bin/main"
+echo "Create pid file: ${PIDFILE}"
 
-    echo -e "${GLINE}"
-    echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
-    echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
-    echo "HARNESS_AUTH_SERVER_PROTECTED..${HARNESS_AUTH_SERVER_PROTECTED:-false}"
-    echo ""
-    echo "Run ${HARNESS_AUTH_HOME}/bin/main"
-    echo "Create pid file: ${PIDFILE}"
-
+if [ ! -f ${PIDFILE} ]; then
     exec ${HARNESS_AUTH_HOME}/bin/main \
     -Dconfig.file=${HARNESS_AUTH_CONFIG} \
     -Dlogback.configurationFile=${HARNESS_AUTH_LOG_CONFIG} \
     <&- > /dev/null 2>&1 &
-    echo -e "status returned from auth server launch: $?"
-    if [ $? == 0 ]; then
-        echo $! > ${PIDFILE}
-        echo "PID.................$(cat ${PIDFILE})"
-        echo -e "${RLINE}"
-    else
-        echo -e "${RED}Unable to start the Harness Auth Server, remove $PIDFILE,${NC}"
-        echo -e "${RED}kill any running Harness Auth Server and try starting again${NC}"
-    fi
-else
-    echo -e "${RED}There is an existing PID file, this means the Harness Auth Server may be running, stop it first.${NC}"
-    echo -e "${RED}If you have killed the Auth Server, run \"harness start -f\" to force a restart${NC}"
+    echo $! > ${PIDFILE}
 fi
 
+echo "PID.................$(cat ${PIDFILE})"
+echo -e "${RLINE}"

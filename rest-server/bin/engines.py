@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from actionml import EngineClient, HttpError
+from harness import EnginesClient, HttpError
 
 from common import *
 
-engine_client = EngineClient(
+engine_client = EnginesClient(
     url=url,
     user_id=client_user_id,
     user_secret=client_user_secret
@@ -16,7 +16,7 @@ if args.action == 'create':
         config = json.load(data_file)
         try:
             res = engine_client.create(config)
-            print_success(res, 'Created new engine. Success:\n')
+            print_success(res, 'Created new engine: ')
         except HttpError as err:
             print_failure(err, 'Error creating new engine\n')
 
@@ -32,7 +32,7 @@ elif args.action == 'delete':
     engine_id, config = id_or_config()
     try:
         res = engine_client.delete(engine_id=engine_id)
-        print_success(res, 'Deleted engine-id: {} is\n'.format(engine_id))
+        print_success(res, 'Deleted engine-id: {} \n'.format(engine_id))
     except HttpError as err:
         print_failure(err, 'Error deleting engine-id: {}\n'.format(engine_id))
 
@@ -41,11 +41,11 @@ elif args.action == 'status':
     try:
         if engine_id is not None:
             res = engine_client.get(engine_id=engine_id)
-            print(str(res))
+            # print(str(res))
             print_success(res, 'Status for engine-id: {}\n'.format(engine_id))
         else:
             res = engine_client.get(engine_id=None)
-            print(str(res))
+            # print(str(res))
             print_success(res, 'Status for all Engines:\n')
     except HttpError as err:
         print_failure(err, 'Error getting status.\n')
