@@ -24,7 +24,7 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
   private val authorizationService = inject[AuthorizationService]
 
   def route: Route =
-    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler) & extractLog) { implicit log =>
+    (pathPrefix("auth") & handleExceptions(oAuthExceptionHandler)) {
       (path("token") & post & checkGrantType & basicAuth(authService.authenticateUser)) { username =>
         onSuccess(createToken(username))(token => complete(token))
       } ~
@@ -44,7 +44,7 @@ class OAuth2Router(implicit injector: Injector) extends Directives with Injectab
     else reject(AuthenticationFailedRejection(CredentialsMissing, HttpChallenges.oAuth2(Realms.Harness)))
   }
 
-  private def createToken(username: String)(implicit log: LoggingAdapter): Future[AccessTokenResponse] = {
+  private def createToken(username: String): Future[AccessTokenResponse] = {
     authService.createAccessToken(username)
   }
 

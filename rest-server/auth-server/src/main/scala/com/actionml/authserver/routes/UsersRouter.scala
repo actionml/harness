@@ -76,11 +76,11 @@ class UsersRouter(implicit injector: Injector) extends Directives with Injectabl
   }
 
 
-  private def getUser(userId: String)(implicit log: LoggingAdapter): Route = {
+  private def getUser(userId: String): Route = {
     onSuccess(usersService.find(userId).map(_.getOrElse(throw NotFoundException("User not found"))))(complete(_))
   }
 
-  private def deleteUser(userId: String)(implicit log: LoggingAdapter): Route = {
+  private def deleteUser(userId: String): Route = {
     onSuccess(usersService.delete(userId))(complete(Map("userId" -> userId)))
   }
 
