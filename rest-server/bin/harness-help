@@ -5,7 +5,7 @@
 echo
 echo -e "${CYAN}Harness CLI Help${NC}"
 echo
-echo -e "   ${CYAN}harness start${NC}"
+echo -e "   ${CYAN}harness start [-f]${NC}"
 echo -e "       Starts the Harness server and prints configuration information. Starts all active engines."
 echo ""
 
@@ -37,23 +37,25 @@ echo -e "   ${CYAN}harness status [[ engines | engines <engine-id>]]${NC}"
 echo -e "       Prints a status message for the harness server, all engines, or the engine specified."
 echo ""
 
-echo -e "   ${CYAN}harness user-add${NC}"
-echo -e "       Returns the user-id for the new user and their credentials bearer token but does not"
-echo -e "       grant permissions (see \"grant\" command to add permissions"
+echo -e "   ${CYAN}harness user-add [client <engine-id> | admin]${NC}"
+echo -e "       Returns a new user-id their secret. Grants the role's permissions."
 echo ""
 
-echo -e "   ${CYAN}harness user-delete${NC}"
+echo -e "   ${CYAN}harness user-delete <user-id>${NC}"
 echo -e "       Returns the user-id for the deleted user and deletes all attached permissions."
+echo -e "       Warning: not implemented yet."
 echo ""
 
 echo -e "   ${CYAN}harness grant <user-id> [client <engine-id> | admin]${NC}"
 echo -e "       Returns true if permissions are added to the user-id"
+echo -e "       Warning: only one engine-id can be accessed by a \"client\" user currently."
 echo ""
 
-echo -e "   ${CYAN}harness revoke <user-id> [client | admin]${NC}"
-echo -e "       Revokes the user permissions for the engine specified"
+echo -e "   ${CYAN}harness revoke <user-id> [client <engine-id>| admin]${NC}"
+echo -e "       Revokes the user permissions for the engine specified, or removes admin permissions."
 echo ""
 
 echo -e "   ${CYAN}harness status users [<user-id>]${NC}"
 echo -e "       Prints the permissions for all users, or the user specified."
+echo -e "       Warning: not implemented yet."
 echo ""

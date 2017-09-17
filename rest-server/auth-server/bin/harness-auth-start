@@ -6,6 +6,7 @@ PIDFILE=${HARNESS_AUTH_HOME}/authserver.pid
 
 if [ ! -f "${HARNESS_AUTH_HOME}/bin/main" ]; then
     echo -e "${RED}Main file '${HARNESS_AUTH_HOME}/bin/main' not found!${NC}"
+    echo -e "${RED}The Harness Auth Server must be run after doing a distribution build${NC}"
     exit 1
 fi
 

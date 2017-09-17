@@ -15,32 +15,30 @@
  * limitations under the License.
  */
 
-import com.actionml.QueryClient;
+import com.actionml.QueriesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.net.PasswordAuthentication;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  * 01.03.17.
  */
-public class QueryClientExample {
+public class QueriesClientExample {
 
-    private static Logger log = LoggerFactory.getLogger(QueryClientExample.class);
+    private static Logger log = LoggerFactory.getLogger(QueriesClientExample.class);
 
     public static void main(String[] args) {
 
-        String serverHost = args[0];
+        String serverHost = args[0]; // this should be https://... for TLS/SSL when Harness has TLS/SSL enabled
         String engineId = args[1];
         String fileName = args[2];
         Integer serverPort = 9090;
@@ -52,7 +50,7 @@ public class QueryClientExample {
         Optional<PasswordAuthentication> optionalCreds = optUsername.flatMap(username -> optPassword.map(password ->
                 new PasswordAuthentication(username, password.toCharArray())
         ));
-        QueryClient client = new QueryClient(engineId, serverHost, serverPort, optionalCreds);
+        QueriesClient client = new QueriesClient(engineId, serverHost, serverPort, optionalCreds);
 
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 

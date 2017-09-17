@@ -14,7 +14,7 @@ elif [ -z $1 ]
     echo "No host name"
 else
   mvn clean compile
-  mvn exec:java -Dexec.mainClass="QueryClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
+  mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
 fi
 
 

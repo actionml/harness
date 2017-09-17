@@ -9,14 +9,14 @@ __copyright__ = "Copyright 2017, ActionMl, Inc."
 __license__ = "Apache License, Version 2.0"
 
 setup(
-    name='ActionML',
+    name='Harness',
     version="0.0.10",
     author=__author__,
     author_email=__email__,
-    packages=['actionml'],
+    packages=['harness'],
     url='http://actionml.com',
     license='LICENSE.txt',
-    description='ActionML Python SDK',
+    description='Harness Python SDK',
     classifiers=[
         'Programming Language :: Python',
         'License :: OSI Approved :: Apache Software License',

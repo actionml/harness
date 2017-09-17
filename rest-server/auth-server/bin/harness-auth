@@ -30,7 +30,7 @@ shift
 
 case ${command} in
 
-    start) ${HARNESS_AUTH_HOME}/bin/harness-auth-start ;;
+    start) ${HARNESS_AUTH_HOME}/bin/harness-auth-start $1;;
 
     stop) ${HARNESS_AUTH_HOME}/bin/harness-auth-stop ;;
 

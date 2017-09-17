@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from actionml import CommandsClient, HttpError
+from harness import CommandsClient, HttpError
 
 from common import *
 

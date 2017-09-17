@@ -2,7 +2,7 @@
 Import sample data for recommendation engine
 """
 
-import actionml
+import harness
 import argparse
 import random
 import datetime
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     print(args)
 
     print("Events for " + args.engine_id_2)
-    events_client = actionml.EventClient(
+    events_client = harness.EventsClient(
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     events_client.close()
 
     print("Events for " + args.engine_id)
-    events_client = actionml.EventClient(
+    events_client = harness.EventsClient(
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
     # Both resources trained, now query
     print("Queries for " + args.engine_id)
-    query_client = actionml.QueryClient(
+    query_client = harness.QueriesClient(
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     query_client.close()
 
     print("Queries for " + args.engine_id_2)
-    query_client = actionml.QueryClient(
+    query_client = harness.QueriesClient(
         engine_id=args.engine_id_2,
         url=args.url,
         threads=5,
