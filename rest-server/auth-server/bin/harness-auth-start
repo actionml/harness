@@ -6,28 +6,40 @@ PIDFILE=${HARNESS_AUTH_HOME}/authserver.pid
 
 if [ ! -f "${HARNESS_AUTH_HOME}/bin/main" ]; then
     echo -e "${RED}Main file '${HARNESS_AUTH_HOME}/bin/main' not found!${NC}"
-    echo -e "${RED}The Harness Auth Server must be run after doing a distribution build${NC}"
+    echo -e "${RED}The Harness Server must be run after doing a distribution build${NC}"
     exit 1
 fi
 
-HARNESS_AUTH_CONFIG=${HARNESS_AUTH_HOME}/conf/application.conf
-HARNESS_AUTH_LOG_CONFIG=${HARNESS_AUTH_HOME}/conf/logback.xml
+export HARNESS_AUTH_CONFIG=${HARNESS_AUTH_HOME}/conf/application.conf
+export HARNESS_AUTH_LOG_CONFIG=${HARNESS_AUTH_HOME}/conf/logback.xml
 
+echo -e "${CYAN}Harness Auth Server settings${NC}"
 echo -e "${GLINE}"
-echo "HARNESS_AUTH_CONFIG..${HARNESS_AUTH_CONFIG}"
-echo "HARNESS_AUTH_LOG_CONFIG..${HARNESS_AUTH_LOG_CONFIG}"
+echo "AUTH_MONGO_HOST................${AUTH_MONGO_HOST}"
+echo "AUTH_MONGO_PORT................${AUTH_MONGO_PORT}"
+echo "HARNESS_AUTH_CONFIG............${HARNESS_AUTH_CONFIG}"
+echo "HARNESS_AUTH_LOG_CONFIG........${HARNESS_AUTH_LOG_CONFIG}"
 echo "HARNESS_AUTH_SERVER_PROTECTED..${HARNESS_AUTH_SERVER_PROTECTED:-false}"
-echo ""
-echo "Run ${HARNESS_AUTH_HOME}/bin/main"
-echo "Create pid file: ${PIDFILE}"
+echo "PIDFILE........................${PIDFILE}"
 
-if [ ! -f ${PIDFILE} ]; then
+if [[ "$1" = "-f" ]] || [[ ! -f ${PIDFILE} ]]; then
+    if [[ -f ${PIDFILE} ]] && [[ "$1" = "-f" ]]; then
+        echo -e "${CYAN}Trying to stop Harness Auth Server from existing PID file before restarting${NC}"
+        harness-auth-stop
+    fi
     exec ${HARNESS_AUTH_HOME}/bin/main \
     -Dconfig.file=${HARNESS_AUTH_CONFIG} \
     -Dlogback.configurationFile=${HARNESS_AUTH_LOG_CONFIG} \
     <&- > /dev/null 2>&1 &
     echo $! > ${PIDFILE}
+    if [[ $? == 0 ]]; then
+        echo -e "${CYAN}Started Harness Auth Server with PID: $(cat ${PIDFILE})${NC}"
+        echo -e "${GLINE}${NC}"
+    else
+        echo -e "${RED}[Error] Unable to start Harness Auth Server. Unknown reason.${NC}"
+    fi
+else
+    echo -e "${RED}There is an existing PID file, this means Harness Auth Server may be running.${NC}"
+    echo -e "${RED}Run \"harness-auth start -f\" to force a restart${NC}"
+    exit 1
 fi
-
-echo "PID.................$(cat ${PIDFILE})"
-echo -e "${RLINE}"

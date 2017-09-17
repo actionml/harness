@@ -17,26 +17,27 @@ export LINE="=================================================================="
 export GLINE="${GREEN}${LINE}"
 export RLINE="${LINE}${NC}"
 
+
 if [ -z ${HARNESS_HOME} ] ; then
-  HARNESS_FILE=$(readlink -f $0 2>/dev/null)
-  if [ $? = 0 ] ; then
-    export HARNESS_HOME="$(cd $(dirname ${HARNESS_FILE})/..; pwd)"
-  else
-    CURRENT_DIR=`pwd`
-    TARGET_FILE="$0"
-    cd "$(dirname "$TARGET_FILE")"
-    TARGET_FILE=$(basename "$TARGET_FILE")
+    HARNESS_FILE=$(readlink -f $0 2>/dev/null)
+    if [ $? = 0 ] ; then
+        export HARNESS_HOME="$(cd $(dirname ${HARNESS_FILE})/..; pwd)"
+    else
+        CURRENT_DIR=`pwd`
+        TARGET_FILE="$0"
+        cd "$(dirname "$TARGET_FILE")"
+        TARGET_FILE=$(basename "$TARGET_FILE")
 
-    while [ -L "$TARGET_FILE" ]
-    do
-      TARGET_FILE=$(readlink "$TARGET_FILE")
-      cd "$(dirname "$TARGET_FILE")"
-      TARGET_FILE=$(basename "$TARGET_FILE")
-    done
+        while [ -L "$TARGET_FILE" ]
+        do
+            TARGET_FILE=$(readlink "$TARGET_FILE")
+            cd "$(dirname "$TARGET_FILE")"
+            TARGET_FILE=$(basename "$TARGET_FILE")
+        done
 
-    export HARNESS_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
-    cd "$CURRENT_DIR"
-  fi
+        export HARNESS_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+        cd "$CURRENT_DIR"
+    fi
 fi
 
 . "${HARNESS_HOME}/bin/harness-env"
@@ -61,7 +62,7 @@ shift
 
 case ${command} in
 
-    start) ${HARNESS_HOME}/bin/harness-start ;;
+    start) ${HARNESS_HOME}/bin/harness-start $1 $2;;
 
     stop) ${HARNESS_HOME}/bin/harness-stop ;;
 

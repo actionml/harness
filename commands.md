@@ -22,9 +22,9 @@ Harness uses resource-ids to identify all objects in the system, engines and com
 
 **Commands**:
 
-Set your path to include to the directory containing the `harness` script. Commands not implemented in Harness are marked with a dagger character (**&dagger;**)
+Set your path to include to the directory containing the `harness` script. **Note**: Commands not yet implemented in Harness are marked with a dagger character (**&dagger;**)
 
- - **`harness start`** starts the harness server based on configuration in `harness-env`, which is expected to be in the same directory as `harness`, all other commands require the service to be running, it is always started as a daemon/background process. All previously configured engines are started in the state they were in when harness was last run.
+ - **`harness start [-f]`** starts the harness server based on configuration in `harness-env`. The `-f` argument forces a restart if Harness is already running. All other commands require the service to be running, it is always started as a daemon/background process. All previously configured engines are started in the state they were in when harness was last run.
 
  - **`harness stop`** gracefully stops harness and all engines.
 
@@ -32,7 +32,7 @@ Set your path to include to the directory containing the `harness` script. Comma
 
  - **`harness add <some-engine-json-file>`** creates and starts an instance of the template defined in `some-engine-json-file`, which is a path to the template specific parameters file.
  - **`harness delete [<some-engine-id>]`** The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
- - **`harness import <some-engine-id> [<some-directory> | <some-file>]`** This is typically used to replay previously mirrored events or bootstrap events created from application logs. It is safest to import into an empty new engine since some events cause DB changes and others have no side effects. **Note**: `-i` may be required before the file or directory name. run `harness help` for current implementation.
+ - **`harness import <some-engine-id> [<some-directory> | <some-file>]`** This is typically used to replay previously mirrored events or bootstrap events created from application logs. It is safest to import into an empty new engine since some events cause DB changes and others have no side effects.
  - **&dagger;**`harness train <some-engine-id>` in the Lambda model this trains the algorithm on all previously accumulated data.
  - **`harness status`** prints a status message for harness.
  - **`harness status engines [<some-engine-id>]`** lists all engines and stats about them, or only the engine specified.
@@ -200,6 +200,12 @@ To use mirrored files, for instance to re-run a test with different algorithm pa
 
 **Note**: any Event sent to an Engine will be mirrored to `$MIRROR_CONTAINER_NAME/engine-id/dd-MM-yy.json` as long as the event source app has write access to the endpoint, with no validation.
 
+## Scenarios for Mirroring
+
+ 1. **Auto-backup**: To automatically backup all data, mirror it and periodically save the files to archival storage of some type. Then remove the mirrored file in the live system so they do not continue to accumulate.
+ 2. **Experimental Startup**: This is the case where input is used with several Engine configurations to get the best performance. In this case the input comes into the Engine and is moved to a non-mirror location once. As the Engine config or code is changed the data is imported and the Engine tested, without mirroring since as long as the input does not change there is no need to keep multiple copies of it.
+ 3. **Input Format Validation**: Early in the use of an Engine it is often useful to run Events into the Engine for validation. If there are errors the Events will need to be changed and can be re-imported for new validation. In this case all mirrored data will likely be deleted to avoid corrupting the backup, which should start once the Events pass validation.
+
 # Importing and Bootstrapping
 
-The `harness import </path/to/events>` command is useful when json events have been derived from past log history or from mirrored Events, perhaps from another Engine.
+The `harness import </path/to/events>` command is useful when json events have been derived from past log history or from mirrored Events, perhaps from another Engine or when using a different Engine config JSON file. Importing is also the primary method for restoring backed up input data. Importing will add to the Engine's existing data and will also be mirrored so if the import is meant to be a clean start for the Engine, run `harness delete <engine-id>` then `harness add </path/to/engine/json/file>`. Deleting any accumulating or unneeded previously mirrored data is the responsibility of the user. Continuous mirroring will eventually lead to storage overflow.
