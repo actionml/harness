@@ -29,11 +29,11 @@ class CBEngine() extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
-  var params: RequiredEngineParams = _
+  var params: GenericEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
-      parseAndValidate[RequiredEngineParams](json).andThen { p =>
+      parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new CBDataset(engineId)
@@ -188,7 +188,7 @@ case class CBQueryResult(
 case class CBStatus(
     description: String = "Contextual Bandit Algorithm",
     engineType: String = "Backed by the Vowpal Wabbit compute engine.",
-    engineParams: RequiredEngineParams,
+    engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams,
     activeGroups: Int)
   extends Status {

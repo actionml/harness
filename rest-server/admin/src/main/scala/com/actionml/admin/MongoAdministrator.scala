@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Engine, RequiredEngineParams}
+import com.actionml.core.template.{Engine, GenericEngineParams}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
@@ -67,8 +67,8 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   Action: creates or modifies an existing engine
   */
   def addEngine(json: String): Validated[ValidateError, EngineId] = {
-    // val params = parse(json).extract[RequiredEngineParams]
-    parseAndValidate[RequiredEngineParams](json).andThen { params =>
+    // val params = parse(json).extract[GenericEngineParams]
+    parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines = engines + (params.engineId -> newEngineInstance(params.engineFactory).initAndGet(json))
       if (engines(params.engineId) != null) {
         if (enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {

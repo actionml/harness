@@ -1,0 +1,11 @@
+$set,user,user_1,location:Hanoi
+$set,user,user_2,location:Bangkok
+$set,user,user_3,location:Bangkok
+page-view-conversion,user_2,1,2,true
+page-view-conversion,user_2,1,1,false
+page-view-conversion,user_2,1,2,true
+page-view-conversion,user_2,1,1,false
+page-view-conversion,user_1,1,1,true
+page-view-conversion,user_1,1,2,false
+page-view-conversion,user_1,1,1,true
+page-view-conversion,user_1,1,2,false

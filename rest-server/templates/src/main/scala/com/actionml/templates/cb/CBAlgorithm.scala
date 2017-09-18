@@ -27,7 +27,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
-import templates.cb.SingleGroupTrainer.constructVWString
+import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
 import com.mongodb.casbah.Imports._
 import salat.global._
 import com.typesafe.scalalogging.LazyLogging
@@ -54,8 +54,6 @@ import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
-//VWIntLearner vw = VWLearners.create("--quiet --csoaa 3 -f " + model)
-//import scala.reflect.io.File
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
   * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
@@ -241,7 +239,7 @@ class CBAlgorithm(dataset: CBDataset)
           dataset.GroupsDAO.findOneById(groupName).get,
           resourceId,
           modelPath,
-          this.asInstanceOf[CBAlgorithm[CBAlgorithmInput]]),
+          this.asInstanceOf[CBAlgorithm]),
         groupName)
       trainers += groupName → actor
     }
@@ -359,7 +357,7 @@ class SingleGroupTrainer(
     group: GroupParams,
     resourceId: String,
     modelPath: String,
-    cbAlgo: CBAlgorithm[CBAlgorithmInput])
+    cbAlgo: CBAlgorithm)
   extends ActorWithLogging {
 
 
@@ -454,7 +452,7 @@ object SingleGroupTrainer {
     group: GroupParams,
     resourceId: String,
     modelPath: String,
-    cbAlgo: CBAlgorithm[CBAlgorithmInput]):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath, cbAlgo))
+    cbAlgo: CBAlgorithm): Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath, cbAlgo))
 
   /* def constructVWString(
        classString: String,

@@ -19,7 +19,6 @@ package com.actionml.templates.scaffold
 
 import com.actionml.core.template.Model
 
-/** DAO for persisted Machine Learning "model" classes. These are not "models" in the MVC sense. */
+/** Persisted Machine Learning "model" classes. These are not "models" in the MVC sense. */
 class ScaffoldModel() extends Model {
-
 }
