@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.templates.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -48,22 +48,12 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
-
-  val usersDAO = UsersDAO(connection(resourceId)("users"))
-  var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
-  // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
-  // may need to createIndex if _id: String messes things up
-  object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
-
+class ScaffoldDataset(resourceId: String) extends Dataset[ScaffoldEvent](resourceId) with JsonParser with Mongo {
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String): Validated[ValidateError, Boolean] = {
     parseAndValidate[RequiredEngineParams](json).andThen { p =>
-      GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
-        usageEventGroups = usageEventGroups +
-          (p._id -> UsageEventDAO(connection(resourceId)(p._id)))
-      }
+      // Do something with parameters
       Valid(p)
     }
     Valid(true)
@@ -73,89 +63,17 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
     client.dropDatabase(resourceId)
   }
 
-  // add one json, possibly an CBEvent, to the beginning of the dataset
-  override def input(json: String): Validated[ValidateError, CBEvent] = {
+  // add one json, possibly an ScaffoldEvent, to the beginning of the dataset
+  override def input(json: String): Validated[ValidateError, ScaffoldEvent] = {
     parseAndValidateInput(json).andThen(persist)
   }
 
 
-  def persist(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def persist(event: ScaffoldEvent): Validated[ValidateError, ScaffoldEvent] = {
     try {
       event match {
-        case event: CBUsageEvent => // usage data, kept as a stream
-          if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
-            logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
-            // input to usageEvents collection
-            // Todo: validate fields first
-/*            val eventObj = MongoDBObject(
-              "userId" -> event.entityId,
-              "eventName" -> event.event,
-              "itemId" -> event.targetEntityId,
-              "groupId" -> event.properties.testGroupId,
-              "converted" -> event.properties.converted,
-              "eventTime" -> new DateTime(event.eventTime)) //sort by this
-*/
-            usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
-            Valid(event)
-          } else {
-            logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
-            Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
-              s" will be ignored"))
-          }
-
-
-        case event: CBUserUpdateEvent => // user profile update, modifies user object
-          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
-          // input to usageEvents collection
-          // Todo: validate fields first
-          val props = event.properties.getOrElse(Map.empty)
-          val userProps = User.propsToMapString(props)
-          usersDAO.insert(User(event.entityId, userProps))
+        case event: ScaffoldUsageEvent => // usage data, kept as a stream
           Valid(event)
-
-        case event: GroupParams => // group init event, modifies group definition
-          logger.trace(s"Persisting a Group Init Event: ${event}")
-          // create the events collection for the group
-          if (usageEventGroups.contains(event._id)) {
-          // re-initializing
-            usageEventGroups(event._id).collection.drop()
-          }
-          usageEventGroups = usageEventGroups +
-            (event._id -> UsageEventDAO(connection(resourceId)(event._id)))
-
-          GroupsDAO.insert(event)
-          Valid(event)
-
-        case event: CBUserUnsetEvent => // unset a property in a user profile
-          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
-          val update = new MongoDBObject
-          val unsetPropNames = event.properties.get.keys.toArray
-
-          usersDAO.collection.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
-          Valid(event)
-
-        case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
-          event.entityType match {
-            case "user" =>
-              logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
-              //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.removeById(event.entityId)
-              Valid(event)
-            case "group" | "testGroup" =>
-              if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
-                logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
-                Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
-              } else {
-                GroupsDAO.remove(MongoDBObject("_id" -> event.entityId))
-                usageEventGroups(event.entityId).collection.dropCollection() // drop all events
-                usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
-                logger.trace(s"Deleting group ${event.entityId}.")
-                Valid(event)
-              }
-            case _ =>
-              logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
-              Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
-          }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
           Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
@@ -170,7 +88,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
     }
   }
 
-  def parseAndValidateInput(json: String): Validated[ValidateError, CBEvent] = {
+  def parseAndValidateInput(json: String): Validated[ValidateError, ScaffoldEvent] = {
 
     parseAndValidate[CBRawEvent](json).andThen { event =>
       event.event match {
@@ -209,29 +127,12 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
 
         case _ => // default is a self describing usage event, kept as a stream
           logger.trace(s"Dataset: ${resourceId} parsing a usage event: ${event.event}")
-          parseAndValidate[CBUsageEvent](json)
+          parseAndValidate[ScaffoldUsageEvent](json)
       }
     }
   }
 
 }
-
-//case class CBGroupInitProperties( p: Map[String, Seq[String]])
-
-/* CBEvent partially parsed from the Json:
-{
-  "event" : "$set", //"$unset means to remove some properties (not values) from the object
-  "entityType" : "user"
-  "entityId" : "amerritt",
-  "properties" : {
-    "gender": ["male"],
-    "country" : ["Canada"],
-    "otherContextFeatures": ["A", "B"]
-  }
-  "eventTime" : "2014-11-02T09:39:45.618-08:00",
-  "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
-}
- */
 
 case class User(
   _id: String,
@@ -253,64 +154,6 @@ object User { // convert the Map[String, Seq[String]] to Map[String, String] by 
   }
 }
 
-case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
-
-case class CBUserUpdateEvent(
-  entityId: String,
-  // Todo:!!! this is the way they should be encoded, fix when we get good JSON
-  properties: Option[Map[String, Seq[String]]] = None,
-  //properties: Option[Map[String, String]],
-  eventTime: String)
-  extends CBEvent
-
-case class CBUserUnsetEvent(
-  entityId: String,
-  // Todo:!!! this is teh way they should be encoded, fix when we get good JSON
-  // properties: Option[Map[String, Seq[String]]],
-  properties: Option[Map[String, Any]] = None,
-  eventTime: String)
-  extends CBEvent
-
-/* ScaffoldUsageEvent string
-Some values are ignored since the only "usage event for teh Contextual Bandit is a page-view.
-{
-  "event" : "page-view-conversion", // value ignored
-  "entityType" : "user", // value ignored
-  "entityId" : "amerritt",
-  "targetEntityType" : "item", // value ignored
-  "targetEntityId" : "item-1",
-  "properties" : {
-    "testGroupId" : "group-1",
-    "converted" : true
-  }
-  "eventTime" : "2014-11-02T09:39:45.618-08:00",
-  "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
-}
-*/
-case class CBUsageProperties(
-  testGroupId: String,
-  converted: Boolean)
-
-case class CBUsageEvent(
-  event: String,
-  entityId: String,
-  targetEntityId: String,
-  properties: CBUsageProperties//,
-  //eventTime: String
-  )
-  extends CBEvent {
-
-  def toUsageEvent: UsageEvent = {
-    UsageEvent(
-      event = this.event,
-      userId = this.entityId,
-      itemId = this.targetEntityId,
-      testGroupId = this.properties.testGroupId,
-      converted = this.properties.converted//,
-      //eventTime = new DateTime(this.eventTime)
-    )
-  }
-}
 
 case class UsageEvent(
   _id: ObjectId = new ObjectId(),
@@ -346,7 +189,7 @@ case class GroupParams (
   _id: String,
   testPeriodStart: DateTime, // ISO8601 date
   pageVariants: Map[String, String], //((1 -> "17"),(2 -> "18"))
-  testPeriodEnd: Option[DateTime]) extends CBEvent {
+  testPeriodEnd: Option[DateTime]) extends ScaffoldEvent {
 
   def keysToInt(v: Map[String, String]): Map[Int, String] = {
     v.map( a => a._1.toInt -> a._2)
@@ -359,7 +202,7 @@ case class CBGroupInitEvent (
     entityId: String,
     properties: CBGroupInitProperties,
     eventTime: String) // ISO8601 date
-  extends CBEvent {
+  extends ScaffoldEvent {
 
   def toGroupParams: GroupParams = {
     val pvsStringKeyed = this.properties.pageVariants.indices.zip(this.properties.pageVariants).toMap
@@ -375,7 +218,7 @@ case class CBGroupInitEvent (
 }
 
 
-/* CBUser Comes in CBEvent partially parsed from the Json:
+/* CBUser Comes in ScaffoldEvent partially parsed from the Json:
 {
   "event" : "$delete", // removes user: ammerrit
   "entityType" : "user"
@@ -388,7 +231,7 @@ case class CBDeleteEvent(
   entityId: String,
   entityType: String,
   eventTime: String)
-  extends CBEvent
+  extends ScaffoldEvent
 
 // allows us to look at what kind of specialized event to create
 case class CBRawEvent (
@@ -400,6 +243,6 @@ case class CBRawEvent (
     properties: Option[Map[String, Any]] = None,
     eventTime: String, // ISO8601 date
     creationTime: String) // ISO8601 date
-  extends CBEvent
+  extends ScaffoldEvent
 
-trait CBEvent extends Event
+trait ScaffoldEvent extends Event

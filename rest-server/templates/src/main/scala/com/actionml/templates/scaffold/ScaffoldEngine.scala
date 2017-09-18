@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.templates.scaffold
 
-import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
-// Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+/** This is an empty scaffolding Template for an Engine that does only generic things. */
+class ScaffoldEngine() extends Engine() with JsonParser {
 
-  var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
+  var dataset: ScaffoldDataset = _
+  var algo: ScaffoldAlgorithm[ScaffoldAlgorithmInput] = _
   var params: RequiredEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
@@ -36,8 +35,8 @@ class CBEngine() extends Engine() with JsonParser {
       parseAndValidate[RequiredEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
+        dataset = new ScaffoldDataset(engineId)
+        algo = new ScaffoldAlgorithm(dataset)
         drawInfo("Contextual Bandit Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
@@ -57,14 +56,14 @@ class CBEngine() extends Engine() with JsonParser {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): CBEngine = {
+  override def initAndGet(json: String): ScaffoldEngine = {
    val response = init(json)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
     } else {
       logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[CBEngine] // todo: ugly, replace
+      null.asInstanceOf[ScaffoldEngine] // todo: ugly, replace
     }
   }
 
@@ -105,10 +104,10 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def process(event: ScaffoldEvent): Validated[ValidateError, ScaffoldEvent] = {
      event match {
-      case event: CBUsageEvent =>
-        val datum = CBAlgorithmInput(
+      case event: ScaffoldUsageEvent =>
+        val datum = ScaffoldAlgorithmInput(
           dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
