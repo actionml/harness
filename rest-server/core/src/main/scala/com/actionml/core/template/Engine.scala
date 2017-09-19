@@ -83,12 +83,22 @@ case class GenericEngineParams(
 
 /** Used only for illustration since queries have no required part */
 case class GenericQuery() extends Query {
-  def toJson = "{\"dummyQuery\": \"query\""
+  def toJson =
+    s"""
+       |{
+       |    "dummyQuery": "query"
+       |}
+     """.stripMargin
 }
 
 /** Used only for illustration since query results have no required part */
 case class GenericQueryResult() extends QueryResult{
-  def toJson = "{\"dummyQueryResult\": \"result\""
+  def toJson =
+    s"""
+       |{
+       |    "dummyQueryResult": "result"
+       |}
+     """.stripMargin
 }
 
 trait EngineParams
