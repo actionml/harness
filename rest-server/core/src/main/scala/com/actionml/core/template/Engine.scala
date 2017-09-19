@@ -34,7 +34,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   var engineId: String = _
   var mirroring: Mirroring = _
 
-  private def createMirror(params: RequiredEngineParams): Validated[ValidateError, Boolean] = {
+  private def createMirror(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     if (params.mirrorContainer.isEmpty) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       Valid(true)
@@ -50,7 +50,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
-  def init(json: String): Validated[ValidateError, Boolean] = parseAndValidate[RequiredEngineParams](json)
+  def init(json: String): Validated[ValidateError, Boolean] = parseAndValidate[GenericEngineParams](json)
     .andThen(createMirror)
 
   def initAndGet(json: String): Engine
@@ -67,7 +67,6 @@ abstract class Engine extends LazyLogging with JsonParser {
        """.stripMargin)
   }
 
-  def train()
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] =
     mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
   Valid(())
@@ -75,13 +74,33 @@ abstract class Engine extends LazyLogging with JsonParser {
   def query(json: String): Validated[ValidateError, String]
 }
 
-case class RequiredEngineParams(
+/** Contains params requires by all engines */
+case class GenericEngineParams(
   engineId: String, // required, resourceId for engine
   engineFactory: String,
   mirrorType: Option[String] = None,
   mirrorContainer: Option[String] = None) extends EngineParams
 
+/** Used only for illustration since queries have no required part */
+case class GenericQuery() extends Query {
+  def toJson =
+    s"""
+       |{
+       |    "dummyQuery": "query"
+       |}
+     """.stripMargin
+}
+
+/** Used only for illustration since query results have no required part */
+case class GenericQueryResult() extends QueryResult{
+  def toJson =
+    s"""
+       |{
+       |    "dummyQueryResult": "result"
+       |}
+     """.stripMargin
+}
+
 trait EngineParams
-trait QueryResult
 trait Query
 trait Status

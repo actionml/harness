@@ -15,30 +15,33 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.templates.scaffold
 
-import cats.data
 import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.{Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
-// Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+/** This is an empty scaffolding Template for an Engine that does only generic things.
+  * This is not the minimal Template because many methods are implemented generically in the
+  * base classes but is better used as a starting point for new Engines.
+  */
+class ScaffoldEngine() extends Engine() with JsonParser {
 
-  var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
+  var dataset: ScaffoldDataset = _
+  var algo: ScaffoldAlgorithm = _
   var params: GenericEngineParams = _
 
+  /** Initializing the Engine sets up all needed objects */
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
-        drawInfo("Contextual Bandit Init", Seq(
+        dataset = new ScaffoldDataset(engineId)
+        algo = new ScaffoldAlgorithm(dataset)
+        drawInfo("Generic Scaffold Engine", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
@@ -57,14 +60,14 @@ class CBEngine() extends Engine() with JsonParser {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): CBEngine = {
-   val response = init(json)
+  override def initAndGet(json: String): ScaffoldEngine = {
+    val response = init(json)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
     } else {
       logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[CBEngine] // todo: ugly, replace
+      null.asInstanceOf[ScaffoldEngine] // todo: ugly, replace
     }
   }
 
@@ -75,10 +78,7 @@ class CBEngine() extends Engine() with JsonParser {
 
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(CBStatus(
-      engineParams = this.params,
-      algorithmParams = algo.params,
-      activeGroups = algo.trainers.size).toJson)
+    Valid(this.params.toString)
   }
 
   override def destroy(): Unit = {
@@ -87,43 +87,28 @@ class CBEngine() extends Engine() with JsonParser {
     algo.destroy()
   }
 
-  def train(): Unit = {
+  /*
+  override def train(): Unit = {
     logger.warn(s"Only used for Lambda style training")
   }
+  */
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    // first detect a batch of events, then process each, parse and validate then persist if needed
-    // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
+    if (super.input(json, trainNow).isValid)
       dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true) // Some error like an ExecutionError in super.input happened
     // todo: pass back indication of deeper error
   }
 
-  /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
-     event match {
-      case event: CBUsageEvent =>
-        val datum = CBAlgorithmInput(
-          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
-          event,
-          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
-          engineId
-        )
-        algo.input(datum)
-      case event: GroupParams =>
-        algo.add(event._id)
-      case event: CBDeleteEvent =>
-        event.entityType match {
-          case "group" | "testGroup" =>
-            algo.remove(event.entityId)
-          case other => // todo: Pat, need refactoring this, Pat says, no this looks good
-            logger.warn("Unexpected value of entityType: {}, in {}", other, event)
-        }
+  /** Triggers Algorithm processes. We can assume the event is fully validated and transformed into
+    * whatever specific event the json represented. Now we can process it by it's type */
+  def process(event: GenericEvent): Validated[ValidateError, GenericEvent] = {
+    event match {
+      // Here is where you process by derivative type
       case _ =>
     }
     Valid(event)
@@ -132,76 +117,12 @@ class CBEngine() extends Engine() with JsonParser {
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[CBQuery](json).andThen { query =>
+    parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
-        val result = algo.predict(query)
-        Valid(result.toJson)
-      } else {
-        Invalid(WrongParams(s"Query for non-existent group: $json"))
-      }
+      val result = algo.predict(query)
+      Valid(result.toJson)
     }
   }
 
-/*  override def status(): String = {
-    s"""
-      |    Engine: ${this.getClass.getName}
-      |    Resource ID: $engineId
-      |    Number of active groups: ${algo.trainers.size}
-    """.stripMargin
-  }
-*/
 }
 
-/*
-Query
-{
-  "user": "psmith",
-  "testGroupId": "testGroupA"
-}
-*/
-case class CBQuery(
-    user: String,
-    groupId: String)
-  extends Query
-
-/*
-Results
-{
-  "variant": "variantA",
-  "testGroupId": "testGroupA"
-}
-*/
-case class CBQueryResult(
-    variant: String = "",
-    groupId: String = "")
-  extends QueryResult {
-
-  def toJson: String = {
-    s"""
-     |"variant": $variant,
-     |"groupId": $groupId
-    """.stripMargin
-  }
-}
-
-case class CBStatus(
-    description: String = "Contextual Bandit Algorithm",
-    engineType: String = "Backed by the Vowpal Wabbit compute engine.",
-    engineParams: GenericEngineParams,
-    algorithmParams: AlgorithmParams,
-    activeGroups: Int)
-  extends Status {
-
-  def toJson: String = {
-    s"""
-      |{
-      |  "description": $description,
-      |  "engineType": $engineType,
-      |  "engineParams": $engineParams,
-      |  "algorithmParams": $algorithmParams,
-      |  "activeGroups": $activeGroups
-      |}
-    """.stripMargin
-  }
-}

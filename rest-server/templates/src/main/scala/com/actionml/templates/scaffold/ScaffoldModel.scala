@@ -15,19 +15,10 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.templates.scaffold
 
-import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.template.Model
 
-/** Adds a method for input, which is expected to update the model immediately. */
-//trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
-trait KappaAlgorithm[T] extends LazyLogging {
-
-  def input(datum: T): Validated[ValidateError, Boolean]
-
+/** Persisted Machine Learning "model" classes. These are not "models" in the MVC sense. */
+class ScaffoldModel() extends Model {
 }
-
-trait AlgorithmInput

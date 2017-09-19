@@ -26,11 +26,14 @@ import com.typesafe.scalalogging.LazyLogging
   * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
   * which differ in how they get data and update models
   */
-abstract class Algorithm extends LazyLogging {
+abstract class Algorithm[Q, R] extends LazyLogging {
   def init(json: String, rsrcId: String): Validated[ValidateError, Boolean]
   def destroy(): Unit
-  def start(): Algorithm = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
+  def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
   def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
+  def predict(query: Q): R
 }
 
 trait AlgorithmParams
+trait AlgorithmQuery
+trait QueryResult
