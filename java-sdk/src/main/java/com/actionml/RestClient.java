@@ -23,10 +23,13 @@ import akka.http.javadsl.model.HttpResponse;
 import akka.http.javadsl.model.Uri;
 import akka.http.javadsl.model.headers.Authorization;
 import akka.japi.Pair;
+import akka.stream.javadsl.Keep;
+import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
 import java.net.PasswordAuthentication;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -38,6 +41,7 @@ abstract class RestClient extends BaseClient {
     // Resource location
     protected final Uri uri;
     protected final Optional<PasswordAuthentication> credentials;
+    private Optional<String> accessToken = Optional.empty();
 
     RestClient(String host, Integer port, Uri uri, Optional<PasswordAuthentication> optionalCreds) {
         super(host, port);
@@ -129,7 +133,19 @@ abstract class RestClient extends BaseClient {
         return extractResponse(pair.second()).thenApply(response -> Pair.create(pair.first(), response));
     }
 
-    protected Source<Optional<String>, NotUsed> withAuth() {
-        return this.credentials.map(this::withAuth).orElse(Source.single(Optional.empty()));
+    protected CompletionStage<Optional<String>> withAuth() {
+        if (accessToken.isPresent()) {
+            return CompletableFuture.completedFuture(accessToken);
+        } else {
+            CompletionStage<Optional<String>> result = this.credentials.map(this::withAuth)
+                    .orElse(Source.single(Optional.empty()))
+                    .toMat(Sink.head(), Keep.right()).run(this.materializer);
+            result.thenApply(token -> this.accessToken = token);
+            result.exceptionally(ex -> {
+                this.accessToken = Optional.empty();
+                return this.accessToken;
+            });
+            return result;
+        }
     }
 }

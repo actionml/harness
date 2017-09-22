@@ -52,13 +52,11 @@ public class EventsClient extends RestClient {
      * @return Event
      */
     public CompletionStage<Pair<Integer, String>> getEvent(String eventId) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.get(eventId, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.get(eventId, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(String event) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.create(event, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.create(event, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(Event event) {
@@ -66,8 +64,7 @@ public class EventsClient extends RestClient {
     }
 
     public CompletionStage<List<Pair<Long, Pair<Integer, String>>>> createEvents(List<String> events) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken ->
+        return withAuth().thenCompose(optionalToken ->
                         Source.from(events)
                                 .map(event -> this.createPost(event, optionalToken))
                                 .zipWithIndex()

@@ -33,7 +33,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.{Injectable, Injector}
 
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport
@@ -51,7 +51,7 @@ class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationSe
         case _ => false
       }.recoverWith {
         case ex =>
-          logger.error("Authorize request error", ex)
+          logger.error("AuthServer response error", ex)
           Future.successful(false)
       }
   }

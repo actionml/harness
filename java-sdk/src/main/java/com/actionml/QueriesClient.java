@@ -40,8 +40,7 @@ public class QueriesClient extends RestClient {
     }
 
     public CompletionStage<Pair<Integer, String>> sendQuery(String query) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.create(query, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.create(query, optionalToken));
     }
 
 }

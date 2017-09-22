@@ -26,7 +26,7 @@ class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends B
   val authProxyService = inject[AuthServerProxyService]
 
   override val route =
-    (pathPrefix("auth" / "users") & extractRequest) { req =>
+    (pathPrefix("auth") & extractRequest) { req =>
       onSuccess(authProxyService.proxyAuthRequest(req)) {
         complete(_)
       }

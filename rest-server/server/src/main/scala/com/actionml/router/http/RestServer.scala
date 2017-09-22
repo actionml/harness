@@ -41,10 +41,9 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   private val engines = inject[EnginesRouter]
   private val queries = inject[QueriesRouter]
   private val authProxy = inject[AuthServerProxyRouter]
-  private val authorize = inject[AuthorizeRouter]
 
   private val route: Route = DebuggingDirectives.logRequestResult("Harness-Server", Logging.InfoLevel) {
-    authorize.route ~ authProxy.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
+    authProxy.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
   }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {

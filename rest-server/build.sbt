@@ -104,6 +104,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, templates,
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
+    "org.ehcache" % "ehcache" % "3.4.0",
 
     "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )
