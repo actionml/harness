@@ -53,7 +53,7 @@ class BaseModule extends Module{
   bind[QueryService] to new QueryServiceImpl
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
-  bind[AuthorizationService] to new ClientAuthorizationService
+  bind[AuthorizationService] to new CachedAuthorizationService
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")

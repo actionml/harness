@@ -15,6 +15,17 @@
  * limitations under the License.
  */
 
-package com.actionml.authserver
+package com.actionml.authserver.codecs
 
-case class AuthorizationResponse(accessToken: String, ttl: Option[Long], refreshToken: Option[String])
+import com.actionml.oauth2.entities.AccessTokenResponse
+import com.actionml.oauth2.entities.AccessTokenResponse.TokenTypes
+import io.circe.Encoder
+
+object Encoders {
+
+  implicit val tokenTypesEncoder = Encoder.enumEncoder(TokenTypes)
+  implicit val accessTokenEncoder: Encoder[AccessTokenResponse] =
+    Encoder.forProduct5("access_token", "token_type", "expires_in", "refresh_token", "scope") { a =>
+      (a.accessToken, a.tokenType, a.expiresIn, a.refreshToken, a.scope)
+    }
+}
