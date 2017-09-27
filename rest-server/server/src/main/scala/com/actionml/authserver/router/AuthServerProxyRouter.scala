@@ -23,11 +23,11 @@ import com.actionml.router.http.routes.BaseRouter
 import scaldi.Injector
 
 class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
-  val authService = inject[AuthServerProxyService]
+  val authProxyService = inject[AuthServerProxyService]
 
   override val route =
     (pathPrefix("auth") & extractRequest) { req =>
-      onSuccess(authService.proxyAuthRequest(req)) {
+      onSuccess(authProxyService.proxyAuthRequest(req)) {
         complete(_)
       }
     }
