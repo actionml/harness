@@ -9,7 +9,7 @@ import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, ClientAuthorizationService}
+import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -53,7 +53,7 @@ class BaseModule extends Module{
   bind[QueryService] to new QueryServiceImpl
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
-  bind[AuthorizationService] to new ClientAuthorizationService
+  bind[AuthorizationService] to new CachedAuthorizationService
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")

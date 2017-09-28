@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.1.0-SNAPSHOT"
+version := "0.1.0-RC2"
 
 scalaVersion := "2.11.8"
 
@@ -104,6 +104,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, templates,
     "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
+    "org.ehcache" % "ehcache" % "3.4.0",
 
     "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )

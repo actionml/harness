@@ -23,9 +23,10 @@ import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
 /** Adds a method for input, which is expected to update the model immediately. */
-trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
+//trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
+trait KappaAlgorithm[T] extends LazyLogging {
 
-  def input[A <: T](datum: A): Validated[ValidateError, Boolean]
+  def input(datum: T): Validated[ValidateError, Boolean]
 
 }
 

@@ -54,14 +54,11 @@ import java.nio.file.{Files, Path, Paths}
 
 import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
-//VWIntLearner vw = VWLearners.create("--quiet --csoaa 3 -f " + model)
-//import scala.reflect.io.File
 
 /** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
   * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
-  * The GroupTrain Actors are managed by the CBAlgorithm and will be added and killed when needed.
-  *
+  * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 case class CBAlgorithmInput(
     user: User,
@@ -72,7 +69,8 @@ case class CBAlgorithmInput(
 
 case class Train(datum: CBAlgorithmInput)
 
-class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm with KappaAlgorithm[T] with JsonParser with Mongo {
+class CBAlgorithm(dataset: CBDataset)
+  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
 
   val serverHome = sys.env("HARNESS_HOME")
 
@@ -88,7 +86,7 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
   var events = 0
 
   override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
-    //val response = parseAndValidate[CBAlgoParams](json)
+    //val response = parseAndValidate[ScaffoldAlgoParams](json)
     resourceId = rsrcId
     parseAndValidate[CBAllParams](json).andThen { p =>
       modelPath = p.algorithm.modelContainer.getOrElse(serverHome) + resourceId
@@ -120,6 +118,26 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
     }
   }
 
+  override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
+    events += 1
+    if (events % 20 == 0) checkpointVW(params)
+    val groupName = datum.event.toUsageEvent.testGroupId
+    try {
+      logger.trace(s"Train trainer $groupName, with datum: $datum")
+      trainers(groupName) ! Train(datum)
+      Valid(true)
+    } catch {
+      case e: NoSuchElementException =>
+        logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.")
+        Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
+    }
+  }
+
+  override def predict(query: CBQuery): CBQueryResult = {
+    // todo: isDefinedAt is not enough to know there have been events
+    if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
+  }
+
   override def destroy(): Unit = {
     // remove old model since it is recreated with each new CBEngine
     // the VW model file may take some time to be deletable after closing vw?????
@@ -138,23 +156,6 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
         logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
     }
 
-  }
-
-  //type T = CBAlgorithmInput
-  //def input[T <: AlgorithmInput](datum: T): Validated[ValidateError, Boolean] = {
-  override def input[A <: T](datum: A): Validated[ValidateError, Boolean] = {
-    events += 1
-    if (events % 20 == 0) checkpointVW(params)
-    val groupName = datum.event.toUsageEvent.testGroupId
-    try {
-      logger.trace(s"Train trainer $groupName, with datum: $datum")
-      trainers(groupName) ! Train(datum)
-      Valid(true)
-    } catch {
-      case e: NoSuchElementException =>
-        logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.")
-        Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
-    }
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -238,14 +239,10 @@ class CBAlgorithm[T <: CBAlgorithmInput](dataset: CBDataset) extends Algorithm w
           dataset.GroupsDAO.findOneById(groupName).get,
           resourceId,
           modelPath,
-          this.asInstanceOf[CBAlgorithm[CBAlgorithmInput]]),
+          this.asInstanceOf[CBAlgorithm]),
         groupName)
       trainers += groupName → actor
     }
-  }
-
-  def predict(query: CBQuery): CBQueryResult = { // todo: isDefinedAt is not enough to know there have been events
-    if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
 
   override def stop(): Unit = {
@@ -360,7 +357,7 @@ class SingleGroupTrainer(
     group: GroupParams,
     resourceId: String,
     modelPath: String,
-    cbAlgo: CBAlgorithm[CBAlgorithmInput])
+    cbAlgo: CBAlgorithm)
   extends ActorWithLogging {
 
 
@@ -455,7 +452,7 @@ object SingleGroupTrainer {
     group: GroupParams,
     resourceId: String,
     modelPath: String,
-    cbAlgo: CBAlgorithm[CBAlgorithmInput]):Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath, cbAlgo))
+    cbAlgo: CBAlgorithm): Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath, cbAlgo))
 
   /* def constructVWString(
        classString: String,

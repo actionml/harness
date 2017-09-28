@@ -28,14 +28,16 @@ import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
 import com.actionml.circe.CirceSupport
 import com.actionml.router.config.AppConfig
+import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.{Injectable, Injector}
 
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 
-class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport with Injectable {
+class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport
+  with Injectable with LazyLogging {
   private val config = inject[AppConfig]
   private implicit val ec = inject[ExecutionContext]
   private implicit val actorSystem = inject[ActorSystem]
@@ -46,9 +48,10 @@ class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationSe
     Http().singleRequest(request)
       .collect {
         case HttpResponse(StatusCodes.OK, _, _, _) => true
-        case HttpResponse(_, _, _, _) => false
+        case _ => false
       }.recoverWith {
         case ex =>
+          logger.error("AuthServer response error", ex)
           Future.successful(false)
       }
   }

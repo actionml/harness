@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import com.actionml.EventClient;
+import com.actionml.EventsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,11 +34,11 @@ import java.util.stream.Collectors;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 18:46
  */
-public class EventClientExample { private static Logger log = LoggerFactory.getLogger(EventClientExample.class);
+public class EventsClientExample { private static Logger log = LoggerFactory.getLogger(EventsClientExample.class);
 
     public static void main(String[] args) {
 
-        String serverHost = args[0];
+        String serverHost = args[0]; // this should be https://... for TLS/SSL when Harness has TLS/SSL enabled
         String engineId = args[1];
         String fileName = args[2];
         Integer serverPort = 9090;
@@ -52,7 +52,7 @@ public class EventClientExample { private static Logger log = LoggerFactory.getL
                 new PasswordAuthentication(username, password.toCharArray())
         ));
 
-        EventClient client = new EventClient(engineId, serverHost, serverPort, optionalCreds);
+        EventsClient client = new EventsClient(engineId, serverHost, serverPort, optionalCreds);
 
         // example of JSON for creating an event
         String json = "{" +

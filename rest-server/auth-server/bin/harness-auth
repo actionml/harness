@@ -1,25 +1,43 @@
 #!/usr/bin/env bash
 
+#Reset
+export NC='\033[0m'           # Text Reset
+
+# Regular Colors
+export RED='\033[0;31m'          # Red--error
+export GREEN='\033[0;32m'        # Green
+export YELLOW='\033[0;33m'       # Yellow
+export BLUE='\033[0;34m'         # Blue
+export PURPLE='\033[0;35m'       # Purple
+export CYAN='\033[0;36m'         # Cyan--hints and info messages
+export WHITE='\033[0;37m'        # White
+
+export LINE="=================================================================="
+
+export GLINE="${GREEN}${LINE}"
+export RLINE="${LINE}${NC}"
+
+
 if [ -z ${HARNESS_AUTH_HOME} ] ; then
-  HARNESS_AUTH_FILE=$(readlink -f $0 2>/dev/null)
-  if [ $? = 0 ] ; then
-    export HARNESS_AUTH_HOME="$(cd $(dirname ${HARNESS_AUTH_FILE})/..; pwd)"
-  else
-    CURRENT_DIR=`pwd`
-    TARGET_FILE="$0"
-    cd "$(dirname "$TARGET_FILE")"
-    TARGET_FILE=$(basename "$TARGET_FILE")
+    HARNESS_AUTH_FILE=$(readlink -f $0 2>/dev/null)
+    if [ $? = 0 ] ; then
+        export HARNESS_AUTH_HOME="$(cd $(dirname ${HARNESS_AUTH_FILE})/..; pwd)"
+    else
+        CURRENT_DIR=`pwd`
+        TARGET_FILE="$0"
+        cd "$(dirname "$TARGET_FILE")"
+        TARGET_FILE=$(basename "$TARGET_FILE")
 
-    while [ -L "$TARGET_FILE" ]
-    do
-      TARGET_FILE=$(readlink "$TARGET_FILE")
-      cd "$(dirname "$TARGET_FILE")"
-      TARGET_FILE=$(basename "$TARGET_FILE")
-    done
+        while [ -L "$TARGET_FILE" ]
+        do
+            TARGET_FILE=$(readlink "$TARGET_FILE")
+            cd "$(dirname "$TARGET_FILE")"
+            TARGET_FILE=$(basename "$TARGET_FILE")
+        done
 
-    export HARNESS_AUTH_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
-    cd "$CURRENT_DIR"
-  fi
+        export HARNESS_AUTH_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+        cd "$CURRENT_DIR"
+    fi
 fi
 
 . "${HARNESS_AUTH_HOME}/bin/harness-auth-env"
@@ -30,7 +48,7 @@ shift
 
 case ${command} in
 
-    start) ${HARNESS_AUTH_HOME}/bin/harness-auth-start ;;
+    start) ${HARNESS_AUTH_HOME}/bin/harness-auth-start $1;;
 
     stop) ${HARNESS_AUTH_HOME}/bin/harness-auth-stop ;;
 

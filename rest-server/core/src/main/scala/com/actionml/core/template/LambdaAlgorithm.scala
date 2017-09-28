@@ -23,10 +23,11 @@ import com.typesafe.scalalogging.LazyLogging
 /** Adds a method for train, which is expected to update the model through some potentially long lived task,
   *  usually in a batch or background mode.
   */
-trait LambdaAlgorithm[T <: AlgorithmTrainSpec] extends LazyLogging {
+trait LambdaAlgorithm[T] extends LazyLogging {
 
-  def train[A <: T](algoTrainSpec: A): Validated[ValidateError, Boolean]
+  def train(algoTrainSpec: T): Validated[ValidateError, Boolean]
 
 }
 
+// some extended version of this should be passed to "train"
 trait AlgorithmTrainSpec

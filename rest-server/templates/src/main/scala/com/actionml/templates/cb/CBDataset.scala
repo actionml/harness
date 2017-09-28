@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event, RequiredEngineParams}
+import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import org.joda.time.DateTime
@@ -58,8 +58,8 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
 
 
   // These should only be called from trusted source like the CLI!
-  def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[RequiredEngineParams](json).andThen { p =>
+  override def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[GenericEngineParams](json).andThen { p =>
       GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
         usageEventGroups = usageEventGroups +
           (p._id -> UsageEventDAO(connection(resourceId)(p._id)))
@@ -74,7 +74,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
-  def input(json: String): Validated[ValidateError, CBEvent] = {
+  override def input(json: String): Validated[ValidateError, CBEvent] = {
     parseAndValidateInput(json).andThen(persist)
   }
 
@@ -170,7 +170,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
     }
   }
 
-  def parseAndValidateInput(json: String): Validated[ValidateError, CBEvent] = {
+  override def parseAndValidateInput(json: String): Validated[ValidateError, CBEvent] = {
 
     parseAndValidate[CBRawEvent](json).andThen { event =>
       event.event match {
@@ -271,7 +271,7 @@ case class CBUserUnsetEvent(
   eventTime: String)
   extends CBEvent
 
-/* CBUsageEvent string
+/* ScaffoldUsageEvent string
 Some values are ignored since the only "usage event for teh Contextual Bandit is a page-view.
 {
   "event" : "page-view-conversion", // value ignored

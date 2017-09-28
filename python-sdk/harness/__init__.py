@@ -1,9 +1,9 @@
-"""ActionML Python SDK
-The ActionML Python SDK provides easy-to-use functions for integrating
-Python applications with ActionML REST API services.
+"""The Harness Python SDK from ActionML
+Provides easy-to-use functions for integrating
+Python applications with ActionML's REST API for the Harness Server.
 """
 
-__version__ = "0.0.10"
+__version__ = "0.1.0-RC2"
 
 # import packages
 import re
@@ -32,13 +32,13 @@ except ImportError:
 from datetime import datetime
 import pytz
 
-from actionml.connection import Connection
-from actionml.connection import AsyncRequest
-from actionml.connection import AsyncResponse
-from actionml.connection import ActionMLAPIError
+from harness.connection import Connection
+from harness.connection import AsyncRequest
+from harness.connection import AsyncResponse
+from harness.connection import HarnessAPIError
 
 
-class HttpError(ActionMLAPIError):
+class HttpError(HarnessAPIError):
     def __init__(self, message, response):
         super(HttpError, self).__init__(message)
         self.response = response
@@ -116,7 +116,7 @@ class BaseClient(object):
     def close(self):
         """
         Close this client and the connection.
-        Call this method when you want to completely terminate the connection with ActionML.
+        Call this method when you want to completely terminate the connection with Harness.
         It will wait for all pending requests to finish.
         """
         self._connection.close()
@@ -130,7 +130,7 @@ class BaseClient(object):
 
     def get_status(self):
         """
-        Get the status of the ActionML API Server
+        Get the status of the Harness API Server
         :returns: status message.
         :raises: ServerStatusError.
         """
@@ -171,7 +171,7 @@ class BaseClient(object):
         return self._response_handler(httplib.OK, response)
 
 
-class EventClient(BaseClient):
+class EventsClient(BaseClient):
     """
     Client for importing data into ActionML Harness Server.
     :param url: the url of ActionML Harness Server.
@@ -190,7 +190,7 @@ class EventClient(BaseClient):
         assert type(engine_id) is str, "engine_id must be string."
         self.engine_id = engine_id
         self.path = "/engines/%s/events" % (self.engine_id,)
-        super(EventClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
+        super(EventsClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_create(self, event, entity_type, entity_id,
                      target_entity_type=None, target_entity_id=None, properties=None,
@@ -266,11 +266,11 @@ class EventClient(BaseClient):
 
     def async_delete(self, event_id):
         """Asynchronouly delete an event from Harness Server.
-    :param event_id: event id returned by the EventServer when creating the
-      event.
-    :returns:
-      AsyncRequest object.
-    """
+        :param event_id: event id returned by the EventServer when creating the
+          event.
+        :returns:
+          AsyncRequest object.
+        """
         request = AsyncRequest("DELETE", self._add_segment(event_id))
         request.set_response_handler(self._delete_response_handler)
         self._connection.make_request(request)
@@ -281,10 +281,10 @@ class EventClient(BaseClient):
         return self.async_delete(event_id).get_response()
 
 
-class EngineClient(BaseClient):
+class EnginesClient(BaseClient):
     def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/engines"
-        super(EngineClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
+        super(EnginesClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_get(self, engine_id):
         """
@@ -358,12 +358,12 @@ class EngineClient(BaseClient):
         return self.async_delete(engine_id).get_response()
 
 
-class QueryClient(BaseClient):
+class QueriesClient(BaseClient):
     """
-    Client for extracting prediction results from an ActionML Engine
+    Client for extracting prediction results from an Harness Engine
     Instance.
-    :param url: the url of the ActionML Engine Instance.
-    :param threads: number of threads to handle ActionML API requests. Must be >= 1.
+    :param url: the url of the Harness Engine Instance.
+    :param threads: number of threads to handle Harness API requests. Must be >= 1.
     :param qsize: the max size of the request queue (optional).
         The asynchronous request becomes blocking once this size has been
         reached, until the queued requests are handled.
@@ -374,7 +374,7 @@ class QueryClient(BaseClient):
     def __init__(self, engine_id, url = "http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.engine_id = engine_id
         self.path = "/engines/{}/queries".format(self.engine_id)
-        super(QueryClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
+        super(QueriesClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_send_query(self, data):
         """
@@ -399,10 +399,10 @@ class QueryClient(BaseClient):
         return self.async_send_query(data).get_response()
 
 
-class CommandClient(BaseClient):
+class CommandsClient(BaseClient):
     def __init__(self, url = "http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/commands"
-        super(CommandClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
+        super(CommandsClient, self).__init__(url, threads, qsize, timeout, user_id, user_secret)
 
     def async_get_engines_list(self):
         request = AsyncRequest("GET", self.path + "/list/engines")
@@ -459,6 +459,23 @@ class UsersClient(BaseClient):
     def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/auth/users"
         super().__init__(url, threads, qsize, timeout, user_id, user_secret)
+
+    def async_get(self, queried_user_id):
+        """
+        Asynchronously get an user info from Harness Server.
+        :param user_id:
+        :returns: AsyncRequest object.
+        """
+        if queried_user_id is None:
+            request = AsyncRequest("GET", self.path)
+        else:
+            request = AsyncRequest("GET", self._add_segment(queried_user_id))
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def get(self, queried_user_id):
+        return self.async_get(queried_user_id).get_response()
 
     def create_user(self, role_set_id=None, resource_id=None):
         request = AsyncRequest("POST", self.path, roleSetId=role_set_id, resourceId=resource_id)

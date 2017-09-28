@@ -4,38 +4,35 @@ The Python SDK is extended beyond what the Java SDK does because it also support
 
 End users of Harness will likely us only the event and query APIs so they are described here.
 
-**Note**: The Python SDK will shortly be renamed `harness` but currently is `actionml`.
-
-
 # Installation
 
 To install the module from PyPI, you may
 
-    $ pip install actionml # will only work after release!
+    $ pip install harness # will only work after release!
 
 or
 
-    $ easy_install actionml # will only work after release!
+    $ easy_install harness # will only work after release!
 
 If you have cloned the repository and want to install directly from there,
 do the following in the root directory of the repository:
 
     $ python setup.py install # use this method until release!
 
-This will install the "actionml" module to your Python distribution.
+This will install the "harness" module to your Python distribution.
 
 
 # Usage
 
-To use actionml in your Python script, import the package, and create an `EventClient` and/or a `QueryClient`. They create flexible events similar to the PredictionIO event and queries. Outside of a few things that are standard virtually anything encodable in JSON can be passed in, see the Template/Engine documentation for specifics. Here are some examples for the Contextual Bandit.
+To use harness in your Python script, import the package, and create an `EventsClient` and/or a `QueriesClient`. They create flexible events similar to the PredictionIO event and queries. Outside of a few things that are standard virtually anything encodable in JSON can be passed in, see the Template/Engine documentation for specifics. Here are some examples for the Contextual Bandit.
 
 **Events**:
 
-    import actionml
+    import harness
     
     import datetime  # to get datetimes
 
-    events_client = actionml.EventClient(
+    events_client = harness.EventsClient(
         engine_id="test_resource",
         url="localhost:9090",
         threads=5,  # more for async event creation
@@ -55,7 +52,7 @@ To use actionml in your Python script, import the package, and create an `EventC
 
 **Queries**:   
 
-    query_client = actionml.QueryClient(
+    query_client = harness.QueriesClient(
         engine_id=args.engine_id,
         url=args.url,
         threads=5,
@@ -72,7 +69,7 @@ There are Python scripts that send test events and make queries but to make thes
 
  - install Harness using the [install directions](../install.md)
  - install Python 3.x
- - install the "actionml" Python package from the python-sdk directory where this README is located using `python setup.py install`
+ - install the "harness" Python package from the python-sdk directory where this README is located using `python setup.py install`
 
 The `integration-test` should do the rest, look for obvious errors or differences in expected and test output.
 
@@ -81,5 +78,4 @@ The `integration-test` should do the rest, look for obvious errors or difference
  
 
   
-    
     

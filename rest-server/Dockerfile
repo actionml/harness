@@ -1,4 +1,4 @@
-FROM actionml/vw:8.2.1
+FROM harness/vw:8.2.1
 
 WORKDIR /app
 

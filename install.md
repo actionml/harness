@@ -134,7 +134,9 @@ You may see errors for deleting a non-existent resource or stopping harness when
 
 So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
 
-# Auth Server
+Security not only has 2 parts but needs to be configured on the Java/Python SDK (client) side **and** the Server Side
+
+## Setup Server-side Auth
 
 Auth starts by creating users see [Commands](commands.md) for User and Permission Management. At minimum you must have an `admin` user to use the CLI. This user can also be used to send test events but typically you will create `client` users for that purpose.
 
@@ -149,18 +151,28 @@ This creates a file in the admin user's .ssh directory containing the secret. No
     export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
 
 
-# TLS/SSL Server
+## Setup Server-side TLS/SSL 
 
 TLS must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
 
     export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
     export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
-    export HARNESS_SERVER_CERT_PATH=${HARNESS_SERVER_CERT_PATH:-$HARNESS_HOME/harness.pem}
     export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
     
-# Auth Client
+# SDK/Client-side Setup
 
-The following must be setup to use the CLI event if it is run on the same Machine as the Harness Server:
+The Java and Python client classes take optional parameters for:
+
+ - **user-id**: The user who has been granted permission to access resource(s) on the Harness Server
+ - **user-secret**: The secret associated with the user-id above
+ - **server.pem**: The path to a .pem formatted certificate created or issued to the Harness Server instance to be communicated with
+ - **URL**: The base URL for the Harness Server. This has always been used but must now the "https" prefix for TLS/SSL where "http" is sufficient for non-SSL.
+
+These can be provided directly to the various "Client" objects when they are constructed.
+
+To use the examples in `java-sdk/examples` you can also set the following env:
+
+## Client Examples Auth
 
     export HARNESS_CLIENT_USER_ID=<client-user-id>
     # the value returned when creating a client or admin user
@@ -169,7 +181,7 @@ The following must be setup to use the CLI event if it is run on the same Machin
     # and admin or client user with access to the resource
     # the SDK will use
 
-# TLS/SSL Client
+## Client Examples TLS/SSL
 
 The following must be setup to use either the Java or Python SDK
 

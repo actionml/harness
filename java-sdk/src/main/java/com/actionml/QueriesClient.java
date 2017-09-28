@@ -29,19 +29,18 @@ import java.util.concurrent.CompletionStage;
 /**
  * Created by semen on 01.03.17.
  */
-public class QueryClient extends RestClient {
+public class QueriesClient extends RestClient {
 
-    public QueryClient(String engineId, String host, Integer port) {
+    public QueriesClient(String engineId, String host, Integer port) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), Optional.empty());
     }
 
-    public QueryClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> credentials) {
+    public QueriesClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> credentials) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), credentials);
     }
 
     public CompletionStage<Pair<Integer, String>> sendQuery(String query) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.create(query, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.create(query, optionalToken));
     }
 
 }

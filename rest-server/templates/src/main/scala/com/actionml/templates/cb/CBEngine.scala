@@ -28,12 +28,12 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 class CBEngine() extends Engine() with JsonParser {
 
   var dataset: CBDataset = _
-  var algo: CBAlgorithm[CBAlgorithmInput] = _
-  var params: RequiredEngineParams = _
+  var algo: CBAlgorithm = _
+  var params: GenericEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
-      parseAndValidate[RequiredEngineParams](json).andThen { p =>
+      parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new CBDataset(engineId)
@@ -69,7 +69,7 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
   override def stop(): Unit = {
-    logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
+    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
     algo.stop() // Todo: should have a timeout and do something on timeout here
   }
 
@@ -188,7 +188,7 @@ case class CBQueryResult(
 case class CBStatus(
     description: String = "Contextual Bandit Algorithm",
     engineType: String = "Backed by the Vowpal Wabbit compute engine.",
-    engineParams: RequiredEngineParams,
+    engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams,
     activeGroups: Int)
   extends Status {

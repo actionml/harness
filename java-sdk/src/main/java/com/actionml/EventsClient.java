@@ -35,13 +35,13 @@ import java.util.concurrent.CompletionStage;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 17:50
  */
-public class EventClient extends RestClient {
+public class EventsClient extends RestClient {
 
-    public EventClient(String engineId, String host, Integer port) {
+    public EventsClient(String engineId, String host, Integer port) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), Optional.empty());
     }
 
-    public EventClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
+    public EventsClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
         super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds);
     }
 
@@ -52,13 +52,11 @@ public class EventClient extends RestClient {
      * @return Event
      */
     public CompletionStage<Pair<Integer, String>> getEvent(String eventId) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.get(eventId, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.get(eventId, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(String event) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken -> this.create(event, optionalToken));
+        return withAuth().thenCompose(optionalToken -> this.create(event, optionalToken));
     }
 
     public CompletionStage<Pair<Integer, String>> sendEvent(Event event) {
@@ -66,8 +64,7 @@ public class EventClient extends RestClient {
     }
 
     public CompletionStage<List<Pair<Long, Pair<Integer, String>>>> createEvents(List<String> events) {
-        return withAuth().toMat(Sink.head(), Keep.right()).run(this.materializer)
-                .thenCompose(optionalToken ->
+        return withAuth().thenCompose(optionalToken ->
                         Source.from(events)
                                 .map(event -> this.createPost(event, optionalToken))
                                 .zipWithIndex()

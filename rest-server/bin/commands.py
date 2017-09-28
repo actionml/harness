@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from actionml import CommandClient, HttpError
+from harness import CommandsClient, HttpError
 
 from common import *
 
-command_client = CommandClient(
+command_client = CommandsClient(
     url=url,
     user_id=client_user_id,
     user_secret=client_user_secret
