@@ -21,7 +21,9 @@ if [ -z "$RESOURCE_TYPE" ] ; then
     echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
     echo -e "${RLINE}"
     echo -e "${CYAN}Checking Harness Server status${NC}"
-    ${HARNESS_HOME}/bin/commands.py status
+    PYTHON_ARGS=" status ${USER_ARGS}"
+    echo -e "${CYAN}Run ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}${NC}"
+    ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
     exit $?
 fi
 
