@@ -10,7 +10,7 @@ __license__ = "Apache License, Version 2.0"
 
 setup(
     name='Harness',
-    version="0.0.10",
+    version="0.1.0rc2",
     author=__author__,
     author_email=__email__,
     packages=['harness'],

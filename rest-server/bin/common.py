@@ -80,11 +80,22 @@ def strip_valid(text):
     return ''.join(new_lines)
 
 
+def pp_json(json_thing, sort=True, indents=4):
+    if type(json_thing) is str:
+        try:
+            return json.dumps(json.loads(json_thing), sort_keys=sort, indent=indents)
+        except ValueError:
+            return strip_valid(json_thing)
+    else:
+        return json.dumps(json_thing, sort_keys=sort, indent=indents)
+
+
 def print_success(res, text):
     # Todo: the "json_body" is really a Valid wrapping json so strip the Valid and we can parse the json,
     # which will be a different dictionary in each type of response
     # for now we will strip the Valid so pure JSON will be printed in the CLI
-    print(BColors.GREEN + text + strip_valid(str(res.json_body)) + BColors.END)
+    # pretty_string = pp_json(json_thing=res, sort=True, indents=4)
+    print(BColors.GREEN + text + pp_json(res.json_body) + BColors.END)
 
 
 def print_failure(err, text):

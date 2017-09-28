@@ -3,7 +3,7 @@ Provides easy-to-use functions for integrating
 Python applications with ActionML's REST API for the Harness Server.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.0-RC2"
 
 # import packages
 import re
@@ -459,6 +459,23 @@ class UsersClient(BaseClient):
     def __init__(self, url="http://localhost:9090", threads=1, qsize=0, timeout=5, user_id=None, user_secret=None):
         self.path = "/auth/users"
         super().__init__(url, threads, qsize, timeout, user_id, user_secret)
+
+    def async_get(self, queried_user_id):
+        """
+        Asynchronously get an user info from Harness Server.
+        :param user_id:
+        :returns: AsyncRequest object.
+        """
+        if queried_user_id is None:
+            request = AsyncRequest("GET", self.path)
+        else:
+            request = AsyncRequest("GET", self._add_segment(queried_user_id))
+        request.set_response_handler(self._ok_response_handler)
+        self._connection.make_request(request)
+        return request
+
+    def get(self, queried_user_id):
+        return self.async_get(queried_user_id).get_response()
 
     def create_user(self, role_set_id=None, resource_id=None):
         request = AsyncRequest("POST", self.path, roleSetId=role_set_id, resourceId=resource_id)

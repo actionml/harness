@@ -82,19 +82,23 @@ elif args.action == 'revoke':
         print_failure(err, 'Error revoking permission for user: {}\n'.format(engine_id))
 
 elif args.action == 'status':
-    user_id = args.userid
+    user_id = args.user_id
+
+    users_client = UsersClient(
+        url=url,
+        user_id=client_user_id,
+        user_secret=client_user_secret
+    )
 
     try:
         if user_id is not None:
-            # res = permissions_client.get(user_id)
-            # print_success(res, 'Added permissions for user: {} Success:\n'.format(user_id))
-            print('Getting status for user: {}'.format(user_id))
+            res = users_client.get(user_id)
+            print_success(res, 'Status for user: {}\n'.format(user_id))
         else:
-            # res = permissions_client.get(user_id)
-            # print_success(res, 'Added permissions for user: {} Success:\n'.format(user_id))
-            print('Getting status for all users')
+            res = users_client.get(user_id)
+            print_success(res, 'Status for all users:\n')
     except HttpError as err:
-        print_failure(err, 'Error deleting permission for user: {}\n'.format(engine_id))
+        print_failure(err, 'Error getting status of: {}\n'.format(user_id))
 
 else:
     print_warning("Unknown action: %{}".format(args.action))
