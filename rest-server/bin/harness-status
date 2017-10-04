@@ -19,6 +19,7 @@ if [ -z "$RESOURCE_TYPE" ] ; then
     echo "HARNESS_AUTH_ENABLED........${HARNESS_AUTH_ENABLED}"
     echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
     echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
+    echo "HARNESS_EXTERNAL_ADDRESS....${HARNESS_EXTERNAL_ADDRESS}"
     echo -e "${RLINE}"
     echo -e "${CYAN}Checking Harness Server status${NC}"
     PYTHON_ARGS=" status ${USER_ARGS}"
