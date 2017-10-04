@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.templates.navhinting
 
-import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
@@ -25,10 +24,10 @@ import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class NavHintingEngine() extends Engine() with JsonParser {
 
-  var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
+  var dataset: NavHintingDataset = _
+  var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
@@ -36,9 +35,9 @@ class CBEngine() extends Engine() with JsonParser {
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
-        drawInfo("Contextual Bandit Init", Seq(
+        dataset = new NavHintingDataset(engineId)
+        algo = new NavHintingAlgorithm(dataset)
+        drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
@@ -48,7 +47,7 @@ class CBEngine() extends Engine() with JsonParser {
       }.andThen { p =>
         dataset.init(json).andThen { r =>
           algo.init(json, p.engineId)
-        } //( _ => algo.init(json, engineId))
+        }
       }
     }
   }
@@ -57,25 +56,25 @@ class CBEngine() extends Engine() with JsonParser {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): CBEngine = {
+  override def initAndGet(json: String): NavHintingEngine = {
    val response = init(json)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
     } else {
       logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[CBEngine] // todo: ugly, replace
+      null.asInstanceOf[NavHintingEngine] // todo: ugly, replace
     }
   }
 
   override def stop(): Unit = {
-    logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
+    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
     algo.stop() // Todo: should have a timeout and do something on timeout here
   }
 
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(CBStatus(
+    Valid(NavHintingStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
       activeGroups = algo.trainers.size).toJson)
@@ -107,8 +106,8 @@ class CBEngine() extends Engine() with JsonParser {
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
-      case event: CBUsageEvent =>
-        val datum = CBAlgorithmInput(
+      case event: NHNavEvent =>
+        val datum = NavHintingAlgInput(
           dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
@@ -132,9 +131,9 @@ class CBEngine() extends Engine() with JsonParser {
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[CBQuery](json).andThen { query =>
+    parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
+      if(algo.trainers.isDefinedAt(query.eligibleNavIds) || dataset.GroupsDAO.findOneById(query.eligibleNavIds).nonEmpty) {
         val result = algo.predict(query)
         Valid(result.toJson)
       } else {
@@ -143,51 +142,29 @@ class CBEngine() extends Engine() with JsonParser {
     }
   }
 
-/*  override def status(): String = {
-    s"""
-      |    Engine: ${this.getClass.getName}
-      |    Resource ID: $engineId
-      |    Number of active groups: ${algo.trainers.size}
-    """.stripMargin
-  }
-*/
 }
 
-/*
-Query
-{
-  "user": "psmith",
-  "testGroupId": "testGroupA"
-}
-*/
-case class CBQuery(
+case class NHQuery(
     user: String,
-    groupId: String)
+    eligibleNavIds: Array[String])
   extends Query
 
-/*
-Results
-{
-  "variant": "variantA",
-  "testGroupId": "testGroupA"
-}
-*/
-case class CBQueryResult(
-    variant: String = "",
-    groupId: String = "")
+case class NHQueryResult(
+    navHints: Array[String])
   extends QueryResult {
 
   def toJson: String = {
     s"""
-     |"variant": $variant,
-     |"eligibleNavIds": $groupId
+     |{
+     |    "eligibleNavIds": $navHints
+     |}
     """.stripMargin
   }
 }
 
-case class CBStatus(
-    description: String = "Contextual Bandit Algorithm",
-    engineType: String = "Backed by the Vowpal Wabbit compute engine.",
+case class NavHintingStatus(
+    description: String = "Navigation Hinting Algorithm",
+    engineType: String = "Simple analytical discovery of likely conversion paths",
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams,
     activeGroups: Int)
@@ -200,7 +177,6 @@ case class CBStatus(
       |  "engineType": $engineType,
       |  "engineParams": $engineParams,
       |  "algorithmParams": $algorithmParams,
-      |  "activeGroups": $activeGroups
       |}
     """.stripMargin
   }

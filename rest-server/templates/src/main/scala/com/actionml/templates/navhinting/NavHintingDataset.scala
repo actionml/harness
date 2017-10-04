@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -48,7 +48,7 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
+class NavHintingDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
 
   val usersDAO = UsersDAO(connection(resourceId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
@@ -82,7 +82,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
   def persist(event: CBEvent): Validated[ValidateError, CBEvent] = {
     try {
       event match {
-        case event: CBUsageEvent => // usage data, kept as a stream
+        case event: NHNavEvent => // usage data, kept as a stream
           if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
             logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
             // input to usageEvents collection
@@ -209,7 +209,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
 
         case _ => // default is a self describing usage event, kept as a stream
           logger.trace(s"Dataset: ${resourceId} parsing a usage event: ${event.event}")
-          parseAndValidate[CBUsageEvent](json)
+          parseAndValidate[NHNavEvent](json)
       }
     }
   }
@@ -291,7 +291,7 @@ case class CBUsageProperties(
   testGroupId: String,
   converted: Boolean)
 
-case class CBUsageEvent(
+case class NHNavEvent(
   event: String,
   entityId: String,
   targetEntityId: String,
