@@ -42,16 +42,16 @@ import scala.concurrent.{Await, Future}
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-case class NavHintingAlgInput(
+case class NavHintingAlgoInput(
     user: User,
     event: NHNavEvent,
     resourceId: String )
   extends AlgorithmInput
 
-case class Train(datum: NavHintingAlgInput)
+case class Train(datum: NavHintingAlgoInput)
 
 class NavHintingAlgorithm(dataset: NavHintingDataset)
-  extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgInput] with JsonParser with Mongo {
+  extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonParser with Mongo {
 
   val serverHome = sys.env("HARNESS_HOME")
 
@@ -74,7 +74,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
       params = p.algorithm.copy(
         modelName = modelPath,
         namespace = resourceId)
-      val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
+      val groupEvents: Map[String, NavEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
       val exists = trainers.keys.toList
       /*val diff = groupEvents.filterNot { case (key, _) =>
@@ -83,7 +83,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
       diff.foreach { case (trainer, collection) =>
         val group = dataset.GroupsDAO.findOne(DBObject("_id" -> trainer)).get
-        val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, resourceId,
+        val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, engineId,
           modelPath), trainer)
         trainers += trainer → actor
       }
@@ -99,10 +99,10 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     }
   }
 
-  override def input(datum: NavHintingAlgInput): Validated[ValidateError, Boolean] = {
+  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, Boolean] = {
     events += 1
     if (events % 20 == 0) checkpointVW(params)
-    val groupName = datum.event.toUsageEvent.testGroupId
+    val groupName = datum.event.toNavEvent.testGroupId
     try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
@@ -332,7 +332,7 @@ case class CBAlgoParams(
 
 
 class SingleGroupTrainer(
-    events: UsageEventDAO,
+    events: NavEventDAO,
     users: UsersDAO,
     params: CBAlgoParams,
     group: GroupParams,
@@ -352,7 +352,7 @@ class SingleGroupTrainer(
       train(t.datum)
   }
 
-  private def train(input: NavHintingAlgInput): Unit = {
+  private def train(input: NavHintingAlgoInput): Unit = {
     log.debug(s"$name Start work")
     val vwString: String = eventToVWStrings(
       input.event,
@@ -380,17 +380,17 @@ class SingleGroupTrainer(
   }
 
   def eventToVWStrings(
-    event: UsageEvent,
+    event: NavEvent,
     variants: Map[Int, String],
     user: User,
     resourceId: String): String = {
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
 
-    //The magic numbers here are costs: 0.0 in case we see this variant, and it converted, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it, which is never the case since we train per group now, not all groups.
+    //The magic numbers here are costs: 0.0 in case we see this variant, and it conversion, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it, which is never the case since we train per group now, not all groups.
     val classString: String = variants.map { case( variantIntKey, variantLable) =>
       variantIntKey.toString + ":" +
-        //(if (thisClass._2 == example.variant && example.converted) "0.0"
+        //(if (thisClass._2 == example.variant && example.conversion) "0.0"
         (if (variantLable == event.itemId && event.converted) "0.0"
         else if (variantLable == event.itemId ) "2.0"
         else "1.0")
@@ -408,11 +408,11 @@ class SingleGroupTrainer(
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
 
-    //The magic numbers here are costs: 0.0 in case we see this variant, and it converted, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it, which is never the case since we train per group now, not all groups.
+    //The magic numbers here are costs: 0.0 in case we see this variant, and it conversion, 2.0 if we see it and it didn't convert, and 1.0 if we didn't see it, which is never the case since we train per group now, not all groups.
     val classString: String = variants.map { case( variantIntKey, variantLable) =>
       variantIntKey.toString + ":" +
-        //(if (thisClass._2 == example.variant && example.converted) "0.0"
-        (if (variantLable == event.targetEntityId && event.properties.converted) "0.0"
+        //(if (thisClass._2 == example.variant && example.conversion) "0.0"
+        (if (variantLable == event.targetEntityId && event.properties.conversion) "0.0"
         else if (variantLable == event.targetEntityId ) "2.0"
         else "1.0")
     }.mkString(" ")
@@ -427,7 +427,7 @@ object SingleGroupTrainer {
 
 
   def props(
-    events: UsageEventDAO,
+    events: NavEventDAO,
     users: UsersDAO,
     params: CBAlgoParams,
     group: GroupParams,
@@ -447,7 +447,7 @@ object SingleGroupTrainer {
          rawTextToVWFormattedString(
            "user_" + user + " " +
            "testGroupId_" + testGroupId + " " +
-           (userProps.getOrElse(user, PropertyMap(Map[String,JValue](), new DateTime(), new DateTime())) -- List("converted", "testGroupId")).fields.map { entry =>
+           (userProps.getOrElse(user, PropertyMap(Map[String,JValue](), new DateTime(), new DateTime())) -- List("conversion", "testGroupId")).fields.map { entry =>
               entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId }.mkString(" "))
   }
   */
@@ -462,12 +462,12 @@ object SingleGroupTrainer {
     @transient implicit lazy val formats = org.json4s.DefaultFormats
 
     // class-id|namespace user_ user testGroupId_ testGroupId
-    // (${user properties list} -- List("converted", "testGroupId")).fields.map { entry =>
+    // (${user properties list} -- List("conversion", "testGroupId")).fields.map { entry =>
     //   entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId
     // }.mkString(" ")
 
-    //val vwString = classString + " |" +  resourceId + " " + // may need to make a namespace per group by resourceId+testGroupId
-    val vwString = classString + " | " + // may need to make a namespace per group by resourceId+testGroupId
+    //val vwString = classString + " |" +  engineId + " " + // may need to make a namespace per group by engineId+testGroupId
+    val vwString = classString + " | " + // may need to make a namespace per group by engineId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
           user.propsToMapOfSeq.map { case(propId, propSeq) =>

@@ -31,9 +31,11 @@ trait Mongo extends Store {
   val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
   val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
 
-  val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
+  implicit val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
 
-  lazy val client = MongoClient(master, port)
+  lazy val client = MongoClientSingleton.client(master, port)
+  lazy val con = MongoClientSingleton.client(master, port).
+
   @transient lazy val connection = MongoConnection(master, port)
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
@@ -47,12 +49,27 @@ trait Mongo extends Store {
       case e: UnknownHostException =>
         logger.error(s"Unknown host for address: ${client.address}", e)
         throw e
-      case e: MongoException => throw e
+      case e: MongoException =>
+        logger.error(s"Exception destroying the db for: ${dbName}", e)
+        throw e
       case e: Throwable =>
         logger.error(s"Unknown exception destroying the db for: ${dbName}", e)
         throw e
     }
     this
+  }
+
+}
+
+object MongoClientSingleton {
+
+  var currentClient: Option[MongoClient] = None
+
+  def client(master: String = "localhost", port: Int = 21017): MongoClient = {
+    if(currentClient.isEmpty){
+      currentClient = Some(MongoClient(master, port))
+    }
+    currentClient.get
   }
 
 }

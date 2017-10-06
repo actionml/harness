@@ -54,7 +54,7 @@ All user navigation events can be thought of as (user-id, nav-id, conversion, ti
     "entityId" : "pferrel",
     "targetEntityId" : "nav-id",
     "properties" : {
-        "conversion": true | false 
+        "conversion": "conversion-id" // omit for no conversion
     },
     "eventTime": "ISO-8601 encoded string"
 }
@@ -65,8 +65,8 @@ All user navigation events can be thought of as (user-id, nav-id, conversion, ti
  - **entityId**: this is a user-id
  - **targetEntityId**: this should be a nav-id
  - **eventTime**: ISO-8601 encoded string for the time of the event.
- - **properties**: define
-  - **converted**: true or false. Flags if the nav-event is a conversion or simple navigation.
+ - **properties**: defined as...
+  - **conversion**: string that ids the conversion type. For instance, "account-creation", or "newsletter-signup", etc. If there is no conversion for the nav event, the field should be omitted.
 
 ## User Attributes
 
@@ -136,6 +136,24 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   - **halfLifeDecayLambda**: defines how quickly the weight of the event diminishes via the equation: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`
   - **num**: how many of the highest ranking hints to return. Default = 1.
  
+# Sharing Engine Users (todo: move to Harness docs)
+
+Harness puts all engine data in a MongoDB database named with the engine-id. This is to allow easily dropping all data for an engine and to ensure that there is no leakage of data between engines. 
+
+To allow engine instances to share users, we propose adding an engine specific setting to id the name for the user collection. This will never be dropped until the last engine referencing it is deleted from Harness. `$delete` events can be used to remove individual users.
+
+New config for all engine instances:
+
+```
+"userCollectionName": "allUsersForSomeEngineSet"
+```    
+
+This allows any set of engines to share a collection of users by name so all engines in Harness may share the same set. Side effects:
+
+ - if one instance of an engine is told to `$delete` the user, all will see the user dropped. This may not be ideal but is up to engines to manage.
+ - conflicting `$set`/`$unset` of properties. One engine `$set`s a property and another `$unset`s the same property to get inconsistent results.
+ - duplicate user properties become problematic, we may invent a new reserved event for `$merge` of new values into existing properties values as a sort of "upsert" to be used when `$set` would have the wrong semantics.
+
 # Training
 
 Harness was designed for streaming data sources and in the case of the NH engine will train for incoming events incrementally so all you need to do is send events and make queries. The models used for queries are eventually consistent with current input but are not necessarily consistent in real time. If User behavior events are used in the personalized version of the algorithm, these events will be in real time, only the model calculation may lag and this is not time critical. In most cases this lag will be negligible.

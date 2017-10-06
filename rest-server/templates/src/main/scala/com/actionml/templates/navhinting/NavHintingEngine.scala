@@ -76,8 +76,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(NavHintingStatus(
       engineParams = this.params,
-      algorithmParams = algo.params,
-      activeGroups = algo.trainers.size).toJson)
+      algorithmParams = algo.params)
   }
 
   override def destroy(): Unit = {
@@ -107,16 +106,16 @@ class NavHintingEngine() extends Engine() with JsonParser {
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: NHNavEvent =>
-        val datum = NavHintingAlgInput(
-          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+        val datum = NavHintingAlgoInput(
+          dataset.usersDAO.findOneById(event.toNavEvent.userId).get,
           event,
-          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
+          dataset.GroupsDAO.findOneById(event.toNavEvent.testGroupId).get,
           engineId
         )
         algo.input(datum)
       case event: GroupParams =>
         algo.add(event._id)
-      case event: CBDeleteEvent =>
+      case event: HNDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
@@ -166,8 +165,7 @@ case class NavHintingStatus(
     description: String = "Navigation Hinting Algorithm",
     engineType: String = "Simple analytical discovery of likely conversion paths",
     engineParams: GenericEngineParams,
-    algorithmParams: AlgorithmParams,
-    activeGroups: Int)
+    algorithmParams: AlgorithmParams)
   extends Status {
 
   def toJson: String = {
