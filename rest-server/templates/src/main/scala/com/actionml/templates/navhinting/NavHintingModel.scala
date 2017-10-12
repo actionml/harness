@@ -19,10 +19,16 @@ package com.actionml.templates.navhinting
 
 import com.actionml.core.template.Model
 
-// Todo: need to get mongo master address and port from config
-/** DAO for persisted Contextual Bandit model classes
-  *
-  */
+/** In-memory list of nav ids addressable by id (fast) with weights passed in from Algorithm so not much to do here. */
 class NavHintingModel() extends Model {
+
+  def getMatchesSorted(eligible: Seq[String], vector: Map[String, Double]): Seq[String] = {
+    val vectorIds = vector.keySet
+    eligible.filter { id =>
+      vectorIds.contains(id)
+    }.map { id =>
+      (id, vector(id))
+    }.sortWith(_._2 > _._2).map(_._1)
+  }
 
 }

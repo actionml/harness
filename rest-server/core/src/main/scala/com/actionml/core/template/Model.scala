@@ -19,7 +19,7 @@ package com.actionml.core.template
 
 import com.typesafe.scalalogging.LazyLogging
 
-/** Model for the algorithm, in charge of storage CRUD ops in the store */
+/** Model for the algorithm, in charge of storage CRUD ops in the store, or in-memory */
 trait Model extends LazyLogging {
 
 }

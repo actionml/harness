@@ -61,7 +61,7 @@ lazy val common = (project in file("common")).
     )
   )
 
-lazy val templates = (project in file("templates")).dependsOn(core).
+lazy val templates = (project in file("templates")).dependsOn(core, common).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(

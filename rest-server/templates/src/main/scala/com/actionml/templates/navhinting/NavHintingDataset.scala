@@ -22,40 +22,40 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
 import com.actionml.core.validate._
+import com.actionml.utilities.FixedSizeFifo
 import com.mongodb.casbah.Imports._
+import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
-//import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
 
-/** DAO for the Navigation Hinting input data
-  * The Dataset manages Users and Journeys. Users are not in-memory. Journeys are in-memory and persisted
-  * immediately after any change. Journeys are implemented as a PriorityQueue of Tuple2s of an id and weight.
-  * The weigth it calculated by a decay function to order the queue, which is of fixed length. See the
-  * NavHintingAlgorithm for queue usage in model creation.
+/** Navigation Hinting input data
+  * The Dataset manages Users and Journeys. Users are not in-memory. Journeys may be in-memory and persisted
+  * immediately after any change.
   *
   * @param engineId REST resource-id from POST /engines/<resource-id>/events also ids the mongo DB for all input
   */
 class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) with JsonParser with Mongo {
 
+  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+
   val usersDAO = UsersDAO(connection(engineId)("users"))
-  var usageEventGroups: Map[String, NavEventDAO] = Map[String, NavEventDAO]()
-  // val groups = store.connection(engineId)("groups") // replaced with GroupsDAO
-  // may need to createIndex if _id: String messes things up
+  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active"))
+  val completedJourneysDAO: CompletedJourneysDAO = CompletedJourneysDAO(connection(engineId)("completed"))
 
+  var trailLength: Option[Int] = None
 
-  // These should only be called from trusted source like the CLI!
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen { p =>
-      GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
-        usageEventGroups = usageEventGroups +
-          (p._id -> NavEventDAO(connection(engineId)(p._id)))
+    val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
+      parseAndValidate[NHAlgoParams](json).andThen { ap =>
+        trailLength = Some(ap.numQueueEvents)
+        Valid(ap)
       }
-      Valid(p)
+      Valid(p) // Todo: trailLength may not have been set if algo params is not valid
     }
-    Valid(true)
+    if(res.isInvalid) Invalid(ParseError("Error parsing JSON params for numQueueEvents.")) else Valid(true)
   }
 
   override def destroy() = {
@@ -72,26 +72,24 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
     try {
       event match {
         case event: NHNavEvent => // nav events enqued for each user until conversion
-          if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
-            logger.debug(s"Dataset: $engineId persisting a usage event: $event")
-            // input to usageEvents collection
-            // Todo: validate fields first
-/*            val eventObj = MongoDBObject(
-              "userId" -> event.entityId,
-              "eventName" -> event.event,
-              "itemId" -> event.targetEntityId,
-              "eligibleNavIds" -> event.properties.testGroupId,
-              "conversion" -> event.properties.conversion,
-              "eventTime" -> new DateTime(event.eventTime)) //sort by this
-*/
-            usageEventGroups(event.properties.testGroupId).insert(event.toNavEvent)
-            Valid(event)
-          } else {
-            logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
-            Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
-              s" will be ignored"))
+          val userOpt = usersDAO.findOneById(event.entityId)
+          val conversionOpt = event.properties.conversion
+          val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
+          if(conversionOpt.nonEmpty) {
+            // conversion so persist the user's queue or drop if user has converted already
+            if(userOpt.nonEmpty && unconvertedJourney.nonEmpty){ // ignore unless we have a trail started for the user
+              val newConversionJourney = unconvertedJourney.get.trail :+
+                (event.entityId, event.toNavEvent.eventTime.getMillis)
+              completedJourneysDAO.insert(Journey(event.entityId, newConversionJourney))
+            }
+          } else { // no conversion so add event to active journeys and maybe create a user object
+            if(userOpt.isEmpty) { // no User fo create empty one
+              usersDAO.insert(User(event.entityId))
+            }
+            val newActiveTrail = unconvertedJourney.get.trail :+ (event.entityId, event.toNavEvent.eventTime.getMillis)
+            activeJourneysDAO.insert(Journey(event.entityId, newActiveTrail))
           }
-
+          Valid(event)
 
         case event: NHUserUpdateEvent => // user profile update, modifies user object
           logger.debug(s"Dataset: $engineId persisting a User Profile Update Event: $event")
@@ -197,7 +195,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 
 case class User(
   _id: String,
-  properties: Map[String, String]) {
+  properties: Map[String, String] = Map.empty) {
   //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
   def propsToMapOfSeq = properties.map { case(propId, propString) =>
     propId -> propString.split("%").toSeq
@@ -279,6 +277,17 @@ case class NavEvent(
 
 case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, ObjectId](eventColl)
 
+
+case class Journey(
+  _id: String, // User-id we are recording nav events for
+  trail: FixedSizeFifo[(String, Long)]) // most recent nav events
+
+
+// active journeys not yet converted
+case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
+
+// journeys that have converted and are used in predictions
+case class CompletedJourneysDAO(completedJourneys: MongoCollection) extends SalatDAO[Journey, String](completedJourneys)
 
 /* HNUser Comes in NHEvent partially parsed from the Json:
 {

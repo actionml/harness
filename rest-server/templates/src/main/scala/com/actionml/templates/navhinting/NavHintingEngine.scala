@@ -23,7 +23,7 @@ import com.actionml.core.drawInfo
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
-// Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
+/** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
 class NavHintingEngine() extends Engine() with JsonParser {
 
   var dataset: NavHintingDataset = _
@@ -76,7 +76,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(NavHintingStatus(
       engineParams = this.params,
-      algorithmParams = algo.params)
+      algorithmParams = algo.params).toJson)
   }
 
   override def destroy(): Unit = {
@@ -103,26 +103,25 @@ class NavHintingEngine() extends Engine() with JsonParser {
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def process(event: NHEvent): Validated[ValidateError, NHEvent] = {
      event match {
       case event: NHNavEvent =>
         val datum = NavHintingAlgoInput(
           dataset.usersDAO.findOneById(event.toNavEvent.userId).get,
           event,
-          dataset.GroupsDAO.findOneById(event.toNavEvent.testGroupId).get,
           engineId
         )
         algo.input(datum)
-      case event: GroupParams =>
-        algo.add(event._id)
+      /* no $deletes handled by Engine, look for user $deletes in the Dataset
       case event: HNDeleteEvent =>
         event.entityType match {
           case "group" | "testGroup" =>
             algo.remove(event.entityId)
-          case other => // todo: Pat, need refactoring this, Pat says, no this looks good
+          case other =>
             logger.warn("Unexpected value of entityType: {}, in {}", other, event)
         }
-      case _ =>
+      */
+      case _ => // anything else has already been dealt with by other parts of the input flow
     }
     Valid(event)
   }
@@ -132,12 +131,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.eligibleNavIds) || dataset.GroupsDAO.findOneById(query.eligibleNavIds).nonEmpty) {
-        val result = algo.predict(query)
-        Valid(result.toJson)
-      } else {
-        Invalid(WrongParams(s"Query for non-existent group: $json"))
-      }
+      Valid( algo.predict(query).toJson)
     }
   }
 

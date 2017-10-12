@@ -33,10 +33,9 @@ trait Mongo extends Store {
 
   implicit val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
 
-  lazy val client = MongoClientSingleton.client(master, port)
-  lazy val con = MongoClientSingleton.client(master, port).
+  lazy val client = Mongo.client(master, port)
 
-  @transient lazy val connection = MongoConnection(master, port)
+  lazy val connection = Mongo.connection(master, port)
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
@@ -61,15 +60,26 @@ trait Mongo extends Store {
 
 }
 
-object MongoClientSingleton {
+// Singleton object so we create only one client or connection to use Mongo connection pooling
+object Mongo {
 
+  // TODO: should use apply to get rid of vars
   var currentClient: Option[MongoClient] = None
+  var currentConnection: Option[MongoConnection] = None
 
   def client(master: String = "localhost", port: Int = 21017): MongoClient = {
     if(currentClient.isEmpty){
       currentClient = Some(MongoClient(master, port))
     }
     currentClient.get
+  }
+
+  // TODO: does this create too many connections? Switch to new Mongo Scala lib to avoid Casbah
+  def connection(master: String = "localhost", port: Int = 21017): MongoConnection = {
+    if(currentConnection.isEmpty){
+      currentConnection = Some(MongoConnection(master, port))
+    }
+    currentConnection.get
   }
 
 }

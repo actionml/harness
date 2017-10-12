@@ -1,8 +1,12 @@
+package com.actionml.templates
+
+import com.actionml.utilities.FixedSizeFifo
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * ActionML licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -15,16 +19,7 @@
  * limitations under the License.
  */
 
-
-package com.actionml.core.storage
-
-import com.typesafe.scalalogging.LazyLogging
-
-// TODO: switch to dal pattern using latest Mongo Scala lib
-trait Store extends LazyLogging {
-
-  def create(): Store
-
-  def destroy(collectionName: String): Store
+package object navhinting {
+  type Trail = FixedSizeFifo[(String, Long)]
 
 }
