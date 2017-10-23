@@ -57,9 +57,9 @@ object CachedAuthorizationService {
   private val cacheManager: CacheManager = CacheManagerBuilder.newCacheManagerBuilder
     .withCache("access_tokens", CacheConfigurationBuilder.newCacheConfigurationBuilder(
       classOf[(AccessToken, RoleId, ResourceId)],
-      classOf[Boolean],
+      classOf[java.lang.Boolean],
       ResourcePoolsBuilder.heap(cacheSize)
     ).withExpiry(new CacheExpiry)).build
   cacheManager.init()
-  private lazy val tokenCache = cacheManager.getCache("access_tokens", classOf[(AccessToken, RoleId, ResourceId)], classOf[Boolean])
+  private lazy val tokenCache = cacheManager.getCache("access_tokens", classOf[(AccessToken, RoleId, ResourceId)], classOf[java.lang.Boolean])
 }
