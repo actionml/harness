@@ -17,4 +17,4 @@
 
 package com.actionml.authserver.model
 
-case class RoleSet(id: String, roles: List[String])
+case class RoleSet(id: String, roles: Set[String])

@@ -87,7 +87,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
       user <- usersDao.find(userId).map(_.getOrElse(throw UserNotFoundException))
       roleSet = findRoleSet(roleSetId).getOrElse(throw InvalidRoleSetException)
       grantedPermissions = roleSet.roles.map(Permission(_, List(resourceId)))
-      newPermissions = (user.permissions ++ grantedPermissions).distinct
+      newPermissions = (user.permissions ++ grantedPermissions)
       newUser = user.copy(permissions = newPermissions)
       _ <- usersDao.update(newUser)
       _ = logger.debug(s"User $userId had been granted access to engine $resourceId as $roleSetId")
@@ -107,9 +107,9 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
   }
 
 
-  private def toListUserResponse(u: UserAccount): Iterable[ListUserResponse] = {
-    val resourcesIds = u.permissions.flatMap(_.resourcesIds).distinct
-    toRoleSetIds(u.permissions.map(_.roleId).distinct).map { roleSetId =>
+  private[service] def toListUserResponse(u: UserAccount): Iterable[ListUserResponse] = {
+    val resourcesIds = u.permissions.flatMap(_.resourcesIds)
+    toRoleSetIds(u.permissions.map(_.roleId)).map { roleSetId =>
       ListUserResponse(u.id, roleSetId, resourcesIds)
     }
   }
@@ -119,9 +119,9 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
     config.authServer.roleSets.find(_.id == id)
   }
 
-  private[service] def toRoleSetIds(roleIds: List[String]): List[String] = {
+  private[service] def toRoleSetIds(roleIds: Set[String]): List[String] = {
     config.authServer.roleSets.collect {
-      case configRoleSet if configRoleSet.roles.diff(roleIds).isEmpty => configRoleSet.id
+      case configRoleSet if roleIds == configRoleSet.roles => configRoleSet.id
     }
   }
 
