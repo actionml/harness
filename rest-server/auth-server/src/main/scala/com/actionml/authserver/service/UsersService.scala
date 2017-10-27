@@ -108,8 +108,8 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
 
 
   private[service] def toListUserResponse(u: UserAccount): Iterable[ListUserResponse] = {
-    val resourcesIds = u.permissions.flatMap(_.resourcesIds)
-    toRoleSetIds(u.permissions.map(_.roleId)).map { roleSetId =>
+    val resourcesIds = u.permissions.flatMap(_.resourcesIds).distinct
+    toRoleSetIds(u.permissions.map(_.roleId).toSet).map { roleSetId =>
       ListUserResponse(u.id, roleSetId, resourcesIds)
     }
   }
@@ -121,7 +121,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
 
   private[service] def toRoleSetIds(roleIds: Set[String]): List[String] = {
     config.authServer.roleSets.collect {
-      case configRoleSet if roleIds == configRoleSet.roles => configRoleSet.id
+      case configRoleSet if roleIds == configRoleSet.roles.toSet => configRoleSet.id
     }
   }
 

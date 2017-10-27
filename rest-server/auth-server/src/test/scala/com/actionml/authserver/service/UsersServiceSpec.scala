@@ -26,19 +26,19 @@ import scaldi.NilInjector
 class UsersServiceSpec extends FlatSpec with Matchers {
 
   "toRoleSetId" should "find roleSetId by roleId" in {
-    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create")) should contain theSameElementsAs (Set("client"))
+    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create")) should contain theSameElementsAs (List("client"))
   }
 
   it should "match roles with the same elements" in {
-    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create", "user_permissions")) should contain theSameElementsAs (Set("admin"))
+    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create", "user_permissions")) should contain theSameElementsAs (List("admin"))
   }
 
   def usersService = {
     implicit val _ = NilInjector
     new UsersServiceImpl {
       val roleSets = List(
-        RoleSet("admin", Set(user.permissions, engine.read, query.create, event.create)),
-        RoleSet("client", Set(engine.read, query.create, event.create))
+        RoleSet("admin", List(user.permissions, engine.read, query.create, event.create)),
+        RoleSet("client", List(engine.read, query.create, event.create))
       )
       override lazy val config = AppConfig(AuthServerConfig(roleSets = roleSets, host = "", ssl = false, mongoDb = MongoDbConfig("", ""), authorizationEnabled = false, clients = List.empty), ActorSystemConfig(""))
     }

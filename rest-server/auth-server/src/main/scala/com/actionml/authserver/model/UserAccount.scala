@@ -17,4 +17,4 @@
 
 package com.actionml.authserver.model
 
-case class UserAccount(id: String, secretHash: String, permissions: Set[Permission])
+case class UserAccount(id: String, secretHash: String, permissions: List[Permission])
