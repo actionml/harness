@@ -87,7 +87,7 @@ class UsersServiceImpl(implicit inj: Injector) extends UsersService with MongoSu
       user <- usersDao.find(userId).map(_.getOrElse(throw UserNotFoundException))
       roleSet = findRoleSet(roleSetId).getOrElse(throw InvalidRoleSetException)
       grantedPermissions = roleSet.roles.map(Permission(_, List(resourceId)))
-      newPermissions = (user.permissions ++ grantedPermissions)
+      newPermissions = (user.permissions ++ grantedPermissions).distinct
       newUser = user.copy(permissions = newPermissions)
       _ <- usersDao.update(newUser)
       _ = logger.debug(s"User $userId had been granted access to engine $resourceId as $roleSetId")
