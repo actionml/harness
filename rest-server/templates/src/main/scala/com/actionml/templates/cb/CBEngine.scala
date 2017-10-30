@@ -179,8 +179,10 @@ case class CBQueryResult(
 
   def toJson: String = {
     s"""
-     |"variant": $variant,
-     |"groupId": $groupId
+     |{
+     |    "variant": $variant,
+     |    "groupId": $groupId
+     |}
     """.stripMargin
   }
 }
