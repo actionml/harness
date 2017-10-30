@@ -26,7 +26,11 @@ import scaldi.NilInjector
 class UsersServiceSpec extends FlatSpec with Matchers {
 
   "toRoleSetId" should "find roleSetId by roleId" in {
-    usersService.toRoleSetIds(List("engine_read", "query_create", "event_create")) should contain theSameElementsAs (List("client"))
+    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create")) should contain theSameElementsAs (List("client"))
+  }
+
+  it should "match roles with the same elements" in {
+    usersService.toRoleSetIds(Set("engine_read", "query_create", "event_create", "user_permissions")) should contain theSameElementsAs (List("admin"))
   }
 
   def usersService = {
