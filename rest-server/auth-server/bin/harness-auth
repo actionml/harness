@@ -35,7 +35,10 @@ if [ -z ${HARNESS_AUTH_HOME} ] ; then
             TARGET_FILE=$(basename "$TARGET_FILE")
         done
 
-        export HARNESS_AUTH_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+        HARNESS_AUTH_ROOT="$(cd $(dirname "$TARGET_FILE"); pwd -P)/.."
+        echo "HARNESS_AUTH_ROOT=$HARNESS_AUTH_ROOT"
+        export HARNESS_AUTH_HOME="$(cd $HARNESS_AUTH_ROOT; pwd -P)"
+        # export HARNESS_AUTH_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
         cd "$CURRENT_DIR"
     fi
 fi
