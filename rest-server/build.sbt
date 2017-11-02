@@ -2,9 +2,9 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.1.0-RC2"
+version := "0.1.0-RC3"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.11.11"
 
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
