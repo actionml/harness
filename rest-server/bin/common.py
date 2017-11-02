@@ -20,7 +20,7 @@ parser.add_argument("--all_engines", "-a", default=False, action='store_true')
 parser.add_argument("--all_users", default=False, action='store_true')
 args = parser.parse_args()
 
-harness_host = os.getenv('REST_SERVER_HOST', 'localhost')
+harness_host = os.getenv('HARNESS_EXTERNAL_ADDRESS', 'localhost')
 harness_port = os.getenv('REST_SERVER_PORT', 9090)
 
 if os.getenv('HARNESS_AUTH_SERVER_PROTECTED') == 'true' or os.getenv('HARNESS_AUTH_ENABLED') == 'true':
