@@ -31,23 +31,64 @@ the Contextual Bandit as an example. We use the CB because it can operate in Lam
  - Python 3 for CLI and Harness Python SDK
  - MongoDB 3.x (switchable with effort)
 
+# Microservices
+
+There are 2 types of microservices in Harness:
+
+ 1. **REST-Based**: These present an HTTP API, optionally with TLS (SSL) and Auth (Authentication and Authorization). This type of microservice is used for the Main Harness API as well as the Auth-Server. Harness by default uses no TLS or Auth but can have both turned on so that it is secure to run across the Internet with a the provided Java and Python SDKs which also support TLS and Auth. The Auth-Server is also an REST microservice but due to the need to access it for every Harness request (need for speed) does not use Auth or TLS. Furthermore is uses caching to make most access unnecessary.
+ 2. **Actor-Based**: Here the need is to have lightweight fast microservices that can scale easily (with no design constraints put on the engine API) and in a fault resilient way. Here we use an akka System of Actors spanning multiple nodes attached to an akka Event Bus. All engines are Actors and are stateless (relying on persistence stores where persistence is needed) so any Universal Recommender Actor with the same config can respond to any Event meant for it. This allows scaling across nodes in a failure resilient manner since the akka Event Bus provides mechanisms for failure detection and recovery
+
+Harness and the Auth-Server are REST microservices, Engines are Actor-based microservices.
+
 # Architecture
 
-![Harness Overview](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
+![Harness Logical Archite4cture](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
+
+![Scalable EngneCluster](https://docs.google.com/drawings/d/e/2PACX-1vTjT_hV6pz3Fv5blx9p18NucRXFWzJrHqdG-lDMh7GBYur6JOUcFBgDsh5dJVnhH7JkB2wtB7QewmRK/pub?w=1576&h=1364)
+
+## Harness Core
+
+Harness is a REST server with an API for Engines, Events, Queries, Users, and Permissions. It, in effect proxies the Users and Permissions APIs so as to delegate the logic for dealing with these to the Auth-Server since it is that server's concern to authorize and authenticate all Harness requests.
+
+The Harness Server is also in charge of the CRUD operations on Engines and other administrative operations. It presents the only externally available 
+API, which is identical for any Client software, be it an application or the Command Line Interface (CLI), or some future WEB UI.
 
 ## Router
 
-The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime. It is meant as a core piece for microservices to use in presenting a REST interface and also support SSL, signature based authentication, and REST route based authorization. These features are optional so Harness can be available on the open unsecured environments like the internet or disabled for operation behind VPNs.
+The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to rsource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
 
-The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the microservice. 
+The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservices used. 
 
 ## Administrator
 
-The Administrator executes all CLI type commands. It restores all Engines to their previous state on `harness start` and is in charge of maintaining metadata about the Engines. Another example of its function is `harness add -c <engine-json-file>` where it creates an engine from the factory in the json file, initializes is, stores metadata about it, and creates the routes to the Engine endpoints as specified by the Templates contract. All Template specific behavior is deferred to the Engine.
+The Administrator executes CRUD type operations on Engine. It will also deal with CLI extensions that are of no concern to the Engines, like status reports, and scheduling of Commands (not implemented yet)
 
 ## Templates and Engines
 
-Templates are abstract APIs defined in the `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's json file. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
+A Template is an Abstract API that needs to be, at least partially implemented by the Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's JSON file, including a companion object with a factory method. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
+
+## The Cluster of Nodes
+
+In V1 Harness is monolithic, requiring one Engine for every EngineID. This scales only vertically. To solve this Harness V2 will implement an akka Cluster of Nodes, where Engines can be spread out over the cluster. Each Engine will be connected to a akka Event Bus and able to respond to any Event targeted for its Engine type (defined by factory classname, config JSON signature which itself includes the Engine ID). So many Engines may respond to any Event for a specific Engine, allowing Engines to scale horizontally.
+
+## Event Bus
+
+The Event Bus presents Events with IDs that are classified to belong to some form of Actor, in Harness this is usually and Engine with a specific 
+signature that is derived from the JSON config file, which includes the fartory object, the engines resource id, and all params used in the algorithm. The first available Engine that can respond grabs the Event and processes it by validating it (which may cause an HTTP error status code) and processing it as the Engine sees fit eventually responding with an HTTP code. 
+
+The Event Buss can have multiple Engines that have the same Engine ID and so may share the work of processing the Event. This provides vertical scalability, and the akka Event Bus also provides and error recovery mechanism to handle failures, providing failure resiliency.
+
+The Event Bus is not in Harness V1 but in V2 it is our design goal to provide some form of auto scalability or feedback mechanism where responses for a type of Engine become too slow. 
+
+## Compute Engines
+
+The most obvious and common Compute Engine is Apache Spark but it is the4 responsibility of the Engine to specify and use the Compute Engine needed. For instance VW is used be the Contextual Bandit, and others may use Tensor flow, or other appropriate Engines. Some common ones will have APIs associated with them or the Engine may choose to deal with the one provided by the engine.
+
+## Mirror Event Store
+
+Events may be any valid form of JSON. We often choose to follow the conventions created by the Apache PredictionIO Project so we can maintain data level compatibility with PIO templates. However due to the fact that Kappa-style online learners do not store events but discard them nce their model is updated we provide a method to mirror the event for replay while debugging an Engine or while learning to send the right events to the Engine. Engines validate events and will respond with HTTP errors when malformed events come in. This can only be know by the Engine so the raw JSON events are mirrored even if they are not valid so they are more easily refined and fixed. Once the events pass the engine's validation this mechanism can also be used as a form of backup for Kappa online learners since playback of all valid events will restore the correct state of the model at the end. 
+
+For Lambda-style learners the mirror plays the same role as a sort of automatic backup, with built-in controls for how many events are preserved in rotation form. in any Lambda system events cannot be allowed to accumulate forever so most Lambda engines implement some form of moving time window (imaging 1 year of events for a big ecommerce site) this can also be used to limit the number of events mirrored.
 
 # Kappa Learning
 
@@ -105,7 +146,7 @@ The CLI is implemented using the new Python SDK supporting the SSL and authentic
   
 # Authentication
 
-We will use bearer token OAuth2 to authenticate connections and identify the server making connections. This is built into the Java and Python SDK and so is simple to implement on the client side.
+We will use bearer token OAuth2 to authenticate connections and identify the server making connections. This form is very much like basic Auth with session temp auth ids to speed the protocol. This is built into the Java and Python SDK and so is simple to implement on the client side.
 
 # Authorization
 
