@@ -33,6 +33,8 @@ lazy val commonSettings = Seq(
     "com.iheart" %% "ficus" % "1.4.0",
     "joda-time" % "joda-time" % "2.9.9",
 
+    "org.scaldi" %% "scaldi-akka" % "0.5.8",
+
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
@@ -43,6 +45,11 @@ lazy val core = (project in file("core")).
     libraryDependencies ++= Seq(
       "org.mongodb" %% "casbah" % "3.1.1",
       "com.github.salat" %% "salat" % "1.11.0",
+      "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
+      "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
+      "org.mongodb" % "bson" % "3.4.2",
+      "org.mongodb" % "mongodb-driver-core" % "3.4.2",
+      "org.mongodb" % "mongodb-driver-async" % "3.4.2",
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
@@ -70,7 +77,6 @@ lazy val templates = (project in file("templates")).dependsOn(core).
 
       "org.mongodb" %% "casbah" % "3.1.1",
       "com.github.salat" %% "salat" % "1.11.0",
-
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1",
 
@@ -120,8 +126,6 @@ lazy val authServer = (project in file("auth-server")).dependsOn(common).setting
     "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
     "org.mongodb" % "bson" % "3.4.2",
     "org.mongodb" % "mongodb-driver-core" % "3.4.2",
-    "org.mongodb" % "mongodb-driver-async" % "3.4.2",
-
-    "org.scaldi" %% "scaldi-akka" % "0.5.8"
+    "org.mongodb" % "mongodb-driver-async" % "3.4.2"
   )
 ).enablePlugins(JavaAppPackaging).aggregate(common)

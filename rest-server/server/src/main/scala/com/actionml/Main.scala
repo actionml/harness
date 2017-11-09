@@ -3,7 +3,7 @@ package com.actionml
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.actionml.admin.{Administrator, MongoAdministrator}
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._

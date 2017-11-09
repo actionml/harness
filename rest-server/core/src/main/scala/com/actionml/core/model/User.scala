@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package com.actionml.core.model
 
-import com.actionml.core.template.Model
-
-// Todo: need to get mongo master address and port from config
-/** DAO for persisted Contextual Bandit model classes
-  *
+case class User(
+    _id: String,
+    properties: Map[String, Seq[String]]) {
+  /*
+  def propsToMapOfSeq = properties.map { case(propId, propString) =>
+    propId -> propString.split("%").toSeq
+  }
   */
-class CBModel() extends Model {
-
 }
+
+
+object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+
+  /*
+  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
+    props.filter { (t) =>
+      t._2.size != 0 && t._2.head != ""
+    }.map { case (propId, propSeq) =>
+      propId -> propSeq.mkString("%")
+    }
+  }
+  */
+}
+

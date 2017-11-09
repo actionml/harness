@@ -233,26 +233,6 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
 }
  */
 
-case class User(
-  _id: String,
-  properties: Map[String, String]) {
-  //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
-  def propsToMapOfSeq = properties.map { case(propId, propString) =>
-    propId -> propString.split("%").toSeq
-  }
-}
-
-
-object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
-  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
-    props.filter { (t) =>
-      t._2.size != 0 && t._2.head != ""
-    }.map { case (propId, propSeq) =>
-      propId -> propSeq.mkString("%")
-    }
-  }
-}
-
 case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
 
 case class CBUserUpdateEvent(

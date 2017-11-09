@@ -12,7 +12,7 @@ import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
 import com.typesafe.scalalogging.LazyLogging

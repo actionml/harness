@@ -81,7 +81,8 @@ Using the SDK of your choice define an event of the form:
    "targetEntityId" : "variantA",
    "properties" : {
       "testGroupId" : "A",
-      "converted" : true
+      "converted" : true,
+      "contextualTags: ["tag-1", "tag-5", ...]
     }
 }
 ```
@@ -91,9 +92,10 @@ Using the SDK of your choice define an event of the form:
  - **entityId**: this is a user-id
  - **targetEntityType**: this must be "variant"
  - **targetEntityId**: this should be a variant-id
- - **properties**: define
-  - **testGroupId**: id of a set of variants
-  - **converted**: true or false
+ - **properties**: define the following
+  - **testGroupId**: id of a set of variants, required
+  - **converted**: true or false, required
+  - **contextualTags**: an optional array of strings that are the tags applied to a variant whether converted or not. Tags should describe the variant and should, as much as possible, be taken from a common set across sites. Tags have value even for single site usage.
 
 # Contextual Bandit Query API
 
