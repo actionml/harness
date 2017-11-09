@@ -135,8 +135,6 @@ The CB has a configuration file defined below. This defines parameters for for t
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "modelName": "/path/to/model.vw",
-    "namespace": "name",
     "maxClasses": 3
   }
 }
