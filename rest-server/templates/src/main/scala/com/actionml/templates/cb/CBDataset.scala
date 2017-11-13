@@ -19,10 +19,14 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.User
+import com.actionml.core.dal.UsersDao
+import com.actionml.core.dal.mongo.UsersDaoImpl
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
+import model.dal.mongo.MongoSupport
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
@@ -48,7 +52,8 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with JsonParser with Mongo {
+class CBDataset(resourceId: String)
+  extends Dataset[CBEvent](resourceId) with JsonParser with Mongo with MongoSupport {
 
   val usersDAO = UsersDAO(connection(resourceId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()

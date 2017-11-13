@@ -24,6 +24,7 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.User
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
