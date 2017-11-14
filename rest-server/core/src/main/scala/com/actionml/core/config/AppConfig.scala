@@ -3,7 +3,6 @@ package com.actionml.core.config
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
 /**
   *
@@ -14,7 +13,7 @@ import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfig, auth: AuthConfig, mongoServer: MongoDbConfig)
 
 object AppConfig {
-  private val config = ConfigFactory.load()
+  private val config = ConfigFactory.load(sys.env("HARNESS_HOME") + "/conf/application.conf")
 
   def apply: AppConfig = new AppConfig(
     restServer = config.as[RestServerConfig]("rest-server"),

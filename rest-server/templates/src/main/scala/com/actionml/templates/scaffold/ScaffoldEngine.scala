@@ -18,10 +18,10 @@
 package com.actionml.templates.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.{Valid}
-import com.actionml.core.drawInfo
-import com.actionml.core.template._
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import cats.data.Validated.Valid
+import com.actionml.core.core.drawInfo
+import com.actionml.core.template.{Engine, GenericEngineParams, GenericEvent, GenericQuery}
+import com.actionml.core.validate.{JsonParser, ValidateError}
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the

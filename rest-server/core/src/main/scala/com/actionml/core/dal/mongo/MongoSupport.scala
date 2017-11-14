@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package model.dal.mongo
+package com.actionml.core.dal.mongo
 
 import java.time.Instant
 
+import com.actionml.core.config.AppConfig
+import com.actionml.core.model.UserNew
 import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.ServerAddress
 
 // import com.actionml.authserver.config.AppConfig
-import com.actionml.core.model.User
 import com.mongodb.async.client.MongoClientSettings
 import com.mongodb.connection.ClusterSettings
 import org.bson.codecs.configuration.CodecRegistries
@@ -32,7 +33,6 @@ import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.MongoClient
-import com.actionml.core.config._
 
 import scala.reflect.ClassTag
 
@@ -51,9 +51,13 @@ object MongoSupport {
   import scala.collection.JavaConversions._
 
   private val settings = MongoClientSettings.builder
-    .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress(config.host, port = config.port))).build)
+    .clusterSettings(
+      ClusterSettings
+        .builder()
+        .hosts(List(ServerAddress(config.host, port = config.port))).build)
     .codecRegistry(codecRegistry)
     .build
+
   private val mongoClient = MongoClient(settings)
 
   // Todo: this should be set at runtime to the shared one in the Engine JSON or some global one
@@ -70,7 +74,7 @@ object MongoSupport {
      permissions should be declared first.
      It also can correspond to https://jira.mongodb.org/browse/SCALA-338
      */
-    fromProviders(classOf[User]),
+    fromProviders(classOf[UserNew]), // todo: oh no, statically defined types? noooooooooo
     DEFAULT_CODEC_REGISTRY
   )
 
@@ -82,7 +86,7 @@ object MongoSupport {
      permissions should be declared first.
      It also can correspond to https://jira.mongodb.org/browse/SCALA-338
      */
-    fromProviders(classOf[User]),
+    fromProviders(classOf[UserNew]),
     DEFAULT_CODEC_REGISTRY
   )
 

@@ -1,8 +1,17 @@
+package com.actionml.core.storage
+
+import java.net.UnknownHostException
+
+import com.mongodb.casbah.Imports.{MongoConnection, MongoDBObject, MongoException}
+import com.mongodb.casbah.MongoClient
+import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
+import com.typesafe.config.ConfigFactory
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * ActionML licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -14,15 +23,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package com.actionml.core.storage
-
-import java.net.UnknownHostException
-
-import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.MongoClient
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
-import com.typesafe.config.ConfigFactory
 
 trait Mongo extends Store {
 
@@ -56,15 +56,3 @@ trait Mongo extends Store {
   }
 
 }
-
-// Todo: should we support username, password connections to MongoDB?
-// Automatically detect SCRAM-SHA-1 or Challenge Response protocol
-// val server = new ServerAddress("localhost", 27017)
-// val credentials = MongoCredential.createCredential(userName, source, password)
-// val mongoClient = MongoClient(server, List(credentials))
-// Todo: also may want to connect to all mongos replica sets
-// val rs1 = new ServerAddress("localhost", 27017)
-// val rs2 = new ServerAddress("localhost", 27018)
-// val rs3 = new ServerAddress("localhost", 27019)
-// val mongoClient = MongoClient(List(rs1, rs2, rs3))
-

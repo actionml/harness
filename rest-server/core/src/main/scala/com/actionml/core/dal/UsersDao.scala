@@ -17,15 +17,15 @@
 
 package com.actionml.core.dal
 
-import com.actionml.core.model.User
+import com.actionml.core.model.UserNew
 
 import scala.concurrent.Future
 
 
 trait UsersDao {
-  def find(id: String): Future[Option[User]]
-  def find(id: String, secretHash: String): Future[Option[User]]
-  def list(offset: Int, limit: Int): Future[Iterable[User]]
-  def update(user: User): Future[Unit]
+  def find(id: String): Future[Option[UserNew]]
+  def list(offset: Int, limit: Int): Future[Iterable[UserNew]]
+  def update(user: UserNew): Future[Unit]
+  def insert(user: UserNew): Future[Unit]
   def delete(userId: String): Future[Unit]
 }

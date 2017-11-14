@@ -18,7 +18,6 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import com.actionml.core.storage.Store
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 

@@ -17,27 +17,29 @@
 
 package com.actionml.core.dal.mongo
 
-import com.typesafe.scalalogging.LazyLogging
 import com.actionml.core.dal.UsersDao
-import com.actionml.core.model.User
-import model.dal.mongo.MongoSupport
+import com.actionml.core.model.UserNew
+import com.typesafe.scalalogging.LazyLogging
 import scaldi.{Injectable, Injector}
-import org.mongodb.scala._
-import org.mongodb.scala.model.Filters._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
+import org.mongodb.scala._
+import org.mongodb.scala.model.Filters._
 
-class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
+// for use with Scaldi
+// class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
+class UsersDaoImpl(dbName: Option[String], implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
 
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])
-  private val users = collection[User](None, "users")
+  private val users = collection[UserNew](dbName, "users")
+  val uid = UserNew("",Map.empty)._id
 
-  private implicit val ec = inject[ExecutionContext]
+  //private implicit val ec = inject[ExecutionContext]
 
-  override def find(id: String): Future[Option[User]] = {
+  override def find(id: String): Future[Option[UserNew]] = {
     users.find(equal("id", id))
       .toFuture
       .recover { case e =>
@@ -46,18 +48,7 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
       }.map(_.headOption)
   }
 
-  override def find(id: String, secretHash: String): Future[Option[User]] = {
-    users.find(and(
-      equal("id", id),
-      equal("secretHash", secretHash)
-    )).toFuture
-      .recover { case e =>
-        logger.error(s"Can't find user with id $id and password hash $secretHash", e)
-        List.empty
-      }.map(_.headOption)
-  }
-
-  override def list(offset: Int, limit: Int): Future[Iterable[User]] = {
+  override def list(offset: Int, limit: Int): Future[Iterable[UserNew]] = {
     users.find()
       .skip(offset)
       .limit(limit)
@@ -69,7 +60,19 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
       }
   }
 
-  override def update(user: User): Future[Unit] = {
+  /*    _id: String,
+    properties: Map[String, Seq[String]]) {
+*/
+  // todo: need to change only the property changed, not all--bug until fixed
+  import org.mongodb.scala.model.Filters._
+  import org.mongodb.scala.model.Updates._
+  override def update(user: UserNew): Future[Unit] = {
+    users.updateOne(equal("_id", user._id), set("properties", user.properties))
+      .toFuture
+      .map(_ => ())
+  }
+
+  override def insert(user: UserNew): Future[Unit] = {
     users.insertOne(user)
       .toFuture
       .map(_ => ())

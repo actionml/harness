@@ -18,14 +18,15 @@
 package com.actionml.templates.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.{Valid}
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, GenericEvent, GenericEngineParams}
+import cats.data.Validated.Valid
+import com.actionml.core.template.{Dataset, GenericEngineParams, GenericEvent}
 import com.actionml.core.validate._
+import com.actionml.core.template.{Dataset, GenericEngineParams, GenericEvent}
+
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
-  * Extend with the store of choice, like Mongo or other Storage trait.
+  * Extend with the store of choice, like storage.Mongo or other Storage trait.
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   *

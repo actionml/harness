@@ -24,7 +24,6 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.User
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
@@ -32,6 +31,8 @@ import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
 import com.mongodb.casbah.Imports._
 import salat.global._
 import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.model.UserNew
+import com.actionml.core.template.{Algorithm, AlgorithmInput, AlgorithmParams, KappaAlgorithm}
 
 import scala.concurrent.Await
 import scala.io.Source

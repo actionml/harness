@@ -17,10 +17,10 @@
 
 package com.actionml.core.template
 
+import backup.{FSMirroring, Mirroring}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.backup.{FSMirroring, Mirroring}
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,

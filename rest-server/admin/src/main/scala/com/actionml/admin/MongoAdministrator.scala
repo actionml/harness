@@ -19,7 +19,7 @@ package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core._
+import com.actionml.core.core._
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Engine, GenericEngineParams}
 import com.actionml.core.validate._

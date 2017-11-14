@@ -18,9 +18,8 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.validate.ValidateError
 
 /** Adds a method for input, which is expected to update the model immediately. */
 //trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {

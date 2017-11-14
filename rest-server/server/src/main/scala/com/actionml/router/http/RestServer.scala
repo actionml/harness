@@ -62,7 +62,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     val password: Array[Char] = keystoreConfig.password.getOrElse(throw new RuntimeException("password is required")).toCharArray
 
     val keystore = KeyStore.getInstance(keystoreConfig.storeType)
-    val keystoreFile = new FileInputStream(new File(keystoreConfig.filePath.getOrElse(throw new RuntimeException("Store path is required"))))
+    val keystoreFile = new FileInputStream(new File(keystoreConfig.filePath.getOrElse(throw new RuntimeException("storage.Store path is required"))))
 
     require(keystoreFile != null, "Keystore required!")
     keystore.load(keystoreFile, password)

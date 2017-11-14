@@ -19,17 +19,19 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.User
-import com.actionml.core.dal.UsersDao
-import com.actionml.core.dal.mongo.UsersDaoImpl
-import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
+import com.actionml.core.model.UserNew
+import com.actionml.core.dal.mongo._
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
-import model.dal.mongo.MongoSupport
+import com.actionml.core.storage.Mongo
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
+import scaldi.{Injectable, Module}
+import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
+import scaldi.akka.AkkaInjectable
+
+import scala.concurrent.ExecutionContext
 //import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
@@ -47,14 +49,20 @@ import scala.language.reflectiveCalls
   *
   * This dataset contains collections of users, usage events, and groups. Each get input from the datasets POST
   * endpoint and are parsed and validated but go to different collections, each with different properties. The
-  * users and groups are mutable in Mongo, the events are kept as a stream that is truncated after the model is
+  * users and groups are mutable in storage.Mongo, the events are kept as a stream that is truncated after the model is
   * updated so not unnecessary old data is stored.
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
 class CBDataset(resourceId: String)
-  extends Dataset[CBEvent](resourceId) with JsonParser with Mongo with MongoSupport {
+  extends Dataset[CBEvent](resourceId) with JsonParser with Mongo with MongoSupport with AkkaInjectable {
 
+  // how to I get the ExecutionContext that was created in BaseModule in com.actionml.Main?
+  // I can't make core depend on server in build.sbt because of circular dependencies and so need to get it
+  // some other way, I assume not from injection because injection is provided by BaseModule in the Main.scala
+  // file
+  implicit val ec = inject[ExecutionContext] // todo: fails, no injector that has the ExecutionContext bound ot it
+  val users = new UsersDaoImpl(Some(resourceId), ec)
   val usersDAO = UsersDAO(connection(resourceId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
   // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
@@ -64,6 +72,8 @@ class CBDataset(resourceId: String)
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String): Validated[ValidateError, Boolean] = {
+    val u = UserNew(_id = "Pat", properties = Map[String, Seq[String]]("home" -> Seq("here", "there")))
+    users.insert(u)
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
         usageEventGroups = usageEventGroups +
@@ -388,3 +398,23 @@ case class CBRawEvent (
   extends CBEvent
 
 trait CBEvent extends Event
+
+case class User(
+    _id: String,
+    properties: Map[String, String]) {
+  //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
+  def propsToMapOfSeq = properties.map { case(propId, propString) =>
+    propId -> propString.split("%").toSeq
+  }
+}
+
+
+object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
+    props.filter { (t) =>
+      t._2.size != 0 && t._2.head != ""
+    }.map { case (propId, propSeq) =>
+      propId -> propSeq.mkString("%")
+    }
+  }
+}

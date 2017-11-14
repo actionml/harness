@@ -20,7 +20,7 @@ package com.actionml.admin
 import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.core.template.Engine
-import com.actionml.core.validate.{WrongParams, ValidateError}
+import com.actionml.core.validate.{ValidateError, WrongParams}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
