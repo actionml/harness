@@ -25,6 +25,8 @@ import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.ServerAddress
 
+import scala.concurrent.duration.Duration
+
 // import com.actionml.authserver.config.AppConfig
 import com.mongodb.async.client.MongoClientSettings
 import com.mongodb.connection.ClusterSettings
@@ -37,15 +39,19 @@ import org.mongodb.scala.MongoClient
 import scala.reflect.ClassTag
 
 trait MongoSupport {
-  def collection[T](dbName: Option[String], collectionName: String)(implicit ct: ClassTag[T]) = {
+  val waitDuration = Duration(1000, "millis")
+
+  def collection[T](dbName: String, collectionName: String)(implicit ct: ClassTag[T]) = {
     //MongoSupport.mongoDatabase.getCollection[T](name)
     // If no DB Name is passed in use the shared one for all engines, this is useful for the shared user case
     // where all engines for a client or some globally shared user database is used
-    MongoSupport.mongoClient.getDatabase(dbName.getOrElse(MongoSupport.config.sharedDB)).getCollection[T](collectionName)
+    MongoSupport.mongoClient.getDatabase(dbName).getCollection[T](collectionName)
   }
 }
 
 object MongoSupport {
+  val waitDuration = Duration(1000, "millis")
+
   private val config = AppConfig.apply.mongoServer
 
   import scala.collection.JavaConversions._

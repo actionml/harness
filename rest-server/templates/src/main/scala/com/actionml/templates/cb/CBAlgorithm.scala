@@ -24,7 +24,9 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.dal.mongo.MongoSupport
 import com.actionml.core.storage._
+import com.actionml.core.dal.mongo.UsersDaoImpl
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
@@ -63,7 +65,7 @@ import vowpalWabbit.learner._
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 case class CBAlgorithmInput(
-    user: User,
+    user: UserNew,
     event: CBUsageEvent,
     testGroup: GroupParams,
     resourceId: String )
@@ -72,7 +74,7 @@ case class CBAlgorithmInput(
 case class Train(datum: CBAlgorithmInput)
 
 class CBAlgorithm(dataset: CBDataset)
-  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
+  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo with MongoSupport {
 
   val serverHome = sys.env("HARNESS_HOME")
 
@@ -236,7 +238,7 @@ class CBAlgorithm(dataset: CBDataset)
       val actor = actors.actorOf(
         SingleGroupTrainer.props(
           dataset.usageEventGroups(groupName),
-          dataset.usersDAO,
+          dataset.users,
           params,
           dataset.GroupsDAO.findOneById(groupName).get,
           resourceId,
@@ -261,7 +263,7 @@ class CBAlgorithm(dataset: CBDataset)
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    val user = dataset.usersDAO.findOneById(query.user).getOrElse(User("",Map.empty))
+    val user = dataset.users.findOne(query.user).result(waitDuration))
 
     val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, resourceId)
 
@@ -354,7 +356,7 @@ case class CBAlgoParams(
 
 class SingleGroupTrainer(
     events: UsageEventDAO,
-    users: UsersDAO,
+    users: UsersDaoImpl,
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -403,7 +405,7 @@ class SingleGroupTrainer(
   def eventToVWStrings(
     event: UsageEvent,
     variants: Map[Int, String],
-    user: User,
+    user: UserNew,
     resourceId: String): String = {
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
@@ -424,7 +426,7 @@ class SingleGroupTrainer(
   def eventToVWStrings(
     event: CBUsageEvent,
     variants: Map[Int, String],
-    user: User,
+    user: UserNew,
     resourceId: String): String = {
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
@@ -449,7 +451,7 @@ object SingleGroupTrainer {
 
   def props(
     events: UsageEventDAO,
-    users: UsersDAO,
+    users: UsersDaoImpl,
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -477,7 +479,7 @@ object SingleGroupTrainer {
     classString: String,
     userId: String,
     testGroupId: String,
-    user: User,
+    user: UserNew,
     resourceId: String): String = {
 
     @transient implicit lazy val formats = org.json4s.DefaultFormats

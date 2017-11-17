@@ -21,15 +21,19 @@ import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.core.drawInfo
+import com.actionml.core.dal.mongo.MongoSupport
+import com.actionml.core.model._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import scaldi.Injector
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class CBEngine(override implicit val injector: Injector) extends Engine with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
   var params: GenericEngineParams = _
+
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
@@ -109,7 +113,7 @@ class CBEngine() extends Engine() with JsonParser {
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
-          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+          dataset.users.findOne(event.toUsageEvent.userId).result(dataset.users.waitDuration),
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
           engineId

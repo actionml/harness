@@ -17,17 +17,19 @@
 
 package com.actionml.core.template
 
+import com.actionml.core.model._
 import backup.{FSMirroring, Mirroring}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
+import scaldi.Injector
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging with JsonParser {
+abstract class Engine(implicit val injector: Injector) extends LazyLogging with JsonParser {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
@@ -74,13 +76,6 @@ abstract class Engine extends LazyLogging with JsonParser {
   def query(json: String): Validated[ValidateError, String]
 }
 
-/** Contains params requires by all engines */
-case class GenericEngineParams(
-  engineId: String, // required, resourceId for engine
-  engineFactory: String,
-  mirrorType: Option[String] = None,
-  mirrorContainer: Option[String] = None) extends EngineParams
-
 /** Used only for illustration since queries have no required part */
 case class GenericQuery() extends Query {
   def toJson =
@@ -101,6 +96,3 @@ case class GenericQueryResult() extends QueryResult{
      """.stripMargin
 }
 
-trait EngineParams
-trait Query
-trait Status

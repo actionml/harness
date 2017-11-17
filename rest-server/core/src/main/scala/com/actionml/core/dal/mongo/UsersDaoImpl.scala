@@ -30,20 +30,17 @@ import org.mongodb.scala.model.Filters._
 
 // for use with Scaldi
 // class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
-class UsersDaoImpl(dbName: Option[String], implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
+class UsersDaoImpl(dbName: String, implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
 
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])
   private val users = collection[UserNew](dbName, "users")
-  val uid = UserNew("",Map.empty)._id
-
-  //private implicit val ec = inject[ExecutionContext]
-
-  override def find(id: String): Future[Option[UserNew]] = {
-    users.find(equal("id", id))
+  
+  override def findOne(_id: String): Future[Option[UserNew]] = {
+    users.find(equal("_id", _id))
       .toFuture
       .recover { case e =>
-        logger.error(s"Can't find user with id $id", e)
+        logger.error(s"Can't find user with _id $_id", e)
         List.empty
       }.map(_.headOption)
   }
@@ -60,26 +57,23 @@ class UsersDaoImpl(dbName: Option[String], implicit val ec: ExecutionContext) ex
       }
   }
 
-  /*    _id: String,
-    properties: Map[String, Seq[String]]) {
-*/
-  // todo: need to change only the property changed, not all--bug until fixed
   import org.mongodb.scala.model.Filters._
   import org.mongodb.scala.model.Updates._
-  override def update(user: UserNew): Future[Unit] = {
+  /** Pass in the modified User and it will be upserted */
+  override def updateOne(user: UserNew): Future[Unit] = {
     users.updateOne(equal("_id", user._id), set("properties", user.properties))
       .toFuture
       .map(_ => ())
   }
 
-  override def insert(user: UserNew): Future[Unit] = {
+  override def insertOne(user: UserNew): Future[Unit] = {
     users.insertOne(user)
       .toFuture
       .map(_ => ())
   }
 
-  def delete(userId: String): Future[Unit] = {
-    users.deleteOne(equal("id", userId))
+  override def deleteOne(userId: String): Future[Unit] = {
+    users.deleteOne(equal("_id", userId))
       .toFuture
       .map(result => if (result.getDeletedCount == 1) () else throw UserNotFoundException)
   }

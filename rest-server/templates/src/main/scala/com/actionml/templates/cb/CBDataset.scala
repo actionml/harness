@@ -19,6 +19,7 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.dal.UsersDao
 import com.actionml.core.model.UserNew
 import com.actionml.core.dal.mongo._
 import com.actionml.core.validate._
@@ -27,11 +28,13 @@ import com.actionml.core.storage.Mongo
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
-import scaldi.{Injectable, Module}
-import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
+import scaldi.{Injectable, Injector, Module}
+import com.actionml.core.model._
+import com.actionml.core.template.Dataset
 import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 //import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
@@ -54,7 +57,7 @@ import scala.language.reflectiveCalls
   *
   * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo table for all input
   */
-class CBDataset(resourceId: String)
+class CBDataset(resourceId: String, sharedDB: Option[String] = None)(implicit val injector: Injector)
   extends Dataset[CBEvent](resourceId) with JsonParser with Mongo with MongoSupport with AkkaInjectable {
 
   // how to I get the ExecutionContext that was created in BaseModule in com.actionml.Main?
@@ -62,8 +65,10 @@ class CBDataset(resourceId: String)
   // some other way, I assume not from injection because injection is provided by BaseModule in the Main.scala
   // file
   implicit val ec = inject[ExecutionContext] // todo: fails, no injector that has the ExecutionContext bound ot it
-  val users = new UsersDaoImpl(Some(resourceId), ec)
-  val usersDAO = UsersDAO(connection(resourceId)("users"))
+  // Users can be shared among Datasets for multiple Engines
+  val u = inject[UsersDao]
+  val users = new UsersDaoImpl(sharedDB.getOrElse(resourceId), ec)
+  // val usersDAO = UsersDAO(connection(resourceId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
   // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
   // may need to createIndex if _id: String messes things up
@@ -72,8 +77,6 @@ class CBDataset(resourceId: String)
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String): Validated[ValidateError, Boolean] = {
-    val u = UserNew(_id = "Pat", properties = Map[String, Seq[String]]("home" -> Seq("here", "there")))
-    users.insert(u)
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
         usageEventGroups = usageEventGroups +
@@ -121,11 +124,9 @@ class CBDataset(resourceId: String)
 
         case event: CBUserUpdateEvent => // user profile update, modifies user object
           logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
-          // input to usageEvents collection
           // Todo: validate fields first
           val props = event.properties.getOrElse(Map.empty)
-          val userProps = User.propsToMapString(props)
-          usersDAO.insert(User(event.entityId, userProps))
+          users.insertOne(UserNew(event.entityId, props))
           Valid(event)
 
         case event: GroupParams => // group init event, modifies group definition
@@ -143,10 +144,24 @@ class CBDataset(resourceId: String)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
           logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
-          val update = new MongoDBObject
-          val unsetPropNames = event.properties.get.keys.toArray
+          // old way
+          //val update = new MongoDBObject
+          //val unsetPropNames = event.properties.get.keys.toArray
+          // usersDAO.collection.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
+          val unsetProps = event.properties.getOrElse(Map.empty).keySet
+          val existingProps = users.findOne(event.entityId).map[UserNew]
+          //users.updateOne(UserNew(event.entityId, Map.empty))
 
-          usersDAO.collection.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
+          val updatedUser = users.findOne(event.entityId).map {
+            case Some(UserNew(_id, properties)) =>
+              val newProps = properties.filterNot { case (name, seq) =>
+                unsetProps.contains(name) // leaves the entries not named in the unset event
+              }
+              UserNew(event.entityId, newProps)
+            case _ => UserNew("", Map.empty)
+          }
+
+          users.updateOne(updatedUser.result(waitDuration))
           Valid(event)
 
         case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
@@ -154,7 +169,7 @@ class CBDataset(resourceId: String)
             case "user" =>
               logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.removeById(event.entityId)
+              users.deleteOne(event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {

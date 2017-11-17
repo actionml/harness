@@ -36,7 +36,7 @@ case class AuthConfig(
     clientId: String,
     clientSecret: String)
 
-case class MongoDbConfig(host: String, port: Int, sharedDB: String)
+case class MongoDbConfig(host: String, port: Int)
 
 trait ConfigurationComponent {
   def config: AppConfig

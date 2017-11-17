@@ -18,12 +18,13 @@
 package com.actionml.core.template
 
 import cats.data.Validated
+import com.actionml.core.model.Event
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
-abstract class Dataset[T](engineId: String) extends LazyLogging {
+abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) extends LazyLogging {
 
-  val resourceId: String = engineId
+  val resourceId = engineId
 
   def init(json: String): Validated[ValidateError, Boolean]
   def destroy(): Unit
@@ -37,16 +38,3 @@ abstract class Dataset[T](engineId: String) extends LazyLogging {
 }
 
 
-// allows us to look at what kind of specialized event to create
-case class GenericEvent (
-  //eventId: String, // not used in Harness, but allowed for PIO compatibility
-  event: String,
-  entityType: String,
-  entityId: String,
-  targetEntityId: Option[String] = None,
-  properties: Option[Map[String, Any]] = None,
-  eventTime: String, // ISO8601 date
-  creationTime: String) // ISO8601 date
-  extends Event
-
-trait Event
