@@ -35,7 +35,7 @@ class UsersDaoImpl(dbName: String, implicit val ec: ExecutionContext) extends Us
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])
   private val users = collection[UserNew](dbName, "users")
-  
+
   override def findOne(_id: String): Future[Option[UserNew]] = {
     users.find(equal("_id", _id))
       .toFuture
@@ -64,6 +64,22 @@ class UsersDaoImpl(dbName: String, implicit val ec: ExecutionContext) extends Us
     users.updateOne(equal("_id", user._id), set("properties", user.properties))
       .toFuture
       .map(_ => ())
+  }
+
+  def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit] = {
+    // there may be a way to do this better in Mongo code
+    findOne(userId).map {
+      case Some(UserNew(_id, properties)) =>
+        UserNew(userId, properties -- unsetPropKeys)
+      case _ => UserNew("", Map.empty)
+    }.flatMap(updateOne)
+  }
+
+  def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit] = {
+    findOne(userId).map {
+      case Some(UserNew(_id, properties)) =>
+        UserNew(userId, properties ++ setProps)
+    }
   }
 
   override def insertOne(user: UserNew): Future[Unit] = {
