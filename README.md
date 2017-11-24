@@ -2,36 +2,37 @@
 
 # Harness Overview
 
-This project implements a microservice based Machine learning server similar to the existing PredictionIO (v0.11.0 currently) but with
-several fundamental changes including:
+This project implements a microservice based Machine learning server. It provides an API that is a Template for ML Engine and the services common to taking input, calculating models, and serving results. It's main features are:
 
- - Based on http-akka
- - Supports TLS/SSL
- - Supports authentication (server to server bearer token based), similar to basic auth but from the OAuth 2.0 spec
- - Microservice architecture:
-     - Heavy-weight REST-based: HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth
-     - Light-weight: Actor-based microservices based on the akka Event Bus for clustered scalable lightweight microservices
- - input, query, command servers on different endpoints of the same REST service
- - supports flexible learning styles:
-    - Kappa: Online learners that update models in realtime
-    - Lambda: Batch learners that update or re-compute models in the background during realtime input and queries.
- - supports any compute engine or pre-packaged algorithm library that is JVM compatible. For example Spark, TensorFlow, Vowpal Wabbit, MLlib, Mahout, ...
- - Does not require Spark, or HDFS.
- - Scalability: Engines implemented using the Light-weight Actor-based microservice method are easily scalable across multiple nodes regardless of the compute-engine or backing store(s) used. 
- - Plugable Stores
-     - implementation is injected at server startup and only supports MongoDB at present.
-     - input mirroring can be either the server machine's file system or HDFS and the implementation is injected at startup and controlled by configuration
- - Plugability implemented through Scaldi dependency injection, often based on configuration parameters
- - Engines are encouraged to supply realtime input validation and a framework based on the Cats library is implemented.
- - Client Side Support:
-     - Java and Python SDKs implements client side SSL and Authentication but do not require either.
-     - REST without SSL and Auth is simple and can use any HTTP client&mdash;curl, etc. SSL and Auth complicate the client but the API is well specified.
- - Implements the Command Line Interface (CLI) as calls to the REST microservice optionally using SSL and Authentication in Python
-     - Remotable CLI, securable for use across the internet
-     - The REST API for Harness implements all the APIs necessary for remoting commands using any web UX
- - Multi-tenancy of multiple engines with queries and input datasets supported in the same way at a fundamental level based on REST resource IDs
- - Supports both mutable objects and an immutable event stream in an integrated manner allowing TTLs of certain types of events and instant modification of mutable objects
- - Built-in user generations with user secrets and granting permissions for certain resources.
+ - **TLS/SSL** support from akka-http
+ - **Authentication** support using server to server bearer tokens, similar to basic auth but from the OAuth 2.0 spec
+ - **Microservice Architecture**:
+     - **REST-based**: for Heavy-weight HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth. The Auth server is implemented, the REST Microservice framework is akka-http.
+     - **Actor-based** light-weight microservices based on the akka Event Bus for clustered scalable lightweight microservices
+ - **Single REST API** for input, query, and commands
+ - **Flexible Learning Styles**:
+    - **Kappa**: Online learners that update models in realtime
+    - **Lambda**: Batch learners that update or re-compute models in the background during realtime input and queries.
+    - **Hybrids and Reinforcement Learning**
+ - **Compute-Engine Neutral**: supports any compute engine or pre-packaged algorithm library that is JVM compatible. For example Spark, TensorFlow, Vowpal Wabbit, MLlib, Mahout, ... Does not require Spark, or HDFS.
+ - **Scalability**: Engines implemented using either microservice method can be scaled by deploying on multiple nodes. The simplest way to do this is using the Light-weight Actor-based microservice method. 
+ - **Scaldi Implementation Injection**:
+     - **Main Metadata Store**: is injected at server startup and only supports MongoDB at present.
+     - **Input Mirroring**: can be either the server machine's file system or HDFS and the implementation is injected at startup and controlled by configuration
+     - **DAO Abstraction**: Virtually any store can be implemented using the DAO/DAOImpl Pattern (Data Access Object). There is an example in the MongoDB metadata store used by the Administrator. 
+     - **General Plugability**: implemented through Scaldi dependency injection, often based on configuration parameters. This is available to all Engines
+ - **Realtime Input Validation**: Though optional, Engines are encouraged to supply realtime input validation and a framework based on the Cats library is implemented to support this.
+ - **Client Side Support**: SDKs implement support for TLS/SSL and Auth and have both synchronous and async versions of the API.
+     - **Java SDK**: is supplied for Event and Query endpoints 
+     - **Python SDK**: implements client side for all endpoints and is used by the Python CLI.
+     - **REST without SSL and Auth** is simple and can use any HTTP client&mdash;curl, etc. SSL and Auth complicate the client but the API is well specified.
+ - **Command Line Interface (CLI)** is implemented as calls to the REST API and so is securely remotable.
+ - **Multi-tenancy**: will run multiple Engines with separate Permissions
+     - **Multiple Engine-IDs** allow any number of variations on one Engine type or multiple Engine types. One Engine is the simplest case.
+     - **Multiple Permissions**: allow user+secret level access control to protect one "tenant" from another. Or Auth can be disabled to allow all Engines access without a user+secret for simple deployments.
+ - **Mutable Object and Immutable Event Streams**: can coexist in Harness allowing the store to meet the needs of the algoithm.
+ - **User and Permission Management**: Built-in user+secret generation with permissions management at the Engine-Id level.
+ - **Data Set Compatibility** with Apache PredictionIO is possible as is the case with the Contextual Bandit Engine, which exists in a PredictionIO Template. This is not enforced and the various data objects sent to or received from an Engine through Harness are completely flexible and can be anything encodable in JSON.
  
 # Requirements
 
