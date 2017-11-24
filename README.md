@@ -5,31 +5,43 @@
 This project implements a microservice based Machine learning server similar to the existing PredictionIO (v0.11.0 currently) but with
 several fundamental changes including:
 
- - microservice based
- - merged input and query servers on different endpoints of the same REST service
- - based on http-akka
- - supports SSL
- - supports authentication (server to server bearer token based)
- - supports Kappa style online learners
- - support non-Spark Algorithms in Templates with no requirement that Spark be installed or used
- - supports Lambda style batch learners
- - Templates must supply code for validation of input so input is validated in realtime
- - Java and Python SDKs implements client side SSL and Authentication
- - implements the Command Line Interface (CLI) as calls to the REST microservice using SSL and Authentication in Python
- - supports both mutable objects and an immutable event stream in an integrated manner allowing TTLs of certain types of events and instant modification of mutable objects
- - multi-tenancy of multiple engines with queries and input datasets supported in the same way at a fundamental level based on REST resource IDs
+ - Based on http-akka
+ - Supports TLS/SSL
+ - Supports authentication (server to server bearer token based), similar to basic auth but from the OAuth 2.0 spec
+ - Microservice architecture:
+     - Heavy-weight REST-based: HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth
+     - Light-weight: Actor-based microservices based on the akka Event Bus for clustered scalable lightweight microservices
+ - input, query, command servers on different endpoints of the same REST service
+ - supports flexible learning styles:
+    - Kappa: Online learners that update models in realtime
+    - Lambda: Batch learners that update or re-compute models in the background during realtime input and queries.
+ - supports any compute engine or pre-packaged algorithm library that is JVM compatible. For example Spark, TensorFlow, Vowpal Wabbit, MLlib, Mahout, ...
+ - Does not require Spark, or HDFS.
+ - Scalability: Engines implemented using the Light-weight Actor-based microservice method are easily scalable across multiple nodes regardless of the compute-engine or backing store(s) used. 
+ - Plugable Stores
+     - implementation is injected at server startup and only supports MongoDB at present.
+     - input mirroring can be either the server machine's file system or HDFS and the implementation is injected at startup and controlled by configuration
+ - Plugability implemented through Scaldi dependency injection, often based on configuration parameters
+ - Engines are encouraged to supply realtime input validation and a framework based on the Cats library is implemented.
+ - Client Side Support:
+     - Java and Python SDKs implements client side SSL and Authentication but do not require either.
+     - REST without SSL and Auth is simple and can use any HTTP client&mdash;curl, etc. SSL and Auth complicate the client but the API is well specified.
+ - Implements the Command Line Interface (CLI) as calls to the REST microservice optionally using SSL and Authentication in Python
+     - Remotable CLI, securable for use across the internet
+     - The REST API for Harness implements all the APIs necessary for remoting commands using any web UX
+ - Multi-tenancy of multiple engines with queries and input datasets supported in the same way at a fundamental level based on REST resource IDs
+ - Supports both mutable objects and an immutable event stream in an integrated manner allowing TTLs of certain types of events and instant modification of mutable objects
+ - Built-in user generations with user secrets and granting permissions for certain resources.
  
 # Requirements
 
-The new Harness server should take identical input (events) and respond to identical queries packaged in JSON as Apache PIO using 
-the Contextual Bandit as an example. We use the CB because it can operate in Lambda and Kappa style and already has a well defined input/query objects for both PIO and Harness.
+In its simplest form Harness has few external requirements. To run it on one machine the requirements are:
  
- - akka-http for router and server implementation
- - akka-actors for lightweight engine containers
- - akka-http Java Client for Harness Java SDK
- - scala 2.11
  - Python 3 for CLI and Harness Python SDK
- - MongoDB 3.x (switchable with effort)
+ - Pip 3 to add the SDK to the Python CLI
+ - MongoDB 3.x (pluggable with effort)
+ - Harness will get the Scala compiler needed when you build from source but if you wish to run the same, get Scala 2.11
+ - Some `nix OS
 
 # Microservices
 
@@ -55,17 +67,17 @@ API, which is identical for any Client software, be it an application or the Com
 
 ## Router
 
-The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to rsource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
+The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to resource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
 
-The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservices used. 
+The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservices used. The implementaton is based on akka-http and uses the DSL and directives provided by it.
 
 ## Administrator
 
-The Administrator executes CRUD type operations on Engine. It will also deal with CLI extensions that are of no concern to the Engines, like status reports, and scheduling of Commands (not implemented yet)
+The Administrator executes CRUD type operations on Engines. It will also deal with CLI extensions that are of no concern to the Engines, like status reports, and scheduling of Commands (not implemented yet)
 
 ## Templates and Engines
 
-A Template is an Abstract API that needs to be, at least partially implemented by the Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's JSON file, including a companion object with a factory method. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
+A Template is an Abstract API that needs to be, at least partially implemented by an Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's JSON file, including a companion object with a factory method. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
 
 ## The Cluster of Nodes
 
@@ -82,7 +94,7 @@ The Event Bus is not in Harness V1 but in V2 it is our design goal to provide so
 
 ## Compute Engines
 
-The most obvious and common Compute Engine is Apache Spark but it is the4 responsibility of the Engine to specify and use the Compute Engine needed. For instance VW is used be the Contextual Bandit, and others may use Tensor flow, or other appropriate Engines. Some common ones will have APIs associated with them or the Engine may choose to deal with the one provided by the engine.
+The most obvious and common Compute Engine is Apache Spark but it is the responsibility of the Engine to specify and use the Compute Engine needed. Since Compute Engines are so diverse in APIs and usage no attempt is made by Harness to virtualize these. Typically the Algorithm class will do most interaction with the compute engine but this is not enforced by Harness.
 
 ## Mirror Event Store
 
@@ -106,8 +118,8 @@ Integral to REST is the notion of a "resource", which can be though of as a coll
 URI fragments when naming resources. The resources defined in Harness are:
 
  - **engine**: the engine is the instance of a Template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
- - **events**: sub-collections that make up a particular dataset used a specific Engine. To send data to an Engine simply `POST /engines/<engine-id>/events/` a JSON Event whose format is defined by the Template. Non-reserved events (no $ in the name) can be thought of as a unending stream. Reserved eventa like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the Template description for how events are formatted, validated, and processed. 
- - **queries**: queries are made to engines to return information based on their models. since they are completely Template specific their format, validation, and results are described in the Template documentation.
+ - **events**: sub-collections that make up a particular dataset used a specific Engine. To send data to an Engine simply `POST /engines/<engine-id>/events/` a JSON Event whose format is defined by the Engine. Non-reserved events (no $ in the name) can be thought of as a unending stream. Reserved eventa like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the Engine description for how events are formatted, validated, and processed. 
+ - **queries**: queries are made to engines to return information based on their models. since they are completely Engine specific their format, validation, and results are described in the Engine documentation.
  - **commands**: pre-defined commands that perform workflow or administrative tasks. These may be synchronous, returning results with the HTTP response or asynchronous, where they must be polled for status. An example of this is when a command may take long to complete.
 
 For the full Harness REST API and response codes, see the [Harness REST Specification](rest_spec.md)
@@ -126,7 +138,7 @@ Disregarding the optional TLS and Auth, simple input and queries look like this:
         Request Body: JSON for query
         Response Body: JSON for results
 
-For specifics of the format and use of events and queries see the Template documentation. For example the [Contextual Bandit docs](the_contextual_bandit.md). For the full API requests and response codes see the [Harness REST Specification](rest_spec.md)
+For specifics of the format and use of events and queries see the Engine documentation. For example the [Contextual Bandit docs](the_contextual_bandit.md). For the full API requests and response codes see the [Harness REST Specification](rest_spec.md)
 
 # [Commands](commands.md)
 
