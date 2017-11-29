@@ -30,7 +30,7 @@ import org.mongodb.scala.model.Filters._
 
 // for use with Scaldi
 // class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
-class UsersDaoImpl(dbName: String, implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
+class UsersDaoImpl(dbName: String)(implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
 
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])

@@ -25,8 +25,6 @@ import io.circe.syntax._
 import scaldi.Injector
 
 /**
-  *
-  *
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 14:49
   */

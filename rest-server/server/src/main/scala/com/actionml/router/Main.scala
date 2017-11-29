@@ -10,6 +10,8 @@ import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
 import com.actionml.core.config.AppConfig
+import com.actionml.core.dal.UsersDao
+import com.actionml.core.dal.mongo.UsersDaoImpl
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 

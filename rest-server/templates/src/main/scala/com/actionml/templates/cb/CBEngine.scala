@@ -21,14 +21,18 @@ import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.core.drawInfo
+import com.actionml.core.dal.UsersDao
 import com.actionml.core.dal.mongo.MongoSupport
 import com.actionml.core.model._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import scaldi.Injector
+import scaldi.Module
+
+import scala.concurrent.ExecutionContext
+import scala.util.Success
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(override implicit val injector: Injector) extends Engine with JsonParser {
+class CBEngine(override implicit val injector: Module, override implicit val ec: ExecutionContext) extends Engine with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
@@ -40,7 +44,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        dataset = new CBDataset(engineId)
+        dataset = new CBDataset(engineId, Some(p.sharedDBName.getOrElse(engineId)))
         algo = new CBAlgorithm(dataset)
         drawInfo("Contextual Bandit Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
@@ -113,7 +117,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
-          dataset.users.findOne(event.toUsageEvent.userId).result(dataset.users.waitDuration),
+          dataset.users.findOne(event.toUsageEvent.userId),
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
           engineId

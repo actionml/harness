@@ -21,30 +21,37 @@ import com.actionml.core.model._
 import backup.{FSMirroring, Mirroring}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.dal.UsersDao
+import com.actionml.core.dal.mongo.UsersDaoImpl
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.Injector
+import scaldi.Module
+
+import scala.concurrent.ExecutionContext
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine(implicit val injector: Injector) extends LazyLogging with JsonParser {
+abstract class Engine(implicit val injector: Module, implicit val ec: ExecutionContext) extends LazyLogging with JsonParser {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
   var mirroring: Mirroring = _
 
-  private def createMirror(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
+  private def createSharedResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     if (params.mirrorContainer.isEmpty) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
-      Valid(true)
+      createSharedDB(params)
     } else if (params.mirrorType.nonEmpty) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
-        case "localfs" => mirroring = new FSMirroring(container); Valid(true)
+        case "localfs" =>
+          mirroring = new FSMirroring(container)
+
+          createSharedDB(params)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
     } else {
@@ -52,8 +59,14 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
     }
   }
 
-  def init(json: String): Validated[ValidateError, Boolean] = parseAndValidate[GenericEngineParams](json)
-    .andThen(createMirror)
+  private def createSharedDB(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
+    injector.bind[UsersDao] to new UsersDaoImpl(params.sharedDBName.getOrElse(engineId))
+    Valid(true)
+  }
+
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[GenericEngineParams](json).andThen(createSharedResources)
+  }
 
   def initAndGet(json: String): Engine
   def destroy(): Unit

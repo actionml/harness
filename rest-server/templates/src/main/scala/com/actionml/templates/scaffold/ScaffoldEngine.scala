@@ -23,13 +23,15 @@ import com.actionml.core.core.drawInfo
 import com.actionml.core.model._
 import com.actionml.core.template.{Engine, GenericQuery}
 import com.actionml.core.validate.{JsonParser, ValidateError}
-import scaldi.Injector
+import scaldi.{Injector, Module}
+
+import scala.concurrent.ExecutionContext
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldEngine(override implicit val injector: Injector) extends Engine with JsonParser {
+class ScaffoldEngine(override implicit val injector: Module, override implicit val ec: ExecutionContext) extends Engine with JsonParser {
 
   var dataset: ScaffoldDataset = _
   var algo: ScaffoldAlgorithm = _

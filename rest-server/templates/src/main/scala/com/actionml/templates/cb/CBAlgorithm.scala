@@ -66,7 +66,7 @@ import vowpalWabbit.learner._
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 case class CBAlgorithmInput(
-    user: UserNew,
+    user: Future[Option[UserNew]],
     event: CBUsageEvent,
     testGroup: GroupParams,
     resourceId: String )
@@ -385,10 +385,20 @@ class SingleGroupTrainer(
 
   private def train(input: CBAlgorithmInput): Unit = {
     log.debug(s"$name Start work")
+    @volatile var user: UserNew = UserNew()
+    input.user.onComplete {
+      case Success(u: Option[UserNew]) => user = u.getOrElse(UserNew())
+      case Failure(ex) =>
+        log.info(s"${ex.getMessage}")
+        log.warning(s"${ex.getStackTrace}")
+        log.warning(s"Could not find the user in the Query, return default result.")
+        UserNew()
+    }
+
     val vwString: String = eventToVWStrings(
       input.event,
       input.testGroup.pageVariants.map( a => a._1.toInt -> a._2),
-      input.user,
+      user,
       input.resourceId)
 
 

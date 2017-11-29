@@ -28,9 +28,12 @@ import com.actionml.core.template.Engine
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
-import scaldi.Injector
+import scaldi.{Injector, Module}
 
-class MongoAdministrator(implicit val injector: Injector) extends Administrator(injector) with JsonParser with Mongo {
+import scala.concurrent.ExecutionContext
+
+class MongoAdministrator(implicit val injector: Module, implicit val ec: ExecutionContext)
+  extends Administrator(injector) with JsonParser with Mongo {
 
   lazy val enginesCollection: MongoCollection = connection("harness_meta_store")("engines")
   lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
@@ -43,7 +46,7 @@ class MongoAdministrator(implicit val injector: Injector) extends Administrator(
     val v = Class.forName(engineFactory).getConstructors
     val c = Injector.getClass
     val c2 = classOf[Injector]
-    Class.forName(engineFactory).getDeclaredConstructor(classOf[Injector]).newInstance(injector).asInstanceOf[Engine]
+    Class.forName(engineFactory).getDeclaredConstructor(classOf[Module], classOf[ExecutionContext]).newInstance(injector).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state
