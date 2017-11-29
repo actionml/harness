@@ -18,8 +18,8 @@
 package com.actionml.core.model
 
 case class UserNew(
-    _id: String,
-    properties: Map[String, Seq[String]]) {
+    _id: String = "",
+    properties: Map[String, Seq[String]] = Map.empty) {
   /*
   def propsToMapOfSeq = properties.map { case(propId, propString) =>
     propId -> propString.split("%").toSeq

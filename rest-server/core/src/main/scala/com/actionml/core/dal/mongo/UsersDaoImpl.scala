@@ -40,7 +40,7 @@ class UsersDaoImpl(dbName: String, implicit val ec: ExecutionContext) extends Us
     users.find(equal("_id", _id))
       .toFuture
       .recover { case e =>
-        logger.error(s"Can't find user with _id $_id", e)
+        logger.error(s"Can't find user with _id ${_id}", e)
         List.empty
       }.map(_.headOption)
   }

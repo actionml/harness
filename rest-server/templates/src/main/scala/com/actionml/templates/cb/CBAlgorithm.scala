@@ -40,6 +40,7 @@ import scala.concurrent.Await
 import scala.io.Source
 import scala.reflect.io.Path
 import scala.tools.nsc.classpath.FileUtils
+import scala.util.{Failure, Success}
 import scala.util.control.Breaks
 //import java.io.File
 import com.mongodb.casbah.MongoCollection
@@ -263,10 +264,17 @@ class CBAlgorithm(dataset: CBDataset)
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    val user = dataset.users.findOne(query.user).result(waitDuration))
+    @volatile var user: UserNew = UserNew()
+    dataset.users.findOne(query.user).onComplete {
+      case Success(u: Option[UserNew]) => user = u.getOrElse(UserNew())
+      case Failure(ex) =>
+        logger.info(s"${ex.getMessage}")
+        logger.warn(s"${ex.getStackTrace}")
+        logger.warn(s"Could not find the user in the Query, return default result.")
+        UserNew()
+    }
 
     val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, resourceId)
-
 
     logger.info(s"Query string to VW: \n$queryText")
     val pred = vw.predict(queryText)
@@ -493,7 +501,7 @@ object SingleGroupTrainer {
     val vwString = classString + " | " + // may need to make a namespace per group by resourceId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
-          user.propsToMapOfSeq.map { case(propId, propSeq) =>
+          user.properties.map { case(propId, propSeq) =>
             // propString is a flatmapped Seq of Strings separated by %, to make into a user feature, split, sort, and flatmap
             propSeq.map { propVal  =>
               propId + "_" + propVal.replaceAll("\\s+", "_") + "_" + testGroupId
