@@ -61,6 +61,7 @@ class BaseModule extends Module{
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
+  implicit val inj = this.asInstanceOf[Module]
   bind[Administrator] to new MongoAdministrator initWith(_.init())
 
 }

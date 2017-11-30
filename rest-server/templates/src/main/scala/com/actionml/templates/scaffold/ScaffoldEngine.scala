@@ -31,7 +31,7 @@ import scala.concurrent.ExecutionContext
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldEngine(override implicit val injector: Module, override implicit val ec: ExecutionContext) extends Engine with JsonParser {
+class ScaffoldEngine(override implicit val injector: Module) extends Engine with JsonParser {
 
   var dataset: ScaffoldDataset = _
   var algo: ScaffoldAlgorithm = _

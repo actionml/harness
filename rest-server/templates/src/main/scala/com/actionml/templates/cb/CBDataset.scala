@@ -57,10 +57,10 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   // I can't make core depend on server in build.sbt because of circular dependencies and so need to get it
   // some other way, I assume not from injection because injection is provided by BaseModule in the Main.scala
   // file
-  implicit val ec = inject[ExecutionContext] // todo: fails, no injector that has the ExecutionContext bound ot it
+  implicit val ec = inject[ExecutionContext]
   // Users can be shared among Datasets for multiple Engines
-  val u = inject[UsersDao]
-  val users = new UsersDaoImpl(sharedDB.getOrElse(engineId), ec)
+  //val u = inject[UsersDao]
+  val users = new UsersDaoImpl(sharedDB.getOrElse(engineId))
   // val usersDAO = UsersDAO(connection(engineId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
   // val groups = store.connection(engineId)("groups") // replaced with GroupsDAO

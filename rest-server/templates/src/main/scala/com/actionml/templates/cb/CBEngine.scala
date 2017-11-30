@@ -32,7 +32,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.Success
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(override implicit val injector: Module, override implicit val ec: ExecutionContext) extends Engine with JsonParser {
+class CBEngine(override implicit val injector: Module) extends Engine with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _

@@ -23,10 +23,12 @@ import com.actionml.core.template.Engine
 import com.actionml.core.validate.{ValidateError, WrongParams}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.Injector
+import scaldi.{Injector, Module}
+
+import scala.concurrent.ExecutionContext
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
-abstract class Administrator(injector: Injector) extends LazyLogging {
+abstract class Administrator(implicit val injector: Module) extends LazyLogging {
 
   type EngineId = String
 

@@ -30,11 +30,12 @@ import org.mongodb.scala.model.Filters._
 
 // for use with Scaldi
 // class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
-class UsersDaoImpl(dbName: String)(implicit val ec: ExecutionContext) extends UsersDao with MongoSupport with Injectable with LazyLogging {
+class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
 
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])
   private val users = collection[UserNew](dbName, "users")
+  private implicit val ec = inject[ExecutionContext]
 
   override def findOne(_id: String): Future[Option[UserNew]] = {
     users.find(equal("_id", _id))

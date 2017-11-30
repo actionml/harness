@@ -32,8 +32,8 @@ import scaldi.{Injector, Module}
 
 import scala.concurrent.ExecutionContext
 
-class MongoAdministrator(implicit val injector: Module, implicit val ec: ExecutionContext)
-  extends Administrator(injector) with JsonParser with Mongo {
+class MongoAdministrator(override implicit val injector: Module)
+  extends Administrator with JsonParser with Mongo {
 
   lazy val enginesCollection: MongoCollection = connection("harness_meta_store")("engines")
   lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
@@ -46,7 +46,7 @@ class MongoAdministrator(implicit val injector: Module, implicit val ec: Executi
     val v = Class.forName(engineFactory).getConstructors
     val c = Injector.getClass
     val c2 = classOf[Injector]
-    Class.forName(engineFactory).getDeclaredConstructor(classOf[Module], classOf[ExecutionContext]).newInstance(injector).asInstanceOf[Engine]
+    Class.forName(engineFactory).getDeclaredConstructor(classOf[Module]).newInstance(injector).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state
