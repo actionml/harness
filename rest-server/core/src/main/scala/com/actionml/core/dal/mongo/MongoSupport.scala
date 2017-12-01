@@ -39,7 +39,6 @@ import org.mongodb.scala.MongoClient
 import scala.reflect.ClassTag
 
 trait MongoSupport {
-  val waitDuration = Duration(1000, "millis")
 
   def collection[T](dbName: String, collectionName: String)(implicit ct: ClassTag[T]) = {
     //MongoSupport.mongoDatabase.getCollection[T](name)
@@ -50,7 +49,6 @@ trait MongoSupport {
 }
 
 object MongoSupport {
-  val waitDuration = Duration(1000, "millis")
 
   private val config = AppConfig.apply.mongoServer
 
@@ -84,19 +82,7 @@ object MongoSupport {
     DEFAULT_CODEC_REGISTRY
   )
 
-  // todo: doens't work because the macros done work on a passed in class so need to pass in codecs
-  private var codecRegistries2: CodecRegistry = fromRegistries(
-    CodecRegistries.fromCodecs(new InstantCodec),
-    /*
-     looks like list inside fromProviders should be in usage order (accessToken and userAccount contains permissions, so,
-     permissions should be declared first.
-     It also can correspond to https://jira.mongodb.org/browse/SCALA-338
-     */
-    fromProviders(classOf[UserNew]),
-    DEFAULT_CODEC_REGISTRY
-  )
-
-  /* todo: doens't work because the macros done work on a passed in class so need to pass in codecs
+  /* todo: doens't work because the macros don't work on a passed in class so need to pass in codecs
 
   def registerCodec(clazz: Class[_]): Unit = {
     codecRegistries2 = fromRegistries(

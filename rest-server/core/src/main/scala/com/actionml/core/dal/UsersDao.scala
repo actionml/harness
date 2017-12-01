@@ -25,7 +25,7 @@ import scala.concurrent.Future
 trait UsersDao {
   def findOne(id: String): Future[Option[UserNew]]
   def list(offset: Int, limit: Int): Future[Iterable[UserNew]]
-  def updateOne(user: UserNew): Future[Unit]
+  def insertOrUpdateOne(user: UserNew): Future[Unit]
   def insertOne(user: UserNew): Future[Unit]
   def deleteOne(userId: String): Future[Unit]
 }

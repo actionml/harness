@@ -62,7 +62,7 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
   }
 
   override def update(user: UserAccount): Future[Unit] = {
-    users.insertOne(user)
+    users.replaceOne(equal("id", user.id), user)
       .toFuture
       .map(_ => ())
   }
