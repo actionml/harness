@@ -46,7 +46,7 @@ class MongoAdministrator(override implicit val injector: Module)
     val v = Class.forName(engineFactory).getConstructors
     val c = Injector.getClass
     val c2 = classOf[Injector]
-    Class.forName(engineFactory).getDeclaredConstructor(classOf[Module]).newInstance(injector).asInstanceOf[Engine]
+    Class.forName(engineFactory).getDeclaredConstructor(classOf[Injector]).newInstance(injector).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state

@@ -26,13 +26,13 @@ import com.actionml.core.dal.mongo.MongoSupport
 import com.actionml.core.model._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import scaldi.Module
+import scaldi.{Injector, Module}
 
 import scala.concurrent.ExecutionContext
 import scala.util.Success
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine(override implicit val injector: Module) extends Engine with JsonParser {
+class CBEngine(override implicit val injector: Injector) extends Engine with JsonParser {
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _

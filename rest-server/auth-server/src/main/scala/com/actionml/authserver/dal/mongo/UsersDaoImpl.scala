@@ -22,7 +22,9 @@ import com.actionml.authserver.model.UserAccount
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
+import org.mongodb.scala.model.UpdateOptions
 import scaldi.{Injectable, Injector}
+
 import scala.concurrent.{ExecutionContext, Future}
 
 class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
@@ -61,8 +63,9 @@ class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport wi
       }
   }
 
+  // does an upsert if the user does not exist
   override def update(user: UserAccount): Future[Unit] = {
-    users.replaceOne(equal("id", user.id), user)
+    users.replaceOne(equal("id", user.id), user, UpdateOptions().upsert(true))
       .toFuture
       .map(_ => ())
   }

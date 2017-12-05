@@ -20,7 +20,7 @@ package com.actionml.templates.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.dal.UsersDao
-import com.actionml.core.model.UserNew
+import com.actionml.core.model.User
 import com.actionml.core.dal.mongo._
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
@@ -58,9 +58,9 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   // some other way, I assume not from injection because injection is provided by BaseModule in the Main.scala
   // file
   implicit val ec = inject[ExecutionContext]
+  var users = new UsersDaoImpl(sharedDB.getOrElse(engineId))
   // Users can be shared among Datasets for multiple Engines
   //val u = inject[UsersDao]
-  val users = new UsersDaoImpl(sharedDB.getOrElse(engineId))
   // val usersDAO = UsersDAO(connection(engineId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
   // val groups = store.connection(engineId)("groups") // replaced with GroupsDAO

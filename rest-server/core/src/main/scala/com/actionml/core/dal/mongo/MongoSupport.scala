@@ -20,7 +20,7 @@ package com.actionml.core.dal.mongo
 import java.time.Instant
 
 import com.actionml.core.config.AppConfig
-import com.actionml.core.model.UserNew
+import com.actionml.core.model.User
 import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.ServerAddress
@@ -78,7 +78,7 @@ object MongoSupport {
      permissions should be declared first.
      It also can correspond to https://jira.mongodb.org/browse/SCALA-338
      */
-    fromProviders(classOf[UserNew]), // todo: oh no, statically defined types? noooooooooo
+    fromProviders(classOf[User]), // todo: oh no, statically defined types? noooooooooo
     DEFAULT_CODEC_REGISTRY
   )
 

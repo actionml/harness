@@ -18,15 +18,15 @@
 package com.actionml.core.dal.mongo
 
 import com.actionml.core.dal.UsersDao
-import com.actionml.core.model.UserNew
+import com.actionml.core.model.User
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
-
 import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
+import org.mongodb.scala.model.UpdateOptions
 
 // for use with Scaldi
 // class UsersDaoImpl(implicit inj: Injector) extends UsersDao with MongoSupport with Injectable with LazyLogging {
@@ -35,10 +35,10 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[User])
   private val name = dbName
-  private val users = collection[UserNew](name, "users")
+  private val users = collection[User](name, "users")
   private implicit val ec = inject[ExecutionContext]
 
-  override def findOne(_id: String): Future[Option[UserNew]] = {
+  override def findOne(_id: String): Future[Option[User]] = {
     users.find(equal("_id",_id))
       .toFuture
       .recover { case e =>
@@ -47,7 +47,7 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
       }.map(_.headOption)
   }
 
-  override def list(offset: Int, limit: Int): Future[Iterable[UserNew]] = {
+  override def list(offset: Int, limit: Int): Future[Iterable[User]] = {
     users.find()
       .skip(offset)
       .limit(limit)
@@ -62,8 +62,8 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
   import org.mongodb.scala.model.Filters._
   import org.mongodb.scala.model.Updates._
   /** Pass in the modified User and it will be upserted */
-  override def insertOrUpdateOne(user: UserNew): Future[Unit] = {
-    users.replaceOne(equal("_id", user._id), user)
+  override def insertOrUpdateOne(user: User): Future[Unit] = {
+    users.replaceOne(equal("_id", user._id), user, UpdateOptions().upsert(true))
       .toFuture
       .map(_ => ())
   }
@@ -71,25 +71,25 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
   def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit] = {
     // there may be a way to do this better in Mongo code
     findOne(userId).map {
-      case Some(UserNew(_id, properties)) =>
-        UserNew(userId, properties -- unsetPropKeys)
-      case _ => UserNew("", Map.empty)
+      case Some(User(_id, properties)) =>
+        User(userId, properties -- unsetPropKeys)
+      case _ => User("", Map.empty)
     }.flatMap(insertOrUpdateOne)
 
   }
 
   def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit] = {
     findOne(userId).map {
-      case Some(UserNew(_id, properties)) =>
-        UserNew(userId, properties ++ setProps)
+      case Some(User(_id, properties)) =>
+        User(userId, properties ++ setProps)
       case None =>
-        UserNew(userId, setProps)
+        User(userId, setProps)
       case _ =>
-        UserNew("", Map.empty)
+        User("", Map.empty)
     }.flatMap(insertOrUpdateOne)
   }
 
-  override def insertOne(user: UserNew): Future[Unit] = {
+  override def insertOne(user: User): Future[Unit] = {
     users.insertOne(user)
       .toFuture
       .map(_ => ())

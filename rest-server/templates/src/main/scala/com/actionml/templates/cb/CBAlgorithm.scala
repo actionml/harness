@@ -33,8 +33,8 @@ import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
 import com.mongodb.casbah.Imports._
 import salat.global._
 import com.typesafe.scalalogging.LazyLogging
-import com.actionml.core.model.UserNew
-import com.actionml.core.template.{Algorithm, AlgorithmInput, AlgorithmParams, KappaAlgorithm}
+import com.actionml.core.model.{AlgorithmParams, User}
+import com.actionml.core.template.{Algorithm, AlgorithmInput, KappaAlgorithm}
 
 import scala.concurrent.Await
 import scala.io.Source
@@ -66,7 +66,7 @@ import vowpalWabbit.learner._
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 case class CBAlgorithmInput(
-    user: Future[Option[UserNew]],
+    user: Future[Option[User]],
     event: CBUsageEvent,
     testGroup: GroupParams,
     resourceId: String )
@@ -264,14 +264,14 @@ class CBAlgorithm(dataset: CBDataset)
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    @volatile var user: UserNew = UserNew()
+    @volatile var user: User = User()
     dataset.users.findOne(query.user).onComplete {
-      case Success(u: Option[UserNew]) => user = u.getOrElse(UserNew())
+      case Success(u: Option[User]) => user = u.getOrElse(User())
       case Failure(ex) =>
         logger.info(s"${ex.getMessage}")
         logger.warn(s"${ex.getStackTrace}")
         logger.warn(s"Could not find the user in the Query, return default result.")
-        UserNew()
+        User()
     }
 
     val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, resourceId)
@@ -385,14 +385,14 @@ class SingleGroupTrainer(
 
   private def train(input: CBAlgorithmInput): Unit = {
     log.debug(s"$name Start work")
-    @volatile var user: UserNew = UserNew()
+    @volatile var user: User = User()
     input.user.onComplete {
-      case Success(u: Option[UserNew]) => user = u.getOrElse(UserNew())
+      case Success(u: Option[User]) => user = u.getOrElse(User())
       case Failure(ex) =>
         log.info(s"${ex.getMessage}")
         log.warning(s"${ex.getStackTrace}")
         log.warning(s"Could not find the user in the Query, return default result.")
-        UserNew()
+        User()
     }
 
     val vwString: String = eventToVWStrings(
@@ -423,7 +423,7 @@ class SingleGroupTrainer(
   def eventToVWStrings(
     event: UsageEvent,
     variants: Map[Int, String],
-    user: UserNew,
+    user: User,
     resourceId: String): String = {
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
@@ -444,7 +444,7 @@ class SingleGroupTrainer(
   def eventToVWStrings(
     event: CBUsageEvent,
     variants: Map[Int, String],
-    user: UserNew,
+    user: User,
     resourceId: String): String = {
 
     //val testGroupClasses = classes.getOrElse(example.testGroupId, Seq[(Int, String)]())
@@ -497,7 +497,7 @@ object SingleGroupTrainer {
     classString: String,
     userId: String,
     testGroupId: String,
-    user: UserNew,
+    user: User,
     resourceId: String): String = {
 
     @transient implicit lazy val formats = org.json4s.DefaultFormats

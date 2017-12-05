@@ -1,5 +1,6 @@
 package com.actionml.core.model
 
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -37,6 +38,30 @@ case class GenericEvent (
     creationTime: String) // ISO8601 date
   extends Event
 
+/** Used only for illustration since queries have no required part */
+case class GenericQuery() extends Query {
+  def toJson =
+    s"""
+       |{
+       |    "dummyQuery": "query"
+       |}
+     """.stripMargin
+}
+
+/** Used only for illustration since query results have no required part */
+case class GenericQueryResult() extends QueryResult{
+  def toJson =
+    s"""
+       |{
+       |    "dummyQueryResult": "result"
+       |}
+     """.stripMargin
+}
+
+/** Extend these with engine specific case classes */
+trait AlgorithmParams
+trait AlgorithmQuery
+trait QueryResult
 trait Event
 trait EngineParams
 trait Query

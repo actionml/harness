@@ -34,6 +34,3 @@ abstract class Algorithm[Q, R] extends LazyLogging {
   def predict(query: Q): R
 }
 
-trait AlgorithmParams
-trait AlgorithmQuery
-trait QueryResult

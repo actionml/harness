@@ -17,15 +17,13 @@
 
 package com.actionml.core.template
 
-import com.actionml.core.model._
 import backup.{FSMirroring, Mirroring}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.dal.UsersDao
-import com.actionml.core.dal.mongo.UsersDaoImpl
+import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.Module
+import scaldi.{Injector, Module}
 
 import scala.concurrent.ExecutionContext
 
@@ -33,7 +31,7 @@ import scala.concurrent.ExecutionContext
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine(implicit val injector: Module) extends LazyLogging with JsonParser {
+abstract class Engine(implicit val injector: Injector) extends LazyLogging with JsonParser {
 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
@@ -87,25 +85,5 @@ abstract class Engine(implicit val injector: Module) extends LazyLogging with Js
   Valid(())
 
   def query(json: String): Validated[ValidateError, String]
-}
-
-/** Used only for illustration since queries have no required part */
-case class GenericQuery() extends Query {
-  def toJson =
-    s"""
-       |{
-       |    "dummyQuery": "query"
-       |}
-     """.stripMargin
-}
-
-/** Used only for illustration since query results have no required part */
-case class GenericQueryResult() extends QueryResult{
-  def toJson =
-    s"""
-       |{
-       |    "dummyQueryResult": "result"
-       |}
-     """.stripMargin
 }
 

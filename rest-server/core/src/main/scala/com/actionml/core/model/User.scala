@@ -17,7 +17,7 @@
 
 package com.actionml.core.model
 
-case class UserNew(
+case class User(
     _id: String = "",
     properties: Map[String, Seq[String]] = Map.empty) {
   /*
@@ -28,7 +28,7 @@ case class UserNew(
 }
 
 
-object UserNew { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
 
   /*
   def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {

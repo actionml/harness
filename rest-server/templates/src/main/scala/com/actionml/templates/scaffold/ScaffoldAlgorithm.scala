@@ -19,7 +19,7 @@ package com.actionml.templates.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.GenericEvent
+import com.actionml.core.model.{AlgorithmParams, GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError}

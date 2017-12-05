@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.core.drawInfo
 import com.actionml.core.model._
-import com.actionml.core.template.{Engine, GenericQuery}
+import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import scaldi.{Injector, Module}
 
