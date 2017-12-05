@@ -89,6 +89,19 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
     }.flatMap(insertOrUpdateOne)
   }
 
+  def addPropValue(userId: String, propName: String, propValues: Seq[String], maxValues: Int = 100): Future[Unit] = {
+    findOne(userId).map {
+      case Some(User(_id, properties)) =>
+        val existingValues = properties(propName)
+        val newProp = Map(propName -> (existingValues.drop(maxValues - existingValues.length + propValues.length) ++ propValues))
+        User(userId, properties ++ newProp)
+      case None =>
+        User(userId, Map(propName -> propValues))
+      case _ =>
+        User("", Map.empty)
+    }.flatMap(insertOrUpdateOne)
+  }
+
   override def insertOne(user: User): Future[Unit] = {
     users.insertOne(user)
       .toFuture
