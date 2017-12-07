@@ -104,9 +104,11 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
               "itemId" -> event.targetEntityId,
               "groupId" -> event.properties.testGroupId,
               "converted" -> event.properties.converted,
+              "contextualTags" -> event.properties.contextualTags,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
 */
             usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
+            users.addPropValue(event.entityId,"contextualTags", event.properties.contextualTags.getOrElse(Seq.empty))
             Valid(event)
           } else {
             logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
@@ -273,7 +275,9 @@ Some values are ignored since the only "usage event for teh Contextual Bandit is
 */
 case class CBUsageProperties(
   testGroupId: String,
-  converted: Boolean)
+  converted: Boolean,
+  contextualTags: Option[Seq[String]]
+)
 
 case class CBUsageEvent(
   event: String,

@@ -68,7 +68,7 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
       .map(_ => ())
   }
 
-  def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit] = {
+  override def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit] = {
     // there may be a way to do this better in Mongo code
     findOne(userId).map {
       case Some(User(_id, properties)) =>
@@ -78,7 +78,7 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
 
   }
 
-  def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit] = {
+  override def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit] = {
     findOne(userId).map {
       case Some(User(_id, properties)) =>
         User(userId, properties ++ setProps)
@@ -89,12 +89,12 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
     }.flatMap(insertOrUpdateOne)
   }
 
-  def addPropValue(userId: String, propName: String, propValues: Seq[String], maxValues: Int = 100): Future[Unit] = {
+  override def addPropValue(userId: String, propName: String, propValues: Seq[String], maxValues: Int = 10): Future[Unit] = {
     findOne(userId).map {
       case Some(User(_id, properties)) =>
-        val existingValues = properties(propName)
-        val newProp = Map(propName -> (existingValues.drop(maxValues - existingValues.length + propValues.length) ++ propValues))
-        User(userId, properties ++ newProp)
+        val existingValues = if (properties.keySet.contains(propName)) properties(propName) else Seq.empty[String]
+        val newVals = (existingValues ++ propValues).takeRight(maxValues)
+        User(userId, properties ++ Map(propName -> newVals))
       case None =>
         User(userId, Map(propName -> propValues))
       case _ =>

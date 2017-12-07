@@ -28,4 +28,7 @@ trait UsersDao {
   def insertOrUpdateOne(user: User): Future[Unit]
   def insertOne(user: User): Future[Unit]
   def deleteOne(userId: String): Future[Unit]
+  def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit]
+  def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit]
+  def addPropValue(userId: String, propName: String, propValues: Seq[String], maxValues: Int = 100): Future[Unit]
 }

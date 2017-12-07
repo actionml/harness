@@ -37,6 +37,7 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
   var mirroring: Mirroring = _
+  private var mirroringDiabled = true
 
   private def createSharedResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     if (params.mirrorContainer.isEmpty) {
@@ -48,6 +49,7 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
       mType match {
         case "localfs" =>
           mirroring = new FSMirroring(container)
+          mirroringDiabled = false
 
           createSharedDB(params)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
@@ -80,9 +82,10 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
        """.stripMargin)
   }
 
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] =
-    mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
-  Valid(())
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+    if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    Valid( true )
+  }
 
   def query(json: String): Validated[ValidateError, String]
 }
