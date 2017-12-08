@@ -10,6 +10,7 @@ lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
+lazy val mongoVersion = "3.4.3"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -48,9 +49,9 @@ lazy val core = (project in file("core")).
 
       "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
       "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
-      "org.mongodb" % "bson" % "3.4.2",
-      "org.mongodb" % "mongodb-driver-core" % "3.4.2",
-      "org.mongodb" % "mongodb-driver-async" % "3.4.2",
+      "org.mongodb" % "bson" % mongoVersion,
+      "org.mongodb" % "mongodb-driver-core" % mongoVersion,
+      "org.mongodb" % "mongodb-driver-async" % mongoVersion,
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
@@ -98,13 +99,6 @@ lazy val admin = (project in file("admin")).dependsOn(core).
     )
   )
 
-lazy val drivers = (project in file("drivers")).dependsOn(core, templates, admin).settings(
-  commonSettings,
-  libraryDependencies ++= Seq(
-    "com.github.scopt" %% "scopt" % "3.5.0"
-  )
-)
-
 lazy val server = (project in file("server")).dependsOn(core, common, templates, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
@@ -125,8 +119,8 @@ lazy val authServer = (project in file("auth-server")).dependsOn(common).setting
 
     "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
     "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
-    "org.mongodb" % "bson" % "3.4.2",
-    "org.mongodb" % "mongodb-driver-core" % "3.4.2",
-    "org.mongodb" % "mongodb-driver-async" % "3.4.2"
+    "org.mongodb" % "bson" % mongoVersion,
+    "org.mongodb" % "mongodb-driver-core" % mongoVersion,
+    "org.mongodb" % "mongodb-driver-async" % mongoVersion
   )
 ).enablePlugins(JavaAppPackaging).aggregate(common)
