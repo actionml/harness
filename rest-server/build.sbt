@@ -45,6 +45,7 @@ lazy val core = (project in file("core")).
     libraryDependencies ++= Seq(
       "org.mongodb" %% "casbah" % "3.1.1",
       "com.github.salat" %% "salat" % "1.11.0",
+
       "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
       "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
       "org.mongodb" % "bson" % "3.4.2",
