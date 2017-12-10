@@ -119,11 +119,11 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
         val datum = CBAlgorithmInput(
           dataset.users.findOne(event.toUsageEvent.userId),
           event,
-          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
+          dataset.groups.findOne(event.toUsageEvent.testGroupId),
           engineId
         )
         algo.input(datum)
-      case event: GroupParams =>
+      case event: CBGroup =>
         algo.add(event._id)
       case event: CBDeleteEvent =>
         event.entityType match {
@@ -142,7 +142,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
+      if(algo.trainers.isDefinedAt(query.groupId)) {
         val result = algo.predict(query)
         Valid(result.toJson)
       } else {

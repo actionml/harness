@@ -59,21 +59,23 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   // file
   implicit val ec = inject[ExecutionContext]
   var users = new UsersDaoImpl(sharedDB.getOrElse(engineId))
+  var groups = new CBGroupsDaoImpl(engineId)
   // Users can be shared among Datasets for multiple Engines
   //val u = inject[UsersDao]
   // val usersDAO = UsersDAO(connection(engineId)("users"))
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
-  // val groups = store.connection(engineId)("groups") // replaced with GroupsDAO
+  // val groups = store.connection(engineId)("groups") // replaced with CBGroupsDAO
   // may need to createIndex if _id: String messes things up
-  object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(engineId)("groups"))
+  //object CBGroupsDAO extends SalatDAO[CBGroup, String](collection = connection(engineId)("groups"))
 
 
-  // These should only be called from trusted source like the CLI!
   override def init(json: String): Validated[ValidateError, Boolean] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
-        usageEventGroups = usageEventGroups +
-          (p._id -> UsageEventDAO(connection(engineId)(p._id)))
+      groups.list(0, 100).map { groupsIterable =>
+        groupsIterable.foreach { group =>
+          usageEventGroups = usageEventGroups +
+            (group._id -> UsageEventDAO(connection(engineId)(group._id)))
+        }
       }
       Valid(p)
     }
@@ -127,17 +129,17 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
           users.unsetProperties(event.entityId, event.properties.getOrElse(Map.empty).keySet)
           Valid(event)
 
-        case event: GroupParams => // group init event, modifies group definition
+        case event: CBGroupInitEvent => // group init event, modifies group definition
           logger.trace(s"Persisting a Group Init Event: ${event}")
           // create the events collection for the group
-          if (usageEventGroups.contains(event._id)) {
+          if (usageEventGroups.contains(event.entityId)) {
           // re-initializing
-            usageEventGroups(event._id).collection.drop()
+            usageEventGroups(event.entityId).collection.drop()
           }
           usageEventGroups = usageEventGroups +
-            (event._id -> UsageEventDAO(connection(engineId)(event._id)))
+            (event.entityId -> UsageEventDAO(connection(engineId)(event.entityId)))
 
-          GroupsDAO.insert(event)
+          groups.insertOne(event.toCBGroup)
           Valid(event)
 
         case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
@@ -152,7 +154,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
                 logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
                 Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
               } else {
-                GroupsDAO.remove(MongoDBObject("_id" -> event.entityId))
+                groups.deleteOne(event.entityId)
                 usageEventGroups(event.entityId).collection.dropCollection() // drop all events
                 usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
@@ -186,7 +188,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
               parseAndValidate[CBUserSetEvent](json)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.trace(s"Dataset: ${engineId} parsing a group init event: ${event.event}")
-              parseAndValidate[CBGroupInitEvent](json).map(_.toGroupParams)
+              parseAndValidate[CBGroupInitEvent](json).map(_.toCBGroup)
           }
 
         case "$unset" => // remove properties
@@ -330,17 +332,6 @@ case class CBGroupInitProperties (
   pageVariants: Seq[String], //["17","18"]
   testPeriodEnd: Option[String])
 
-case class GroupParams (
-  _id: String,
-  testPeriodStart: DateTime, // ISO8601 date
-  pageVariants: Map[String, String], //((1 -> "17"),(2 -> "18"))
-  testPeriodEnd: Option[DateTime]) extends CBEvent {
-
-  def keysToInt(v: Map[String, String]): Map[Int, String] = {
-    v.map( a => a._1.toInt -> a._2)
-  }
-}
-
 
 case class CBGroupInitEvent (
     entityType: String,
@@ -349,10 +340,10 @@ case class CBGroupInitEvent (
     eventTime: String) // ISO8601 date
   extends CBEvent {
 
-  def toGroupParams: GroupParams = {
+  def toCBGroup: CBGroup = {
     val pvsStringKeyed = this.properties.pageVariants.indices.zip(this.properties.pageVariants).toMap
       .map( t => t._1.toString -> t._2)
-    GroupParams(
+    CBGroup(
       _id = this.entityId,
       testPeriodStart = new DateTime(this.properties.testPeriodStart),
       // use the index as the key for the variant string
@@ -373,13 +364,13 @@ case class CBGroupInitEvent (
 }
  */
 case class CBDeleteEvent(
-  entityId: String,
-  entityType: String,
-  eventTime: String)
+    entityId: String,
+    entityType: String,
+    eventTime: String)
   extends CBEvent
 
 // allows us to look at what kind of specialized event to create
-case class CBRawEvent (
+case class CBRawEvent(
     //eventId: String, // not used in Harness, but allowed for PIO compatibility
     event: String,
     entityType: String,
@@ -390,26 +381,3 @@ case class CBRawEvent (
     creationTime: String) // ISO8601 date
   extends CBEvent
 
-trait CBEvent extends Event
-
-/*
-case class User(
-    _id: String,
-    properties: Map[String, String]) {
-  //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
-  def propsToMapOfSeq = properties.map { case(propId, propString) =>
-    propId -> propString.split("%").toSeq
-  }
-}
-
-
-object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
-  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
-    props.filter { (t) =>
-      t._2.size != 0 && t._2.head != ""
-    }.map { case (propId, propSeq) =>
-      propId -> propSeq.mkString("%")
-    }
-  }
-}
-*/

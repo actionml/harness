@@ -17,11 +17,19 @@
 
 package com.actionml.core.model
 
-case class User(
-    _id: String = "",
-    properties: Map[String, Seq[String]] = Map.empty) {
+import org.joda.time.DateTime
+
+case class CBGroup (
+    _id: String,
+    testPeriodStart: DateTime, // ISO8601 date
+    pageVariants: Map[String, String], //((1 -> "17"),(2 -> "18"))
+    testPeriodEnd: Option[DateTime])
+  extends CBEvent {
+
+  def keysToInt(v: Map[String, String]): Map[Int, String] = {
+    v.map( a => a._1.toInt -> a._2)
+  }
 }
 
-// todo: is this needed?
-object User {}
+trait CBEvent extends Event
 

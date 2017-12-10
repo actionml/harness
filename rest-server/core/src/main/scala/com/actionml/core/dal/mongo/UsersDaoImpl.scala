@@ -111,11 +111,8 @@ class UsersDaoImpl(dbName: String)(implicit inj: Injector) extends UsersDao with
   override def deleteOne(userId: String): Future[Unit] = {
     users.deleteOne(equal("_id", userId))
       .toFuture
-      .map(result => if (result.getDeletedCount == 1) () else throw UserNotFoundException)
+      .map(result => if (result.getDeletedCount == 1) () else throw ObjectNotFoundException)
   }
 
 }
 
-trait NotFoundException extends RuntimeException
-
-case object UserNotFoundException extends RuntimeException  ("User not found") with NotFoundException

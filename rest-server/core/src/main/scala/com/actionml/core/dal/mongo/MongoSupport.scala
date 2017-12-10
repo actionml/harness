@@ -52,6 +52,8 @@ object MongoSupport {
 
   private val config = AppConfig.apply.mongoServer
 
+  val timeout = Duration(10, "seconds") // Todo: make configurable
+
   import scala.collection.JavaConversions._
 
   private val settings = MongoClientSettings.builder

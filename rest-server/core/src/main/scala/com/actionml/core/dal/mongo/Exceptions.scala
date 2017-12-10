@@ -1,3 +1,5 @@
+package com.actionml.core.dal.mongo
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,13 +17,6 @@
  * limitations under the License.
  */
 
-package com.actionml.core.model
+trait ObjectNotFoundException extends RuntimeException
 
-case class User(
-    _id: String = "",
-    properties: Map[String, Seq[String]] = Map.empty) {
-}
-
-// todo: is this needed?
-object User {}
-
+case object ObjectNotFoundException extends RuntimeException  ("Object not found")

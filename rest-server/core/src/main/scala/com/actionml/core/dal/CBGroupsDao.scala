@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package com.actionml.core.model
+package com.actionml.core.dal
 
-case class User(
-    _id: String = "",
-    properties: Map[String, Seq[String]] = Map.empty) {
+import com.actionml.core.model.CBGroup
+
+import scala.concurrent.Future
+
+
+trait CBGroupsDao {
+  def findOne(id: String): Future[Option[CBGroup]]
+  def list(offset: Int, limit: Int): Future[Iterable[CBGroup]]
+  def insertOrUpdateOne(user: CBGroup): Future[Unit]
+  def insertOne(user: CBGroup): Future[Unit]
+  def deleteOne(userId: String): Future[Unit]
 }
-
-// todo: is this needed?
-object User {}
-
