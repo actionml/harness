@@ -16,11 +16,13 @@ Using git pull the source for Harness.
     
 Examine `harness/java-sdk/src/main/java/QueryClientExample.java` and `harness/java-sdk/src/main/java/QueryClientExample.java` which have working examples for Contextual Bandit input events and queries.
 
-Copy the source of the Java SDK to your own project starting at `harness/java-sdk/src` and build it and your application with the added dependencies listed in the pom.xml at `pio-kappa/java-sdk/pom.xml`
+Copy the source of the Java SDK to your own project starting at `harness/java-sdk/src` and build it and your application with the added dependencies listed in the pom.xml at `harness/java-sdk/pom.xml`
 
 ## Sending Events 
 
-Sending Events uses a new style but essentially creates the same json. However it communicates with the pio-kappa server using REST in a rather different manner than Apache PIO. For input you would identify the dataset you want events to go into using a REST resource-id. Currently this is ignored so only one dataset is allowed and the resource-id is only a placeholder. It will be used to identify the correct dataset as we add methods for enabling them.
+Perhaps the most important thing to note about sending events is that the SDKs support asynchronous APIs. This almost always more high performance than blocking an event send to wait for a response before the next send. **However**: This is not compatible with some Engines that require events to be guaranteed to be processed in the order they are sent. For instance the Contextual Bandit must get a new testGroup created before receiving conversion events for the group. Therefore we show how to use the Asynchronous sendEvent in a blocking manner to avoid this problem. Async and sync methods can be mixed on a send by send basis as long as the Engine supports this, for instance the CB needs to have the testGroup creation sent in a synchronous blocking manner but once this has been processed new usage events can be sent asynchronously--check your Engine for it's requirements. Most Lambda Engines see events as streams ordered by timestamps so can operate completely asynchronous, some Kappa Engine need to get ordered events.
+
+### Java 8 Functional Asynchronous Event Send
 
 Using Java 8 functional style conventions an example event sending code looks like this:
 
@@ -88,7 +90,21 @@ and send the event:
 
     client.sendEvent(event)
     
-These examples use the asynchronous API in a **synchronous** way by POSTing an Event and waiting for the response. This is not the most efficient use of the API but is simpler to debug your client code.
+### Making the Async Event Send Synchronous
+
+We have only to add a `.get()` and code to catch possible exceptions to make the asynch methods synchronous:
+
+    try {
+        // using the .get() forces the code to wait for the response and so is blocking
+        Pair<Integer, String> p = 
+            ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
+        log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
+    } catch (InterruptedException | ExecutionException e) {
+        log.error("Error in client.sendEvent waiting for a response ", e);
+    }
+
+This uses the `sendEvent(String event)` taking a JSON string as the 
+Event definition. 
 
 **Note**: Checking for errors is important since you will receive them for many reasons and they are self-describing. See the [REST Specification](https://github.com/actionml/harness/blob/master/rest_spec.md) for a description of the response codes specifics.
 
@@ -107,7 +123,8 @@ Queries are specific to each template so are created directly from JSON strings:
         client.sendQuery(query).whenComplete((queryResult, throwable) -> {
             long duration = System.currentTimeMillis() - start;
             if (throwable == null) {
-                System.out.println("Receive eventIds: " + queryResult.toString() + ", " + duration + " ms.");
+                System.out.println("Receive eventIds: " + 
+                    queryResult.toString() + ", " + duration + " ms.");
             } else {
                 System.err.println(throwable.getMessage());
             }
@@ -126,7 +143,7 @@ Then send the JSON string to the query endpoint for the correct engine
 
     client.sendQuery(query)
 
-Since Query formats are always defined by the specific Engine there is no builder for them, they must be sent as raw JSON.  
+Since Query formats are always defined by the specific Engine there is no builder for them, they must be sent as raw JSON. The code to process a specific response must be in the Java Promise that is after the `.whenCompleted` or using the `.get()` method similar to the `sendEvent` function, the query can be done synchronously.
 
 # Security
 
