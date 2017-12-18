@@ -24,6 +24,7 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.User
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
@@ -31,6 +32,7 @@ import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
 import com.mongodb.casbah.Imports._
 import salat.global._
 import com.typesafe.scalalogging.LazyLogging
+import salat.dao.SalatDAO
 
 import scala.concurrent.Await
 import scala.io.Source
@@ -74,7 +76,7 @@ class CBAlgorithm(dataset: CBDataset)
 
   val serverHome = sys.env("HARNESS_HOME")
 
-  private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
+  private val actors = ActorSystem(dataset.resourceId) // todo: should this be a constructor param?
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
   var resourceId: String = _
@@ -139,23 +141,16 @@ class CBAlgorithm(dataset: CBDataset)
   }
 
   override def destroy(): Unit = {
-    // remove old model since it is recreated with each new CBEngine
-    // the VW model file may take some time to be deletable after closing vw?????
-    if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close() //Todo: may have to put in future and wait with timeout
-    // used by 'time' method
-    implicit val baseTime = System.currentTimeMillis
-
-    // put a time limit for VW to close and release the model file
-    val deleteModel = Future {
-      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-        while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-    }
-    // Todo: should allow configurable?
-    try{ Await.result(deleteModel, 2 seconds) } catch {
+    try{ Await.result(
+      actors.terminate().andThen { case _ =>
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
+      }.map { _ =>
+        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
+          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
+      }, 3 seconds) } catch {
       case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
+        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 3 second timeout.")
     }
-
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -163,7 +158,7 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // Todo: not used because can't have more than one?????
+    val cacheFile = s" --cache_file ${params.modelName}_cache " // not used, let VW decide how to do caching
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
     val newModel = s" -f ${params.modelName} "
@@ -189,7 +184,7 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // Todo: not used because can't have more than one?????
+    val cacheFile = s" --cache_file ${params.modelName}_cache " // not used, let VW manage cahce files
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
     val newModel = s" -f ${params.modelName} "
@@ -352,7 +347,7 @@ case class CBAlgoParams(
 
 class SingleGroupTrainer(
     events: UsageEventDAO,
-    users: UsersDAO,
+    users: SalatDAO[User, String],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -447,7 +442,7 @@ object SingleGroupTrainer {
 
   def props(
     events: UsageEventDAO,
-    users: UsersDAO,
+    users: SalatDAO[User, String],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -490,7 +485,6 @@ object SingleGroupTrainer {
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
           user.propsToMapOfSeq.map { case(propId, propSeq) =>
-            // propString is a flatmapped Seq of Strings separated by %, to make into a user feature, split, sort, and flatmap
             propSeq.map { propVal  =>
               propId + "_" + propVal.replaceAll("\\s+", "_") + "_" + testGroupId
             }.mkString(" ")

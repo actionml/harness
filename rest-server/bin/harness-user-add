@@ -15,7 +15,7 @@ if [ ! -z "$ENGINE_ID" ]; then
     if [ $ROLE_SET = "client" ]; then
         PYTHON_ARGS="user-add --role_set ${ROLE_SET} --engineid ${ENGINE_ID} $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
         exit $?
@@ -24,7 +24,7 @@ if [ ! -z "$ENGINE_ID" ]; then
         echo -e "Expected command: ${CYAN}harness add-user admin${NC}"
         PYTHON_ARGS="user-add --role_set ${ROLE_SET} $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
         exit $?
@@ -38,7 +38,7 @@ fi
 if [ "$ROLE_SET" = "admin" ]; then
     PYTHON_ARGS="user-add --role_set ${ROLE_SET} $USER_ARGS"
 
-    echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+    #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
     ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
     exit $?

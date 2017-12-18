@@ -42,11 +42,11 @@ if args.client_user_id is not None and args.client_user_secret_location is not N
     client_user_id = args.client_user_id
     with open(args.client_user_secret_location) as secret_file:
         client_user_secret = secret_file.read().rstrip("\n")
-    # print('Auth enabled with user_id: {} and secret: {}'.format(client_user_id, client_user_secret))
+        # print('Auth enabled with user_id: {} and secret: {}'.format(client_user_id, client_user_secret))
 else:
     if auth_enabled:
         raise RuntimeError('User_id and secret not passed in when auth is enabled')
-    # print('No user_id or secret')
+        # print('No user_id or secret')
 
 class BColors:
     HEADER = '\033[95m'
@@ -83,19 +83,24 @@ def strip_valid(text):
 def pp_json(json_thing, sort=True, indents=4):
     if type(json_thing) is str:
         try:
+            # print("got string")
             return json.dumps(json.loads(json_thing), sort_keys=sort, indent=indents)
         except ValueError:
+            # print("Not Valid JSON: " + json_thing + " trying to strip any Valid wrapper")
             return strip_valid(json_thing)
     else:
+        # print("got JSON")
         return json.dumps(json_thing, sort_keys=sort, indent=indents)
 
 
+# Use when the json response should be printed
 def print_success(res, text):
-    # Todo: the "json_body" is really a Valid wrapping json so strip the Valid and we can parse the json,
-    # which will be a different dictionary in each type of response
-    # for now we will strip the Valid so pure JSON will be printed in the CLI
-    # pretty_string = pp_json(json_thing=res, sort=True, indents=4)
     print(BColors.GREEN + text + pp_json(res.json_body) + BColors.END)
+
+
+# Use when there is no need to print the response
+def print_success_string(text):
+    print(BColors.GREEN + text + BColors.END)
 
 
 def print_failure(err, text):
@@ -123,7 +128,7 @@ def id_or_config():
     return engine_id, config
 
 
-""""
+"""
 def user_id():
     print(args)
     user_id=args.user_id

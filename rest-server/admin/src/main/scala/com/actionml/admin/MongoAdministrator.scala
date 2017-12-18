@@ -20,8 +20,9 @@ package com.actionml.admin
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
+import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Engine, GenericEngineParams}
+import com.actionml.core.template.Engine
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.MongoDBObject
