@@ -59,7 +59,6 @@ public class QueriesClientExample {
             for ( String query: queries ) {
                 log.info("Send query: " + query);
                 long start = System.currentTimeMillis();
-
                 client.sendQuery(query).whenComplete((queryResult, throwable) -> {
                     long duration = System.currentTimeMillis() - start;
                     if (throwable == null) {

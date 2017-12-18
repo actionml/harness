@@ -32,7 +32,7 @@ elif args.action == 'delete':
     engine_id, config = id_or_config()
     try:
         res = engine_client.delete(engine_id=engine_id)
-        print_success(res, 'Deleted engine-id: {} \n'.format(engine_id))
+        print_success_string('Deleted engine-id: {} \n'.format(engine_id))
     except HttpError as err:
         print_failure(err, 'Error deleting engine-id: {}\n'.format(engine_id))
 

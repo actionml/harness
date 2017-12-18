@@ -20,6 +20,7 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirroring, Mirroring}
+import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -33,8 +34,9 @@ abstract class Engine extends LazyLogging with JsonParser {
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
   var mirroring: Mirroring = _
+  private var mirroringDiabled = true
 
-  private def createMirror(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
+  private def createSharedResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     if (params.mirrorContainer.isEmpty) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       Valid(true)
@@ -42,7 +44,10 @@ abstract class Engine extends LazyLogging with JsonParser {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
-        case "localfs" => mirroring = new FSMirroring(container); Valid(true)
+        case "localfs" =>
+          mirroring = new FSMirroring(container)
+          mirroringDiabled = false
+          Valid(true)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
     } else {
@@ -50,8 +55,9 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
-  def init(json: String): Validated[ValidateError, Boolean] = parseAndValidate[GenericEngineParams](json)
-    .andThen(createMirror)
+  def init(json: String): Validated[ValidateError, Boolean] = {
+    parseAndValidate[GenericEngineParams](json).andThen(createSharedResources)
+  }
 
   def initAndGet(json: String): Engine
   def destroy(): Unit
@@ -67,40 +73,10 @@ abstract class Engine extends LazyLogging with JsonParser {
        """.stripMargin)
   }
 
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] =
-    mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
-  Valid(())
+  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+    if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    Valid( true )
+  }
 
   def query(json: String): Validated[ValidateError, String]
 }
-
-/** Contains params requires by all engines */
-case class GenericEngineParams(
-  engineId: String, // required, resourceId for engine
-  engineFactory: String,
-  mirrorType: Option[String] = None,
-  mirrorContainer: Option[String] = None) extends EngineParams
-
-/** Used only for illustration since queries have no required part */
-case class GenericQuery() extends Query {
-  def toJson =
-    s"""
-       |{
-       |    "dummyQuery": "query"
-       |}
-     """.stripMargin
-}
-
-/** Used only for illustration since query results have no required part */
-case class GenericQueryResult() extends QueryResult{
-  def toJson =
-    s"""
-       |{
-       |    "dummyQueryResult": "result"
-       |}
-     """.stripMargin
-}
-
-trait EngineParams
-trait Query
-trait Status

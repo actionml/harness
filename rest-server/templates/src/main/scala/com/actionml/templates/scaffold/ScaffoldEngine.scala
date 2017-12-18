@@ -18,8 +18,9 @@
 package com.actionml.templates.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.{Valid}
+import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
+import com.actionml.core.model.{GenericEngineParams, GenericQuery}
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 

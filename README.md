@@ -7,7 +7,7 @@ This project implements a microservice based Machine learning server. It provide
  - **TLS/SSL** support from akka-http
  - **Authentication** support using server to server bearer tokens, similar to basic auth but from the OAuth 2.0 spec
  - **Microservice Architecture**:
-     - **REST-based**: for Heavy-weight HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth. The Auth server is implemented, the REST Microservice framework is akka-http.
+     - **REST-based**: for slightly more Heavy-weight HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth. The Auth server is implemented, for example, using the REST Microservice framework via akka-http.
      - **Actor-based** light-weight microservices based on the akka Event Bus for clustered scalable lightweight microservices
  - **Single REST API** for input, query, and commands
  - **Flexible Learning Styles**:
@@ -15,7 +15,7 @@ This project implements a microservice based Machine learning server. It provide
     - **Lambda**: Batch learners that update or re-compute models in the background during realtime input and queries.
     - **Hybrids and Reinforcement Learning**
  - **Compute-Engine Neutral**: supports any compute engine or pre-packaged algorithm library that is JVM compatible. For example Spark, TensorFlow, Vowpal Wabbit, MLlib, Mahout, ... Does not require Spark, or HDFS.
- - **Scalability**: Engines implemented using either microservice method can be scaled by deploying on multiple nodes. The simplest way to do this is using the Light-weight Actor-based microservice method. 
+ - **Scalability**: Engines implemented using either microservice method  and either leanring style can be scaled by deploying on multiple nodes. The simplest way to do this is using the Light-weight Actor-based microservice method. 
  - **Scaldi Implementation Injection**:
      - **Main Metadata Store**: is injected at server startup and only supports MongoDB at present.
      - **Input Mirroring**: can be either the server machine's file system or HDFS and the implementation is injected at startup and controlled by configuration
@@ -27,12 +27,17 @@ This project implements a microservice based Machine learning server. It provide
      - **Python SDK**: implements client side for all endpoints and is used by the Python CLI.
      - **REST without SSL and Auth** is simple and can use any HTTP client&mdash;curl, etc. SSL and Auth complicate the client but the API is well specified.
  - **Command Line Interface (CLI)** is implemented as calls to the REST API and so is securely remotable.
- - **Multi-tenancy**: will run multiple Engines with separate Permissions
+ - **Secure Multi-tenancy**: will run multiple Engines with separate Permissions
      - **Multiple Engine-IDs** allow any number of variations on one Engine type or multiple Engine types. One Engine is the simplest case.
      - **Multiple Permissions**: allow user+secret level access control to protect one "tenant" from another. Or Auth can be disabled to allow all Engines access without a user+secret for simple deployments.
- - **Mutable Object and Immutable Event Streams**: can coexist in Harness allowing the store to meet the needs of the algoithm.
+ - **Mutable Object and Immutable Event Streams**: can coexist in Harness allowing the store to meet the needs of the algorithm.
  - **User and Permission Management**: Built-in user+secret generation with permissions management at the Engine-Id level.
  - **Data Set Compatibility** with Apache PredictionIO is possible as is the case with the Contextual Bandit Engine, which exists in a PredictionIO Template. This is not enforced and the various data objects sent to or received from an Engine through Harness are completely flexible and can be anything encodable in JSON.
+ - **Async and Sync SDKs and Internal APIs**: both our outward facing REST APIs as seen from the SDK and most of our internal APIs including those that communicate with Databases are based on Asynchronous/nonblocking usage. The SDKs also support the simpler synchronous style. Asynchronous usage yields optimal performance since no single call blocks any process.
+ - **Provisioning** can be done by time proven binary installation or optionally (where ease of deployment, configuration, or scaling is required) using modern container methods:
+    - **Containerized** optional containerized provisioning using Docker
+    - **Container Orchestration** optional container orchestration with Kubernettes and Consul.io
+    - **Instance Creation** optional compute and storage resource creation using cloud platform neutral Terraform
  
 # Requirements
 
@@ -40,16 +45,18 @@ In its simplest form Harness has few external requirements. To run it on one mac
  
  - Python 3 for CLI and Harness Python SDK
  - Pip 3 to add the SDK to the Python CLI
- - MongoDB 3.x (pluggable with effort)
- - Harness will get the Scala compiler needed when you build from source but if you wish to run the same, get Scala 2.11
- - Some `nix OS
+ - MongoDB 3.x (pluggable via a clean DAO/DAL interface with injected DAOImpl for any DB)
+ - Scala 2.11
+ - Some recent `nix OS
+
+Each Engine has its own requirements driven by decisions like what compute engine to use (Spark, TensorFlow, Vowpal Wabbit, DL4J, etc) as well as what Libraries it may need. In General these requirements will be JVM accessible but even this is flexible when using REST-based microservices to implement Engines. See specific Engines for their extra requirements. 
 
 # Microservices
 
 There are 2 types of microservices in Harness:
 
  1. **REST-Based**: These present an HTTP API, optionally with TLS (SSL) and Auth (Authentication and Authorization). This type of microservice is used for the Main Harness API as well as the Auth-Server. Harness by default uses no TLS or Auth but can have both turned on so that it is secure to run across the Internet with a the provided Java and Python SDKs which also support TLS and Auth. The Auth-Server is also an REST microservice but due to the need to access it for every Harness request (need for speed) does not use Auth or TLS. Furthermore is uses caching to make most access unnecessary.
- 2. **Actor-Based**: Here the need is to have lightweight fast microservices that can scale easily (with no design constraints put on the engine API) and in a fault resilient way. Here we use an akka System of Actors spanning multiple nodes attached to an akka Event Bus. All engines are Actors and are stateless (relying on persistence stores where persistence is needed) so any Universal Recommender Actor with the same config can respond to any Event meant for it. This allows scaling across nodes in a failure resilient manner since the akka Event Bus provides mechanisms for failure detection and recovery
+ 2. **Actor-Based**: these are implemented in a lightweight performant way that can scale easily (with no design constraints put on the engine API) and in a fault resilient way. We use an akka System of Actors spanning multiple nodes attached to an akka Event Bus. This type if engine is an  Actor and is stateless (relying on persistence stores where state needs to be preserved or shared) so any Universal Recommender Actor with the same config can respond to any Event meant for it. This allows scaling across nodes in a failure resilient manner since the akka Event Bus provides mechanisms for failure detection and recovery
 
 Harness and the Auth-Server are REST microservices, Engines are Actor-based microservices.
 

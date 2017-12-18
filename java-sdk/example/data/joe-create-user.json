@@ -1,0 +1,10 @@
+{
+  "event":"$set",
+  "entityType":"user",
+  "entityId":"joe",
+  "properties":{
+    "name":["joe", "buck"]
+  },
+  "eventTime":"2017-06-02T16:06:16.279+05:30",
+  "creationTime":"2017-06-02T10:36:29.860Z"
+}

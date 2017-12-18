@@ -23,7 +23,7 @@ if [ -z "$RESOURCE_TYPE" ] ; then
     echo -e "${RLINE}"
     echo -e "${CYAN}Checking Harness Server status${NC}"
     PYTHON_ARGS=" status ${USER_ARGS}"
-    echo -e "${CYAN}Run ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}${NC}"
+    #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}${NC}"
     ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
     exit $?
 fi
@@ -33,7 +33,7 @@ if [ ${RESOURCE_TYPE} = "engines" ]; then
     if [ -z ${RESOURCE_ID} ]; then
         PYTHON_ARGS="status --all_engines $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
         exit $?
@@ -42,7 +42,7 @@ if [ ${RESOURCE_TYPE} = "engines" ]; then
     if [ ! -z ${RESOURCE_ID} ]; then
         PYTHON_ARGS="status -e ${RESOURCE_ID} $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
         exit $?
@@ -54,7 +54,7 @@ if [ ${RESOURCE_TYPE} = "users" ]; then
     if [ -z ${RESOURCE_ID} ]; then
         PYTHON_ARGS="status --all_users $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
         exit $?
@@ -63,7 +63,7 @@ if [ ${RESOURCE_TYPE} = "users" ]; then
     if [ ! -z ${RESOURCE_ID} ]; then
         PYTHON_ARGS="status --user_id ${RESOURCE_ID} $USER_ARGS"
 
-        echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
         exit $?
