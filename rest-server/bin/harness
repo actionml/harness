@@ -35,10 +35,15 @@ if [ -z ${HARNESS_HOME} ] ; then
             TARGET_FILE=$(basename "$TARGET_FILE")
         done
 
-        export HARNESS_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+        HARNESS_ROOT="$(cd $(dirname "$TARGET_FILE"); pwd -P)/.."
+        #echo "HARNESS_ROOT=$HARNESS_ROOT"
+        #export HARNESS_HOME="$(cd $(dirname "$TARGET_FILE")/..; pwd -P)"
+        export HARNESS_HOME="$(cd $HARNESS_ROOT; pwd -P)"
         cd "$CURRENT_DIR"
     fi
 fi
+
+#echo "HARNESS_HOME=${HARNESS_HOME}"
 
 . "${HARNESS_HOME}/bin/harness-env"
 

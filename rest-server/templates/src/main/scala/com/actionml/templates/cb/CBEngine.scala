@@ -21,6 +21,7 @@ import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
+import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
@@ -69,7 +70,7 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
   override def stop(): Unit = {
-    logger.info(s"Waiting for CBAlgorithm for id: $engineId to terminate")
+    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
     algo.stop() // Todo: should have a timeout and do something on timeout here
   }
 
@@ -178,10 +179,7 @@ case class CBQueryResult(
   extends QueryResult {
 
   def toJson: String = {
-    s"""
-     |"variant": $variant,
-     |"eligibleNavIds": $groupId
-    """.stripMargin
+    s"""{"variant": $variant, "groupId": $groupId}"""
   }
 }
 

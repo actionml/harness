@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import akka.japi.Pair;
 import com.actionml.EventsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,7 +38,9 @@ import java.util.stream.Collectors;
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         04.02.17 18:46
  */
-public class EventsClientExample { private static Logger log = LoggerFactory.getLogger(EventsClientExample.class);
+public class EventsClientExample {
+
+    private static Logger log = LoggerFactory.getLogger(EventsClientExample.class);
 
     public static void main(String[] args) {
 
@@ -92,7 +98,10 @@ public class EventsClientExample { private static Logger log = LoggerFactory.get
         });
         */
 
-        // This examples takes JSON input
+        // This examples takes a file of JSON, one object per line and sends them all asynchronously to the server.
+        // Async sends are faster but can only be used if the Engine does not care about the order of Event processing
+        // so use with care, not to be used with the Contextual Bandit for example.
+        /*
         try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
 
             List<String> events = br.lines().collect(Collectors.toList());
@@ -118,6 +127,38 @@ public class EventsClientExample { private static Logger log = LoggerFactory.get
 
         } catch (IOException e) {
             log.error("Oops, we have an error: ", e);
+            client.close();
+        }
+        */
+
+        // This example reads one event and sends it synchronously to the server, waiting for a response after each send
+        // This is slower than using async sendEvent but is required for Engines that care about the order of processing
+        // so for instance use this method with the Contextual Bandit.
+        try (BufferedReader br = Files.newBufferedReader(Paths.get(fileName))) {
+
+            List<String> events = br.lines().collect(Collectors.toList());
+
+            log.info("Number of events to send: " + events.size());
+            long start = System.currentTimeMillis();
+
+            for ( String event: events) {
+                try {
+                    // using the .get() forces the code to wait for the response and so id blocking
+                    // as an alternative use "client.sendEventSync", which may throw the same exceptions listed below
+                    Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
+                    log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
+                } catch (InterruptedException | ExecutionException e) {
+                    log.error("Error in client.sendEvent waiting for a response ", e);
+                }
+            }
+
+            log.info("Close client");
+            client.close();
+            long duration = System.currentTimeMillis() - start;
+            log.info("Finished queuing send of " + events.size() + " events in : " + duration + " milliseconds");
+
+        } catch (IOException e) {
+            log.error("Oops, we have an unrecoverable error: ", e);
             client.close();
         }
 

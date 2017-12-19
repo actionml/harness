@@ -19,10 +19,10 @@ package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event, GenericEngineParams}
+import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
-import com.actionml.utilities.FixedSizeFifo
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import org.joda.time.DateTime

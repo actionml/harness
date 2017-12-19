@@ -26,6 +26,6 @@ if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID} $USER_
 if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG} $USER_ARGS"; fi
 
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS} ${NC}"
+#echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS} ${NC}"
 
 ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}

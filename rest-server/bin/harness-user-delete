@@ -22,6 +22,6 @@ fi
 
 PYTHON_ARGS="user-delete -u $USER_ID $USER_ARGS"
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+#echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
 ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}

@@ -17,10 +17,9 @@
 
 package com.actionml.templates.navhinting
 
-import com.actionml.core.template.Model
 
 /** In-memory list of nav ids addressable by id (fast) with weights passed in from Algorithm so not much to do here. */
-class NavHintingModel() extends Model {
+class NavHintingModel()  {
 
   def getMatchesSorted(eligible: Seq[String], vector: Map[String, Double]): Seq[String] = {
     val vectorIds = vector.keySet

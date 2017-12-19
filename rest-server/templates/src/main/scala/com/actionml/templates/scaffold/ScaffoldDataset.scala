@@ -18,10 +18,12 @@
 package com.actionml.templates.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.{Valid}
+import cats.data.Validated.Valid
+import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, GenericEvent, GenericEngineParams}
+import com.actionml.core.template.{Dataset, GenericEvent}
 import com.actionml.core.validate._
+
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
