@@ -55,8 +55,7 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
   var usersDAO: SalatDAO[User, String] = _
 
   var usageEventGroups: Map[String, UsageEventDAO] = Map[String, UsageEventDAO]()
-  // val groups = store.connection(resourceId)("groups") // replaced with GroupsDAO
-  // may need to createIndex if _id: String messes things up
+
   object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
 
 
@@ -284,8 +283,6 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
   "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
 }
  */
-
-
 
 case class CBUserUpdateEvent(
   entityId: String,

@@ -1,19 +1,31 @@
 # Navigation Hinting
 
-This Harness Template tracks user navigation events for some site and recommends the link that most quickly has led other users to a conversion. If any particular user follows each hinted link they will be follow the most likely User Journey to a conversion opportunity. This is meant to allows the user to see information on the site that leads to more conversions and is meant to give lift to conversions.
+This Harness Template tracks user navigation events for a site or app and recommends the navigation id that most is most likely to lead to a conversion. These ids can be thought of as conversion hints and are typically used to emphasize some navigation in the UX.
 
-The algorithm is simple and comes in 2 flavors:
+## UX Recommendations
 
- - **Non-personalized**: this will work the best until there is enough data from the site and user to make personalized hints and so should be used as the fallback for personalized hints and therefore the default for all sites. The algorithm tracks some number of nave events for all users until a conversion happens. The collected events define users's journey to conversion. These are used to predict the most likely journey to conversion from the page being viewed. More details under **Algorithm**
- - **Personalized**: this works like non-personalized but uses the journeys of users that are similar in behavior (nav events) and User metadata (profiles, demographic data, etc) to the particular user viewing a page. The hints are then based on what similar users have done and therefore are personalized. More details under **Algorithm**
+To make the UX uncluttered and more self explaining:
 
-The Engine provides Application or web site owners a way to nudge a user along a proven successful path to conversion. It adapts to changes in navigation on app or site automatically given time. If the app has a major redesign the Engine can be reset to start fresh.
+ - It is recommended to exclude hinting from common navigation elements like menus, sidebars, footers, and mobile app navigation placeholders&mdash;otherwise they may be hinted all the time as much more common paths to conversions.
+ - Hint a limited number of nav ids (one?) even though more than one may be returned.
+ - When possible a hover tool-tip may be useful to describe the hint purpose.
 
 ## Algorithm
 
-User navigation events are collected in a queue of fixed but configurable length until a conversion occurs. Then this "journey" is treated as a training journey. Meaning it is used to create the model of successful journeys. The queue events are down-weight based on how old they are. This is configurable but the simplest/default method uses a decay function to weight the event with 1/(number of nav events till conversion). In other words the further the nav event is from the conversion, the lower it will be weighted in importance to the conversion. The number of events collected means that some are dropped if no conversion happens for a long time so those dropped events are assumed to have nothing to do with the conversion.
+The algorithm is simple and comes in 2 flavors:
+
+ - **Non-personalized**: this shows the most popular nav event for all users who convert. It will work best until there are enough conversions to differentiate personal journeys to conversion.
+ - **Personalized**: this works like non-personalized but find conversion journeys most similar to the journey of the current user. **Note**: this is planned for Hinting V0.2.0 
+
+The Engine provides application or web site owners a way to nudge a user along a proven successful path to conversion. It adapts to changes in navigation on app or site automatically given time. If the app has a major redesign the Engine can be reset to start fresh.
+
+## Algorithm Details for Non-Personalized Hints
+
+User navigation events are collected in a queue of fixed but configurable length until a conversion occurs. Then this "journey" is treated as a training journey. Meaning it is used to create the model of successful journeys. The queue events are down-weighted based on how old they are. This "decay function" is configurable. The simplest/default method uses nav event ordering with 1/(number of nav events till conversion). In other words the further the nav event is from the conversion, the lower it will be weighted in importance to the conversion. The number of events collected means that some are dropped if no conversion happens for a long time so those dropped events are assumed to have nothing to do with the conversion.
 
 Periodically the Engine takes all conversion paths and refreshes the model so there is no need to explicitly "train" the model. The model is created by summing all conversion vectors and ranking the resulting aggregate path vector. When a user navigates to a page the Engine is queried with a list of "eligible" links. The Hinting Engine returns the highest weighted eligible link. This will result in an arbitrary number of pages with no hints if they do not appear in the conversion journeys. 
+
+## Decay Functions
 
 There are other possible weighting decay functions that can be tested with cross-validation from site data including:
 
@@ -21,15 +33,15 @@ There are other possible weighting decay functions that can be tested with cross
  - **Exponential Decay** better know as the half-life method. This uses the time stamps of each event and decays the weight by ![](images/half-life-equation.png) "t" is the length of time until conversion, "&lambda;" is the [decay constant](https://en.wikipedia.org/wiki/Exponential_decay). The larger &lambda; the faster the decay. This defaults to &lambda;=1.0.
  - **Time to Conversion** this uses the time of the event to decay its weight as 1/(time till conversion). The time is expressed in seconds and is calculated as a duration at the time a user converts. In other words it is inverse of the number of seconds from the occurrence of the event until the user converts.
 
-The model generated will be the sum of all weighted conversion vectors, ranked by summed weight. When a query is made, the highest weighted eligible navigation link is recommended.
+The model generated will be the sum of all weighted conversion vectors, ranked by summed weight. When a query is made, the highest weighted eligible navigation ids are recommended. Here **eligible** nav events are specified with each query by enumerating nav events that can be hinted by the app.
 
-## Personalized Algorithm
+## Personalized Algorithm (Hinting v0.2.0 Planned)
 
-The Personalized version is identical to the non-personalized and has the same configurable decays and other parameters. The difference is that no one model is created. The model for a particular user is based on picking conversion journeys of "similar" users. These are weighted with the decay function and ranked. 
+The Personalized version is similar to the non-personalized and has the same configurable decays and other parameters. The decay function here acts as a threshold to detect events that are too old to consider. This threshold is applied to both the user's current journey and the data used to calculate the cooccurrence model. After passing this threshold LLR is used to find the most likely nav events correlate with a conversion.
 
-Here "similar" for similar users we us cosine similarity based on user attributes and current event history. The 2 factors can be weighted differently. Since user behavior (in the events) is known to be generally better than profile type attributes, the weighting of the 2 favors event similarity. The weighting of the 2 components of "similarity" is configurable.
+The model uses cooccurrence to calculate the most likely conversion links and so is based on the user's current journey history. The hints for a particular user are based on conversion journeys of "similar" users. 
 
-To calculate this similarity quickly in realtime a cosine k-nearest-neighbor engine is used in the form of Elasticsearch. It maintains all converted User attributes and events so one query is made to return the users who will contribute to the personalized hinting model. In other words the user getting the hint will get a hint based on similar users. 
+To calculate this similarity quickly in realtime a cosine k-nearest-neighbor engine is used in the form of Elasticsearch in a manner similar to the a simplified CCO algorithm as used in the Universal Recommender with TTL (time to live) applied to all input to model calculation and user history. The TTL is based on the decay function. 
 
 # Input
 
@@ -70,46 +82,30 @@ All user navigation events can be thought of as (user-id, nav-id, conversion, ti
 
 ## User Attributes
 
-User Attributes are only used in the Personalized algorithm. The user attributes can consist of any number of features, which do not need to be specified in advance. However, for the attributes to have an effect, use the same property names and value sets whenever possible within a single Engine instance. This will increase the likelihood that we can find "similar users" by attribute.
-
-The user attributes must be set independently of usage events. Note that all properties have a name and an array of strings, even if there is only one string.
-
-```
-{
-  "event" : "$set",
-  "entityType" : "user"
-  "entityId" : "pferrel",
-  "properties" : {
-    "gender": ["male"],
-    "location" : ["USA-postal-code-98119"],
-    "anotherContextFeature": ["A", "B"]
-  }
-}
-```
+User Attributes are not used in the non-personalized or in the personalized.
 
 ## Navigation Hinting Query
 
 On the `POST /engines/<engine-id>/queries` endpoint the Engine will respond to the JSON query
 
-The NH Engine can optionally make personalized queries. A simple example using curl for personalized recommendations is:
-
 ```
 curl -H "Content-Type: application/json" -d '
 {
-  "user": "pferrel", // optional for non-personalized
+  "user": "pferrel", // optional and ignored for non-personalized
+                     // this is required for personalized hints
   "eligibleNavIds": ["nav-1", "nav-34", "nav-49", "nave-11", "nav-3004". "nav-4098", ...]
 }' http://localhost:9090/engines/<engine-id>/queries
 ```
 
-This will get recommendations for user: "pferrel", These will be returned as a JSON object looking like this:
+This will get recommendations for user: "pferrel". These will be returned as a JSON object looking like this:
 
 ```
 {
-  "navHint": ["nav-49",...]
+  "result": [{"nav-49": score-1},...]
 }
 ```
 
-Note that you can request a hint for a new or anonymous user by omitting the `"user"` field of the query, in which case the recommendation will be non-personalized.
+**Note**: The `user` portion of the query only has an effect for personalized hinting, it is ignored otherwise.
 
 # Configuration of Navigation Hinting
 
@@ -136,25 +132,8 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   - **halfLifeDecayLambda**: defines how quickly the weight of the event diminishes via the equation: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`
   - **num**: how many of the highest ranking hints to return. Default = 1.
  
-# Sharing Engine Users (todo: move to Harness docs)
-
-Harness puts all engine data in a MongoDB database named with the engine-id. This is to allow easily dropping all data for an engine and to ensure that there is no leakage of data between engines. 
-
-To allow engine instances to share users, we propose adding an engine specific setting to id the name for the user collection. This will never be dropped until the last engine referencing it is deleted from Harness. `$delete` events can be used to remove individual users.
-
-New config for all engine instances:
-
-```
-"userCollectionName": "allUsersForSomeEngineSet"
-```    
-
-This allows any set of engines to share a collection of users by name so all engines in Harness may share the same set. Side effects:
-
- - if one instance of an engine is told to `$delete` the user, all will see the user dropped. This may not be ideal but is up to engines to manage.
- - conflicting `$set`/`$unset` of properties. One engine `$set`s a property and another `$unset`s the same property to get inconsistent results.
- - duplicate user properties become problematic, we may invent a new reserved event for `$merge` of new values into existing properties values as a sort of "upsert" to be used when `$set` would have the wrong semantics.
-
 # Training
 
-Harness was designed for streaming data sources and in the case of the NH engine will train for incoming events incrementally so all you need to do is send events and make queries. The models used for queries are eventually consistent with current input but are not necessarily consistent in real time. If User behavior events are used in the personalized version of the algorithm, these events will be in real time, only the model calculation may lag and this is not time critical. In most cases this lag will be negligible.
+Harness was designed for streaming data sources and in the case of the NH engine will train for incoming events incrementally so all you need to do is send events and make queries. 
 
+For Personalized Hinting a heavy weight background process can be triggered periodically that will not interrupt querying or input. This will use Spark and Elasticsearch.

@@ -19,7 +19,7 @@ package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
@@ -41,8 +41,10 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
-  val usersDAO = UsersDAO(connection(engineId)("users"))
+  var usersDAO: SalatDAO[User, String] = _
+
   val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active"))
+
   val completedJourneysDAO: CompletedJourneysDAO = CompletedJourneysDAO(connection(engineId)("completed"))
 
   var trailLength: Option[Int] = None
@@ -50,6 +52,8 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   override def init(json: String): Validated[ValidateError, Boolean] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { ap =>
+        object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
+        usersDAO = UsersDAO
         trailLength = Some(ap.numQueueEvents)
         Valid(ap)
       }
@@ -193,25 +197,6 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 }
  */
 
-case class User(
-  _id: String,
-  properties: Map[String, String] = Map.empty) {
-  //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
-  def propsToMapOfSeq = properties.map { case(propId, propString) =>
-    propId -> propString.split("%").toSeq
-  }
-}
-
-
-object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
-  def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
-    props.filter { (t) =>
-      t._2.size != 0 && t._2.head != ""
-    }.map { case (propId, propSeq) =>
-      propId -> propSeq.mkString("%")
-    }
-  }
-}
 
 case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
 
@@ -280,7 +265,7 @@ case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, Ob
 
 case class Journey(
   _id: String, // User-id we are recording nav events for
-  trail: FixedSizeFifo[(String, Long)]) // most recent nav events
+  trail: Seq[(String, DateTime)]) // most recent nav events
 
 
 // active journeys not yet converted

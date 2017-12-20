@@ -23,8 +23,7 @@ import scala.collection.JavaConverters._
 
 case class User(
     _id: String,
-    properties: Map[String, String],
-    trail: Seq[(String, DateTime)]) {
+    properties: Map[String, String]) {
   //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
   def propsToMapOfSeq = properties.map { case(propId, propString) =>
     propId -> propString.split("%").toSeq
