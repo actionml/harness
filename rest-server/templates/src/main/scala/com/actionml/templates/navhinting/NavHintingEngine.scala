@@ -60,17 +60,17 @@ class NavHintingEngine() extends Engine() with JsonParser {
   override def initAndGet(json: String): NavHintingEngine = {
    val response = init(json)
     if (response.isValid) {
-      logger.trace(s"Initialized with JSON: $json")
+      logger.trace(s"Initialized with Engine's JSON: $json")
       this
     } else {
-      logger.error(s"Parse error with JSON: $json")
+      logger.error(s"Parse error with Engine's JSON: $json")
       null.asInstanceOf[NavHintingEngine] // todo: ugly, replace
     }
   }
 
   override def stop(): Unit = {
     logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
+    algo.stop()
   }
 
   override def status(): Validated[ValidateError, String] = {
@@ -92,36 +92,21 @@ class NavHintingEngine() extends Engine() with JsonParser {
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    // first detect a batch of events, then process each, parse and validate then persist if needed
+    // first detect a batch of events, then persist each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
     if(super.input(json, trainNow).isValid)
       dataset.input(json).andThen(process).map(_ => true)
     else
-      Valid(true) // Some error like an ExecutionError in super.input happened
-    // todo: pass back indication of deeper error
+      Valid(true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
   def process(event: NHEvent): Validated[ValidateError, NHEvent] = {
      event match {
       case event: NHNavEvent =>
-        val datum = NavHintingAlgoInput(
-          dataset.usersDAO.findOneById(event.toNavEvent.userId).get,
-          event,
-          engineId
-        )
-        algo.input(datum)
-      /* no $deletes handled by Engine, look for user $deletes in the Dataset
-      case event: HNDeleteEvent =>
-        event.entityType match {
-          case "group" | "testGroup" =>
-            algo.remove(event.entityId)
-          case other =>
-            logger.warn("Unexpected value of entityType: {}, in {}", other, event)
-        }
-      */
+        algo.input(NavHintingAlgoInput(event, engineId))
       case _ => // anything else has already been dealt with by other parts of the input flow
     }
     Valid(event)
@@ -139,20 +124,30 @@ class NavHintingEngine() extends Engine() with JsonParser {
 }
 
 case class NHQuery(
-    user: String,
+    userId: Option[String], // ignored for non-personalized
     eligibleNavIds: Array[String])
   extends Query
 
 case class NHQueryResult(
-    navHints: Array[String])
+    navHints: Array[(String, Double)])
   extends QueryResult {
 
   def toJson: String = {
-    s"""
+    val jsonStart = s"""
      |{
-     |    "eligibleNavIds": $navHints
-     |}
+     |    "results": [
     """.stripMargin
+    val jsonMiddle = navHints.map{ case (k, v) =>
+      s"""
+         | {$k, $v},
+       """.stripMargin
+    }.mkString
+    val jsonEnd =
+      s"""
+         |]}
+       """.stripMargin
+    val retVal = jsonStart + jsonMiddle + jsonEnd
+    retVal
   }
 }
 

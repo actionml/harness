@@ -284,6 +284,8 @@ class CBDataset(resourceId: String) extends Dataset[CBEvent](resourceId) with Js
 }
  */
 
+
+
 case class CBUserUpdateEvent(
   entityId: String,
   // Todo:!!! this is the way they should be encoded, fix when we get good JSON

@@ -29,11 +29,13 @@ Periodically the Engine takes all conversion paths and refreshes the model so th
 
 There are other possible weighting decay functions that can be tested with cross-validation from site data including:
 
- - **Clicks to Conversion** this is the default if not specified and is simply 1/(number of clicks to conversion), so (1, 0.5. 0.3333, 0.25,...) This method does not use the timestamp of events only the order of the sequence.
- - **Exponential Decay** better know as the half-life method. This uses the time stamps of each event and decays the weight by ![](images/half-life-equation.png) "t" is the length of time until conversion, "&lambda;" is the [decay constant](https://en.wikipedia.org/wiki/Exponential_decay). The larger &lambda; the faster the decay. This defaults to &lambda;=1.0.
- - **Time to Conversion** this uses the time of the event to decay its weight as 1/(time till conversion). The time is expressed in seconds and is calculated as a duration at the time a user converts. In other words it is inverse of the number of seconds from the occurrence of the event until the user converts.
+ - **Clicks to Conversion ("click-order")** this is the default if not specified and is simply 1/(number of clicks to conversion), so (1, 0.5. 0.3333, 0.25,...) This method does not use the timestamp of events only the order of the sequence.
+ - **Exponential Decay ("half-life")** better know as the half-life method. This uses the time stamps of each event and decays the weight by ![](images/half-life-equation.png) "t" is the length of time until conversion, "&lambda;" is the [decay constant](https://en.wikipedia.org/wiki/Exponential_decay). The larger &lambda; the faster the decay. This param is set to the number of days at which time the event will have 1/2 the weight it had to start with. So always express this in number of days. The default is &lambda; = 1.0 day.
+ - **Time to Conversion ("click-times")** this uses the time of the event to decay its weight as 1/(time till conversion). The time is calculated as a duration at the time a user converts. In other words it is the inverse of the time from the occurrence of the event until the user converts.
 
 The model generated will be the sum of all weighted conversion vectors, ranked by summed weight. When a query is made, the highest weighted eligible navigation ids are recommended. Here **eligible** nav events are specified with each query by enumerating nav events that can be hinted by the app.
+
+The score has no absolute meaning an is only used to rank the eligible events by the highest value.
 
 ## Personalized Algorithm (Hinting v0.2.0 Planned)
 
@@ -57,20 +59,20 @@ This assumes the server is listening on localhost:9090, the default, and the Nav
 
 ## Navigation Events
 
-All user navigation events can be thought of as (user-id, nav-id, conversion, time) but they must be encoded into "events" of the form:
+User navigation events are the only type of input allowed. These have all information needed to create a model. Journeys internally are keyed to the user-id so the only exception to the usage event is the $delete event for removing any stored User Journey data. 
 
-```
-{
-    "event" : "nav-event",
-    "entityType" : "user",
-    "entityId" : "pferrel",
-    "targetEntityId" : "nav-id",
-    "properties" : {
-        "conversion": "conversion-id" // omit for no conversion
-    },
-    "eventTime": "ISO-8601 encoded string"
-}
-```
+Nav Events are encoded:
+
+    {
+        "event" : "nav-event",
+        "entityType" : "user",
+        "entityId" : "pferrel",
+        "targetEntityId" : "nav-id",
+        "properties" : {
+            "conversion": true | false
+        },
+        "eventTime": "ISO-8601 encoded string"
+    }
 
  - **event**: this must be named "nav-event"
  - **entityType**: this must be "user"
@@ -78,11 +80,24 @@ All user navigation events can be thought of as (user-id, nav-id, conversion, ti
  - **targetEntityId**: this should be a nav-id
  - **eventTime**: ISO-8601 encoded string for the time of the event.
  - **properties**: defined as...
-  - **conversion**: string that ids the conversion type. For instance, "account-creation", or "newsletter-signup", etc. If there is no conversion for the nav event, the field should be omitted.
+  - **conversion**: true of false, false if omitted.
+ - **eventTime**: ISO-8601 encoded string. This is a required field.
 
-## User Attributes
+As with other Engines to delete any Journey information attached to a user you should `$delete` the User with:
 
-User Attributes are not used in the non-personalized or in the personalized.
+    {
+        "event" : "$delete",
+        "entityType" : "user",
+        "entityId" : "pferrel",
+    }
+
+Since the number of Users will increase without bounds some external method for trimming them will eventually be required. Since old inactive users will not generally have meaningful Journeys is they have not converted in a long time, a TTL could be employed if the user's journey has not been modified in some period of time. The Nav Event will re-create the user later if they later become active again. 
+
+**Note**: the TTL is a DB feature and should be added to the Engine's JSON config file (Not done yet). **TBD for v0.1.0.** 
+
+## User Attributes (Non-Personalized)
+
+User Attributes are not used in the non-personalized hinting. The user-id is only used as a key to the journey they are on. Once a user converts, their journey contributes to the model predicting how likely the journey will lead to a conversion.
 
 ## Navigation Hinting Query
 
@@ -97,11 +112,11 @@ curl -H "Content-Type: application/json" -d '
 }' http://localhost:9090/engines/<engine-id>/queries
 ```
 
-This will get recommendations for user: "pferrel". These will be returned as a JSON object looking like this:
+This will get recommendations for user: "pferrel" but since NavHinting v0.1.0 is non-personlized the user-id will not affect the results. 
 
 ```
 {
-  "result": [{"nav-49": score-1},...]
+  "result": ["nav-49",...]
 }
 ```
 
@@ -117,8 +132,8 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   "engineFactory": "com.actionml.templates.nh.NavHintingEngine",
   "algorithm":{
     "numQueueEvents": 50,
-    "decayFunction": "clicks",
-    "halfLifeDecayLambda": 1.0,
+    "decayFunction": "click-order", // or "half-life" or "click-time"
+    "halfLifeDecayLambda": 1.0, // optional, used only with half-life decay function
     "num": 1
   }
 }
@@ -127,13 +142,13 @@ The NH Engine has a configuration file defined below. This defines parameters fo
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
  - **algorithm**: params known only by the algorithm, which is a part of the Template definition.
-  - **numQueueEvents**: number of events stored per user before a conversion. Older events are dropped once this limit is reached and newer ones are added.
-  - **decayFunction**: Must be one of `"clicks"`, `"click-time"`, `"half-life"`. the `"clicks"` and `"click-times"` function needs no other parameters. 
-  - **halfLifeDecayLambda**: defines how quickly the weight of the event diminishes via the equation: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`
-  - **num**: how many of the highest ranking hints to return. Default = 1.
+  - **numQueueEvents**: number of events stored per user before a conversion. Older events are dropped once this limit is reached and newer ones are added. The default is 50 if omitted.
+  - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
+  - **halfLifeDecayLambda**: defines how quickly the weight of the event diminishes via the equation: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`. This is a string corresponding to a duration and must be specified if the decay function is `"half-life"`, there is no default. The format for the string is, for example `"4 days"` or `"100 days"`. Days are the largest unit of a duration.
+  - **num**: how many of the highest ranking hints to return. Default = 1 if omitted.
  
 # Training
 
-Harness was designed for streaming data sources and in the case of the NH engine will train for incoming events incrementally so all you need to do is send events and make queries. 
+Harness was designed for streaming data sources and in the case of the NH non-personalized engine will train for incoming events incrementally so all you need to do is send events and make queries. 
 
-For Personalized Hinting a heavy weight background process can be triggered periodically that will not interrupt querying or input. This will use Spark and Elasticsearch.
+For Personalized Hinting a more heavy weight background process can be triggered periodically that will not interrupt querying or input. This will use Spark and Elasticsearch and is targeted for NH v0.2.0.

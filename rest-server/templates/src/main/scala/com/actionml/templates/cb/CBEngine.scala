@@ -49,7 +49,7 @@ class CBEngine() extends Engine() with JsonParser {
       }.andThen { p =>
         dataset.init(json).andThen { r =>
           algo.init(json, p.engineId)
-        } //( _ => algo.init(json, engineId))
+        }
       }
     }
   }
@@ -71,7 +71,7 @@ class CBEngine() extends Engine() with JsonParser {
 
   override def stop(): Unit = {
     logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
+    algo.stop()
   }
 
   override def status(): Validated[ValidateError, String] = {
@@ -102,7 +102,6 @@ class CBEngine() extends Engine() with JsonParser {
       dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true) // Some error like an ExecutionError in super.input happened
-    // todo: pass back indication of deeper error
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */

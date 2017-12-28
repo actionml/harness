@@ -29,6 +29,7 @@ import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
 
+import scala.collection.immutable.HashMap
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
@@ -41,21 +42,18 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
-  var usersDAO: SalatDAO[User, String] = _
+  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
+  val navHintsDAO: NavHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
 
-  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active"))
+  //var navHintsDAO: SalatDAO[Map[String, Double], String] = _
 
-  val completedJourneysDAO: CompletedJourneysDAO = CompletedJourneysDAO(connection(engineId)("completed"))
-
-  var trailLength: Option[Int] = None
+  var trailLength: Int = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
-      parseAndValidate[NHAlgoParams](json).andThen { ap =>
-        object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
-        usersDAO = UsersDAO
-        trailLength = Some(ap.numQueueEvents)
-        Valid(ap)
+      parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
+        trailLength = algoParams.numQueueEvents.getOrElse(50)
+        Valid(algoParams)
       }
       Valid(p) // Todo: trailLength may not have been set if algo params is not valid
     }
@@ -76,48 +74,35 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
     try {
       event match {
         case event: NHNavEvent => // nav events enqued for each user until conversion
-          val userOpt = usersDAO.findOneById(event.entityId)
-          val conversionOpt = event.properties.conversion
+
+          val conversion = event.properties.conversion.getOrElse(false)
           val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
-          if(conversionOpt.nonEmpty) {
-            // conversion so persist the user's queue or drop if user has converted already
-            if(userOpt.nonEmpty && unconvertedJourney.nonEmpty){ // ignore unless we have a trail started for the user
-              val newConversionJourney = unconvertedJourney.get.trail :+
-                (event.entityId, event.toNavEvent.eventTime.getMillis)
-              completedJourneysDAO.insert(Journey(event.entityId, newConversionJourney))
+          if(!conversion) { // store in the user journey queue
+            if (unconvertedJourney.nonEmpty) {
+              val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
+              if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
+                activeJourneysDAO.save(updatedJourney.get)
+                Valid(true)
+              } // else the first event for the journey is a conversion so ignore
+            } else { // no persisted journey so create it
+              activeJourneysDAO.insert(
+                Journey(
+                  event.entityId,
+                  Seq((event.targetEntityId, DateTime.parse(event.eventTime)))
+                )
+              )
+              Valid(true)
             }
-          } else { // no conversion so add event to active journeys and maybe create a user object
-            if(userOpt.isEmpty) { // no User fo create empty one
-              usersDAO.insert(User(event.entityId))
-            }
-            val newActiveTrail = unconvertedJourney.get.trail :+ (event.entityId, event.toNavEvent.eventTime.getMillis)
-            activeJourneysDAO.insert(Journey(event.entityId, newActiveTrail))
+            Valid(event)
+          } else {
+            Valid(event)
           }
-          Valid(event)
-
-        case event: NHUserUpdateEvent => // user profile update, modifies user object
-          logger.debug(s"Dataset: $engineId persisting a User Profile Update Event: $event")
-          // input to usageEvents collection
-          // Todo: validate fields first
-          val props = event.properties.getOrElse(Map.empty)
-          val userProps = User.propsToMapString(props)
-          usersDAO.insert(User(event.entityId, userProps))
-          Valid(event)
-
-        case event: NHUserUnsetEvent => // unset a property in a user profile
-          logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
-          val update = new MongoDBObject
-          val unsetPropNames = event.properties.get.keys.toArray
-
-          usersDAO.collection.update(MongoDBObject("userId" -> event.entityId), $unset(unsetPropNames: _*), true)
-          Valid(event)
 
         case event: HNDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
-              logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
-              //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.removeById(event.entityId)
+              logger.trace(s"Dataset: ${engineId} removing any journey data for user: ${event.entityId}")
+              activeJourneysDAO.removeById(event.entityId)
               Valid(event)
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
@@ -141,32 +126,9 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 
     parseAndValidate[NHRawEvent](json).andThen { event =>
       event.event match {
-        case "$set" => // either group or user updates
-          event.entityType match {
-            case "user" => // got a user profile update event
-              parseAndValidate[NHUserUpdateEvent](json)
-          }
-
-        case "$unset" => // remove properties
-          event.entityType match {
-            case "user" => // got a user profile update event
-              logger.trace(s"Dataset: ${engineId} parsing a user unset event: ${event.event}")
-              parseAndValidate[NHUserUnsetEvent](json).andThen { uue =>
-                if (uue.properties.isDefined) {
-                  Invalid(MissingParams("No parameters specified, event ignored"))
-                } else {
-                  Valid(uue)
-                }
-              }
-            case "group" | "testGroup" => // got a group initialize event, uses either new or old name
-              logger.warn(s"Dataset: ${engineId} parsed a group $$unset event: ${event.event} this is undefined " +
-                s"and ignored.")
-              Invalid(WrongParams("Group $unset is not allowed and ignored."))
-          }
-
         case "$delete" => // remove an object
           event.entityType match {
-            case "user" | "group" | "testGroup" => // got a user profile update event
+            case "user"  => // got a user profile update event
               logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
               parseAndValidate[HNDeleteEvent](json)
           }
@@ -176,6 +138,18 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
           parseAndValidate[NHNavEvent](json)
       }
     }
+  }
+
+  def enqueueAndUpdate(event: NHNavEvent, maybeJourney: Option[Journey]): Option[Journey] = {
+    if (maybeJourney.nonEmpty) {
+      val journey = maybeJourney.get
+      Some(
+        Journey(
+          journey._id,
+          (journey.trail :+ (event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
+        )
+      )
+    } else None
   }
 
 }
@@ -231,7 +205,7 @@ Some values are ignored
 }
 */
 case class NHNavEventProperties(
-  conversion: String)
+  conversion: Option[Boolean] = Some(false))
 
 case class NHNavEvent(
     event: String,
@@ -241,15 +215,16 @@ case class NHNavEvent(
     eventTime: String)
   extends NHEvent {
 
-  def toNavEvent: NavEvent = {
+/*  def toNavEvent: NavEvent = {
     NavEvent(
-      event = this.event,
+      _id = this.event,
       userId = this.entityId,
       itemId = this.targetEntityId,
-      converted = this.properties.conversion,
+      converted = this.properties.conversion.getOrElse(false),
       eventTime = new DateTime(this.eventTime)
     )
   }
+*/
 }
 
 case class NavEvent(
@@ -271,22 +246,27 @@ case class Journey(
 // active journeys not yet converted
 case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
 
-// journeys that have converted and are used in predictions
-case class CompletedJourneysDAO(completedJourneys: MongoCollection) extends SalatDAO[Journey, String](completedJourneys)
+// model = sum of converted jouney weighted vectors
+case class Hints(hints: Map[String, Double])
+case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[Hints, String](navHints)
+
+
+case class NavHint(
+    _id: String = "", // nav-id
+    score: Double = Double.MinPositiveValue) // scored nav-ids
+
+
 
 /* HNUser Comes in NHEvent partially parsed from the Json:
 {
   "event" : "$delete", // removes user: ammerrit
   "entityType" : "user"
-  "entityId" : "amerritt",
-  "eventTime" : "2014-11-02T09:39:45.618-08:00",
-  "creationTime" : "2014-11-02T09:39:45.618-08:00", // ignored, only created by PIO
+  "entityId" : "pferrel",
 }
  */
 case class HNDeleteEvent(
-  entityId: String,
-  entityType: String,
-  eventTime: String)
+    entityId: String,
+    entityType: String)
   extends NHEvent
 
 // allows us to look at what kind of specialized event to create
@@ -296,9 +276,8 @@ case class NHRawEvent (
     entityType: String,
     entityId: String,
     targetEntityId: Option[String] = None,
-    properties: Option[Map[String, Any]] = None,
-    eventTime: String, // ISO8601 date
-    creationTime: String) // ISO8601 date
+    properties: Option[Map[String, Boolean]] = None,
+    eventTime: String) // ISO8601 date
   extends NHEvent
 
 trait NHEvent extends Event

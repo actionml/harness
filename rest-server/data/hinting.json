@@ -1,10 +1,10 @@
 {
   "engineId": "hinting",
-  "engineFactory": "com.actionml.templates.nh.NavHintingEngine",
+  "engineFactory": "com.actionml.templates.navhinting.NavHintingEngine",
   "algorithm":{
     "numQueueEvents": 50,
-    "decayFunction": "clicks",
+    "decayFunction": "half-life",
     "halfLifeDecayLambda": 1.0,
-    "num": 1
+    "num": 6
   }
 }
