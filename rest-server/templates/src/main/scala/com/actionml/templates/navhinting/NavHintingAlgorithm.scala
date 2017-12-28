@@ -45,7 +45,6 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   //private val actors: ActorSystem = ActorSystem(dataset.resourceId)
 
-  var writer: Future[Map[String, Double]] = _
   var params: NHAlgoParams = _
   val resourceId: String = dataset.resourceId
   var model: Map[String, Double] = Map.empty
