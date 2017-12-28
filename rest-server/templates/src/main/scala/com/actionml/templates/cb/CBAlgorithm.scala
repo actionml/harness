@@ -57,11 +57,6 @@ import java.nio.file.{Files, Path, Paths}
 import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
 
-/** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
-  * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
-  * of events when a new one is detected, then updating the model for that group for subsequent queries.
-  * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
-  */
 case class CBAlgorithmInput(
     user: User,
     event: CBUsageEvent,
@@ -71,12 +66,18 @@ case class CBAlgorithmInput(
 
 case class Train(datum: CBAlgorithmInput)
 
+/** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
+  * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
+  * of events when a new one is detected, then updating the model for that group for subsequent queries.
+  * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
+  */
 class CBAlgorithm(dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
 
   val serverHome = sys.env("HARNESS_HOME")
 
-  private val actors = ActorSystem(dataset.resourceId) // todo: should this be a constructor param?
+  private val actors = ActorSystem(dataset.resourceId)
+
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
   var resourceId: String = _

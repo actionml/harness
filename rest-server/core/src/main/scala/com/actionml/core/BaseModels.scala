@@ -1,6 +1,3 @@
-package com.actionml.core.model
-
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,6 +14,11 @@ package com.actionml.core.model
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package com.actionml.core.model
+
+import org.joda.time.DateTime
+
 import scala.collection.JavaConverters._
 
 case class User(

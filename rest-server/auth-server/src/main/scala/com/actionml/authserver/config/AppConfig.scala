@@ -25,14 +25,15 @@ object AppConfig {
   )
 }
 
-case class AuthServerConfig(host: String,
-                            port: Int = 9099,
-                            ssl: Boolean,
-                            mongoDb: MongoDbConfig,
-                            accessTokenTtl: Long = 2 * 60 * 60 * 1000,
-                            authorizationEnabled: Boolean,
-                            clients: List[Client],
-                            roleSets: List[RoleSet])
+case class AuthServerConfig(
+  host: String,
+  port: Int = 9099,
+  ssl: Boolean,
+  mongoDb: MongoDbConfig,
+  accessTokenTtl: Long = 2 * 60 * 60 * 1000,
+  authorizationEnabled: Boolean,
+  clients: List[Client],
+  roleSets: List[RoleSet])
 
 case class ActorSystemConfig(name: String)
 

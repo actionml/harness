@@ -1,0 +1,6 @@
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-1", "properties" : {}, "eventTime": "2017-12-22T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-2", "properties" : {}, "eventTime": "2017-12-23T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-3", "properties" : {}, "eventTime": "2017-12-26T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-4", "properties" : {}, "eventTime": "2017-12-27T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-5", "properties" : {}, "eventTime": "2017-12-28T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "joe", "targetEntityId" : "nav-6", "properties" : {}, "eventTime": "2017-12-29T18:10:34Z"}

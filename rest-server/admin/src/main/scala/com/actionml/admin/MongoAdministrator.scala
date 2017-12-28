@@ -46,7 +46,17 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       val engineFactory = engine.get("engineFactory").toString
       val params = engine.get("params").toString
       // create each engine passing the params
-      engineId -> newEngineInstance(engineFactory).initAndGet(params)
+      val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
+      if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
+        logger.error(s"Error creating engineId: $engineId from $params" +
+          s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
+          s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
+          s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
+        // Todo: we need a way to cleanup in this situation
+        enginesCollection.remove(MongoDBObject("engineId" -> engineId))
+        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+      }
+      e
     }.filter(_._2 != null).toMap
     drawInfo("Harness Server Init", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
@@ -70,36 +80,34 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   def addEngine(json: String): Validated[ValidateError, EngineId] = {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
-      engines = engines + (params.engineId -> newEngineInstance(params.engineFactory).initAndGet(json))
-      if (engines(params.engineId) != null) {
-        if (enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
-          // re-initialize
-          logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-          val query = MongoDBObject("engineId" -> params.engineId)
-          val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
-          enginesCollection.findAndModify(query, update)
-        } else {
-          //add new
-          logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-          val builder = MongoDBObject.newBuilder
-          builder += "engineId" -> params.engineId
-          builder += "engineFactory" -> params.engineFactory
-          builder += "params" -> json
-          enginesCollection += builder.result()
-
-        } // ignores case of too many engine with the same engineId
+      val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
+      if (newEngine != null && enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
+        // re-initialize
+        logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
+        val query = MongoDBObject("engineId" -> params.engineId)
+        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+        enginesCollection.findAndModify(query, update)
         Valid(params.engineId)
+      } else if (newEngine != null) {
+        //add new
+        engines += params.engineId -> newEngine
+        logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
+        val builder = MongoDBObject.newBuilder
+        builder += "engineId" -> params.engineId
+        builder += "engineFactory" -> params.engineFactory
+        builder += "params" -> json
+        enginesCollection += builder.result()
+        Valid(params.engineId)
+
       } else {
-        // init failed
-        engines = engines - params.engineId //remove bad engine
-        logger.error(s"Failed to re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        Invalid(ParseError(s"Failed to re-initializing engine for resource-id: ${ params.engineId } with new params $json"))
+        // ignores case of too many engine with the same engineId
+        Invalid(ParseError(s"Unable to create Engine: ${params.engineId}, the config JSON seems to be in error"))
       }
     }
   }
 
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
-    if (engines.keySet.contains(engineId)) {
+    if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
@@ -137,7 +145,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       // Todo: implement
       logger.info("Using 'harness update -c <some-engine-json-file>' is not implemented yet")
     }
-    if (engines.keySet.contains(engineId)) {
+    if (engines.contains(engineId)) {
       val engine = engines(engineId)
       val params = engineJson.getOrElse(enginesCollection.findOne(MongoDBObject("engineId" -> engineId)).get.get("params").toString)
       if (dataDelete) {
