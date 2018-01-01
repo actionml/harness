@@ -16,6 +16,9 @@
  */
 
 package com.actionml.templates.navhinting
+import java.io.{FileInputStream, FileNotFoundException, FileOutputStream, IOException}
+import java.nio.file.Paths
+
 import akka.actor._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -43,30 +46,35 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   val serverHome = sys.env("HARNESS_HOME")
 
-  //private val actors: ActorSystem = ActorSystem(dataset.resourceId)
+  //private val actors: ActorSystem = ActorSystem(dataset.engineId)
+
+  var canStartWriter = true // there should be only one Future at a time persisting the model
+  // this acts as a block for creating new writing Futures if it isDefined and !isComplete
+  var numUpdates = 0
 
   var params: NHAlgoParams = _
-  val resourceId: String = dataset.resourceId
   var model: Map[String, Double] = Map.empty
   var activeJourneys: Map[String, Seq[(String, DateTime)]] = Map.empty // kept as key - user-id, sequence of nav-ids and timestamps
 
-  override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[NHAllParams](json).andThen { p =>
-      if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
-        params = p.algorithm.copy()
-        // init the in-memory model, from which predicitons will be made and to which new conversion Journeys will be added
-        dataset.activeJourneysDAO.find(allCollectionObjects).foreach { j =>
+  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(json, engine).andThen { _ =>
+      parseAndValidate[NHAllParams](json).andThen { p =>
+        if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
+          params = p.algorithm.copy()
+          // init the in-memory model, from which predicitons will be made and to which new conversion Journeys will be added
+          dataset.activeJourneysDAO.find(allCollectionObjects).foreach { j =>
 
-          activeJourneys += (j._id -> j.trail)
+            activeJourneys += (j._id -> j.trail)
+          }
+          // TODO: create model from conversion Trails
+          // trigger Train and wait for finish, then input will trigger Train and Query will us the latest trained model
+          model = dataset.navHintsDAO.findOne(allCollectionObjects).getOrElse(Hints(Map.empty)).hints
+          //trainer = Some(new NavHintTrainer(convertedJourneys, params, engineId, model, this).self)
+          // TODO: should train and wait for completion
+          Valid(true)
+        } else { //bad decay function name
+          Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}"))
         }
-        // TODO: create model from conversion Trails
-        // trigger Train and wait for finish, then input will trigger Train and Query will us the latest trained model
-        model = dataset.navHintsDAO.findOne(allCollectionObjects).getOrElse(Hints(Map.empty)).hints
-        //trainer = Some(new NavHintTrainer(convertedJourneys, params, resourceId, model, this).self)
-        // TODO: should train and wait for completion
-        Valid(true)
-      } else { //bad decay function name
-        Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}"))
       }
     }
   }
@@ -106,23 +114,65 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   /** update the model with a Future for every input. This may cause Futures to accumulate */
   def updateModel(convertedJourney: Journey,  now: DateTime): Unit = {
     applyDecayFunction(convertedJourney, now).map { weightedVectors =>
-      weightedVectors.foreach { case (navId, weight) =>
-        if (model.contains(navId)){ // add this part of the new converted journey to the vector
-          model += navId -> (model(navId) + weight)
-        } else { // add a new vector element
-          model += navId -> weight
-        }
-      }
+      import cats.Semigroup
+      import cats.implicits._
+      Semigroup[Map[String, Double]].combine(model, weightedVectors.toMap)
+    }.map { m =>
+      model = m
+      persistModel()
     }
-    writeModelFile()
-
   }
 
-  def writeModelFile(): Unit = {
+  /* works if we save to a file, but using a db
+  def persistModel(): Unit = {
+    numUpdates += 1
+    if (numUpdates % params.updatesPerModelWrite.getOrElse(10) == 0 ) { // time to persist, ideally every 10 updates
+      if (canStartWriter) { // its done so start a new write future
+        canStartWriter = false
+        Future[Unit] {
+          // write a temp model file and move to model file when done
+          import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+          import java.nio.file.Files.{copy, move}
+          import java.nio.file.Paths.get
 
-    Future {
+          implicit def toPath (filename: String) = get(filename)
 
-    }
+          var outTemp = None: Option[FileOutputStream]
+          var inOldModel = None: Option[FileInputStream]
+          var outBackupModel = None: Option[FileOutputStream]
+
+          try {
+            outTemp = Some(new FileOutputStream(modelPath + ".tmp")) // where to write
+            outTemp.get.write(serialise(model)) // write latest model to tmp file
+            copy(Paths.get(modelPath), Paths.get(modelPath + ".backup"), REPLACE_EXISTING)
+            move(Paths.get(modelPath + ".tmp"), Paths.get(modelPath), REPLACE_EXISTING)
+          } catch {
+            case e: IOException =>
+              logger.error("Error writing the model update, if this persists you are not writing the model " +
+                "and you need to resolve the issue.", e)
+            case e: FileNotFoundException =>
+              logger.error("Error finding a writable location for the model or its backup.", e)
+          } finally {
+            logger.trace("Closing all file streams.")
+            if (outTemp.isDefined) outTemp.get.close // others are closed by the function????
+          }
+        }.onComplete(_ => canStartWriter = true) // attach a callback to release the lock
+      } // Future is still running so ignore this opportunity to write and try again later after more updates
+    } // wait until its time to write
+  }
+*/
+
+  def persistModel(): Unit = {
+    numUpdates += 1
+    if (numUpdates % params.updatesPerModelWrite.getOrElse(10) == 0 ) { // save after some number of updates of the in-memory model
+      if (canStartWriter) { // its done so start a new write future, Todo: remove when using async client
+        canStartWriter = false
+        Future[Unit] {
+          // write the model to a DB
+          dataset.navHintsDAO.save(Hints(model))
+        }.onComplete(_ => canStartWriter = true) // attach a callback to release the lock
+      } // Future is still running so ignore this opportunity to write and try again later after more updates
+    } // wait until its time to write
   }
 
   def applyDecayFunction(journey: Journey, now: DateTime): Future[Seq[(String, Double)]] = {
@@ -207,7 +257,8 @@ case class NHAlgoParams(
     numQueueEvents: Option[Int] = Some(50),
     decayFunction: Option[String] = Some("click-order"), // or click-times, or half-life
     halfLifeDecayLambda: Option[Float] = None,
-    num: Option[Int] = Some(1))
+    num: Option[Int] = Some(1),
+    updatesPerModelWrite: Option[Int] = Some(1))
   extends AlgorithmParams
 
 object DecayFunctionNames {

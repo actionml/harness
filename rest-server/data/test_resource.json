@@ -5,13 +5,13 @@
   "comment": "add mirrorContainer to point to a location on your system and enable mirroring to that location",
   "comment": "add sharedDBName for sharing a DBs for Users, should be named with lowercase and underscore separator, aka snake case",
   "sharedDBName": "harness_shared",
+  "modelContainer": "/Users/pat/big-data/harness/models/",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
     "comment": "modelContainer is output an should be a full directory path on your local fs",
-    "modelContainer": "/Users/pat/big-data/harness/models/",
     "maxClasses": 3
   }
 }

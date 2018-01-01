@@ -24,7 +24,7 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.User
+import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
@@ -74,50 +74,44 @@ case class Train(datum: CBAlgorithmInput)
 class CBAlgorithm(dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
 
-  val serverHome = sys.env("HARNESS_HOME")
-
   private val actors = ActorSystem(dataset.resourceId)
 
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
-  var resourceId: String = _
-  var modelPath: String = _
 
   // from the Dataset determine which groups are defined and start training on them
 
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
-    //val response = parseAndValidate[ScaffoldAlgoParams](json)
-    resourceId = rsrcId
-    parseAndValidate[CBAllParams](json).andThen { p =>
-      modelPath = p.algorithm.modelContainer.getOrElse(serverHome) + resourceId
-      params = p.algorithm.copy(
-        modelName = modelPath,
-        namespace = resourceId)
-      val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
-      logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
-      val exists = trainers.keys.toList
-      /*val diff = groupEvents.filterNot { case (key, _) =>
-        exists.contains(key) && dataset.GroupsDAO.findOne(DBObject("_id" -> key)).nonEmpty
+  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(json, engine).andThen { _ =>
+      parseAndValidate[CBAllParams](json).andThen { p =>
+        params = p.algorithm.copy(
+          namespace = engineId)
+        val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
+        logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
+        val exists = trainers.keys.toList
+        /*val diff = groupEvents.filterNot { case (key, _) =>
+          exists.contains(key) && dataset.GroupsDAO.findOne(DBObject("_id" -> key)).nonEmpty
+        }
+
+        diff.foreach { case (trainer, collection) =>
+          val group = dataset.GroupsDAO.findOne(DBObject("_id" -> trainer)).get
+          val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, engineId,
+            modelContainer), trainer)
+          trainers += trainer → actor
+        }
+        */
+
+        // do this before any actors are created since they need the VW instance
+        vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
+
+        groupEvents.foreach(groupName => add(groupName._1))
+        // params .close() should write to the file
+
+        Valid(true)
       }
-
-      diff.foreach { case (trainer, collection) =>
-        val group = dataset.GroupsDAO.findOne(DBObject("_id" -> trainer)).get
-        val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, resourceId,
-          modelPath), trainer)
-        trainers += trainer → actor
-      }
-      */
-
-      // do this before any actors are created since they need the VW instance
-      vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
-
-      groupEvents.foreach( groupName => add(groupName._1))
-      // params .close() should write to the file
-
-      Valid(true)
     }
   }
 
@@ -150,7 +144,7 @@ class CBAlgorithm(dataset: CBDataset)
           while (!Files.deleteIfExists(Paths.get(modelPath))) {}
       }, 3 seconds) } catch {
       case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 3 second timeout.")
+        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
     }
   }
 
@@ -159,17 +153,17 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // not used, let VW decide how to do caching
+    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW decide how to do caching
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
-    val newModel = s" -f ${params.modelName} "
-    val trainedModel = s" -i ${params.modelName} "
+    val newModel = s" -f ${modelPath} "
+    val trainedModel = s" -i ${modelPath} "
 
     // if the modelName already exists, use ot to initialize VW otherwise, create a new model
     // the difference is -i for initial model, or -f for new model (I think)
     val initVWConfig = trainedModel + checkpointing
     val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing
-    val newVW: VWMulticlassLearner = if (fileExists(params.modelName)) {
+    val newVW: VWMulticlassLearner = if (fileExists(modelPath)) {
       logger.info(s"VW: config: \n$initVWConfig\n")
       VWLearners.create(initVWConfig)
     } else {
@@ -185,18 +179,18 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // not used, let VW manage cahce files
+    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW manage cahce files
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
-    val newModel = s" -f ${params.modelName} "
-    val trainedModel = s" -i ${params.modelName} "
+    val newModel = s" -f ${modelPath} "
+    val trainedModel = s" -i ${modelPath} "
 
     // holly crap this is the only way to get a model saved??????????
     val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
     // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
     logger.trace(s"Checkpointing model")
-    vw.saveModel(new File(params.modelName))
+    vw.saveModel(new File(modelPath))
   }
 
   def fileExists(modelpath: String): Boolean = {
@@ -233,7 +227,7 @@ class CBAlgorithm(dataset: CBDataset)
           dataset.usersDAO,
           params,
           dataset.GroupsDAO.findOneById(groupName).get,
-          resourceId,
+          engineId,
           modelPath,
           this.asInstanceOf[CBAlgorithm]),
         groupName)
@@ -246,7 +240,7 @@ class CBAlgorithm(dataset: CBDataset)
   }
 
   def getVariant(query: CBQuery): CBQueryResult = {
-    //val vw = new VW(" -i " + modelPath)
+    //val vw = new VW(" -i " + modelContainer)
 
     val group = dataset.GroupsDAO.findOneById(query.groupId).get
 
@@ -257,7 +251,7 @@ class CBAlgorithm(dataset: CBDataset)
 
     val user = dataset.usersDAO.findOneById(query.user).getOrElse(User("",Map.empty))
 
-    val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, resourceId)
+    val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
 
 
     logger.info(s"Query string to VW: \n$queryText")
@@ -339,8 +333,6 @@ case class CBAlgoParams(
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
     bitPrecision: Int = 24,
-    modelContainer: Option[String] = None,
-    modelName: String = "",
     namespace: String = "n",
     maxClasses: Int = 3)
   extends AlgorithmParams
@@ -481,8 +473,8 @@ object SingleGroupTrainer {
     //   entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId
     // }.mkString(" ")
 
-    //val vwString = classString + " |" +  resourceId + " " + // may need to make a namespace per group by resourceId+testGroupId
-    val vwString = classString + " | " + // may need to make a namespace per group by resourceId+testGroupId
+    //val vwString = classString + " |" +  engineId + " " + // may need to make a namespace per group by engineId+testGroupId
+    val vwString = classString + " | " + // may need to make a namespace per group by engineId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
           user.propsToMapOfSeq.map { case(propId, propSeq) =>

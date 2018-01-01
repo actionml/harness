@@ -18,7 +18,7 @@ resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  version := "0.1.0-SNAPSHOT",
+  version := "0.1.1-SNAPSHOT",
   scalaVersion := "2.11.8",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),

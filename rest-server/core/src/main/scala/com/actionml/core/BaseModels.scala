@@ -48,7 +48,8 @@ case class GenericEngineParams(
     engineFactory: String,
     mirrorType: Option[String] = None,
     mirrorContainer: Option[String] = None,
-    sharedDBName: Option[String] = None) extends EngineParams
+    sharedDBName: Option[String] = None,
+    modelContainer: Option[String] = None) extends EngineParams
 
 // allows us to look at what kind of specialized event to create
 case class GenericEvent (

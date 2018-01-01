@@ -35,8 +35,12 @@ abstract class Engine extends LazyLogging with JsonParser {
   var engineId: String = _
   var mirroring: Mirroring = _
   private var mirroringDiabled = true
+  val serverHome = sys.env("HARNESS_HOME")
+  var modelContainer: String = _
 
-  private def createSharedResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
+  private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
+    engineId = params.engineId
+    modelContainer = params.modelContainer.getOrElse(serverHome) + engineId
     if (params.mirrorContainer.isEmpty) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       Valid(true)
@@ -56,7 +60,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   }
 
   def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen(createSharedResources)
+    parseAndValidate[GenericEngineParams](json).andThen(createResources)
   }
 
   def initAndGet(json: String): Engine

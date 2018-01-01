@@ -48,7 +48,7 @@ class CBEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          algo.init(json, p.engineId)
+          algo.init(json, this)
         }
       }
     }

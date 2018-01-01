@@ -47,7 +47,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          algo.init(json, p.engineId)
+          algo.init(json, this)
         }
       }
     }
@@ -69,7 +69,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
   }
 
   override def stop(): Unit = {
-    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
+    logger.info(s"Waiting for NavHintingAlgorithm with id: $engineId to terminate")
     algo.stop()
   }
 

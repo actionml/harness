@@ -247,7 +247,7 @@ case class Journey(
 case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
 
 // model = sum of converted jouney weighted vectors
-case class Hints(hints: Map[String, Double])
+case class Hints(hints: Map[String, Double], _id: String = "1")
 case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[Hints, String](navHints)
 
 

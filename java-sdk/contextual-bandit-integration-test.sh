@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo
-echo "Usage: 2-shared-users-integration-test.sh run from harness/java-sdk"
+echo "Usage: contextual-bandit-integration-test.sh run from harness/java-sdk"
 echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
