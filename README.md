@@ -2,10 +2,10 @@
 
 # Harness Overview
 
-This project implements a microservice based Machine learning server. It provides an API that is a Template for ML Engine and the services common to taking input, calculating models, and serving results. It's main features are:
+This project implements a microservice based Machine Learning Server. It provides an API for plug-in Engines (the API is called a Template) that implements some Algorithm and provides the scaffolding to implement all input and query serving needs including the following features:
 
- - **TLS/SSL** support from akka-http
- - **Authentication** support using server to server bearer tokens, similar to basic auth but from the OAuth 2.0 spec
+ - **TLS/SSL** support from akka-http on the Server as well as in the Java and Python Client SDKs
+ - **Authentication** support using server to server bearer tokens, similar to basic auth but from the OAuth 2.0 spec. Again on both Server and Client SDKs.
  - **Microservice Architecture**:
      - **REST-based**: for slightly more Heavy-weight HTTP(S) based separate process microservices with REST APIs using optional TLS and Auth. The Auth server is implemented, for example, using the REST Microservice framework via akka-http.
      - **Actor-based** light-weight microservices based on the akka Event Bus for clustered scalable lightweight microservices
@@ -15,29 +15,31 @@ This project implements a microservice based Machine learning server. It provide
     - **Lambda**: Batch learners that update or re-compute models in the background during realtime input and queries.
     - **Hybrids and Reinforcement Learning**
  - **Compute-Engine Neutral**: supports any compute engine or pre-packaged algorithm library that is JVM compatible. For example Spark, TensorFlow, Vowpal Wabbit, MLlib, Mahout, ... Does not require Spark, or HDFS.
- - **Scalability**: Engines implemented using either microservice method  and either leanring style can be scaled by deploying on multiple nodes. The simplest way to do this is using the Light-weight Actor-based microservice method. 
+ - **Scalability**: Engines implemented using either microservice method  and either leanring style can be scaled by deploying on multiple nodes. The simplest way to do this is using the Light-weight Actor-based microservice method or by basing the algorithm's implementation on clustered services like Spark.
  - **Scaldi Implementation Injection**:
      - **Main Metadata Store**: is injected at server startup and only supports MongoDB at present.
      - **Input Mirroring**: can be either the server machine's file system or HDFS and the implementation is injected at startup and controlled by configuration
-     - **DAO Abstraction**: Virtually any store can be implemented using the DAO/DAOImpl Pattern (Data Access Object). There is an example in the MongoDB metadata store used by the Administrator. 
+     - **DAL Abstraction**: Virtually any store can be implemented using the DAL/DAO/DAOImpl Pattern (Data Access Layer). There is an example included using MongoDB. 
      - **General Plugability**: implemented through Scaldi dependency injection, often based on configuration parameters. This is available to all Engines
  - **Realtime Input Validation**: Though optional, Engines are encouraged to supply realtime input validation and a framework based on the Cats library is implemented to support this.
- - **Client Side Support**: SDKs implement support for TLS/SSL and Auth and have both synchronous and async versions of the API.
+ - **Client Side Support**: As stated above SDKs implement support for TLS/SSL and Auth and are designed for asynchronous non-blocking use for the highest throughput possible (though synchronous blocking use is also supported)
      - **Java SDK**: is supplied for Event and Query endpoints 
      - **Python SDK**: implements client side for all endpoints and is used by the Python CLI.
      - **REST without SSL and Auth** is simple and can use any HTTP client&mdash;curl, etc. SSL and Auth complicate the client but the API is well specified.
  - **Command Line Interface (CLI)** is implemented as calls to the REST API and so is securely remotable.
  - **Secure Multi-tenancy**: will run multiple Engines with separate Permissions
-     - **Multiple Engine-IDs** allow any number of variations on one Engine type or multiple Engine types. One Engine is the simplest case.
+     - **Multiple Engine-IDs**: allow any number of variations on one Engine type or multiple Engine types. One Engine is the simplest case. By default these all run in a single process and so are lightweight.
      - **Multiple Permissions**: allow user+secret level access control to protect one "tenant" from another. Or Auth can be disabled to allow all Engines access without a user+secret for simple deployments.
  - **Mutable Object and Immutable Event Streams**: can coexist in Harness allowing the store to meet the needs of the algorithm.
- - **User and Permission Management**: Built-in user+secret generation with permissions management at the Engine-Id level.
+ - **User and Permission Management**: Built-in user+secret generation with permissions management at the Engine instance level.
  - **Data Set Compatibility** with Apache PredictionIO is possible as is the case with the Contextual Bandit Engine, which exists in a PredictionIO Template. This is not enforced and the various data objects sent to or received from an Engine through Harness are completely flexible and can be anything encodable in JSON.
- - **Async and Sync SDKs and Internal APIs**: both our outward facing REST APIs as seen from the SDK and most of our internal APIs including those that communicate with Databases are based on Asynchronous/nonblocking usage. The SDKs also support the simpler synchronous style. Asynchronous usage yields optimal performance since no single call blocks any process.
+ - **Async SDKs and Internal APIs**: both our outward facing REST APIs as seen from the SDK and most of our internal APIs including those that communicate with Databases are based on Asynchronous/non-blocking usage.
  - **Provisioning** can be done by time proven binary installation or optionally (where ease of deployment, configuration, or scaling is required) using modern container methods:
     - **Containerized** optional containerized provisioning using Docker
-    - **Container Orchestration** optional container orchestration with Kubernettes and Consul.io
+    - **Container Orchestration** optional container orchestration with Kubernettes
     - **Instance Creation** optional compute and storage resource creation using cloud platform neutral Terraform
+
+**Note**: not all of the above are implemented in early versions, see [version history](versions.md)  for specifics
  
 # Requirements
 
@@ -106,9 +108,9 @@ The most obvious and common Compute Engine is Apache Spark but it is the respons
 
 ## Mirror Event Store
 
-Events may be any valid form of JSON. We often choose to follow the conventions created by the Apache PredictionIO Project so we can maintain data level compatibility with PIO templates. However due to the fact that Kappa-style online learners do not store events but discard them nce their model is updated we provide a method to mirror the event for replay while debugging an Engine or while learning to send the right events to the Engine. Engines validate events and will respond with HTTP errors when malformed events come in. This can only be know by the Engine so the raw JSON events are mirrored even if they are not valid so they are more easily refined and fixed. Once the events pass the engine's validation this mechanism can also be used as a form of backup for Kappa online learners since playback of all valid events will restore the correct state of the model at the end. 
+Events may be any valid form of JSON. We often choose to follow the conventions created by the Apache PredictionIO Project so we can maintain data level compatibility with PIO templates. However due to the fact that Kappa-style online learners do not store events but discard them as their model is updated, Harness provides a method to mirror the eventa for replay while debugging an Engine or while learning to send the right events to the Engine. Engines validate events and will respond with HTTP errors when malformed events come in. This can only be known by the Engine so the raw JSON events are mirrored even if they are not valid. This allows them to be  more easily refined and fixed. Once the events pass the engine's validation this mechanism can also be used as a form of backup for Kappa online learners since playback of all valid events will restore the correct state of the model at the end. 
 
-For Lambda-style learners the mirror plays the same role as a sort of automatic backup, with built-in controls for how many events are preserved in rotation form. in any Lambda system events cannot be allowed to accumulate forever so most Lambda engines implement some form of moving time window (imaging 1 year of events for a big ecommerce site) this can also be used to limit the number of events mirrored.
+For Lambda-style learners the mirror plays the same role as a sort of automatic backup, with built-in controls for how many events are preserved in rotation form. in any Lambda system events cannot be allowed to accumulate forever so most Lambda engines implement some form of moving time window (imagine 1 year of events for a big ecommerce site recommender).
 
 # Kappa Learning
 
@@ -139,7 +141,7 @@ See the Java SDK for more specifics. There are 2 primary APIs in the SDK for sen
 Disregarding the optional TLS and Auth, simple input and queries look like this:
 
     POST /engines/<engine-id>/events
-        Request Body: JSON for PIO-like event
+        Request Body: JSON for event
         Response Body: na
         
     POST /engines/<engine-id>/queries
@@ -154,7 +156,7 @@ Commands that do not correspond to an Engine function are REST resources just li
      
 # [Security](security.md)  
 
-pio-kappa optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.
+Harness optionally supports SSL and Server to Server Authentication. See the [Security](security.md) section for more details.
     
 # [Java SDK](java-sdk.md)
 
