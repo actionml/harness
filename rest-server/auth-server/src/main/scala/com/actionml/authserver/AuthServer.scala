@@ -50,6 +50,7 @@ class AuthServer(implicit inj: Injector) extends AkkaInjectable with Directives 
 
     val password: Array[Char] = sslConfig.config.keyManagerConfig.keyStoreConfigs.head.password.get.toCharArray
 
+    //TODO replace with env variables
     val ks: KeyStore = KeyStore.getInstance("JKS")
     val keystore: InputStream = getClass.getClassLoader.getResourceAsStream("keys/localhost.jks")
 
