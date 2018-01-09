@@ -40,7 +40,7 @@ class UsersServiceSpec extends FlatSpec with Matchers {
         RoleSet("admin", List(user.permissions, engine.read, query.create, event.create)),
         RoleSet("client", List(engine.read, query.create, event.create))
       )
-      override lazy val config = AppConfig(AuthServerConfig(roleSets = roleSets, host = "", ssl = false, mongoDb = MongoDbConfig("", ""), authorizationEnabled = false, clients = List.empty), ActorSystemConfig(""))
+      override lazy val config = AppConfig(AuthServerConfig(roleSets = roleSets, host = "", sslEnabled = true, mongoDb = MongoDbConfig("", ""), authorizationEnabled = false, clients = List.empty), ActorSystemConfig(""))
     }
   }
 }

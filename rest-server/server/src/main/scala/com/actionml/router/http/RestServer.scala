@@ -47,7 +47,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
-    if (config.ssl) {
+    if (config.sslEnabled) {
       Http().setDefaultServerHttpContext(https)
     }
     logger.info(s"Start http server $host:$port")
