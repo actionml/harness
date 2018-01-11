@@ -64,7 +64,7 @@ User navigation events are the only type of input allowed. These have all inform
 Nav Events are encoded:
 
     {
-        "event" : "nav-event",
+        "event" : "nav-event", // value is ignored since this is the only event except $delete
         "entityType" : "user",
         "entityId" : "pferrel",
         "targetEntityId" : "nav-id",
