@@ -131,23 +131,26 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   "engineId": "hinting",
   "engineFactory": "com.actionml.templates.nh.NavHintingEngine",
   "algorithm":{
-    "numQueueEvents": 50,
+    "numQueueEvents": 50, // optional 50 by default
     "decayFunction": "click-order", // or "half-life" or "click-time"
-    "halfLifeDecayLambda": 1.0, // optional, used only with half-life decay function
-    "num": 1,
-    "updatesPerModelWrite": 1
+                                    // optional default "click-order"
+    "halfLifeDecayLambda": 1.0, // optional, used only with half-life
+                                // decay function, number of days
+                                // defaulted to 1
+    "num": 1, // optional default 1
+    "updatesPerModelWrite": 10 // optional default 10
   }
 }
 ```
 
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
- - **algorithm**: params known only by the algorithm, which is a part of the Template definition.
+ - **algorithm**: params known only by the algorithm
   - **numQueueEvents**: number of events stored per user before a conversion. Older events are dropped once this limit is reached and newer ones are added. The default is 50 if omitted.
   - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
-  - **halfLifeDecayLambda**: defines how quickly the weight of the event diminishes via the equation: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`. This is a string corresponding to a duration and must be specified if the decay function is `"half-life"`, there is no default. The format for the string is, for example `"4 days"` or `"100 days"`. Days are the largest unit of a duration.
-  - **num**: how many of the highest ranking hints to return. Default = 1 if omitted.
-  - **updatesPerModelWrite**: how many conversions to process before the in-memory live model is saved. Any conversions between the last save and the current state of the Engine will be lost on shutdown (this is usually not a big problem unless the site has very low volume of conversions. Pick a number here that is high for a conversions per day site and low for a lower volume site. **Note**: User Journeys are saved as they happen and so are not lost, only conversions that affect the hinting model may be lost. If this setting is set to 1, no conversions will be lost but this will slow the processing of conversions. Test to see if speed of conversion processing becomes a problem and adjust this setting accrdingly
+  - **halfLifeDecayLambda**: optional , default is 1 if omitted. Defines how quickly in days the weight of the event is 0.5 via: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`.
+  - **num**: how many of the highest ranking hints to return. Optionsl, default = 10 if omitted.
+  - **updatesPerModelWrite**: how many conversions to process before the in-memory live model is saved to the DB. Any conversions between the last save and the current state of the Engine will be lost on shutdown (this is usually not a big problem. Pick a number here that is high for a high conversions per day site and low for a lower volume site. **Note**: User Journeys are saved as they happen and so are not lost, only conversions that affect the hinting model may be lost. If this setting is set to 1, no conversions will be lost but this will slow the processing of conversions. Test to see if speed of conversion processing becomes a problem and adjust this setting accordingly
  
 # Training
 
