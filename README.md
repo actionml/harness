@@ -55,18 +55,25 @@ Each Engine has its own requirements driven by decisions like what compute engin
 
 # Microservices
 
-There are 2 types of microservices in Harness:
+There are 3 types of Engine microservices in Harness:
 
- 1. **REST-Based**: These present an HTTP API, optionally with TLS (SSL) and Auth (Authentication and Authorization). This type of microservice is used for the Main Harness API as well as the Auth-Server. Harness by default uses no TLS or Auth but can have both turned on so that it is secure to run across the Internet with a the provided Java and Python SDKs which also support TLS and Auth. The Auth-Server is also an REST microservice but due to the need to access it for every Harness request (need for speed) does not use Auth or TLS. Furthermore is uses caching to make most access unnecessary.
- 2. **Actor-Based**: these are implemented in a lightweight performant way that can scale easily (with no design constraints put on the engine API) and in a fault resilient way. We use an akka System of Actors spanning multiple nodes attached to an akka Event Bus. This type if engine is an  Actor and is stateless (relying on persistence stores where state needs to be preserved or shared) so any Universal Recommender Actor with the same config can respond to any Event meant for it. This allows scaling across nodes in a failure resilient manner since the akka Event Bus provides mechanisms for failure detection and recovery
+ 1. **In-Process Multithreaded Engine**: these are implemented in a lightweight performant way that can scale by using scalable Services like Spark for computing and Hadoop's HDFS for storage
+ 2. **Remote akka Actor-based Engine** We use an akka System of Actors spanning multiple nodes attached to an akka Event Bus. This type of engine can be scaled by adding multiple identical Engines to the Event bus all processing a single input or request then waiting for more. This also allows for the use of scalable services like Elasticsearch for K-Nearest Neighbor serving of Spark for computing.
+ 3. **Remote REST-based Engine**: Engines may be deployed as separate REST-microservices in containers or on separate machines. This allows microservice Engines to be developed in any language that can have a REST-based "Client" to the Harness Engine REST-based Proxy. We plan to support Python with a Proxy and Client so Engines can be in Python, but any language that can support a REST client and JSON data exchange can be used to implement Engines in this fashion.
 
-Harness and the Auth-Server are REST microservices, Engines are Actor-based microservices.
+![Harness Engine Flavors](https://docs.google.com/drawings/d/e/2PACX-1vSbM2ZDzUJ9JPcOODKpmvuB5F1giDNM4lGFhP5E_oeELt9maK2RyoxhRJ0skZ92Ht0H09xMKhl5IOAt/pub?w=1158&h=744)
 
 # Architecture
 
-![Harness Logical Archite4cture](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
+At its core Harness is a fast lightweight Server that supplies 2 very flexible APIs and manages Engines. Keep in mind that each type of engines can be used in a mixture or as a single solution. Since the Harness core is lightweight and fast either type of deployment is targeted. Since there are 3 Flavors of Engines here's what they look like in play.  
 
-![Scalable EngneCluster](https://docs.google.com/drawings/d/e/2PACX-1vTjT_hV6pz3Fv5blx9p18NucRXFWzJrHqdG-lDMh7GBYur6JOUcFBgDsh5dJVnhH7JkB2wtB7QewmRK/pub?w=1576&h=1364)
+![Harness Logical Architecture](https://docs.google.com/drawings/d/1SjMDyc16BzHmItpAZuOGIGzbMdlWceK8TM9kde1Ty94/pub?w=908&h=753)
+
+![Harness with Multiple Engines](https://docs.google.com/drawings/d/e/2PACX-1vRVo8cgkxpZGk3LctYttEdTTe0joKIEuFGqlNaZsTExbLmaqPDr7a4jwodHtPKOCgaM7mhhyeLF2H_T/pub?w=1121&h=762)
+
+![Harness Remote Engine Cluster](https://docs.google.com/drawings/d/e/2PACX-1vTjT_hV6pz3Fv5blx9p18NucRXFWzJrHqdG-lDMh7GBYur6JOUcFBgDsh5dJVnhH7JkB2wtB7QewmRK/pub?w=1576&h=1364)
+
+![Harness REST-based Engines](https://docs.google.com/drawings/d/e/2PACX-1vQsBMb7Vg45R9hJg4ZvflamiqzhSkjCk-OZj6GlMzWwnhe-zupCcDrGa5_mzTods6pWsurKOAJEO4mg/pub?w=1051&h=909)
 
 ## Harness Core
 
@@ -79,7 +86,9 @@ API, which is identical for any Client software, be it an application or the Com
 
 The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to resource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
 
-The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservices used. The implementaton is based on akka-http and uses the DSL and directives provided by it.
+The Harness server core is small and fast and so is quite useful in single Algorithm solutions but by adding the Auth-server and scalable Engines can also become a SaaS System. 
+
+The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservice Engine. The implementaton is based on akka-http and uses the DSL and directives provided by it.
 
 ## Administrator
 
@@ -87,11 +96,15 @@ The Administrator executes CRUD type operations on Engines. It will also deal wi
 
 ## Templates and Engines
 
-A Template is an Abstract API that needs to be, at least partially implemented by an Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. Templates define an engine type, Engines are instantiated from Templates using parameters found in the engine's JSON file, including a companion object with a factory method. This file structure is very flexible and can contain any information the Engine needs to run, including compute platform information that is not generic to Harness.
+A Template is an Abstract Interface API that needs to be, at least partially implemented by an Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. 
+
+The Template Interface defines and partially implements the APIs for Engine, Dataset, and Algorithm. The Engine class acts as the controller (in the MVC sense) of the Dataset and Algorithm, and the Algorithm manages the model(s). All classes may use the toolset of Harness to ease Engine development, choosing a DB (perhaps MongoDB) a file store (HDFS?) and a compute engine (like Spark). Engines need not be concerned with input and query invocation or dealing with REST APIs since Harness does this.
+
+Engines are instantiated using parameters found in the engine's JSON file, which includes the name of an object with a factory method. This file structure is very flexible and can contain any information the Engine needs to run, including Algorithm Parameters or Compute platform information specific to the Engine.
 
 ## The Cluster of Nodes
 
-In V1 Harness is monolithic, requiring one Engine for every EngineID. This scales only vertically. To solve this Harness V2 will implement an akka Cluster of Nodes, where Engines can be spread out over the cluster. Each Engine will be connected to a akka Event Bus and able to respond to any Event targeted for its Engine type (defined by factory classname, config JSON signature which itself includes the Engine ID). So many Engines may respond to any Event for a specific Engine, allowing Engines to scale horizontally.
+In V1 Harness is monolithic, requiring one Engine for every EngineId. This scales only vertically of itself and relies on the Engine's use of horizontally scalable services to scale horizontally (much like Apache PredictionIO. To add horizontal scaling to Engines intrinsically Harness V2 will implement an akka Cluster of Nodes, where Engines can be spread out over the cluster. Each Engine will be connected to a akka Event Bus and able to respond to any Event targeted for its EngineId. This is so many Engines may respond to any Event or Query if they are not currently processing one, allowing Engines to scale horizontally of themselves without help from external scalable services.
 
 ## Event Bus
 
@@ -112,13 +125,17 @@ Events may be any valid form of JSON. We often choose to follow the conventions 
 
 For Lambda-style learners the mirror plays the same role as a sort of automatic backup, with built-in controls for how many events are preserved in rotation form. in any Lambda system events cannot be allowed to accumulate forever so most Lambda engines implement some form of moving time window (imagine 1 year of events for a big ecommerce site recommender).
 
-# Kappa Learning
+# Streaming Online Kappa Learning
 
 The Kappa style learning algorithm takes in unbounded streams of data and incrementally updates the model without the need for a background batch operation. See the discussion of how this works in Harness Templates in [Kappa Learning](kappa-learning.md)
 
-# Lambda Learning
+# Batch Offline Lambda Learning
 
 Many algorithms learn by processing a large batch of data and modifying some model all at once but periodically. The Universal Recommender is an example of a Lambda learner. Spark's MLlib also has examples of Lambda style learners. 
+
+# Hybrid Learning
+
+If your Algorithm requires some data (like properties of an object) to be altered in realtime and queries to be based on realtime data but only (re)calculates the model periodically you have a hybrid of Kappa/Lambda learning and the Universal Recommender is an example of this. 
  
 # Server REST API
 
