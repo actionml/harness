@@ -155,7 +155,8 @@ This creates a file in the admin user's .ssh directory containing the secret. No
 
 TLS must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
 
-    export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
+    export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:******}
+    export HARNESS_KEYSTORE_TYPE=<e.g. JKS(default) or PKCS12>
     export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
     export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
     
