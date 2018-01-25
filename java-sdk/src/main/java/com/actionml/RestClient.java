@@ -17,7 +17,6 @@
 
 package com.actionml;
 
-import akka.NotUsed;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
 import akka.http.javadsl.model.Uri;
