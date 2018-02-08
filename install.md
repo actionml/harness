@@ -153,13 +153,38 @@ This creates a file in the admin user's .ssh directory containing the secret. No
 
 ## Setup Server-side TLS/SSL 
 
-TLS must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
+TLS can be toggled via HARNESS_SSL_ENABLED env variable (true|false). When set to 'true' it must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
+
+    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+TLS configuration can be configured at the file that HARNESS_SSL_CONFIG_PATH points to.
+
+    export HARNESS_SSL_CONFIG_PATH=${HARNESS_SSL_CONFIG_PATH:-conf/akka-ssl.conf}
+The content of the file is similar to the Akka SSL configuration:
+
+    akka {
+      ssl-config {
+        keyManager = {
+          stores = [
+            {
+              type = "JKS"
+              type = ${?HARNESS_KEYSTORE_TYPE}
+              path = "harness.jks"
+              path = ${?HARNESS_KEYSTORE_PATH}
+              password = "changeit"
+              password = ${?HARNESS_KEYSTORE_PASSWORD}
+            }
+          ]
+        }
+      }
+    }
+
+also path to the keystore, it's type and password can be set via
 
     export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:******}
     export HARNESS_KEYSTORE_TYPE=<e.g. JKS(default) or PKCS12>
     export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
-    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
-    
+
+
 # SDK/Client-side Setup
 
 The Java and Python client classes take optional parameters for:
