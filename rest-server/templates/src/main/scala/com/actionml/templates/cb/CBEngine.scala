@@ -32,23 +32,26 @@ class CBEngine() extends Engine() with JsonParser {
   var algo: CBAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        params = p
-        engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
-        drawInfo("Contextual Bandit Init", Seq(
-          ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId),
-          ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer)))
+  private def createResourses(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
+    params = p
+    engineId = params.engineId
+    dataset = new CBDataset(engineId)
+    algo = new CBAlgorithm(dataset)
+    drawInfo("Contextual Bandit Init", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("EngineId: ", engineId),
+      ("Mirror Type: ", params.mirrorType),
+      ("Mirror Container: ", params.mirrorContainer)))
+    Valid(true)
+  }
 
-        Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
-          algo.init(json, this)
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+    super.init(json, deepInit).andThen { _ =>
+      parseAndValidate[GenericEngineParams](json).andThen { p =>
+        createResourses(p).andThen{ _ =>
+          dataset.init(json).andThen { _ =>
+            if (deepInit) algo.init(json, this) else Valid(true)
+          }
         }
       }
     }

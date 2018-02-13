@@ -24,13 +24,12 @@ import com.actionml.core.storage.{Mongo, Store}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.native.JsonParser
-import salat.dao.SalatDAO
 
 abstract class Dataset[T](engineId: String) extends LazyLogging {
 
   val resourceId: String = engineId
 
-  def init(json: String): Validated[ValidateError, Boolean]
+  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
   def start() = {logger.trace(s"Starting base Dataset"); this}
   def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
@@ -44,8 +43,10 @@ abstract class Dataset[T](engineId: String) extends LazyLogging {
 abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineId)
   with JsonParser with Mongo with LazyLogging {
   //case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
+  import salat.dao._
+  import salat.global._
   var usersDAO: SalatDAO[User, String] = _
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
       usersDAO = UsersDAO

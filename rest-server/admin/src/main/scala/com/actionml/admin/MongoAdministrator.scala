@@ -106,6 +106,22 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
+  override def updateEngine(json: String): Validated[ValidateError, String] = {
+    parseAndValidate[GenericEngineParams](json).andThen { params =>
+      val existingEngineOpt = engines.get(params.engineId)
+      if (existingEngineOpt.isDefined) { // found the engine to update
+        // re-initialize
+        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+        val query = MongoDBObject("engineId" -> params.engineId)
+        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+        enginesCollection.findAndModify(query, update)
+        existingEngineOpt.get.init(json, deepInit = false).andThen(_ => Valid(json))
+      } else {
+        Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))
+      }
+    }
+  }
+
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
@@ -135,21 +151,5 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  override def updateEngine(json: String): Validated[ValidateError, String] = {
-    parseAndValidate[GenericEngineParams](json).andThen { params =>
-      val existingEngineOpt = engines.get(params.engineId)
-      if (existingEngineOpt.isDefined) { // found the engine to update
-        // re-initialize
-        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        val retVal = existingEngineOpt.get.reInit(json)
-        val query = MongoDBObject("engineId" -> params.engineId)
-        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
-        enginesCollection.findAndModify(query, update)
-        retVal
-      } else {
-        Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))
-      }
-    }
-  }
 }
 

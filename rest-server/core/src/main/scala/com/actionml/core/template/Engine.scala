@@ -38,7 +38,8 @@ abstract class Engine extends LazyLogging with JsonParser {
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _
 
-  /** This is the Engine factory method called only when creating a new Engine */
+  /** This is the Engine factory method called only when creating a new Engine, and named in the engine-config.json file
+    * the contents of which are passed in as a string. Overridden, not inherited. */
   def initAndGet(json: String): Engine
 
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
@@ -47,7 +48,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     if (params.mirrorContainer.isEmpty) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       Valid(true)
-    } else if (params.mirrorType.nonEmpty) {
+    } else if (params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
@@ -62,16 +63,10 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
-  /** This is called any time we are initializing a new Engine Object, after the factory has constructed it */
-  def init(json: String): Validated[ValidateError, Boolean] = {
+  /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
+    * deepInit means to initialize a new object, it is set to false when updating a running Engine.*/
+  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     parseAndValidate[GenericEngineParams](json).andThen(createResources)
-  }
-
-  /** This is called when we are updating parameters of a running Engine and only updates generic params, nothing
-    * affecting the algorithm, which is the responsibility of Engine specific code. This is called from the CLI
-    * when `harness update config-file.json` */
-  def reInit(json: String): Validated[ValidateError, String] = { // update generic params
-    parseAndValidate[GenericEngineParams](json).andThen(createResources).map(_=)
   }
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
@@ -84,7 +79,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   /** This returns information about a running Engine, any useful stats can be displayed in the CLI with
     * `harness status engine-id`. Typically overridden in child and not inherited.
     * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
-    * manages and the child Engine adds json to give stats about the data is\t manages?
+    * manages and the child Engine adds json to give stats about the data it manages?
     */
   def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")

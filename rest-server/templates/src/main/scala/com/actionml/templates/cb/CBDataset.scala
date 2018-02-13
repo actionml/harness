@@ -57,7 +57,7 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
   object GroupsDAO extends SalatDAO[GroupParams, String](collection = connection(resourceId)("groups"))
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
         GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
