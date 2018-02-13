@@ -35,7 +35,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -51,8 +51,8 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          algo.init(json, p.engineId)
-        } //( _ => algo.init(json, engineId))
+          if (deepInit) algo.init(json, this) else Valid(true)
+        }
       }
     }
   }
@@ -96,13 +96,15 @@ class ScaffoldEngine() extends Engine() with JsonParser {
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    logger.trace("Got JSON body: " + json)
-    // validation happens as the input goes to the dataset
-    if (super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true) // Some error like an ExecutionError in super.input happened
-    // todo: pass back indication of deeper error
+    super.init(json).andThen { _ =>
+      logger.trace("Got JSON body: " + json)
+      // validation happens as the input goes to the dataset
+      if (super.input(json, trainNow).isValid)
+        dataset.input(json).andThen(process).map(_ => true)
+      else
+        Valid(true) // Some error like an ExecutionError in super.input happened
+      // todo: pass back indication of deeper error
+    }
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated and transformed into

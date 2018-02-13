@@ -20,6 +20,7 @@ package com.actionml.core.storage
 
 import com.typesafe.scalalogging.LazyLogging
 
+// TODO: switch to dal pattern using latest Mongo Scala lib
 trait Store extends LazyLogging {
 
   def create(): Store

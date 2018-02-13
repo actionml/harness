@@ -35,10 +35,13 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser
     with Mongo {
 
-  override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[AllParams](json).andThen { p =>
-      // p is just the validated algo params from the engine's params json file.
-      Valid(true)
+  /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
+  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(json, engine).andThen { _ =>
+      parseAndValidate[AllParams](json).andThen { p =>
+        // p is just the validated algo params from the engine's params json file.
+        Valid(true)
+      }
     }
   }
 

@@ -36,9 +36,9 @@ import scala.language.reflectiveCalls
 class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonParser {
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      // Do something with parameters
+      // Do something with parameters--do not re-initialize the algo if deepInit == false
       Valid(p)
     }
     Valid(true)

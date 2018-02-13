@@ -21,6 +21,7 @@ This also does not define the CLI commands that can invoke the APIs&mdash;see [C
 | POST | Collection | Create | 201 | resource created |
 | POST | Collection | Create | 400 | bad request |
 | POST | Item | Create | 201 | resource created |
+| POST | Item | Update | 200 | resource updated, via param |
 | POST | Item | Create | 404 | resource not found |
 | POST | Item | Create | 409 | resource conflict (this is generally allowed by re-defining the resource and so returns 201) |
 | GET | Collection or Item | Read | 200 | resource found and returned |
@@ -43,10 +44,11 @@ For "client" type users, POSTing to `/engines/<engine-id>/events` and `/engines/
 | GET | / | none  | See Collection responses | JSON describing Harness server status  | Used to get server config information, currently defined Engines, and other pertinent information about the ML/AI operations **minimally implemented** |
 | POST | `/engines/` | JSON Engine config | See Collection responses | Engine description | Defines an Engine with a resource-id in the Request Body config, uses Harness and Engine specific config and parameters. See Config for Harness settings, and the Template for Engine params. Optionally depending on the JSON some Engine parts may be modified in place such as Algorithm params modified **(partial update not implemented)** |
 | GET | `/engines/` | none | See Collection responses | Engine descriptions for Engines the user has Read access to | This works like a list command to show all resources the user can read. For the Admin this would show all Engines in the system. **(not implemented)** |
-| DELETE | `/engine/<engine-id>` | none | See Item responses | none | Remove and destroy all sub-resources (data and model) and config for the Engine |
-| GET | `/engine/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status **(not implemented)** |
-| POST | `/engine/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
-| POST | `/engine/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
+| POST | `/engines/<engine-id>` | JSON Engine config | See Item responses | none | Modify any params that can be and return which were possible to change |
+| DELETE | `/engines/<engine-id>` | none | See Item responses | none | Remove and destroy all sub-resources (data and model) and config for the Engine |
+| GET | `/engines/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status **(not implemented)** |
+| POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
+| POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
 | GET | `/commands/` | none | See Collection responses | JSON listing of active Commands | Some commands are long lived and those still active will have status reported. **(not implemented)** |
 
         

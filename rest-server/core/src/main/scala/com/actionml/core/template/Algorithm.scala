@@ -18,7 +18,9 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import com.actionml.core.validate.ValidateError
+import cats.data.Validated.Valid
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -26,8 +28,16 @@ import com.typesafe.scalalogging.LazyLogging
   * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
   * which differ in how they get data and update models
   */
-abstract class Algorithm[Q, R] extends LazyLogging {
-  def init(json: String, rsrcId: String): Validated[ValidateError, Boolean]
+abstract class Algorithm[Q, R] extends JsonParser with LazyLogging {
+  var engineId: String = _
+  var modelPath: String = _
+
+  def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
+    engineId = engine.engineId
+    modelPath = engine.modelContainer // optional place in some filesystem to persist the model
+    Valid(true)
+  }
+
   def destroy(): Unit
   def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
   def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}

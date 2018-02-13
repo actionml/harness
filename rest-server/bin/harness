@@ -75,7 +75,7 @@ case ${command} in
 
     add) ${HARNESS_HOME}/bin/harness-engine-add $1 $2 ;;
 
-    # update) ${HARNESS_HOME}/bin/harness-engine-update $1 $2 $3 $4 $5 $6;;
+    update) ${HARNESS_HOME}/bin/harness-engine-update $1 $2 ;;
 
     delete) ${HARNESS_HOME}/bin/harness-engine-delete $1 $2 ;;
 

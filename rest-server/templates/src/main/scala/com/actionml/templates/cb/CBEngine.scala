@@ -32,24 +32,27 @@ class CBEngine() extends Engine() with JsonParser {
   var algo: CBAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        params = p
-        engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
-        drawInfo("Contextual Bandit Init", Seq(
-          ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId),
-          ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer)))
+  private def createResourses(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
+    params = p
+    engineId = params.engineId
+    dataset = new CBDataset(engineId)
+    algo = new CBAlgorithm(dataset)
+    drawInfo("Contextual Bandit Init", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("EngineId: ", engineId),
+      ("Mirror Type: ", params.mirrorType),
+      ("Mirror Container: ", params.mirrorContainer)))
+    Valid(true)
+  }
 
-        Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
-          algo.init(json, p.engineId)
-        } //( _ => algo.init(json, engineId))
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+    super.init(json, deepInit).andThen { _ =>
+      parseAndValidate[GenericEngineParams](json).andThen { p =>
+        createResourses(p).andThen{ _ =>
+          dataset.init(json).andThen { _ =>
+            if (deepInit) algo.init(json, this) else Valid(true)
+          }
+        }
       }
     }
   }
@@ -57,7 +60,6 @@ class CBEngine() extends Engine() with JsonParser {
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  // Todo: should return null for bad init
   override def initAndGet(json: String): CBEngine = {
    val response = init(json)
     if (response.isValid) {
@@ -71,7 +73,7 @@ class CBEngine() extends Engine() with JsonParser {
 
   override def stop(): Unit = {
     logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
+    algo.stop()
   }
 
   override def status(): Validated[ValidateError, String] = {
@@ -102,7 +104,6 @@ class CBEngine() extends Engine() with JsonParser {
       dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true) // Some error like an ExecutionError in super.input happened
-    // todo: pass back indication of deeper error
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
