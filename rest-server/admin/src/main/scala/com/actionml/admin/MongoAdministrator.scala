@@ -135,29 +135,21 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
-  override def updateEngine(
-    engineId: EngineId,
-    engineJson: Option[String] = None,
-    dataDelete: Boolean = false,
-    force: Boolean = false,
-    input: Option[String] = None): Validated[ValidateError, Boolean] = {
-    if (engineJson.nonEmpty) {
-      // Todo: implement
-      logger.info("Using 'harness update -c <some-engine-json-file>' is not implemented yet")
-    }
-    if (engines.contains(engineId)) {
-      val engine = engines(engineId)
-      val params = engineJson.getOrElse(enginesCollection.findOne(MongoDBObject("engineId" -> engineId)).get.get("params").toString)
-      if (dataDelete) {
-        engine.destroy()
-        engine.init(params)
+  override def updateEngine(json: String): Validated[ValidateError, String] = {
+    parseAndValidate[GenericEngineParams](json).andThen { params =>
+      val existingEngineOpt = engines.get(params.engineId)
+      if (existingEngineOpt.isDefined) { // found the engine to update
+        // re-initialize
+        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
+        val retVal = existingEngineOpt.get.reInit(json)
+        val query = MongoDBObject("engineId" -> params.engineId)
+        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
+        enginesCollection.findAndModify(query, update)
+        retVal
+      } else {
+        Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))
       }
-      if (input.nonEmpty) engines(engineId).mirroring.importEvents(engines(engineId), input.get) else Valid(true)
-    } else {
-      logger.error(s"Unable to update to a non-existent engineId: ${ engineId }")
-      Invalid(ValidRequestExecutionError(s"Unable to import to a non-existent engineId: ${ engineId }"))
     }
   }
-
 }
 

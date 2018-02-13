@@ -57,7 +57,6 @@ class CBEngine() extends Engine() with JsonParser {
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  // Todo: should return null for bad init
   override def initAndGet(json: String): CBEngine = {
    val response = init(json)
     if (response.isValid) {

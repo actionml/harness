@@ -39,27 +39,33 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
   private val admin = inject[Administrator]
 
   override def receive: Receive = {
-    case GetEngine(engineId) ⇒
+    case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)
       sender() ! admin.status(Some(engineId)).map(_.asJson)
 
-    case GetEngines() ⇒
+    case GetEngines() =>
       log.info("Get one or all engine status")
       sender() ! admin.status().map(_.asJson)
 
-    case CreateEngine(engineJson) ⇒
+    case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
       sender() ! admin.addEngine(engineJson).map(_.asJson)
 
-    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) ⇒
+    case UpdateEngine(engineJson) =>
+      log.info(s"Update existing engine, ${engineJson}")
+      sender() ! admin.updateEngine(engineJson).map(_.asJson)
+
+    /*
+    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
       log.info(s"Update existing engine, ${engineId}, ${engineJson}, ${dataDelete}, ${dataDelete}, ${force}, ${input}")
       sender() ! admin.updateEngine(engineId, Some(engineJson), dataDelete, force, Some(input)).map(_.asJson)
 
-    case UpdateEngineWithId(engineId, dataDelete, force, input) ⇒
+    case UpdateEngineWithId(engineId, dataDelete, force, input) =>
       log.info("Update existing engine, {}, {}, {}, {}", engineId, dataDelete, force, input)
       sender() ! admin.updateEngine(engineId, None, dataDelete, force, Some(input)).map(_.asJson)
+    */
 
-    case DeleteEngine(engineId) ⇒
+    case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
       sender() ! admin.removeEngine(engineId).map(_.asJson)
   }
@@ -69,6 +75,9 @@ sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
 case class GetEngines() extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
-case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
-case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
+case class UpdateEngine(engineJson: String) extends EngineAction
+
+// keeping update simple, only allow sending new json config
+//case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
+//case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction

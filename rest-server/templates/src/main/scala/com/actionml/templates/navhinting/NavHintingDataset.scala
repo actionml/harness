@@ -45,8 +45,6 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
   val navHintsDAO: NavHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
 
-  //var navHintsDAO: SalatDAO[Map[String, Double], String] = _
-
   var trailLength: Int = _
 
   override def init(json: String): Validated[ValidateError, Boolean] = {

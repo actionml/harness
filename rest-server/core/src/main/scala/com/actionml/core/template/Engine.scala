@@ -38,6 +38,9 @@ abstract class Engine extends LazyLogging with JsonParser {
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _
 
+  /** This is the Engine factory method called only when creating a new Engine */
+  def initAndGet(json: String): Engine
+
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     engineId = params.engineId
     modelContainer = params.modelContainer.getOrElse(serverHome) + engineId
@@ -59,28 +62,55 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
+  /** This is called any time we are initializing a new Engine Object, after the factory has constructed it */
   def init(json: String): Validated[ValidateError, Boolean] = {
     parseAndValidate[GenericEngineParams](json).andThen(createResources)
   }
 
-  def initAndGet(json: String): Engine
+  /** This is called when we are updating parameters of a running Engine and only updates generic params, nothing
+    * affecting the algorithm, which is the responsibility of Engine specific code. This is called from the CLI
+    * when `harness update config-file.json` */
+  def reInit(json: String): Validated[ValidateError, String] = { // update generic params
+    parseAndValidate[GenericEngineParams](json).andThen(createResources).map(_=)
+  }
+
+  /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit
+
+  /** Optional, generally not meeded */
   def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
   def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
+
+  /** This returns information about a running Engine, any useful stats can be displayed in the CLI with
+    * `harness status engine-id`. Typically overridden in child and not inherited.
+    * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
+    * manages and the child Engine adds json to give stats about the data is\t manages?
+    */
   def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(
       s"""
          |{
-         |  "Message": "Status of base Engine with engineId:$engineId"
+         |  "Engine class": "Status of base Engine with engineId:$engineId"
          |}
        """.stripMargin)
   }
 
+  /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
+    * processing. Must be inherited and augmented.
+    * @param json Input defined by each engine
+    * @param trainNow Flag to trigger training, used for batch or micro-batch style training, not used in Kappa Engines
+    * @return Validated status with error message
+    */
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
     Valid( true )
   }
 
+  /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
+    *
+    * @param json Format defined by the Engine
+    * @return json format defined by the Engine
+    */
   def query(json: String): Validated[ValidateError, String]
 }

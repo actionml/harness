@@ -35,12 +35,7 @@ abstract class Administrator extends LazyLogging {
   def getEngine(engineId: EngineId): Option[Engine]
   def addEngine(json: String): Validated[ValidateError, EngineId]
   def removeEngine(engineId: EngineId): Validated[ValidateError, Boolean]
-  def updateEngine(
-    engineId: EngineId,
-    engineJson: Option[String] = None,
-    dataDelete: Boolean = false,
-    force: Boolean = false,
-    input: Option[String] = None): Validated[ValidateError, Boolean]
+  def updateEngine(json: String): Validated[ValidateError, String]
   def status(resourceId: Option[String] = None): Validated[ValidateError, String]
 
   // startup and shutdown

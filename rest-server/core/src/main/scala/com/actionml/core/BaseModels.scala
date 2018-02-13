@@ -20,6 +20,7 @@ package com.actionml.core.model
 import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
+import org.json4s.JsonDSL.WithBigDecimal._
 
 case class User(
     _id: String,
@@ -42,14 +43,16 @@ object User { // convert the Map[String, Seq[String]] to Map[String, String] by 
 }
 
 
-/** Contains params requires by all engines */
+/** Contains params required by all engines */
 case class GenericEngineParams(
     engineId: String, // required, resourceId for engine
     engineFactory: String,
     mirrorType: Option[String] = None,
     mirrorContainer: Option[String] = None,
     sharedDBName: Option[String] = None,
-    modelContainer: Option[String] = None) extends EngineParams
+    modelContainer: Option[String] = None)
+  extends EngineParams
+
 
 // allows us to look at what kind of specialized event to create
 case class GenericEvent (
