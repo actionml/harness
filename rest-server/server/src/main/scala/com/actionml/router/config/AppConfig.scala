@@ -15,7 +15,7 @@ case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfi
 case class RestServerConfig(
   host: String,
   port: Int,
-  ssl: Boolean
+  sslEnabled: Boolean
 )
 case class ActorSystemConfig(
   name: String
