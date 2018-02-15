@@ -3,15 +3,15 @@
 . "${HARNESS_HOME}/bin/harness-env"
 
 case "$1" in
-    -c) ENGINE_CONFIG=$2
-        shift ;;
+    #c) ENGINE_CONFIG=$2
+    #    shift ;;
     *) ENGINE_CONFIG=$1 ;;
 esac
 
 
 if [ -z "$ENGINE_CONFIG" ]; then
     echo -e "${RED}Engine config file not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness add -c <some-engine.json>${NC}"
+    echo -e "Expected command: ${CYAN}harness add <some-engine.json>${NC}"
     exit 1
 fi
 
