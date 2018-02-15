@@ -9,7 +9,7 @@ import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.DebuggingDirectives
-import akka.http.scaladsl.{ConnectionContext, Http}
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.router.config.AppConfig
@@ -48,13 +48,13 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.sslEnabled) {
-      Http().setDefaultServerHttpContext(https)
+      Http().setDefaultServerHttpContext(httpsContext)
     }
     logger.info(s"Start http server $host:$port")
     Http().bindAndHandle(logResponseTime(route), host, port)
   }
 
-  private def https = {
+  private def httpsContext: HttpsConnectionContext = {
     val sslConfPath = System.getenv.getOrDefault("HARNESS_SSL_CONFIG_PATH", "./conf/akka-ssl.conf")
     val config = ConfigFactory.parseFile(new File(sslConfPath))
     val keyManagerConfig = scala.collection.JavaConversions.asScalaBuffer(config.getObjectList("akka.ssl-config.keyManager.stores"))
