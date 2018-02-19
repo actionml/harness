@@ -76,6 +76,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
           usageEventGroups = usageEventGroups +
             (group._id -> UsageEventDAO(connection(engineId)(group._id)))
         }
+
       }
       Valid(p)
     }
@@ -122,6 +123,23 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
         case event: CBUserSetEvent => // user profile update, modifies user object
           logger.debug(s"Dataset: $engineId persisting a User Profile Set Event: $event")
           users.setProperties(event.entityId, event.properties.getOrElse(Map.empty))
+//          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
+//          // input to usageEvents collection
+//          // Todo: validate fields first
+//          val updateProps = event.properties.getOrElse(Map.empty)
+//          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
+//          val newProps = user.propsToMapOfSeq ++ updateProps
+//          val newUser = User(user._id, User.propsToMapString(newProps))
+//          val debug = 0
+//          usersDAO.update(
+//            DBObject("_id" -> event.entityId),
+//            newUser,
+//            upsert = true,
+//            multi = false,
+//            wc = new WriteConcern)
+          // TODO: implement ^^^
+          //        case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
+
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -140,8 +158,25 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
             (event.entityId -> UsageEventDAO(connection(engineId)(event.entityId)))
 
           groups.insertOne(event.toCBGroup)
-          Valid(event)
 
+//        case event: CBUserUnsetEvent => // unset a property in a user profile
+//          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
+//          // input to usageEvents collection
+//          // Todo: validate fields first
+//          val updateProps = event.properties.getOrElse(Map.empty).keySet
+//          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
+//          val newProps = user.propsToMapOfSeq -- updateProps
+//          val newUser = User(user._id, User.propsToMapString(newProps))
+//          val debug = 0
+//          usersDAO.save(newUser) // overwrite the User
+          // TODO: implement ^^^
+
+          Valid(event)
+/*          val unsetPropNames = event.properties.get.keys.toArray
+
+          usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
+          Valid(event)
+*/
         case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
@@ -196,7 +231,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
             case "user" => // got a user profile update event
               logger.trace(s"Dataset: ${engineId} parsing a user unset event: ${event.event}")
               parseAndValidate[CBUserUnsetEvent](json).andThen { uue =>
-                if (uue.properties.isDefined) {
+                if (!uue.properties.isDefined) {
                   Invalid(MissingParams("No parameters specified, event ignored"))
                 } else {
                   Valid(uue)
@@ -253,9 +288,7 @@ case class CBUserSetEvent(
 
 case class CBUserUnsetEvent(
   entityId: String,
-  // Todo:!!! this is teh way they should be encoded, fix when we get good JSON
-  // properties: Option[Map[String, Seq[String]]],
-  properties: Option[Map[String, Any]] = None,
+  properties: Option[Map[String, Int]] = None,
   eventTime: String)
   extends CBEvent
 
@@ -282,12 +315,12 @@ case class CBUsageProperties(
 )
 
 case class CBUsageEvent(
-  event: String,
-  entityId: String,
-  targetEntityId: String,
-  properties: CBUsageProperties//,
-  //eventTime: String
-  )
+    event: String,
+    entityId: String,
+    targetEntityId: String,
+    properties: CBUsageProperties//,
+    //eventTime: String
+    )
   extends CBEvent {
 
   def toUsageEvent: UsageEvent = {

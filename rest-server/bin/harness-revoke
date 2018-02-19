@@ -28,6 +28,6 @@ fi
 # wrong should pass in resource id
 PYTHON_ARGS="revoke --user_id $USER_ID --role_set $ROLE_SET  $USER_ARGS"
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
+#echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
 ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
