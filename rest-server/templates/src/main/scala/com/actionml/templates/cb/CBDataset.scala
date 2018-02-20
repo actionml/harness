@@ -58,7 +58,8 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
+    // super.init will handle the users collection, allowing sharing of user data between Engines
+    super.init(json, deepInit).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
         GroupsDAO.find(MongoDBObject("_id" -> MongoDBObject("$exists" -> true))).foreach { p =>
           usageEventGroups = usageEventGroups +
@@ -101,7 +102,7 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
             import scala.collection.JavaConverters._
 
             if (event.properties.converted) { // store the preference with the user
-              val user = usersDAO.findOneById(event.entityId).getOrElse(User("", Map.empty))
+              val user = usersDAO.get.findOneById(event.entityId).getOrElse(User("", Map.empty))
               val existingProps = user.propsToMapOfSeq
               val updatedUser = if (existingProps.keySet.contains("contextualTags")) {
                 val newTags = (existingProps("contextualTags") ++ event.properties.contextualTags).takeRight(100)
@@ -112,7 +113,7 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
                 val newTags = event.properties.contextualTags.takeRight(100).mkString("%")
                 User(user._id, user.properties + ("contextualTags" -> newTags))
               }
-              usersDAO.update(
+              usersDAO.get.update(
                 DBObject("_id" -> user._id),
                 updatedUser,
                 upsert = true,
@@ -134,11 +135,11 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty)
-          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
+          val user = usersDAO.get.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq ++ updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
           val debug = 0
-          usersDAO.update(
+          usersDAO.get.update(
             DBObject("_id" -> event.entityId),
             newUser,
             upsert = true,
@@ -169,11 +170,11 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty).keySet
-          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
+          val user = usersDAO.get.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq -- updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
           val debug = 0
-          usersDAO.save(newUser) // overwrite the User
+          usersDAO.get.save(newUser) // overwrite the User
 
           Valid(event)
 /*          val unsetPropNames = event.properties.get.keys.toArray
@@ -186,7 +187,7 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
             case "user" =>
               logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.removeById(event.entityId)
+              usersDAO.get.removeById(event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {

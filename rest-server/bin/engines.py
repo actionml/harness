@@ -22,11 +22,12 @@ if args.action == 'create':
 
 elif args.action == 'update':
     engine_id, config = id_and_config()
-    print("Engine-id: " + engine_id)
-    print("Json config: \n" + str(config))
+    # print("Engine-id: " + engine_id)
+    # print("Json config: \n" + str(config))
     try:
         res = engine_client.update(engine_id=engine_id, data=config)
-        print_success_string('Updating engine-id: {} \n'.format(engine_id))
+        # print_success_string('Updating engine-id: {} \n'.format(engine_id))
+        print_success(res, 'Updating engine: \n')
     except HttpError as err:
         print_failure(err, 'Error updating engine-id: {}\n'.format(engine_id))
 

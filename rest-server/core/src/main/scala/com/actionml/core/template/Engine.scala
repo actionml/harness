@@ -33,8 +33,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
-  var mirroring: Mirroring = _
-  private var mirroringDiabled = true
+  private var mirroring: Option[Mirroring] = None
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _
 
@@ -44,17 +43,16 @@ abstract class Engine extends LazyLogging with JsonParser {
 
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     engineId = params.engineId
-    modelContainer = params.modelContainer.getOrElse(serverHome) + engineId
-    if (params.mirrorContainer.isEmpty) {
+    if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
+      mirroring = None
       Valid(true)
-    } else if (params.mirrorType.isDefined) {
+    } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" =>
-          mirroring = new FSMirroring(container)
-          mirroringDiabled = false
+          mirroring = Some(new FSMirroring(container))
           Valid(true)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
@@ -66,7 +64,11 @@ abstract class Engine extends LazyLogging with JsonParser {
   /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
     * deepInit means to initialize a new object, it is set to false when updating a running Engine.*/
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen(createResources)
+
+    parseAndValidate[GenericEngineParams](json).andThen { p =>
+      if (deepInit) modelContainer = p.modelContainer.getOrElse(serverHome) + engineId // not allowed for `harness update`
+      createResources(p)
+    }
   }
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
@@ -92,13 +94,14 @@ abstract class Engine extends LazyLogging with JsonParser {
   }
 
   /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
-    * processing. Must be inherited and augmented.
+    * processing. Must be inherited and extended.
     * @param json Input defined by each engine
     * @param trainNow Flag to trigger training, used for batch or micro-batch style training, not used in Kappa Engines
     * @return Validated status with error message
     */
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    // flatten the event into one string per line as per Spark json collection spec
+    if (mirroring.isDefined) mirroring.get.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
     Valid( true )
   }
 

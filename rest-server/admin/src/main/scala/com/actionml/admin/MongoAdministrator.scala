@@ -115,7 +115,11 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
         val query = MongoDBObject("engineId" -> params.engineId)
         val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
         enginesCollection.findAndModify(query, update)
-        existingEngineOpt.get.init(json, deepInit = false).andThen(_ => Valid(json))
+        existingEngineOpt.get.init(json, deepInit = false).andThen(_ => Valid(
+          """{
+            |  "comment":"Get engine status to see what was changed."
+            |}
+          """.stripMargin))
       } else {
         Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))
       }

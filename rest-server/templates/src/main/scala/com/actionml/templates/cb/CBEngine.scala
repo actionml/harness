@@ -36,7 +36,6 @@ class CBEngine() extends Engine() with JsonParser {
     params = p
     engineId = params.engineId
     dataset = new CBDataset(engineId)
-    algo = new CBAlgorithm(dataset)
     drawInfo("Contextual Bandit Init", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("EngineId: ", engineId),
@@ -49,8 +48,11 @@ class CBEngine() extends Engine() with JsonParser {
     super.init(json, deepInit).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         createResourses(p).andThen{ _ =>
-          dataset.init(json).andThen { _ =>
-            if (deepInit) algo.init(json, this) else Valid(true)
+          dataset.init(json, deepInit).andThen { _ =>
+            if (deepInit) {
+              algo = new CBAlgorithm(dataset)
+              algo.init(json, this)
+            } else Valid(true)
           }
         }
       }
@@ -94,16 +96,13 @@ class CBEngine() extends Engine() with JsonParser {
     logger.warn(s"Only used for Lambda style training")
   }
 
-  /** Triggers parse, validation, and persistence of event encoded in the json */
+  /** Triggers parse, validation, and processing of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true) // Some error like an ExecutionError in super.input happened
+    super.input(json, trainNow).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -111,7 +110,7 @@ class CBEngine() extends Engine() with JsonParser {
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
-          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+          dataset.usersDAO.get.findOneById(event.toUsageEvent.userId).get,
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
           engineId

@@ -37,7 +37,6 @@ class NavHintingEngine() extends Engine() with JsonParser {
         params = p
         engineId = params.engineId
         dataset = new NavHintingDataset(engineId)
-        algo = new NavHintingAlgorithm(dataset)
         drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
@@ -48,7 +47,10 @@ class NavHintingEngine() extends Engine() with JsonParser {
         Valid(true)
       }.andThen { _ =>
         dataset.init(json).andThen { _ =>
-          if (deepInit) algo.init(json, this) else Valid(true)
+          if (deepInit) {
+            algo = new NavHintingAlgorithm(dataset)
+            algo.init(json, this)
+          } else Valid(true)
         }
       }
     }

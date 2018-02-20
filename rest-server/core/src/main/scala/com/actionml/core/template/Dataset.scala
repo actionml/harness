@@ -42,14 +42,20 @@ abstract class Dataset[T](engineId: String) extends LazyLogging {
 
 abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineId)
   with JsonParser with Mongo with LazyLogging {
-  //case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
+
   import salat.dao._
   import salat.global._
-  var usersDAO: SalatDAO[User, String] = _
+
+  var usersDAO: Option[SalatDAO[User, String]] = None // todo: should this be _
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
+      // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
+      // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
+      // to find old users that will be orphaned.
+
+      // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
       object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
-      usersDAO = UsersDAO
+      usersDAO = Some(UsersDAO)
       Valid(true)
     }
   }
