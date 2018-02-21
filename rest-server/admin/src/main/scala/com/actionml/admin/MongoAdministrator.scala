@@ -21,15 +21,12 @@ import java.lang.reflect.Constructor
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-<<<<<<< HEAD
 import com.actionml.core.core._
 import com.actionml.core.storage.Mongo
 import com.actionml.core.model.GenericEngineParams
-=======
 import com.actionml.core._
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
->>>>>>> develop
 import com.actionml.core.template.Engine
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
@@ -160,7 +157,7 @@ class MongoAdministrator(override implicit val injector: Module)
     input: Option[String] = None): Validated[ValidateError, Boolean] = {
     if (engineJson.nonEmpty) {
       // Todo: implement
-      logger.info("Using 'harness update -c <some-engine-json-file>' is not implemented yet")
+      logger.info("Using 'harness update' is not implemented yet")
     }
     if (engines.contains(engineId)) {
       val engine = engines(engineId)
