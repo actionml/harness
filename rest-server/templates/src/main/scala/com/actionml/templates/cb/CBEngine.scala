@@ -78,7 +78,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
 
   override def stop(): Unit = {
     logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
+    algo.stop()
   }
 
   override def status(): Validated[ValidateError, String] = {
@@ -109,7 +109,6 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
       dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true) // Some error like an ExecutionError in super.input happened
-    // todo: pass back indication of deeper error
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -186,12 +185,7 @@ case class CBQueryResult(
   extends QueryResult {
 
   def toJson: String = {
-    s"""
-     |{
-     |    "variant": $variant,
-     |    "groupId": $groupId
-     |}
-    """.stripMargin
+    s"""{"variant": $variant, "groupId": $groupId}"""
   }
 }
 

@@ -25,6 +25,7 @@ import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.dal.mongo.MongoSupport
+import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.storage._
 import com.actionml.core.dal.mongo.UsersDaoImpl
 import com.actionml.core.template._
@@ -35,6 +36,7 @@ import salat.global._
 import com.typesafe.scalalogging.LazyLogging
 import com.actionml.core.model.{AlgorithmParams, CBGroup, User}
 import com.actionml.core.template.{Algorithm, AlgorithmInput, KappaAlgorithm}
+import salat.dao.SalatDAO
 
 import scala.concurrent.Await
 import scala.io.Source
@@ -60,11 +62,6 @@ import java.nio.file.{Files, Path, Paths}
 import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
 
-/** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
-  * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
-  * of events when a new one is detected, then updating the model for that group for subsequent queries.
-  * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
-  */
 case class CBAlgorithmInput(
     user: Future[Option[User]],
     event: CBUsageEvent,
@@ -74,12 +71,17 @@ case class CBAlgorithmInput(
 
 case class Train(datum: CBAlgorithmInput)
 
+/** Creates Actors for each group and does input event triggered training continually. The GroupTrain Actors
+  * manager their own model persistence in true Kappa "micro-batch" style. Precessing typically small groups
+  * of events when a new one is detected, then updating the model for that group for subsequent queries.
+  * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
+  */
 class CBAlgorithm(dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo with MongoSupport {
 
   val serverHome = sys.env("HARNESS_HOME")
 
-  private val actors = ActorSystem("CBAlgorithm") // todo: should this be derived from the classname?
+  private val actors = ActorSystem(dataset.resourceId)
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
   var resourceId: String = _
@@ -132,23 +134,16 @@ class CBAlgorithm(dataset: CBDataset)
   }
 
   override def destroy(): Unit = {
-    // remove old model since it is recreated with each new CBEngine
-    // the VW model file may take some time to be deletable after closing vw?????
-    if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close() //Todo: may have to put in future and wait with timeout
-    // used by 'time' method
-    implicit val baseTime = System.currentTimeMillis
-
-    // put a time limit for VW to close and release the model file
-    val deleteModel = Future {
-      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-        while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-    }
-    // Todo: should allow configurable?
-    try{ Await.result(deleteModel, 2 seconds) } catch {
+    try{ Await.result(
+      actors.terminate().andThen { case _ =>
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
+      }.map { _ =>
+        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
+          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
+      }, 3 seconds) } catch {
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
     }
-
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -156,17 +151,17 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // Todo: not used because can't have more than one?????
+    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW decide how to do caching
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
-    val newModel = s" -f ${params.modelName} "
-    val trainedModel = s" -i ${params.modelName} "
+    val newModel = s" -f ${modelPath} "
+    val trainedModel = s" -i ${modelPath} "
 
     // if the modelName already exists, use ot to initialize VW otherwise, create a new model
     // the difference is -i for initial model, or -f for new model (I think)
     val initVWConfig = trainedModel + checkpointing
     val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing
-    val newVW: VWMulticlassLearner = if (fileExists(params.modelName)) {
+    val newVW: VWMulticlassLearner = if (fileExists(modelPath)) {
       logger.info(s"VW: config: \n$initVWConfig\n")
       VWLearners.create(initVWConfig)
     } else {
@@ -182,18 +177,18 @@ class CBAlgorithm(dataset: CBDataset)
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${params.modelName}_cache " // Todo: not used because can't have more than one?????
+    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW manage cahce files
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
-    val newModel = s" -f ${params.modelName} "
-    val trainedModel = s" -i ${params.modelName} "
+    val newModel = s" -f ${modelPath} "
+    val trainedModel = s" -i ${modelPath} "
 
     // holly crap this is the only way to get a model saved??????????
     val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
     // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
     logger.trace(s"Checkpointing model")
-    vw.saveModel(new File(params.modelName))
+    vw.saveModel(new File(modelPath))
   }
 
   def fileExists(modelpath: String): Boolean = {
@@ -244,7 +239,7 @@ class CBAlgorithm(dataset: CBDataset)
   }
 
   def getVariant(query: CBQuery): CBQueryResult = {
-    //val vw = new VW(" -i " + modelPath)
+    //val vw = new VW(" -i " + modelContainer)
 
     dataset.groups.findOne(query.groupId).map {
 
@@ -501,8 +496,8 @@ object SingleGroupTrainer {
     //   entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId
     // }.mkString(" ")
 
-    //val vwString = classString + " |" +  resourceId + " " + // may need to make a namespace per group by resourceId+testGroupId
-    val vwString = classString + " | " + // may need to make a namespace per group by resourceId+testGroupId
+    //val vwString = classString + " |" +  engineId + " " + // may need to make a namespace per group by engineId+testGroupId
+    val vwString = classString + " | " + // may need to make a namespace per group by engineId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
           user.properties.map { case(propId, propSeq) =>

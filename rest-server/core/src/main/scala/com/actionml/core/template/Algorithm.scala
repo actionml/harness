@@ -18,7 +18,9 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import com.actionml.core.validate.ValidateError
+import cats.data.Validated.Valid
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
 /**

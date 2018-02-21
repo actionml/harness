@@ -22,6 +22,8 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.{Injector, Module}
 
@@ -89,4 +91,3 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
 
   def query(json: String): Validated[ValidateError, String]
 }
-

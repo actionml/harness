@@ -17,23 +17,23 @@ import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 case class AppConfig(authServer: AuthServerConfig, actorSystem: ActorSystemConfig)
 
 object AppConfig {
-  private lazy val config = ConfigFactory.load()
+  lazy val root = ConfigFactory.load()
 
   def apply: AppConfig = new AppConfig(
-    authServer = config.as[AuthServerConfig]("auth-server"),
-    actorSystem = config.as[ActorSystemConfig]("actor-system")
+    authServer = root.as[AuthServerConfig]("auth-server"),
+    actorSystem = root.as[ActorSystemConfig]("actor-system")
   )
 }
 
 case class AuthServerConfig(
-    host: String,
-    port: Int = 9099,
-    ssl: Boolean,
-    mongoDb: MongoDbConfig,
-    accessTokenTtl: Long = 2 * 60 * 60 * 1000,
-    authorizationEnabled: Boolean,
-    clients: List[Client],
-    roleSets: List[RoleSet])
+  host: String,
+  port: Int = 9099,
+  sslEnabled: Boolean,
+  mongoDb: MongoDbConfig,
+  accessTokenTtl: Long = 2 * 60 * 60 * 1000,
+  authorizationEnabled: Boolean,
+  clients: List[Client],
+  roleSets: List[RoleSet])
 
 case class ActorSystemConfig(name: String)
 

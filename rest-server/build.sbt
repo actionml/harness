@@ -11,13 +11,15 @@ lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.4.3"
+lazy val salatVersion = "1.11.2"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  version := "0.1.0-SNAPSHOT",
+  version := "0.1.1-SNAPSHOT",
   scalaVersion := "2.11.8",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
@@ -45,7 +47,7 @@ lazy val core = (project in file("core")).
     commonSettings,
     libraryDependencies ++= Seq(
       "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.0",
+      "com.github.salat" %% "salat" % salatVersion,
 
       "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
       "org.mongodb.scala" %% "mongo-scala-bson" % "2.1.0",
@@ -78,7 +80,8 @@ lazy val templates = (project in file("templates")).dependsOn(core).
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
 
       "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.0",
+      "com.github.salat" %% "salat" % salatVersion,
+
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1",
 
@@ -92,7 +95,7 @@ lazy val admin = (project in file("admin")).dependsOn(core).
     commonSettings,
     libraryDependencies ++= Seq(
       "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.0",
+      "com.github.salat" %% "salat" % salatVersion,
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
