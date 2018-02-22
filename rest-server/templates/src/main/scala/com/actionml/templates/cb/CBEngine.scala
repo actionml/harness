@@ -32,23 +32,28 @@ class CBEngine() extends Engine() with JsonParser {
   var algo: CBAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        params = p
-        engineId = params.engineId
-        dataset = new CBDataset(engineId)
-        algo = new CBAlgorithm(dataset)
-        drawInfo("Contextual Bandit Init", Seq(
-          ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId),
-          ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer)))
+  private def createResourses(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
+    params = p
+    engineId = params.engineId
+    dataset = new CBDataset(engineId)
+    drawInfo("Contextual Bandit Init", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("EngineId: ", engineId),
+      ("Mirror Type: ", params.mirrorType),
+      ("Mirror Container: ", params.mirrorContainer)))
+    Valid(true)
+  }
 
-        Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
-          algo.init(json, this)
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+    super.init(json, deepInit).andThen { _ =>
+      parseAndValidate[GenericEngineParams](json).andThen { p =>
+        createResourses(p).andThen{ _ =>
+          dataset.init(json, deepInit).andThen { _ =>
+            if (deepInit) {
+              algo = new CBAlgorithm(dataset)
+              algo.init(json, this)
+            } else Valid(true)
+          }
         }
       }
     }
@@ -57,7 +62,6 @@ class CBEngine() extends Engine() with JsonParser {
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  // Todo: should return null for bad init
   override def initAndGet(json: String): CBEngine = {
    val response = init(json)
     if (response.isValid) {
@@ -92,16 +96,13 @@ class CBEngine() extends Engine() with JsonParser {
     logger.warn(s"Only used for Lambda style training")
   }
 
-  /** Triggers parse, validation, and persistence of event encoded in the json */
+  /** Triggers parse, validation, and processing of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true) // Some error like an ExecutionError in super.input happened
+    super.input(json, trainNow).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -109,7 +110,7 @@ class CBEngine() extends Engine() with JsonParser {
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
-          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
+          dataset.usersDAO.get.findOneById(event.toUsageEvent.userId).get,
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
           engineId

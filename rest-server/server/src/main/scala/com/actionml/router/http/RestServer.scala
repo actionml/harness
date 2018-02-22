@@ -9,7 +9,7 @@ import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.DebuggingDirectives
-import akka.http.scaladsl.{ConnectionContext, Http}
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.router.config.AppConfig

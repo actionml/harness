@@ -35,7 +35,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -51,8 +51,8 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          algo.init(json, this)
-        } //( _ => algo.init(json, engineId))
+          if (deepInit) algo.init(json, this) else Valid(true)
+        }
       }
     }
   }

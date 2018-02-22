@@ -33,10 +33,9 @@ import scala.collection.immutable.HashMap
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
-  * The Dataset manages Users and Journeys. Users are not in-memory. Journeys may be in-memory and persisted
-  * immediately after any change.
+  * The NavHintingDataset manages User journeys and the hint model. Users are not in-memory. Journeys may be in-memory
+  * and persisted after changes accumulate.
   *
-  * @param engineId REST resource-id from POST /engines/<resource-id>/events also ids the mongo DB for all input
   */
 class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) with JsonParser with Mongo {
 
@@ -45,11 +44,9 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
   val navHintsDAO: NavHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
 
-  //var navHintsDAO: SalatDAO[Map[String, Double], String] = _
-
   var trailLength: Int = _
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
         trailLength = algoParams.numQueueEvents.getOrElse(50)

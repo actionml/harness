@@ -16,7 +16,7 @@ engine_2_behavior_events=data/john-context-tags-2.json
 engine_2_profile_events=data/john-profile-location.json
 sleep_seconds=1
 
-export HARNESS_CA_CERT=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
+# export HARNESS_CA_CERT=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
 cd example
 
 echo

@@ -19,9 +19,7 @@ package com.actionml;
 
 import akka.NotUsed;
 import akka.actor.ActorSystem;
-import akka.http.javadsl.ConnectHttp;
-import akka.http.javadsl.HostConnectionPool;
-import akka.http.javadsl.Http;
+import akka.http.javadsl.*;
 import akka.http.javadsl.model.*;
 import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.http.javadsl.model.headers.Authorization;
@@ -39,9 +37,18 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigObject;
 import scala.util.Try;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.*;
 import java.net.PasswordAuthentication;
+import java.security.*;
+import java.security.cert.CertificateException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -85,17 +92,51 @@ public class BaseClient {
         Boolean isHttps = host.startsWith("https");
         if (isHttps) {
             ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
-            poolClientFlow = Http.get(system).cachedHostConnectionPool(
-                    ConnectHttp.toHostHttps(host, port),
-                    settings,
-                    system.log(),
-                    materializer);
+            try {
+                Http http = Http.get(system);
+                http.setDefaultClientHttpsContext(httpsContext());
+                poolClientFlow = http.cachedHostConnectionPool(
+                        ConnectHttp.toHostHttps(host, port),
+                        settings,
+                        system.log(),
+                        materializer);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         } else {
             poolClientFlow = Http.get(system).cachedHostConnectionPool(
                     ConnectHttp.toHost(host, port),
                     materializer);
         }
     }
+
+    private HttpsConnectionContext httpsContext() throws KeyStoreException, IOException, CertificateException,
+            NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
+        String sslConfPath = System.getenv().getOrDefault("HARNESS_SSL_CONFIG_PATH", "./conf/akka-ssl.conf");
+        Config config = ConfigFactory.parseFile(new File(sslConfPath));
+        ConfigObject keyManagerConfig = config.getObjectList("akka.ssl-config.keyManager.stores").get(0);
+        String storeType = (String) keyManagerConfig.get("type").unwrapped();
+        String storePath = (String) keyManagerConfig.get("path").unwrapped();
+        String storePassword = (String) keyManagerConfig.get("password").unwrapped();
+
+        char[] password = storePassword.toCharArray();
+
+        KeyStore keystore = KeyStore.getInstance(storeType);
+        InputStream keystoreFile = new FileInputStream(new File(storePath));
+
+        keystore.load(keystoreFile, password);
+
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+        keyManagerFactory.init(keystore, password);
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(keystore);
+
+        SSLContext sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(keyManagerFactory.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
+        return ConnectionContext.https(sslContext);
+    }
+
 
     public CompletionStage<HttpResponse> single(HttpRequest request) {
         return Source.single(Pair.create(request, 0L))

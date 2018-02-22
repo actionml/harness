@@ -131,6 +131,7 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   "engineId": "hinting",
   "engineFactory": "com.actionml.templates.nh.NavHintingEngine",
   "algorithm":{
+    "journeyTTL": 90, // number of days, 90 is default
     "numQueueEvents": 50, // optional 50 by default
     "decayFunction": "click-order", // or "half-life" or "click-time"
                                     // optional default "click-order"
@@ -146,7 +147,8 @@ The NH Engine has a configuration file defined below. This defines parameters fo
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
  - **algorithm**: params known only by the algorithm
-  - **numQueueEvents**: number of events stored per user before a conversion. Older events are dropped once this limit is reached and newer ones are added. The default is 50 if omitted.
+  - **journeyTTL**: The number of days to keep an particular user's clicks. Once they beyond are not modified for this amount of time they are discarded. If they start up again later they will be tracked anew.
+  - **numQueueEvents**: number of events stored in a user's journey. Older events are dropped once this limit is reached as newer ones are added. The default is 50 if omitted.
   - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
   - **halfLifeDecayLambda**: optional , default is 1 if omitted. Defines how quickly in days the weight of the event is 0.5 via: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`.
   - **num**: how many of the highest ranking hints to return. Optionsl, default = 10 if omitted.

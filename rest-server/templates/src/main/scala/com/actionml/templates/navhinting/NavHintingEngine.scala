@@ -31,23 +31,26 @@ class NavHintingEngine() extends Engine() with JsonParser {
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new NavHintingDataset(engineId)
-        algo = new NavHintingAlgorithm(dataset)
         drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer)))
+          ("Mirror Container: ", params.mirrorContainer),
+          ("All Parameters:", params)))
 
-        Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
-          algo.init(json, this)
+        Valid(true)
+      }.andThen { _ =>
+        dataset.init(json).andThen { _ =>
+          if (deepInit) {
+            algo = new NavHintingAlgorithm(dataset)
+            algo.init(json, this)
+          } else Valid(true)
         }
       }
     }

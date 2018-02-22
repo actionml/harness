@@ -31,7 +31,8 @@ Set your path to include to the directory containing the `harness` script. **Not
 # Engine Management
 
  - **`harness add <some-engine-json-file>`** creates and starts an instance of the template defined in `some-engine-json-file`, which is a path to the template specific parameters file.
- - **`harness delete [<some-engine-id>]`** The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
+ - **`harness update <some-engine-json-file>`** updates an existing engine with values defined in `some-engine-json-file`, which is a path to the template specific parameters file. The Engine knows what is safe to update for example as of Harness 0.1.1, only updates to mirroring and a shared user DB are supported. To find what got updated do a `harness status engine ...` to get the current list of params used.
+ - **`harness delete <some-engine-id>`** The engine and all accumulated data will be deleted and the engine stopped. No persistent record of the engine will remain.
  - **`harness import <some-engine-id> [<some-directory> | <some-file>]`** This is typically used to replay previously mirrored events or bootstrap events created from application logs. It is safest to import into an empty new engine since some events cause DB changes and others have no side effects.
  - **&dagger;**`harness train <some-engine-id>` in the Lambda model this trains the algorithm on all previously accumulated data.
  - **`harness status`** prints a status message for harness.
@@ -44,7 +45,7 @@ When using Authentication with Harness we define Users and give them Permissions
 
  - **`harness user-add [client | admin] [<some-engine-id>]`** returns the user-id and secret that gives `roleSet` access to the engine-id specified. Not that the engine-id is not needed for creating an admin user which, as a superuser, has access to all resources.
  - **`harness user-delete <some-user-id>`** removes the user and any permissions they have, in effect revoking their credentials. A warning will be generated when deleting an admin user.
- - **`harness grant <some-user-id> <some-engine-id>`** grants client or access to an engine-id for a user-id. **Note**: This is only needed if more than one engine-id is used by a "client" since creating a "client" requires an initializing engine-id. Also this is never needed for an admin user since they are created with superuser access to all resources.
+ - **`harness grant <some-user-id> <some-engine-id>`** grants client access for a user to an engine-id. **Note**: This is only needed if more than one engine-id is used by a "client" since `user-add` creates a "client" for an engine-id. Also this is never needed for an admin user since they are created by `harness user-add admin` with superuser access to all resources.
  - **`harness revoke <some-user-id> [<some-engine-id> | *]`** revokes all permissions for a user-id to the engine-id(s) specified. The wild-card revokes access to all engine-ids. And error is reported if this is used to revoke admin permissions since all admins are superusers.
  - **`harness status users [<some-user-id>]`** list all users and their permissions or only permissions for requested user.
 

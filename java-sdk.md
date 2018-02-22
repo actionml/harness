@@ -155,20 +155,10 @@ Not also that you cannot have a secure deployment without both TLS and Auth. TLS
 
 ## Setup TLS/SSL
 
-When Harness is running with a TLS certificate you need to add it to the Java keystore. This is a standard part of Java so look for the docs on how to create a keystore online.
-
-The keystore is used by Harness as well as the Java and Python clients too so set the following environment variables before using any of these.
-
-    # Harness TLS/SSL client support. This is needed by the client.
-    # This is therefore required if you run the CLI and TLS is used by Harness
-    # At present this is required even if TLS is not used but will be removed in a
-    # future version of Harness.
-    export HARNESS_KEYSTORE_PASSWORD="password-for-the-keystore"
-    export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
-    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+See [harness-config.md](harness-config.md) for a description of how to setup the Harness Server and Java SDK for TLS/SSL
     
 ## Using Auth from the Client
 
-When Harness is running in "Authentication Required" mode a **User** and **Secret** must be created on the Harness Server using the CLI or REST interface. The User must have **Permission** to access the resource/engineId used in the client code examples above and must have the role **Client** or **Admin**. See the [CLI docs](commands.md) for more details
+When Harness is running in "Authentication Required" mode a **User** and **Secret** must have been created on the Harness Server using the CLI or REST interface. When Harness is first started it is in non-TLS mode, with no need of an admin user, so create one before turning on authentication and make a note of the user-id and secret needed. The User must have **Permission** to access the resource/engineId used in the client code examples above and must have the role **Client** or **Admin**. See the [CLI docs](commands.md) for more details
 
   

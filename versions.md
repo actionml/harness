@@ -5,6 +5,10 @@ Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and al
 ## v0.1.1-RC1
 
  - The Navigation Hinting Kappa-style Template is complete in non-personalized form
+ - TTLs are implemented for user click-path journeys have a TTL described in Engines params
+ - All User collections, including the shared user collection has a TTL so that inactive users will be aged out of the DB, without this they would need to have `$delete` for each removed User. This still works but is very difficult to coordinate when sharing user data across Engine Instances.
+ - The asynchronous MongoDB client is used for all DB access. This improves performance in high throughput cases.
+ - DAL/DAO/DAOImpl pattern is used for all DB access, making it easier to port to some other DB store by just creating a new DAOImpl for the new DB.
 
 ## v0.1.0
 
@@ -16,7 +20,7 @@ Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and al
  - Engines include:
     - The Contextual Bandit in a Kappa-style implementation based on the Vowpal Wabbit compute engine
  - Microservice architecture includes HTTP microservices and each Engine is an Actor but does not implement the Event Bus. This makes Harness a non-clustered implementation unless a custom engine uses clustered services like Spark
- - Scaldi injection is supported in limited form, see Engines for examples
+ - ScalDI injection is supported in limited form, see Engines for examples
  - DAL/DAO/DAO-IMPL is prototyped in the Auth-Server but not generalized for Engine use
  - Realtime Input validation complete
  - Multi-tenancy complete

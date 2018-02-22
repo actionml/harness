@@ -92,19 +92,6 @@ class CBAlgorithm(dataset: CBDataset)
         val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
         logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
         val exists = trainers.keys.toList
-        /*val diff = groupEvents.filterNot { case (key, _) =>
-          exists.contains(key) && dataset.GroupsDAO.findOne(DBObject("_id" -> key)).nonEmpty
-        }
-
-        diff.foreach { case (trainer, collection) =>
-          val group = dataset.GroupsDAO.findOne(DBObject("_id" -> trainer)).get
-          val actor = actors.actorOf(SingleGroupTrainer.props(collection, dataset.usersDAO, params, group, engineId,
-            modelContainer), trainer)
-          trainers += trainer → actor
-        }
-        */
-
-        // do this before any actors are created since they need the VW instance
         vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
 
         groupEvents.foreach(groupName => add(groupName._1))
@@ -224,7 +211,7 @@ class CBAlgorithm(dataset: CBDataset)
       val actor = actors.actorOf(
         SingleGroupTrainer.props(
           dataset.usageEventGroups(groupName),
-          dataset.usersDAO,
+          dataset.usersDAO.get,
           params,
           dataset.GroupsDAO.findOneById(groupName).get,
           engineId,
@@ -249,7 +236,7 @@ class CBAlgorithm(dataset: CBDataset)
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    val user = dataset.usersDAO.findOneById(query.user).getOrElse(User("",Map.empty))
+    val user = dataset.usersDAO.get.findOneById(query.user).getOrElse(User("",Map.empty))
 
     val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
 

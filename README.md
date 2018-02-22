@@ -82,11 +82,11 @@ Harness is a REST server with an API for Engines, Events, Queries, Users, and Pe
 The Harness Server is also in charge of the CRUD operations on Engines and other administrative operations. It presents the only externally available 
 API, which is identical for any Client software, be it an application or the Command Line Interface (CLI), or some future WEB UI.
 
+The Harness server core is small and fast and so is quite useful in single Algorithm solutions but by adding the Auth-server and scalable Engines can also become a SaaS System. 
+
 ## Router
 
 The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to resource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
-
-The Harness server core is small and fast and so is quite useful in single Algorithm solutions but by adding the Auth-server and scalable Engines can also become a SaaS System. 
 
 The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservice Engine. The implementaton is based on akka-http and uses the DSL and directives provided by it.
 

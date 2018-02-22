@@ -15,7 +15,7 @@ user1_conversion=data/nh-pferrel-conversion.json
 user2_conversion=data/nh-joe-conversion.json
 sleep_seconds=1
 
-export HARNESS_SERVER_CERT_PATH=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
+# export HARNESS_SERVER_CERT_PATH=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
 cd example
 
 echo

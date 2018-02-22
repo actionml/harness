@@ -5,14 +5,21 @@ Harness comes with a set of default config details that work for single machine 
 ```
 #!/usr/bin/env bash
 
-# Type of mirroring, localfs is the only supported method currently
-# export MIRROR_TYPE=localfs
-# The root of mirroring, the engine-id will be appended to this and collections of raw events will be timestamped in files
-# export MIRROR_CONTAINER_NAME=/path/to/mirror/directory
+# Mirroring data is not configured per Engine in the engine.json file used to create the engine
+# See examples in rest-server/data/test_resource.json file
 
-# export REST_SERVER_HOST=0.0.0.0 # for allowing outside connections
+# Harness Server config, should work as-id unless you are using SSL
 export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
 export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
+export HARNESS_EXTERNAL_ADDRESS=localhost
+
+# For SSL use the following
+# 0.0.0.0 is typical for a server listening for external connections
+#export REST_SERVER_HOST=${REST_SERVER_HOST:-0.0.0.0}
+# no port changes are required
+#export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
+# the HARNESS_EXTERNAL_ADDRESS should be the address your certificate is bound to
+#export HARNESS_EXTERNAL_ADDRESS=<external IP address or DNS name>
 
 export MONGO_HOST=${MONGO_HOST:-localhost}
 export MONGO_PORT=${MONGO_PORT:-27017}
@@ -20,23 +27,19 @@ export MONGO_PORT=${MONGO_PORT:-27017}
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
 export HARNESS_LOG_PATH="${HARNESS_HOME}/logs"
 
-# Reset
-NC='\033[0m'           # Text Reset
+# Harness Auth
+export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
+# When auth is enabled there must be an admin user-id set so create one before turning on Auth
+# export ADMIN_USER_ID=some-user-id
+# Can override where this is stored, the default is where the CLI user's ssh keys are stored
+# export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
 
-# Regular Colors
-RED='\033[0;31m'          # Red
-GREEN='\033[0;32m'        # Green
-YELLOW='\033[0;33m'       # Yellow
-BLUE='\033[0;34m'         # Blue
-PURPLE='\033[0;35m'       # Purple
-CYAN='\033[0;36m'         # Cyan
-WHITE='\033[0;37m'        # White
-
-LINE="=================================================================="
-
-GLINE="${GREEN}${LINE}"
-RLINE="${LINE}${NC}"
-
+# Harness TLS/SSL client support. This is used by the server so any client, including the CLI, should match this setup.
+export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
+export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
+export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+# Java SDK uses the following, usually set this for any client app using the Java SDK with TLS/SSL
+# export HARNESS_SERVER_CERT_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.pem}
 ```
 
 ## Accepting Outside Connections
@@ -47,15 +50,40 @@ The first thing to change is that the server must bind to `0.0.0.0` instead of `
 export REST_SERVER_HOST=0.0.0.0
 ```
 
-## Mirroring
+## TLS/SSL Support
 
-Mirroring is like an instant backup of all events that have been sent to all Harness engines. They are bundled into timestamped collections located at the `MIRROR_CONTAINER_NAME`. Mirroring is generally done to the localfs or hdfs (not implemented yet) and are files that have one event per line.
+This needs to be setup for the client and the server. Out of the box Harness requires no changes to use HTTP on localhost:9090. To change this do the following.
 
-To setup Mirroring for the entire server use the following config:
+### Harness Server TLS/SSL
+
+ - Enable TLS/SSL
+
+    ```
+    export HARNESS_SSL_ENABLED=true
+    ```
+
+ - Point to the correct Java Key Store file and supply the password for access
+
+    ```
+    export HARNESS_SERVER_CERT_PATH=!!path to the .jks file!!
+    export HARNESS_KEYSTORE_PASSWORD=!!put your password for the .jks here!!
+    ```
+        
+### Python SDK and CLI
+
+The Python SDK does not need env variables since all parameters for the client are passed in and the CLI reads the same parameters as the server so typically (when running the CLI on the server machine) nothing else needs to be setup
+
+### Java SDK
+
+The Java SDK sets the needed variables in akka-ssl.conf. Out of the box this file is not included in the build of the Java SDK. To enable SSL un-comment `include akka-ssl.conf` in the SDK code. You will find it at `harness/java-sdk/src/main/resources/application.conf`, which is set to say 
 
 ```
-# export MIRROR_TYPE=localfs
-# export MIRROR_CONTAINER_NAME=/path/to/mirror/directory
+# include "akka-ssl.conf"
+include "akka.conf"
 ```
 
-Basic mirroring can also be imported with `harness import ...` but beware that importing from the location events are mirrored to will cause an error since imported events are also mirrored. MOVE TG
+by default. Un-comment the include and read `akka-ssl.conf` for how to point to the correct keystore similar to the way the Harness server is setup. 
+
+
+
+

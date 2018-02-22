@@ -9,7 +9,7 @@ There are 4 projects in the GitHub repo:
  3. java-sdk examples 
  4. python sdk
 
-For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md) as well as set them up for debugging with IntelliJ. Much of this is targeted at Debian/Ubuntu with side notes for macOS (BSD based).
+For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md). Much of this is targeted at Debian/Ubuntu with side notes for macOS (BSD Unix based).
 
 When using the source from GitHub follow these instructions to build and deploy.
 
@@ -78,11 +78,11 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     git clone https://github.com/actionml/harness.git
     cd harness/rest-server
     ./make-distribution
-    tar xvf Harness-0.1.0-SNAPSHOT
-    nano Harness-0.1.0-SNAPSHOT/bin/harness-env # config the env for Harness
+    tar xvf Harness-0.1.1-RC1
+    nano Harness-0.1.1-RC1/bin/harness-env # config the env for Harness
     ```
 
-    Add the path to the Harness CLI to your PATH by including something like the following in `~/.profile`
+    Add the path to the Harness CLI to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
     
     ```
     export PATH=$PATH:/home/aml/harness/rest-server/Harness-0.1.0-SNAPSHOT/bin/
@@ -104,17 +104,17 @@ To configure Harness for localhost connections you should not need to change the
 
 ```
 harness start # you will get a status message printed
-harness add -c /path/to/some/engine.json # get a success response
+harness add !!path to the engine's JSON params file!! # get a success response
 ```
 
-You now have an empty Contextual Bandit Engine at the resource-id referenced in the engine.json.
+You now have an empty Engine of the type, `engineId`, and params defined in the Engines config JSON file.
 
 To send events and make queries see "examples" directories in `java-sdk` and `python-sdk`.
 
-When you are done playing around remove the Engine since is may be set up to mirror input and therefor taking up disk space with events.
+When you are done playing around delete the Engine to clear out the DB and disk used by the Engine.
 
 ```
-harness delete test_resource # or whatever the engine's resource-id is
+harness delete !!your engineId!! # use the engine's engineId
 # if you want to shutdown the server
 harness stop
 ```
@@ -124,13 +124,13 @@ harness stop
 # Running the Integration Test
 
 ```
-cd harness/python-sdk
+cd harness/java-sdk
 ./integration-test.sh
 ```
 
-You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end is not blank the test fails.
+You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end has no "important differences" then the test passes.
 
-# Security
+# Security **(This needs to be updated!!!)**
 
 So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
 
@@ -140,7 +140,12 @@ Security not only has 2 parts but needs to be configured on the Java/Python SDK 
 
 Auth starts by creating users see [Commands](commands.md) for User and Permission Management. At minimum you must have an `admin` user to use the CLI. This user can also be used to send test events but typically you will create `client` users for that purpose.
 
-    harness user-add admin
+In order to do anything with Users, or Permissions you must start the harness authentication micro-service. 
+
+```
+harness-auth start # this is started and stopped like harness
+harness user-add admin
+```
 
 This will report back a user-id and secret, make note of them. To use the default setup in `bin/harness-env` copy the secret to a file named with the user-id:
 
@@ -150,15 +155,16 @@ This creates a file in the admin user's .ssh directory containing the secret. No
 
     export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
 
-
 ## Setup Server-side TLS/SSL 
 
 TLS can be toggled via HARNESS_SSL_ENABLED env variable (true|false). When set to 'true' it must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
 
     export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+
 TLS configuration can be configured at the file that HARNESS_SSL_CONFIG_PATH points to.
 
     export HARNESS_SSL_CONFIG_PATH=${HARNESS_SSL_CONFIG_PATH:-conf/akka-ssl.conf}
+
 The content of the file is similar to the Akka SSL configuration:
 
     akka {
@@ -200,12 +206,14 @@ To use the examples in `java-sdk/examples` you can also set the following env:
 
 ## Client Examples Auth
 
-    export HARNESS_CLIENT_USER_ID=<client-user-id>
-    # the value returned when creating a client or admin user
-    export HARNESS_CLIENT_USER_SECRET=<user-secret>
-    # the value returned as the user secret when creating
-    # and admin or client user with access to the resource
-    # the SDK will use
+```
+export HARNESS_CLIENT_USER_ID=<client-user-id>
+# the value returned when creating a client or admin user
+export HARNESS_CLIENT_USER_SECRET=<user-secret>
+# the value returned as the user secret when creating
+# and admin or client user with access to the resource
+# the SDK will use
+```
 
 ## Client Examples TLS/SSL
 

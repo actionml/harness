@@ -128,12 +128,12 @@ The CB has a configuration file defined below. This defines parameters for for t
 {
   "engineId": "test_resource",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
+  "modelContainer": "!!put the path to a directory for models here!!",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "modelName": "/path/to/model.vw",
     "namespace": "name",
     "maxClasses": 3
   }
@@ -142,12 +142,12 @@ The CB has a configuration file defined below. This defines parameters for for t
 
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
+ - **modelContainer**: this must point to a directory on the server machine and will be used by VW to keep the live model in a file named the same as the `engineId` above.
  - **algorithm**: params known only by the algorithm, which is a part of the Template definition.
   - **maxIter**: max iterations to calculate classification, best left at 100 so pathological cases won't take forever to complete.
   - **regParam**: regularization parameter, see VW docs.
   - **stepSize**: steps for iterations, se VW docs
   - **bitPrecision**: how many bits used to define a fixed point value internally.
-  - **modelName**: location in the local filesystem to store the VW model data when persisted. **WARNING**:must be the same for all Engines that use VW! Otherwise they will overwrite each other's models.
   - **nameSpace**: **MUST** be unique for every resource-id. **WARNING**: this will be **deprecated** and calculated automatically.
   - **maxClasses**: max number of variants.
 
@@ -157,5 +157,5 @@ Harness was designed for streaming data sources and in the case of the CB will t
 
 # Notes
 
-This template requires Vowpal Wabbit. The included dependency in the build.sbt has been tested on Ubuntu 14.04 only. If you encounter issues, please build VW from source, per instructions on the [VW GitHub repo](https://github.com/JohnLangford/vowpal_wabbit).
+This template requires Vowpal Wabbit. The included dependency in the build.sbt has been tested on Ubuntu 16.04. The dependency is only the Java API for VW and still requires that VW is built and installed from source as described in the [VW GitHub repo](https://github.com/JohnLangford/vowpal_wabbit). Follow the special Ubuntu instructions in [install.md](install.md).
 

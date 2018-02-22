@@ -33,24 +33,26 @@ abstract class Engine extends LazyLogging with JsonParser {
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
-  var mirroring: Mirroring = _
-  private var mirroringDiabled = true
+  private var mirroring: Option[Mirroring] = None
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _
 
+  /** This is the Engine factory method called only when creating a new Engine, and named in the engine-config.json file
+    * the contents of which are passed in as a string. Overridden, not inherited. */
+  def initAndGet(json: String): Engine
+
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     engineId = params.engineId
-    modelContainer = params.modelContainer.getOrElse(serverHome) + engineId
-    if (params.mirrorContainer.isEmpty) {
+    if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
+      mirroring = None
       Valid(true)
-    } else if (params.mirrorType.nonEmpty) {
+    } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" =>
-          mirroring = new FSMirroring(container)
-          mirroringDiabled = false
+          mirroring = Some(new FSMirroring(container))
           Valid(true)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
@@ -59,28 +61,54 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
-  def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen(createResources)
+  /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
+    * deepInit means to initialize a new object, it is set to false when updating a running Engine.*/
+  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+
+    parseAndValidate[GenericEngineParams](json).andThen { p =>
+      if (deepInit) modelContainer = p.modelContainer.getOrElse(serverHome) + engineId // not allowed for `harness update`
+      createResources(p)
+    }
   }
 
-  def initAndGet(json: String): Engine
+  /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit
+
+  /** Optional, generally not meeded */
   def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
   def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
+
+  /** This returns information about a running Engine, any useful stats can be displayed in the CLI with
+    * `harness status engine-id`. Typically overridden in child and not inherited.
+    * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
+    * manages and the child Engine adds json to give stats about the data it manages?
+    */
   def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(
       s"""
          |{
-         |  "Message": "Status of base Engine with engineId:$engineId"
+         |  "Engine class": "Status of base Engine with engineId:$engineId"
          |}
        """.stripMargin)
   }
 
+  /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
+    * processing. Must be inherited and extended.
+    * @param json Input defined by each engine
+    * @param trainNow Flag to trigger training, used for batch or micro-batch style training, not used in Kappa Engines
+    * @return Validated status with error message
+    */
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
-    if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    // flatten the event into one string per line as per Spark json collection spec
+    if (mirroring.isDefined) mirroring.get.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
     Valid( true )
   }
 
+  /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
+    *
+    * @param json Format defined by the Engine
+    * @return json format defined by the Engine
+    */
   def query(json: String): Validated[ValidateError, String]
 }

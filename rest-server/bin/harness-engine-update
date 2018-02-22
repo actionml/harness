@@ -3,40 +3,30 @@
 . "${HARNESS_HOME}/bin/harness-env"
 
 
-while [ -n "$1" ]
-do
 case "$1" in
-    -c) ENGINE_CONFIG=$2
-        shift ;;
-    -i) INPUT_LOCATION=$2
-        shift ;;
-    -d|--data-delete) DATA_DELETE="-d" ;;
-    -f|--force) FORCE="-f" ;;
-    *) RESOURCE_ID=$1 ;;
+    #c) ENGINE_CONFIG=$2
+    #    shift ;;
+    *) ENGINE_CONFIG=$1 ;;
 esac
-shift
-done
 
-if [ -z "$ENGINE_CONFIG" ] && [ -z "$RESOURCE_ID" ]; then
-    echo -e "${RED}Engine config file or resource id not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
+
+if [ -z "$ENGINE_CONFIG" ]; then
+    echo -e "${RED}Engine config file not specified!${NC}"
+    echo -e "Expected command: ${CYAN}harness update <some-engine.json>${NC}"
     exit 1
 fi
 
 if [ ! -f ${ENGINE_CONFIG} ]; then
     echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness update [-c <some-engine.json> | <engine-id] [-d | --data-delete] [-f | --force]${NC}"
+    echo -e "Expected command: ${CYAN}harness update <some-engine.json>${NC}"
     echo -e "Verify that the correct path is specified."
     exit 1
 fi
 
 PYTHON_ARGS="update"
-if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
-if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG}"; fi
-if [ -n "$DATA_DELETE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${DATA_DELETE}"; fi
-if [ -n "$FORCE" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${FORCE}"; fi
-if [ -n "$INPUT_LOCATION" ]; then PYTHON_ARGS="${PYTHON_ARGS} -i ${INPUT_LOCATION}"; fi
+if [ -n "$ENGINE_CONFIG" ]; then PYTHON_ARGS="${PYTHON_ARGS} -c ${ENGINE_CONFIG} $USER_ARGS"; fi
 
-echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
 
-${HARNESS_HOME}/bin/eengines.py ${PYTHON_ARGS}
+# echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+
+${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
