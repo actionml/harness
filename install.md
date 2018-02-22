@@ -130,11 +130,11 @@ cd harness/java-sdk
 
 You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end has no "important differences" then the test passes.
 
-# Security **(This needs to be updated!!!)**
+# Security **(!!!This needs to be updated!!!)**
 
 So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
 
-Security not only has 2 parts but needs to be configured on the Java/Python SDK (client) side **and** the Server Side
+Security not only has 2 parts but needs to be configured on the Java/Python SDK (client) side **and** the Server Side.
 
 ## Setup Server-side Auth
 

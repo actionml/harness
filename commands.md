@@ -43,10 +43,10 @@ Set your path to include to the directory containing the `harness` script. **Not
 
 When using Authentication with Harness we define Users and give them Permissions. Two Permissions are predefined: client and admin. Clients are typically granted access to any number of Engines by ID and all of their sub-resources: Events and Queries. The admin has access to all parts of Harness. In order to manage Users and Permissions the User must be an admin so these commands will only work for an admin.
 
- - **`harness user-add [client | admin] [<some-engine-id>]`** returns the user-id and secret that gives `roleSet` access to the engine-id specified. Not that the engine-id is not needed for creating an admin user which, as a superuser, has access to all resources.
+ - **`harness user-add [client <engine-id> | admin]`** returns the user-id and secret that gives client access to the engine-id specified OR gives the user-id admin global superuser access.
  - **`harness user-delete <some-user-id>`** removes the user and any permissions they have, in effect revoking their credentials. A warning will be generated when deleting an admin user.
- - **`harness grant <some-user-id> <some-engine-id>`** grants client access for a user to an engine-id. **Note**: This is only needed if more than one engine-id is used by a "client" since `user-add` creates a "client" for an engine-id. Also this is never needed for an admin user since they are created by `harness user-add admin` with superuser access to all resources.
- - **`harness revoke <some-user-id> [<some-engine-id> | *]`** revokes all permissions for a user-id to the engine-id(s) specified. The wild-card revokes access to all engine-ids. And error is reported if this is used to revoke admin permissions since all admins are superusers.
+ - **`harness grant <user-id> [client <engine-id> | admin]`** modifies some existing user-id's access permissions, including elevating the user to admin super user status.
+ - **` harness revoke <user-id> [client <engine-id>| admin]`** revokes some existing permission for a user
  - **`harness status users [<some-user-id>]`** list all users and their permissions or only permissions for requested user.
 
 # Harness Workflow

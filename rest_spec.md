@@ -44,23 +44,12 @@ For "client" type users, POSTing to `/engines/<engine-id>/events` and `/engines/
 | GET | / | none  | See Collection responses | JSON describing Harness server status  | Used to get server config information, currently defined Engines, and other pertinent information about the ML/AI operations **minimally implemented** |
 | POST | `/engines/` | JSON Engine config | See Collection responses | Engine description | Defines an Engine with a resource-id in the Request Body config, uses Harness and Engine specific config and parameters. See Config for Harness settings, and the Template for Engine params. Optionally depending on the JSON some Engine parts may be modified in place such as Algorithm params modified **(partial update not implemented)** |
 | GET | `/engines/` | none | See Collection responses | Engine descriptions for Engines the user has Read access to | This works like a list command to show all resources the user can read. For the Admin this would show all Engines in the system. **(not implemented)** |
-| POST | `/engines/<engine-id>` | JSON Engine config | See Item responses | none | Modify any params that can be and return which were possible to change |
+| POST | `/engines/<engine-id>` | JSON Engine config | See Item responses | hint about how to know what was changed | Modify any params that the Engine allows |
 | DELETE | `/engines/<engine-id>` | none | See Item responses | none | Remove and destroy all sub-resources (data and model) and config for the Engine |
 | GET | `/engines/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status **(not implemented)** |
 | POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
 | POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
 | GET | `/commands/` | none | See Collection responses | JSON listing of active Commands | Some commands are long lived and those still active will have status reported. **(not implemented)** |
-
-        
-# Harness Lambda Admin APIs (WIP)
-
-in addition to the API above, Lambda style learners require not only setup but batch training. So some additional commands are needed:
-
-| HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
-| --- | --- | :---  | :---  | :---  | :--- |
-| POST | `/commands/batch-train` | JSON params for batch training if defined by the Engine | See Item responses | Resource-id for Command | Used to start a batch training operation for an engine. Supplies any needed identifiers for input and training defined by the Engine **(not implemented)** |
-| GET | `/commands/<command-id>` | none | See Item responses | JSON Status of command | Get a report on the progress of an asynchronous long lived command like `batch-train` which may run for hours **(not implemented)** |
-| DELETE | `/commands/<command-id>` | none | See Item responses | Response to Command being stopped and removed | Stop an asynchronous long-lived command **(not implemented)** |
 
 # Harness User And Permission APIs
 
@@ -79,7 +68,9 @@ These APIs act as a thin proxy for communication with the Auth-Server. They are 
 
 # Auth-Server API (Private)
 
-The Auth-Server is a microservice that Harness uses to manage `User` and `Permission` resources. Any holder of a "bearer-token" is a `User` and the `User` may have many permissions, which are the routes and resources they are authorized to access.
+This API is private and used only by Harness to manages Users and Permissions. It is expected that these resources will be accessed through the Harness API, which will in turn use this API. 
+
+The Auth-Server is a microservice that Harness uses to manage `User` and `Permission` resources. Any holder of a "secret" is a `User` and the `User` may have many permissions, which are the routes and resources they are authorized to access.
 
 The Auth-Server is secured with connection level security no TLS or Auth itself is required and no SDK is provided since only the Harness Rest-Server needs to access it directly.
 
@@ -88,3 +79,12 @@ The Auth-Server is secured with connection level security no TLS or Auth itself 
 | POST | `/auth/token` | `grant_type=password&username=user-id&password=granted-token`, also app server's credentials should be provided by Authorization Basic header (see [https://tools.ietf.org/html/rfc6749#section-4.3] for details) | 200 or 401 | `{"access_token": "string", "token_type": "", "refresh_token": "optional string"}` | authenticates user's access and returns a session token |
 | POST | `/authorize` | `{"accessToken": "string", "roleId": "string", "resourceId": "string"}` | 200 or 403 | `{"success": "true"}` | Given a session/access token authorize the access requested or return an error code |
 
+# Harness *Lambda* Admin APIs (WIP, planned for Harness-0.2.0)
+
+Lambda style batch or background learners require not only setup but batch training. So some additional commands are needed and planned for a future release of Harness:
+
+| HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
+| --- | --- | :---  | :---  | :---  | :--- |
+| POST | `/commands/batch-train` | JSON params for batch training if defined by the Engine | See Item responses | Resource-id for Command | Used to start a batch training operation for an engine. Supplies any needed identifiers for input and training defined by the Engine **(not implemented)** |
+| GET | `/commands/<command-id>` | none | See Item responses | JSON Status of command | Get a report on the progress of an asynchronous long lived command like `batch-train` which may run for hours **(not implemented)** |
+| DELETE | `/commands/<command-id>` | none | See Item responses | Response to Command being stopped and removed | Stop an asynchronous long-lived command **(not implemented)** |

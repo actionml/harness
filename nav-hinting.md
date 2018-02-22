@@ -37,14 +37,6 @@ The model generated will be the sum of all weighted conversion vectors, ranked b
 
 The score has no absolute meaning an is only used to rank the eligible events by the highest value.
 
-## Personalized Algorithm (Hinting v0.2.0 Planned)
-
-The Personalized version is similar to the non-personalized and has the same configurable decays and other parameters. The decay function here acts as a threshold to detect events that are too old to consider. This threshold is applied to both the user's current journey and the data used to calculate the cooccurrence model. After passing this threshold LLR is used to find the most likely nav events correlate with a conversion.
-
-The model uses cooccurrence to calculate the most likely conversion links and so is based on the user's current journey history. The hints for a particular user are based on conversion journeys of "similar" users. 
-
-To calculate this similarity quickly in realtime a cosine k-nearest-neighbor engine is used in the form of Elasticsearch in a manner similar to the a simplified CCO algorithm as used in the Universal Recommender with TTL (time to live) applied to all input to model calculation and user history. The TTL is based on the decay function. 
-
 # Input
 
 Input comes in the form of an Event stream via the Harness REST API for POSTing events in JSON form. Insert events in JSON form like so: 
@@ -130,6 +122,7 @@ The NH Engine has a configuration file defined below. This defines parameters fo
 {
   "engineId": "hinting",
   "engineFactory": "com.actionml.templates.nh.NavHintingEngine",
+  // other generic Harness setting go here
   "algorithm":{
     "journeyTTL": 90, // number of days, 90 is default
     "numQueueEvents": 50, // optional 50 by default
@@ -147,11 +140,11 @@ The NH Engine has a configuration file defined below. This defines parameters fo
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
  - **algorithm**: params known only by the algorithm
-  - **journeyTTL**: The number of days to keep an particular user's clicks. Once they beyond are not modified for this amount of time they are discarded. If they start up again later they will be tracked anew.
+  - **journeyTTL**: The number of days to keep an particular user's clicks. Once they beyond are not modified for this amount of time they are discarded. If they start up again later they will be tracked anew. Optional, default is 90 days for this param.
   - **numQueueEvents**: number of events stored in a user's journey. Older events are dropped once this limit is reached as newer ones are added. The default is 50 if omitted.
   - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
   - **halfLifeDecayLambda**: optional , default is 1 if omitted. Defines how quickly in days the weight of the event is 0.5 via: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`.
-  - **num**: how many of the highest ranking hints to return. Optionsl, default = 10 if omitted.
+  - **num**: how many of the highest ranking hints to return. Optional, default = 10 if omitted.
   - **updatesPerModelWrite**: how many conversions to process before the in-memory live model is saved to the DB. Any conversions between the last save and the current state of the Engine will be lost on shutdown (this is usually not a big problem. Pick a number here that is high for a high conversions per day site and low for a lower volume site. **Note**: User Journeys are saved as they happen and so are not lost, only conversions that affect the hinting model may be lost. If this setting is set to 1, no conversions will be lost but this will slow the processing of conversions. Test to see if speed of conversion processing becomes a problem and adjust this setting accordingly
  
 # Training
@@ -159,3 +152,11 @@ The NH Engine has a configuration file defined below. This defines parameters fo
 Harness was designed for streaming data sources and in the case of the NH non-personalized engine will train for incoming events incrementally so all you need to do is send events and make queries. 
 
 For Personalized Hinting a more heavy weight background process can be triggered periodically that will not interrupt querying or input. This will use Spark and Elasticsearch and is targeted for NH v0.2.0.
+
+# Personalized Algorithm: Hinting v0.2.0 Planned
+
+The Personalized version is similar to the non-personalized and has the same configurable decays and other parameters. The decay function here acts as a threshold to detect events that are too old to consider. This threshold is applied to both the user's current journey and the data used to calculate the cooccurrence model. After passing this threshold LLR is used to find the most likely nav events correlate with a conversion.
+
+The model uses cooccurrence to calculate the most likely conversion links and so is based on the user's current journey history. The hints for a particular user are based on conversion journeys of "similar" users. 
+
+To calculate this similarity quickly in realtime a cosine k-nearest-neighbor engine is used in the form of Elasticsearch in a manner similar to the a simplified CCO algorithm as used in the Universal Recommender with TTL (time to live) applied to all input to model calculation and user history. The TTL is based on the decay function. 
