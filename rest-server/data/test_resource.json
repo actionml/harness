@@ -1,12 +1,22 @@
 {
   "engineId": "test_resource",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
+<<<<<<< HEAD
   "mirrorType": "localfs",
   "comment": "add mirrorContainer to point to a location on your system and enable mirroring to that location",
   "comment": "add sharedDBName for sharing a DBs for Users, should be named with lowercase and underscore separator, aka snake case",
   "sharedDBName": "harness_shared",
 <<<<<<< HEAD
 =======
+  "modelContainer": "/Users/pat/big-data/harness/models/",
+>>>>>>> develop
+=======
+  "comment": "the only type allowed for now is localfs, this must be defined if you have a container defined",
+  "mirrorType": "localfs",
+  "comment": "add mirrorContainer to point to a location on your system and enable mirroring to that location",
+  "mirrorContainer": "/Users/pat/big-data/harness/mirrors/",
+  "comment": "add sharedDBName for sharing a DBs for Users, should be named with lowercase and underscore separator, aka snake case",
+  "sharedDBName": "harness_shared_user",
   "modelContainer": "/Users/pat/big-data/harness/models/",
 >>>>>>> develop
   "algorithm":{
@@ -16,7 +26,10 @@
     "bitPrecision": 24,
     "comment": "modelContainer is output an should be a full directory path on your local fs",
 <<<<<<< HEAD
+<<<<<<< HEAD
     "modelContainer": "/Users/pat/big-data/harness/models/",
+=======
+>>>>>>> develop
 =======
 >>>>>>> develop
     "maxClasses": 3

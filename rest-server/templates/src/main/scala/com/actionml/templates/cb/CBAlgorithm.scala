@@ -106,8 +106,8 @@ class CBAlgorithm(dataset: CBDataset)
 
       vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
 
-      groupEvents.foreach( groupName => add(groupName._1))
-      // params .close() should write to the file
+        groupEvents.foreach(groupName => add(groupName._1))
+        // params .close() should write to the file
 
       Valid(true)
     }

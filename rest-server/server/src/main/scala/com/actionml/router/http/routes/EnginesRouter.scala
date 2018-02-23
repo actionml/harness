@@ -90,7 +90,15 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
   }
 
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
+  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
+    log.info("Update engine: {}", engineConfig)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngine(engineConfig.toString())).mapTo[Response]
+    }
+  }
+
+  /*
+  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (post & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
     entity(as[Json]) { engineConfig ⇒
       //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
       log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
@@ -105,6 +113,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
 
   }
+  */
 
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
     log.info("Delete engine: {}", engineId)

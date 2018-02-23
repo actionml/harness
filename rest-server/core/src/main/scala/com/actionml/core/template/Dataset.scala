@@ -36,5 +36,3 @@ abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) ex
   def parseAndValidateInput(s: String): Validated[ValidateError, T]
 
 }
-
-

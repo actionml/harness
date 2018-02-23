@@ -39,7 +39,7 @@ import scala.concurrent.duration.Duration
 
 import scala.language.reflectiveCalls
 
-/** Manages DAOs for the Contextual Bandit input data
+/** Reacts to persisted input data for the Contextual Bandit.
   * There are 2 types of input events for the CB 1) usage events and 2) property change events. The usage events
   * are not stored since this is a Kappa Algorithm but may be mirrored, the property change events translate
   * into changes to mutable DB objects and so are always up-to-date with the last change made. Another way to
@@ -47,8 +47,13 @@ import scala.language.reflectiveCalls
   * model is the only remaining respresentation of the events.
   *
   * See the discussion of Kappa Learning here: https://github.com/actionml/pio-kappa/blob/master/kappa-learning.md
+  * This dataset contains collections of users, usage events, and groups. Each get input from the datasets POST
+  * endpoint and are parsed and validated but go to different collections, each with different properties. The
+  * users and groups are mutable in Mongo, the events are kept as a stream that is truncated after the model is
+  * updated so not unnecessary old data is stored.
   *
-  * @param engineId REST resource-id from POST /engines/<resource-id> also ids the mongo table for all input
+  * @param engineId REST resource-id from POST /datasets/<resource-id> also ids the mongo DB for all but shared User
+  *                   data.
   */
 class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val injector: Injector)
   extends Dataset[CBEvent](engineId) with JsonParser with Mongo with MongoSupport with AkkaInjectable {
@@ -118,7 +123,6 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
             Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
               s" will be ignored"))
           }
-
 
         case event: CBUserSetEvent => // user profile update, modifies user object
           logger.debug(s"Dataset: $engineId persisting a User Profile Set Event: $event")

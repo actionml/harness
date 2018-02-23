@@ -64,7 +64,6 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  // Todo: should return null for bad init
   override def initAndGet(json: String): CBEngine = {
    val response = init(json)
     if (response.isValid) {
@@ -99,7 +98,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
     logger.warn(s"Only used for Lambda style training")
   }
 
-  /** Triggers parse, validation, and persistence of event encoded in the json */
+  /** Triggers parse, validation, and processing of event encoded in the json */
   override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects

@@ -82,24 +82,23 @@ Harness is a REST server with an API for Engines, Events, Queries, Users, and Pe
 The Harness Server is also in charge of the CRUD operations on Engines and other administrative operations. It presents the only externally available 
 API, which is identical for any Client software, be it an application or the Command Line Interface (CLI), or some future WEB UI.
 
+The Harness server core is small and fast and so is quite useful in single Algorithm solutions but by adding the Auth-server and scalable Engines can also become a SaaS System. 
+
 ## Router
 
 The Harness core is made from a component called a Router, which maintains REST endpoints that can be attached at runtime to resource IDs and Engine classes. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, signature based authentication, and REST route based authorization.
-<<<<<<< HEAD
-
-The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservices used. The implementaton is based on akka-http and uses the DSL and directives provided by it.
-=======
 
 The Harness server core is small and fast and so is quite useful in single Algorithm solutions but by adding the Auth-server and scalable Engines can also become a SaaS System. 
 
 The Router has an API to create endpoints and attach Akka Actors to them for handling incoming requests. This is used to specialize the Router for the work of the particular microservice Engine. The implementaton is based on akka-http and uses the DSL and directives provided by it.
->>>>>>> develop
 
 ## Administrator
 
 The Administrator executes CRUD type operations on Engines. It will also deal with CLI extensions that are of no concern to the Engines, like status reports, and scheduling of Commands (not implemented yet)
 
 ## Templates and Engines
+
+A Template is an Abstract Interface API that needs to be, at least partially implemented by an Engine. They are seen in `com.actionml.core.templates` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. 
 
 The Template Interface defines and partially implements the APIs for Engine, Dataset, and Algorithm. The Engine class acts as the controller (in the MVC sense) of the Dataset and Algorithm, and the Algorithm manages the model(s). All classes may use the toolset of Harness to ease Engine development, choosing a DB (perhaps MongoDB) a file store (HDFS?) and a compute engine (like Spark). Engines need not be concerned with input and query invocation or dealing with REST APIs since Harness does this.
 

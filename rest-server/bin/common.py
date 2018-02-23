@@ -127,6 +127,19 @@ def id_or_config():
 
     return engine_id, config
 
+def id_and_config():
+    engine_id = None
+    config = {}
+
+    if args.config is not None:
+        with open(args.config) as data_file:
+            config = json.load(data_file)
+
+    if args.engine_id is None:
+        engine_id = config['engineId']
+
+    return engine_id, config
+
 
 """
 def user_id():

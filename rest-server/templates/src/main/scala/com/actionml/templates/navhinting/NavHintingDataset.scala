@@ -33,6 +33,7 @@ import scala.collection.immutable.HashMap
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
+<<<<<<< HEAD
   * The Dataset manages Users and Journeys. Users are not in-memory. Journeys may be in-memory and persisted
   * immediately after any change.
   *

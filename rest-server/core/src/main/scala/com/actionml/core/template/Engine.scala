@@ -79,7 +79,7 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
     Valid(
       s"""
          |{
-         |  "Message": "Status of base Engine with engineId:$engineId"
+         |  "Engine class": "Status of base Engine with engineId:$engineId"
          |}
        """.stripMargin)
   }
