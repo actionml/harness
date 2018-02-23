@@ -18,10 +18,10 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
@@ -33,6 +33,6 @@ abstract class Algorithm[Q, R] extends LazyLogging {
   def destroy(): Unit
   def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
   def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
-  def predict(query: Q): R
+  def predict(query: Q)(implicit ec: ExecutionContext): Future[R]
 }
 

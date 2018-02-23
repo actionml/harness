@@ -25,6 +25,8 @@ import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError}
 
+import scala.concurrent.{ExecutionContext, Future}
+
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
   * possible to make use of real time input in a LambdaAlgorithm such as the Universal Recommender making real time
@@ -60,8 +62,8 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   }
 
 
-  def predict(query: GenericQuery): GenericQueryResult = {
-    GenericQueryResult()
+  override def predict(query: GenericQuery)(implicit ec: ExecutionContext): Future[GenericQueryResult] = {
+    Future.successful(GenericQueryResult())
   }
 
   override def stop(): Unit = {

@@ -27,7 +27,7 @@ import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, Wro
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.{Injector, Module}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -89,5 +89,5 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
     Valid( true )
   }
 
-  def query(json: String): Validated[ValidateError, String]
+  def query(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]]
 }

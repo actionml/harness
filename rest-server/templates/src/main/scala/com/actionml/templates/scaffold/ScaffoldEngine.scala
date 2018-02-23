@@ -18,14 +18,14 @@
 package com.actionml.templates.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.core.drawInfo
 import com.actionml.core.model._
 import com.actionml.core.template.Engine
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import scaldi.{Injector, Module}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
@@ -121,13 +121,12 @@ class ScaffoldEngine(override implicit val injector: Module) extends Engine with
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]] = {
     logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[GenericQuery](json).andThen { query =>
+    parseAndValidate[GenericQuery](json).fold(e => Future.successful(Invalid(e)), query =>
       // query ok if training group exists or group params are in the dataset
-      val result = algo.predict(query)
-      Valid(result.toJson)
-    }
+      algo.predict(query).map(x => Valid(x.toJson))
+    )
   }
 
 }

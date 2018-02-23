@@ -28,8 +28,8 @@ import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import scaldi.{Injector, Module}
 
-import scala.concurrent.ExecutionContext
-import scala.util.Success
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine(override implicit val injector: Injector) extends Engine with JsonParser {
@@ -137,17 +137,15 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]] = {
     logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[CBQuery](json).andThen { query =>
-      // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId)) {
-        val result = algo.predict(query)
-        Valid(result.toJson)
+    parseAndValidate[CBQuery](json).fold(e => Future.successful(Invalid(e)), query =>
+      if (algo.trainers.isDefinedAt(query.groupId)) {
+        algo.predict(query).map(result => Valid(result.toJson))
       } else {
-        Invalid(WrongParams(s"Query for non-existent group: $json"))
+        Future.successful(Invalid(WrongParams(s"Query for non-existent group: $json")))
       }
-    }
+    )
   }
 
 /*  override def status(): String = {

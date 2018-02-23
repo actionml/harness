@@ -38,7 +38,7 @@ import com.actionml.core.model.{AlgorithmParams, CBGroup, User}
 import com.actionml.core.template.{Algorithm, AlgorithmInput, KappaAlgorithm}
 import salat.dao.SalatDAO
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.io.Source
 import scala.reflect.io.Path
 import scala.tools.nsc.classpath.FileUtils
@@ -128,7 +128,7 @@ class CBAlgorithm(dataset: CBDataset)
     }
   }
 
-  override def predict(query: CBQuery): CBQueryResult = {
+  override def predict(query: CBQuery)(implicit ec: ExecutionContext): Future[CBQueryResult] = {
     // todo: isDefinedAt is not enough to know there have been events
     if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
@@ -218,19 +218,20 @@ class CBAlgorithm(dataset: CBDataset)
 
   def add(groupName: String): Unit = {
     logger.info("Create trainer {}", groupName)
-    val groupOpt = dataset.groups.findOne(groupName).result(MongoSupport.timeout)
-    if (!trainers.contains(groupName) &&  !groupOpt.isEmpty) {
-      val actor = actors.actorOf(
-        SingleGroupTrainer.props(
-          dataset.usageEventGroups(groupName),
-          dataset.users,
-          params,
-          groupOpt.get,
-          resourceId,
-          modelPath,
-          this.asInstanceOf[CBAlgorithm]),
-        groupName)
-      trainers += groupName → actor
+    dataset.groups.findOne(groupName).map { groupOpt =>
+      if (!trainers.contains(groupName) && !groupOpt.isEmpty) {
+        val actor = actors.actorOf(
+          SingleGroupTrainer.props(
+            dataset.usageEventGroups(groupName),
+            dataset.users,
+            params,
+            groupOpt.get,
+            resourceId,
+            modelPath,
+            this.asInstanceOf[CBAlgorithm]),
+          groupName)
+        trainers += groupName → actor
+      }
     }
   }
 
@@ -238,10 +239,10 @@ class CBAlgorithm(dataset: CBDataset)
     actors.terminate().wait()
   }
 
-  def getVariant(query: CBQuery): CBQueryResult = {
+  def getVariant(query: CBQuery): Future[CBQueryResult] = {
     //val vw = new VW(" -i " + modelContainer)
 
-    dataset.groups.findOne(query.groupId).map {
+    dataset.groups.findOne(query.groupId).flatMap {
 
       case Some(CBGroup(_is, testPeriodStart, pageVariants, testPeriodEnd)) =>
         val numClasses = pageVariants.size
@@ -294,17 +295,17 @@ class CBAlgorithm(dataset: CBDataset)
 
           case _ => // no user
             CBQueryResult("", Int.MinValue.toString)
-        }.result(MongoSupport.timeout)
+        }
 
       case _ => // no group
-        CBQueryResult("", Int.MinValue.toString)
-    }.result(MongoSupport.timeout)
+        Future.successful(CBQueryResult("", Int.MinValue.toString))
+    }
   }
 
 
 
   // this is likely to not be called since we don't keep track of whether a group has ever received training data
-  def getDefaultVariant(query: CBQuery): CBQueryResult = {
+  def getDefaultVariant(query: CBQuery): Future[CBQueryResult] = {
     logger.info("Test group has no training data yet. Fall back to uniform distribution")
     dataset.groups.findOne(query.groupId).map {
       case Some(CBGroup(_id, testPeriodStart, pageVariants, testPeriodEnd)) =>
@@ -314,7 +315,7 @@ class CBAlgorithm(dataset: CBDataset)
         CBQueryResult(sample[String](map), groupId = query.groupId)
       case _ => // no group
         CBQueryResult("", groupId = Int.MinValue.toString)
-    }.result(MongoSupport.timeout) // Todo: makes this synchronous, create async API
+    }
   }
 
   def sample[A](dist: Map[A, Double]): A = {
@@ -384,29 +385,30 @@ class SingleGroupTrainer(
         User()
     }
 
-    val vwString: String = eventToVWStrings(
-      input.event,
-      input.testGroup.pageVariants.map( a => a._1.toInt -> a._2),
-      user,
-      input.resourceId)
+    input.testGroup.collect { case Some(cbGroup) =>
+      val vwString: String = eventToVWStrings(
+        input.event,
+        cbGroup.pageVariants.map( a => a._1.toInt -> a._2),
+        user,
+        input.resourceId)
 
 
-    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
-      log.info(s"Sending the VW formatted string: \n$vwString")
-      var result = cbAlgo.vw.learn(vwString)
-/*      examples += 1
-      if (examples % 20 == 0) { // save every 20 events
-        log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
-        log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
-        result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
-        log.info(s"Got result to save of: ${result.toString}")
+      if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
+        log.info(s"Sending the VW formatted string: \n$vwString")
+        var result = cbAlgo.vw.learn(vwString)
+        /*      examples += 1
+        if (examples % 20 == 0) { // save every 20 events
+          log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
+          log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
+          result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
+          log.info(s"Got result to save of: ${result.toString}")
+        }
+        */
+      } else {
+        log.error(s"Error converting $input into VW string or VW is null, meaning it has crashed?")
       }
-*/
-    } else {
-      log.error(s"Error converting $input into VW string or VW is null, meaning it has crashed?")
+      //for ( item <- inputs ) log.info(s"$item\n")
     }
-    //for ( item <- inputs ) log.info(s"$item\n")
-
   }
 
   def eventToVWStrings(
