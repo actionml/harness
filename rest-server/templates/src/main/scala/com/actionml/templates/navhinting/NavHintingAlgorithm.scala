@@ -27,7 +27,6 @@ import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
-import salat.dao.SalatDAO
 
 import scala.concurrent.Future
 import scala.math._

@@ -21,46 +21,26 @@ import java.io.File
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.dal.mongo.MongoSupport
-import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage._
-import com.actionml.core.dal.mongo.UsersDaoImpl
-import com.actionml.core.template._
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
-import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
-import com.mongodb.casbah.Imports._
-import salat.global._
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.dal.mongo.{MongoSupport, UsersDaoImpl}
 import com.actionml.core.model.{AlgorithmParams, CBGroup, User}
+import com.actionml.core.storage._
 import com.actionml.core.template.{Algorithm, AlgorithmInput, KappaAlgorithm}
-import salat.dao.SalatDAO
+import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.io.Source
-import scala.reflect.io.Path
-import scala.tools.nsc.classpath.FileUtils
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
-import scala.util.control.Breaks
 //import java.io.File
-import com.mongodb.casbah.MongoCollection
-import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
+import java.nio.file.{Files, Paths}
+
 import org.joda.time.{DateTime, Duration}
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
-import org.slf4j.event.SubstituteLoggingEvent
-
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{Files, Path, Paths}
-
-import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 case class CBAlgorithmInput(
     user: Future[Option[User]],
@@ -102,12 +82,11 @@ class CBAlgorithm(dataset: CBDataset)
         namespace = resourceId)
       val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
       logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
-      val exists = trainers.keys.toList
 
       vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
 
-        groupEvents.foreach(groupName => add(groupName._1))
-        // params .close() should write to the file
+      groupEvents.foreach(groupName => add(groupName._1))
+      // params .close() should write to the file
 
       Valid(true)
     }

@@ -2,10 +2,10 @@ package com.actionml.core.storage
 
 import java.net.UnknownHostException
 
-import com.mongodb.casbah.Imports.{MongoConnection, MongoDBObject, MongoException}
-import com.mongodb.casbah.MongoClient
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
+import com.mongodb.MongoException
 import com.typesafe.config.ConfigFactory
+import org.mongodb.scala.bson.collection.immutable.Document
+import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -28,30 +28,31 @@ trait Mongo extends Store {
 
   private lazy val config = ConfigFactory.load()
 
-  val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
-  val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
+  private val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
+  private val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
+  private val uri = master + port
 
-  implicit val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
+  implicit val allCollectionObjects = Document("_id" -> Document("$exists" -> true))
 
-  lazy val client = MongoClient(master, port)
-  @transient lazy val connection = MongoConnection(master, port)
-
-  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+  lazy val client = MongoClient(uri)
+  def getDatabase(dbName: String): MongoDatabase = {
+    client.getDatabase(dbName)
+  }
 
   override def create(): Mongo = this
 
   override def destroy(dbName: String): Mongo = {
     try {
-      client.dropDatabase(dbName)
+      client.getDatabase(dbName).drop()
     } catch {
       case e: UnknownHostException =>
-        logger.error(s"Unknown host for address: ${client.address}", e)
+        logger.error(s"Unknown host for address: $uri", e)
         throw e
       case e: MongoException =>
-        logger.error(s"Exception destroying the db for: ${dbName}", e)
+        logger.error(s"Exception destroying the db for: $dbName", e)
         throw e
       case e: Throwable =>
-        logger.error(s"Unknown exception destroying the db for: ${dbName}", e)
+        logger.error(s"Unknown exception destroying the db for: $dbName", e)
         throw e
     }
     this

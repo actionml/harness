@@ -29,8 +29,7 @@ import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate._
-import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.MongoDBObject
+import org.mongodb.scala.MongoCollection
 import scaldi.{Injector, Module}
 
 import scala.concurrent.ExecutionContext
@@ -38,8 +37,8 @@ import scala.concurrent.ExecutionContext
 class MongoAdministrator(override implicit val injector: Module)
   extends Administrator with JsonParser with Mongo {
 
-  lazy val enginesCollection: MongoCollection = connection("harness_meta_store")("engines")
-  lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
+  lazy val enginesCollection: MongoCollection[Engine] = getDatabase("harness_meta_store").getCollection("engines")
+  lazy val commandsCollection: MongoCollection[Engine] = getDatabase("harness_meta_store").getCollection("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
 
   drawActionML
@@ -55,6 +54,7 @@ class MongoAdministrator(override implicit val injector: Module)
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
+    /* TODO: implement:
     engines = enginesCollection.find.map { engine =>
       val engineId = engine.get("engineId").toString
       val engineFactory = engine.get("engineFactory").toString
@@ -78,6 +78,8 @@ class MongoAdministrator(override implicit val injector: Module)
       ("Engines: ", engines.map(_._1))))
 
     this
+    */
+    ???
   }
 
   def getEngine(engineId: EngineId): Option[Engine] = {
@@ -93,6 +95,7 @@ class MongoAdministrator(override implicit val injector: Module)
   */
   def addEngine(json: String): Validated[ValidateError, EngineId] = {
     // val params = parse(json).extract[GenericEngineParams]
+    /* TODO: implement
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
       if (newEngine != null && enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
@@ -118,9 +121,12 @@ class MongoAdministrator(override implicit val injector: Module)
         Invalid(ParseError(s"Unable to create Engine: ${params.engineId}, the config JSON seems to be in error"))
       }
     }
+    */
+    ???
   }
 
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
+    /* TODO: implement
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
@@ -132,6 +138,8 @@ class MongoAdministrator(override implicit val injector: Module)
       logger.warn(s"Cannot remove non-existent engine for id: $engineId")
       Invalid(WrongParams(s"Cannot remove non-existent engine for id: $engineId"))
     }
+    */
+    ???
   }
 
   override def status(resourceId: Option[String] = None): Validated[ValidateError, String] = {
@@ -150,6 +158,7 @@ class MongoAdministrator(override implicit val injector: Module)
   }
 
   override def updateEngine(json: String): Validated[ValidateError, String] = {
+    /* TODO: implement:
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
@@ -163,6 +172,8 @@ class MongoAdministrator(override implicit val injector: Module)
           """.stripMargin))
       }.getOrElse(Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))
     }
+    */
+    ???
   }
 
 }

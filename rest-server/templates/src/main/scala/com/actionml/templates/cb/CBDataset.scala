@@ -19,22 +19,18 @@ package com.actionml.templates.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.dal.UsersDao
-import com.actionml.core.model.User
 import com.actionml.core.dal.mongo._
-import com.actionml.core.validate._
-import com.mongodb.casbah.Imports._
-import com.actionml.core.storage.Mongo
-import org.joda.time.DateTime
-import salat.dao._
-import salat.global._
-import scaldi.{Injectable, Injector, Module}
 import com.actionml.core.model._
+import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
+import com.actionml.core.validate._
+import org.joda.time.DateTime
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.ObjectId
+import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
 //import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
@@ -79,7 +75,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
       groups.list(0, 100).map { groupsIterable =>
         groupsIterable.foreach { group =>
           usageEventGroups = usageEventGroups +
-            (group._id -> UsageEventDAO(connection(engineId)(group._id)))
+            (group._id -> UsageEventDAO(getDatabase(engineId).getCollection[UsageEvent](group._id)))
         }
 
       }
@@ -89,7 +85,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   }
 
   override def destroy() = {
-    client.dropDatabase(engineId)
+    client.getDatabase(engineId).drop
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
@@ -159,7 +155,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
             usageEventGroups(event.entityId).collection.drop()
           }
           usageEventGroups = usageEventGroups +
-            (event.entityId -> UsageEventDAO(connection(engineId)(event.entityId)))
+            (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
 
           groups.insertOne(event.toCBGroup)
 
@@ -194,7 +190,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
                 Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
               } else {
                 groups.deleteOne(event.entityId)
-                usageEventGroups(event.entityId).collection.dropCollection() // drop all events
+                usageEventGroups(event.entityId).collection.drop // drop all events
                 usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
                 Valid(event)
@@ -349,7 +345,10 @@ case class UsageEvent(
   //eventTime: DateTime
   )
 
-case class UsageEventDAO(eventColl: MongoCollection) extends SalatDAO[UsageEvent, ObjectId](eventColl)
+case class UsageEventDAO(eventColl: MongoCollection[UsageEvent]) {
+  def insert(event: UsageEvent) = ???
+  def collection: MongoCollection[UsageEvent] = ???
+}
 
 /* CBGroupInitEvent
 {
