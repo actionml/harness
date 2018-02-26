@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package com.actionml.core.dal.mongo
+package com.actionml.templates.cb
 
-import com.actionml.core.dal.CBGroupsDao
+import com.actionml.core.dal.mongo.{MongoSupport, ObjectNotFoundException}
 import com.actionml.core.model.CBGroup
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.{Injectable, Injector}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
 import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.UpdateOptions
+import scaldi.{Injectable, Injector}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 // for use with Scaldi
 // class groupsDaoImpl(implicit inj: Injector) extends groupsDao with MongoSupport with Injectable with LazyLogging {
@@ -60,7 +59,6 @@ class CBGroupsDaoImpl(dbName: String)(implicit inj: Injector) extends CBGroupsDa
   }
 
   import org.mongodb.scala.model.Filters._
-  import org.mongodb.scala.model.Updates._
   /** Pass in the modified CBGroup and it will be upserted */
   override def insertOrUpdateOne(group: CBGroup): Future[Unit] = {
     groups.replaceOne(equal("_id", group._id), group, UpdateOptions().upsert(true))

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.dal
+package com.actionml.templates.cb
 
 import com.actionml.core.model.CBGroup
 
