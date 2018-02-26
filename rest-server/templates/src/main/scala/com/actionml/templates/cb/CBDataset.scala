@@ -30,7 +30,7 @@ import org.mongodb.scala.bson.ObjectId
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 //import org.json4s.{DefaultFormats, Formats, MappingException}
 
 import scala.language.reflectiveCalls
@@ -70,140 +70,139 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   //object CBGroupsDAO extends SalatDAO[CBGroup, String](collection = connection(engineId)("groups"))
 
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       groups.list(0, 100).map { groupsIterable =>
         groupsIterable.foreach { group =>
           usageEventGroups = usageEventGroups +
             (group._id -> UsageEventDAO(getDatabase(engineId).getCollection[UsageEvent](group._id)))
         }
-
       }
       Valid(p)
     }
     Valid(true)
   }
 
-  override def destroy() = {
-    client.getDatabase(engineId).drop
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
+    client.getDatabase(engineId).drop.toFuture.map(_ => ())
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
-  override def input(json: String): Validated[ValidateError, CBEvent] = {
-    parseAndValidateInput(json).andThen(persist)
+  override def input(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, CBEvent]] = {
+    parseAndValidateInput(json).fold(e => Future.successful(Invalid(e)), persist)
   }
 
 
-  def persist(event: CBEvent): Validated[ValidateError, CBEvent] = {
-    try {
-      event match {
-        case event: CBUsageEvent => // usage data, kept as a stream
-          if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
-            logger.debug(s"Dataset: $engineId persisting a usage event: $event")
-            // input to usageEvents collection
-            // Todo: validate fields first
-/*            val eventObj = MongoDBObject(
-              "userId" -> event.entityId,
-              "eventName" -> event.event,
-              "itemId" -> event.targetEntityId,
-              "groupId" -> event.properties.testGroupId,
-              "converted" -> event.properties.converted,
-              "contextualTags" -> event.properties.contextualTags,
-              "eventTime" -> new DateTime(event.eventTime)) //sort by this
-*/
-            usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
-            users.addPropValue(event.entityId,"contextualTags", event.properties.contextualTags.getOrElse(Seq.empty))
-            Valid(event)
-          } else {
-            logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
-            Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
-              s" will be ignored"))
-          }
+  def persist(event: CBEvent)(implicit ec: ExecutionContext): Future[Validated[ValidateError, CBEvent]] = {
+    (event match {
+      case event: CBUsageEvent => // usage data, kept as a stream
+        if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
+          logger.debug(s"Dataset: $engineId persisting a usage event: $event")
+          // input to usageEvents collection
+          // Todo: validate fields first
+          /*            val eventObj = MongoDBObject(
+                        "userId" -> event.entityId,
+                        "eventName" -> event.event,
+                        "itemId" -> event.targetEntityId,
+                        "groupId" -> event.properties.testGroupId,
+                        "converted" -> event.properties.converted,
+                        "contextualTags" -> event.properties.contextualTags,
+                        "eventTime" -> new DateTime(event.eventTime)) //sort by this
+          */
+          for {
+            _ <- usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
+            _ <- users.addPropValue(event.entityId, "contextualTags", event.properties.contextualTags.getOrElse(Seq.empty))
+          } yield Valid(event)
+        } else {
+          logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
+          Future.successful(Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
+            s" will be ignored")))
+        }
 
-        case event: CBUserSetEvent => // user profile update, modifies user object
-          logger.debug(s"Dataset: $engineId persisting a User Profile Set Event: $event")
-          users.setProperties(event.entityId, event.properties.getOrElse(Map.empty))
-//          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
-//          // input to usageEvents collection
-//          // Todo: validate fields first
-//          val updateProps = event.properties.getOrElse(Map.empty)
-//          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
-//          val newProps = user.propsToMapOfSeq ++ updateProps
-//          val newUser = User(user._id, User.propsToMapString(newProps))
-//          val debug = 0
-//          usersDAO.update(
-//            DBObject("_id" -> event.entityId),
-//            newUser,
-//            upsert = true,
-//            multi = false,
-//            wc = new WriteConcern)
-          // TODO: implement ^^^
-          //        case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
+      case event: CBUserSetEvent => // user profile update, modifies user object
+        logger.debug(s"Dataset: $engineId persisting a User Profile Set Event: $event")
+        users.setProperties(event.entityId, event.properties.getOrElse(Map.empty))
+          .map(_ => Valid(event))
+        //          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
+        //          // input to usageEvents collection
+        //          // Todo: validate fields first
+        //          val updateProps = event.properties.getOrElse(Map.empty)
+        //          users.findOne(event.entityId).map { userOpt =>
+        //            val user = userOpt.getOrElse(User(event.entityId, Map.empty))
+        //            val newProps = user.propsToMapOfSeq ++ updateProps
+        //            val newUser = User(user._id, User.propsToMapString(newProps))
+        //            val debug = 0
+        //            users.update(
+        //              DBObject("_id" -> event.entityId),
+        //              newUser,
+        //              upsert = true,
+        //              multi = false,
+        //              wc = new WriteConcern)
+        //          }.map(_ => Valid(event))
+        // TODO: implement ^^^
+        //        case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
 
-          Valid(event)
+      case event: CBUserUnsetEvent => // unset a property in a user profile
+        logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
+        users.unsetProperties(event.entityId, event.properties.getOrElse(Map.empty).keySet)
+          .map(_ => Valid(event))
 
-        case event: CBUserUnsetEvent => // unset a property in a user profile
-          logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
-          users.unsetProperties(event.entityId, event.properties.getOrElse(Map.empty).keySet)
-          Valid(event)
-
-        case event: CBGroupInitEvent => // group init event, modifies group definition
-          logger.trace(s"Persisting a Group Init Event: ${event}")
-          // create the events collection for the group
-          if (usageEventGroups.contains(event.entityId)) {
+      case event: CBGroupInitEvent => // group init event, modifies group definition
+        logger.trace(s"Persisting a Group Init Event: ${event}")
+        // create the events collection for the group
+        if (usageEventGroups.contains(event.entityId)) {
           // re-initializing
-            usageEventGroups(event.entityId).collection.drop()
-          }
-          usageEventGroups = usageEventGroups +
-            (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
+          usageEventGroups(event.entityId).collection.drop()
+        }
+        usageEventGroups = usageEventGroups +
+          (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
 
-          groups.insertOne(event.toCBGroup)
+        groups.insertOne(event.toCBGroup).map(_ => Valid(event))
 
-//        case event: CBUserUnsetEvent => // unset a property in a user profile
-//          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
-//          // input to usageEvents collection
-//          // Todo: validate fields first
-//          val updateProps = event.properties.getOrElse(Map.empty).keySet
-//          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
-//          val newProps = user.propsToMapOfSeq -- updateProps
-//          val newUser = User(user._id, User.propsToMapString(newProps))
-//          val debug = 0
-//          usersDAO.save(newUser) // overwrite the User
-          // TODO: implement ^^^
+      //        case event: CBUserUnsetEvent => // unset a property in a user profile
+      //          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
+      //          // input to usageEvents collection
+      //          // Todo: validate fields first
+      //          val updateProps = event.properties.getOrElse(Map.empty).keySet
+      //          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
+      //          val newProps = user.propsToMapOfSeq -- updateProps
+      //          val newUser = User(user._id, User.propsToMapString(newProps))
+      //          val debug = 0
+      //          usersDAO.save(newUser).map(_ => Valide(event)) // overwrite the User
+      // TODO: implement ^^^
+      /*          val unsetPropNames = event.properties.get.keys.toArray
 
-          Valid(event)
-/*          val unsetPropNames = event.properties.get.keys.toArray
-
-          usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
-          Valid(event)
-*/
-        case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
-          event.entityType match {
-            case "user" =>
-              logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
-              //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              users.deleteOne(event.entityId)
-              Valid(event)
-            case "group" | "testGroup" =>
-              if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
-                logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
-                Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
-              } else {
-                groups.deleteOne(event.entityId)
-                usageEventGroups(event.entityId).collection.drop // drop all events
-                usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
-                logger.trace(s"Deleting group ${event.entityId}.")
+                usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
                 Valid(event)
-              }
-            case _ =>
-              logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
-              Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
-          }
-        case _ =>
-          logger.warn(s"Unrecognized event: ${event} will be ignored")
-          Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
-      }
-    } catch {
+      */
+      case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
+        event.entityType match {
+          case "user" =>
+            logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
+            //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
+            users.deleteOne(event.entityId)
+              .map(_ => Valid(event))
+          case "group" | "testGroup" =>
+            if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
+              logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
+              Future.successful(Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored.")))
+            } else {
+              groups.deleteOne(event.entityId)
+              usageEventGroups(event.entityId).collection.drop.toFuture // drop all events
+                .map { _ =>
+                  usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
+                  logger.trace(s"Deleting group ${event.entityId}.")
+                  Valid(event)
+                }
+            }
+          case _ =>
+            logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
+            Future.successful(Invalid(ParseError(s"Unrecognized event: ${event} will be ignored")))
+        }
+      case _ =>
+        logger.warn(s"Unrecognized event: ${event} will be ignored")
+        Future.successful(Invalid(ParseError(s"Unrecognized event: ${event} will be ignored")))
+    }).recover {
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
         Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}"))
@@ -346,7 +345,7 @@ case class UsageEvent(
   )
 
 case class UsageEventDAO(eventColl: MongoCollection[UsageEvent]) {
-  def insert(event: UsageEvent) = ???
+  def insert(event: UsageEvent): Future[Unit] = ???
   def collection: MongoCollection[UsageEvent] = ???
 }
 

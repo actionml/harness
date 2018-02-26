@@ -31,7 +31,7 @@ import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, Valid
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 //import java.io.File
 import java.nio.file.{Files, Paths}
 
@@ -72,7 +72,7 @@ class CBAlgorithm(dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, rsrcId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
     //val response = parseAndValidate[ScaffoldAlgoParams](json)
     resourceId = rsrcId
     parseAndValidate[CBAllParams](json).andThen { p =>
@@ -92,11 +92,11 @@ class CBAlgorithm(dataset: CBDataset)
     }
   }
 
-  override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
+  override def input(datum: CBAlgorithmInput)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     events += 1
     if (events % 20 == 0) checkpointVW(params)
     val groupName = datum.event.toUsageEvent.testGroupId
-    try {
+    Future.successful(try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
       Valid(true)
@@ -104,7 +104,7 @@ class CBAlgorithm(dataset: CBDataset)
       case e: NoSuchElementException =>
         logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.")
         Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
-    }
+    })
   }
 
   override def predict(query: CBQuery)(implicit ec: ExecutionContext): Future[CBQueryResult] = {
@@ -112,17 +112,18 @@ class CBAlgorithm(dataset: CBDataset)
     if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
 
-  override def destroy(): Unit = {
-    try{ Await.result(
-      actors.terminate().andThen { case _ =>
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      }.map { _ =>
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-      }, 3 seconds) } catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
+    def deleteFiles = {
+      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
+        Future.fromTry(Try(while (!Files.deleteIfExists(Paths.get(modelPath))) {}))
+      else Future.successful(())
     }
+    def closeVw = Future.fromTry(Try(if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()))
+    for {
+      _ <- actors.terminate
+      _ <- closeVw
+      _ <- deleteFiles
+    } yield ()
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {

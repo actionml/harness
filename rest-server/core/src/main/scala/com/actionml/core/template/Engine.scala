@@ -66,12 +66,12 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
     Valid(true)
   }
 
-  def init(json: String): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen(createSharedResources)
+  def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
+    Future.successful(parseAndValidate[GenericEngineParams](json).andThen(createSharedResources))
   }
 
-  def initAndGet(json: String): Engine
-  def destroy(): Unit
+  def initAndGet(json: String)(implicit ec: ExecutionContext): Future[Engine]
+  def destroy()(implicit ec: ExecutionContext): Future[Unit]
   def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
   def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
   def status(): Validated[ValidateError, String] = {
@@ -84,9 +84,9 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
        """.stripMargin)
   }
 
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  def input(json: String, trainNow: Boolean = true)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     if (!mirroringDiabled) mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
-    Valid( true )
+    Future.successful(Valid(true))
   }
 
   def query(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]]

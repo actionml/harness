@@ -38,14 +38,14 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser
     with Mongo {
 
-  override def init(json: String, rsrcId: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String, rsrcId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
     parseAndValidate[AllParams](json).andThen { p =>
       // p is just the validated algo params from the engine's params json file.
       Valid(true)
     }
   }
 
-  override def destroy(): Unit = {
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
     // remove old model since it is recreated with each new ScaffoldEngine
     // may want to await completetion of a Future here in a "try" if destroy may take time.
     /*
@@ -54,11 +54,12 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
         logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
     }
     */
+    Future.successful(())
   }
 
-  override def input(datum: GenericEvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: GenericEvent)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     // For Kappa the model update happens or it triggered with each input
-    Valid(true)
+    Future.successful(Valid(true))
   }
 
 

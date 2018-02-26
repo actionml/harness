@@ -29,8 +29,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * which differ in how they get data and update models
   */
 abstract class Algorithm[Q, R] extends LazyLogging {
-  def init(json: String, rsrcId: String): Validated[ValidateError, Boolean]
-  def destroy(): Unit
+  def init(json: String, rsrcId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
+  def destroy()(implicit ec: ExecutionContext): Future[Unit]
   def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
   def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
   def predict(query: Q)(implicit ec: ExecutionContext): Future[R]

@@ -22,16 +22,15 @@ import com.actionml.core.model.Event
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.{ExecutionContext, Future}
+
 abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) extends LazyLogging {
 
   val resourceId = engineId
 
-  def init(json: String): Validated[ValidateError, Boolean]
-  def destroy(): Unit
-  def start() = {logger.trace(s"Starting base Dataset"); this}
-  def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
-
-  def input(datum: String): Validated[ValidateError, Event]
+  def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
+  def destroy()(implicit ec: ExecutionContext): Future[Unit]
+  def input(datum: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Event]]
 
   def parseAndValidateInput(s: String): Validated[ValidateError, T]
 

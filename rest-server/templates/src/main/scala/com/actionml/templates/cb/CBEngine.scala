@@ -39,8 +39,8 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
   var params: GenericEngineParams = _
 
 
-  override def init(json: String): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
+  override def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
+    super.init(json).flatMap { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
@@ -53,25 +53,26 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
           ("Mirror Container: ", params.mirrorContainer)))
 
         Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
+      }.fold(e => Future.successful(Invalid(e)), { p =>
+        dataset.init(json).flatMap { r =>
           algo.init(json, p.engineId)
         } //( _ => algo.init(json, engineId))
-      }
+      })
     }
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  override def initAndGet(json: String): CBEngine = {
-   val response = init(json)
-    if (response.isValid) {
-      logger.trace(s"Initialized with JSON: $json")
-      this
-    } else {
-      logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[CBEngine] // todo: ugly, replace
+  override def initAndGet(json: String)(implicit ec: ExecutionContext): Future[CBEngine] = {
+    init(json).map { response =>
+      if (response.isValid) {
+        logger.trace(s"Initialized with JSON: $json")
+        this
+      } else {
+        logger.error(s"Parse error with JSON: $json")
+        null.asInstanceOf[CBEngine] // todo: ugly, replace
+      }
     }
   }
 
@@ -88,10 +89,12 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
       activeGroups = algo.trainers.size).toJson)
   }
 
-  override def destroy(): Unit = {
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info(s"Dropping persisted data for id: $engineId")
-    dataset.destroy()
-    algo.destroy()
+    for {
+      _ <- dataset.destroy
+      _ <- algo.destroy
+    } yield ()
   }
 
   def train(): Unit = {
@@ -99,19 +102,21 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
   }
 
   /** Triggers parse, validation, and processing of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String, trainNow: Boolean = true)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true) // Some error like an ExecutionError in super.input happened
+    super.input(json, trainNow).flatMap { a =>
+      if (a.isValid)
+        dataset.input(json).flatMap(_.fold(e => Future.successful(Invalid(e)), event => process(event))).map(_ => Valid(true))
+      else
+        Future.successful(Valid(true)) // Some error like an ExecutionError in super.input happened
+    }
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
+  def process(event: CBEvent)(implicit ec: ExecutionContext): Future[Validated[ValidateError, CBEvent]] = {
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
@@ -132,7 +137,7 @@ class CBEngine(override implicit val injector: Injector) extends Engine with Jso
         }
       case _ =>
     }
-    Valid(event)
+    Future.successful(Valid(event))
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */

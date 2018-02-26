@@ -24,6 +24,7 @@ import com.actionml.core.template.Dataset
 import com.actionml.core.validate._
 import com.actionml.core.template.Dataset
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -36,7 +37,7 @@ import scala.language.reflectiveCalls
 class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonParser {
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String): Validated[ValidateError, Boolean] = {
+  override def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       // Do something with parameters--do not re-initialize the algo if deepInit == false
       Valid(p)
@@ -45,11 +46,12 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */
-  override def destroy() = {
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
+    Future.successful(())
   }
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
-  override def input(json: String): Validated[ValidateError, GenericEvent] = {
+  override def input(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, GenericEvent]] = Future.successful {
     // good place to persist in whatever way the specific event type requires
     parseAndValidateInput(json).andThen(Valid(_))
   }

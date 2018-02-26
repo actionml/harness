@@ -25,6 +25,8 @@ import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 import com.actionml.core.template.Engine
 
+import scala.concurrent.{ExecutionContext, Future}
+
 /**
   * Abstract class for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
   * a trait or object extending this.
@@ -33,7 +35,7 @@ import com.actionml.core.template.Engine
 abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
 
   def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
+  def importEvents(engine: Engine, location: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
 
   /**
     * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name

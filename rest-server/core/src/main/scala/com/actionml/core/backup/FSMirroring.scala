@@ -24,6 +24,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.actionml.core.template.Engine
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 
 /**
@@ -60,7 +61,7 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
+  override def importEvents(engine: Engine, location: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin))
@@ -95,6 +96,6 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
         logger.error(errMsg)
         importEventsError(errMsg)
     }
-    Valid(true)
+    Future.successful(Valid(true))
   }
 }
