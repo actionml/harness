@@ -54,31 +54,29 @@ class MongoAdministrator(override implicit val injector: Module)
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
-    /* TODO: implement:
-    engines = enginesCollection.find.map { engine =>
-      val engineId = engine.get("engineId").toString
-      val engineFactory = engine.get("engineFactory").toString
-      val params = engine.get("params").toString
-      // create each engine passing the params
-      val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
-      if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
-        logger.error(s"Error creating engineId: $engineId from $params" +
-          s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
-          s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
-          s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
-        // Todo: we need a way to cleanup in this situation
-        enginesCollection.remove(MongoDBObject("engineId" -> engineId))
-        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
-      }
-      e
-    }.filter(_._2 != null).toMap
-    drawInfo("Harness Server Init", Seq(
-      ("════════════════════════════════════════", "══════════════════════════════════════"),
-      ("Number of Engines: ", engines.size),
-      ("Engines: ", engines.map(_._1))))
-
-    this
-    */
+//    engines = enginesCollection.find.map { engine =>
+//      val engineId = engine.get("engineId").toString
+//      val engineFactory = engine.get("engineFactory").toString
+//      val params = engine.get("params").toString
+//      // create each engine passing the params
+//      val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
+//      if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
+//        logger.error(s"Error creating engineId: $engineId from $params" +
+//          s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
+//          s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
+//          s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
+//        // Todo: we need a way to cleanup in this situation
+//        enginesCollection.remove(MongoDBObject("engineId" -> engineId))
+//        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+//      }
+//      e
+//    }.filter(_._2 != null).toMap
+//    drawInfo("Harness Server Init", Seq(
+//      ("════════════════════════════════════════", "══════════════════════════════════════"),
+//      ("Number of Engines: ", engines.size),
+//      ("Engines: ", engines.map(_._1))))
+//
+//    this
     ???
   }
 

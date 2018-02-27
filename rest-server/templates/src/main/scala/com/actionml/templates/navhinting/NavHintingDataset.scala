@@ -22,8 +22,9 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
+import org.bson.BsonString
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.bson.{Document, ObjectId}
+import org.mongodb.scala.bson.{BsonDocument, Document, ObjectId}
 
 import scala.concurrent.{ExecutionContext, Future}
 //import com.actionml.core.template.{Dataset, Event}
@@ -173,7 +174,6 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 }
  */
 
-
 case class UsersDAO(usersColl: MongoCollection[User])
 
 case class NHUserUpdateEvent(
@@ -239,34 +239,43 @@ case class NavEvent(
 
 case class NavEventDAO(eventColl: MongoCollection[NavEvent])
 
-
 case class Journey(
   _id: String, // User-id we are recording nav events for
   trail: Seq[(String, DateTime)]) // most recent nav events
 
-
 // active journeys not yet converted
-case class ActiveJourneysDAO(activeJourneys: MongoCollection[Journey]) {
-  def find(search: Document): Future[Journey] = ???
-  def findOneById(id: String): Future[Option[Journey]] = ???
-  def insert(journey: Journey): Future[Unit] = ???
-  def save(journey: Journey): Future[Unit] = ???
-  def removeById(id: String): Future[Unit] = ???
+case class ActiveJourneysDAO(col: MongoCollection[Journey]) {
+  import Util.mkIdDoc
+
+  def find(search: Document)(implicit ec: ExecutionContext): Future[Journey] = col.find(search.toBsonDocument).first.toFuture
+
+  def findOneById(id: String)(implicit ec: ExecutionContext): Future[Option[Journey]] = {
+    col.find(mkIdDoc(id))
+      .toFuture
+      .map(_.headOption)
+  }
+  def insert(journey: Journey)(implicit ec: ExecutionContext): Future[Unit] = col.insertOne(journey).toFuture().map(_ => ())
+
+  def save(journey: Journey)(implicit ec: ExecutionContext): Future[Unit] = col.replaceOne(mkIdDoc(journey._id), journey).toFuture.map(_ => ())
+
+  def removeById(id: String)(implicit ec: ExecutionContext): Future[Unit] = col.deleteOne(mkIdDoc(id)).toFuture.map(_ => ())
+
+}
+
+private object Util {
+  def mkIdDoc(id: String)(implicit ec: ExecutionContext): BsonDocument = BsonDocument(Seq("_id" -> new BsonString(id)))
 }
 
 // model = sum of converted jouney weighted vectors
 case class Hints(hints: Map[String, Double], _id: String = "1")
 case class NavHintsDAO(navHints: MongoCollection[Hints]) {
-  def findOne(search: Document): Future[Option[Hints]] = ???
-  def save(hints: Hints): Future[Unit] = ???
+  def findOne(search: Document)(implicit ec: ExecutionContext): Future[Option[Hints]] = navHints.find(search).headOption
+  def save(hints: Hints)(implicit ec: ExecutionContext): Future[Unit] = navHints.replaceOne(Util.mkIdDoc(hints._id), hints).toFuture.map(_ => ())
 }
-
 
 case class NavHint(
     _id: String = "", // nav-id
     score: Double = Double.MinPositiveValue) // scored nav-ids
-
-
 
 /* HNUser Comes in NHEvent partially parsed from the Json:
 {

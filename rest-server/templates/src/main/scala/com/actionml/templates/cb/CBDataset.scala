@@ -123,53 +123,35 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
         logger.debug(s"Dataset: $engineId persisting a User Profile Set Event: $event")
         users.setProperties(event.entityId, event.properties.getOrElse(Map.empty))
           .map(_ => Valid(event))
-        //          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
-        //          // input to usageEvents collection
-        //          // Todo: validate fields first
-        //          val updateProps = event.properties.getOrElse(Map.empty)
-        //          users.findOne(event.entityId).map { userOpt =>
-        //            val user = userOpt.getOrElse(User(event.entityId, Map.empty))
-        //            val newProps = user.propsToMapOfSeq ++ updateProps
-        //            val newUser = User(user._id, User.propsToMapString(newProps))
-        //            val debug = 0
-        //            users.update(
-        //              DBObject("_id" -> event.entityId),
-        //              newUser,
-        //              upsert = true,
-        //              multi = false,
-        //              wc = new WriteConcern)
-        //          }.map(_ => Valid(event))
-        // TODO: implement ^^^
+        logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
+        // input to usageEvents collection
+        // Todo: validate fields first
+        val updateProps = event.properties.getOrElse(Map.empty)
+        users.findOne(event.entityId).flatMap { userOpt =>
+          val user = userOpt.getOrElse(User(event.entityId, Map.empty))
+          val newProps = user.properties ++ updateProps
+          val newUser = User(user._id, newProps)
+          val debug = 0
+          users.insertOrUpdateOne(newUser)
+        }.map(_ => Valid(event))
         //        case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
+
+      case event: CBGroupInitEvent => // group init event, modifies group definition
+        logger.trace(s"Persisting a Group Init Event: ${event}")
+        for {
+          _ <- if (usageEventGroups.contains(event.entityId)) usageEventGroups(event.entityId).collection.drop().toFuture
+               else Future.successful(())
+          _ <- groups.insertOne(event.toCBGroup)
+        } yield {
+          usageEventGroups = usageEventGroups + (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
+          Valid(event)
+        }
 
       case event: CBUserUnsetEvent => // unset a property in a user profile
         logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
         users.unsetProperties(event.entityId, event.properties.getOrElse(Map.empty).keySet)
           .map(_ => Valid(event))
 
-      case event: CBGroupInitEvent => // group init event, modifies group definition
-        logger.trace(s"Persisting a Group Init Event: ${event}")
-        // create the events collection for the group
-        if (usageEventGroups.contains(event.entityId)) {
-          // re-initializing
-          usageEventGroups(event.entityId).collection.drop()
-        }
-        usageEventGroups = usageEventGroups +
-          (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
-
-        groups.insertOne(event.toCBGroup).map(_ => Valid(event))
-
-      //        case event: CBUserUnsetEvent => // unset a property in a user profile
-      //          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
-      //          // input to usageEvents collection
-      //          // Todo: validate fields first
-      //          val updateProps = event.properties.getOrElse(Map.empty).keySet
-      //          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
-      //          val newProps = user.propsToMapOfSeq -- updateProps
-      //          val newUser = User(user._id, User.propsToMapString(newProps))
-      //          val debug = 0
-      //          usersDAO.save(newUser).map(_ => Valide(event)) // overwrite the User
-      // TODO: implement ^^^
       /*          val unsetPropNames = event.properties.get.keys.toArray
 
                 usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
@@ -344,9 +326,11 @@ case class UsageEvent(
   //eventTime: DateTime
   )
 
-case class UsageEventDAO(eventColl: MongoCollection[UsageEvent]) {
-  def insert(event: UsageEvent): Future[Unit] = ???
-  def collection: MongoCollection[UsageEvent] = ???
+case class UsageEventDAO(col: MongoCollection[UsageEvent]) {
+  def insert(event: UsageEvent)(implicit ec: ExecutionContext): Future[Unit] = {
+    col.insertOne(event).toFuture().map(_ => ())
+  }
+  def collection: MongoCollection[UsageEvent] = col
 }
 
 /* CBGroupInitEvent
