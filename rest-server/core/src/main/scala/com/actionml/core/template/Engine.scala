@@ -38,6 +38,8 @@ abstract class Engine(implicit val injector: Injector) extends LazyLogging with 
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
+  var engineFactory: String = _
+  var engineParams: String = _
   var mirroring: Mirroring = _
   private var mirroringDiabled = true
 

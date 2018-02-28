@@ -30,7 +30,7 @@ trait Mongo extends Store {
 
   private val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
   private val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
-  private val uri = master + port
+  private val uri = s"mongodb://$master:$port"
 
   implicit val allCollectionObjects = Document("_id" -> Document("$exists" -> true))
 

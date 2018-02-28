@@ -30,7 +30,7 @@ object Main extends App with AkkaInjectable{
 
 }
 
-class BaseModule extends Module{
+class BaseModule extends Module {
 
   val config = AppConfig.apply
   bind[AppConfig] to config
@@ -62,6 +62,6 @@ class BaseModule extends Module{
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
   implicit val inj = this.asInstanceOf[Module]
-  bind[Administrator] to new MongoAdministrator initWith(_.init())
+  bind[Administrator] to new MongoAdministrator initWith(_.init()(system.dispatcher))
 
 }

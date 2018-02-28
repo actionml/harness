@@ -30,9 +30,11 @@ import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Engine
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.collection.immutable.Document
 import scaldi.{Injector, Module}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class MongoAdministrator(override implicit val injector: Module)
   extends Administrator with JsonParser with Mongo {
@@ -52,32 +54,36 @@ class MongoAdministrator(override implicit val injector: Module)
   }
 
   // instantiates all stored engine instances with restored state
-  override def init() = {
+  override def init()(implicit ec: ExecutionContext): Future[MongoAdministrator] = {
+    def initEngine(engine: Engine): Future[Try[Engine]] = {
+      val params = engine.engineParams
+      newEngineInstance(engine.engineFactory)
+        .initAndGet(params)
+        .map(Success(_))
+        .recoverWith { case error =>
+          // it is possible that previously valid metadata is now bad, the Engine code must have changed
+          logger.error(s"Error creating engineId: ${engine.engineId} from $params" +
+            s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
+            s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
+            s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
+          // Todo: we need a way to cleanup in this situation
+          enginesCollection.deleteOne(Document("engineId" -> engine.engineId)).toFuture().map(_ => Failure(error))
+          // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+        }
+    }
     // ask engines to init
-//    engines = enginesCollection.find.map { engine =>
-//      val engineId = engine.get("engineId").toString
-//      val engineFactory = engine.get("engineFactory").toString
-//      val params = engine.get("params").toString
-//      // create each engine passing the params
-//      val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
-//      if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
-//        logger.error(s"Error creating engineId: $engineId from $params" +
-//          s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
-//          s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
-//          s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
-//        // Todo: we need a way to cleanup in this situation
-//        enginesCollection.remove(MongoDBObject("engineId" -> engineId))
-//        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
-//      }
-//      e
-//    }.filter(_._2 != null).toMap
-//    drawInfo("Harness Server Init", Seq(
-//      ("════════════════════════════════════════", "══════════════════════════════════════"),
-//      ("Number of Engines: ", engines.size),
-//      ("Engines: ", engines.map(_._1))))
-//
-//    this
-    ???
+    (for {
+      engines <- enginesCollection.find.toFuture
+      initializedEngines <- Future.sequence(engines.map(initEngine))
+    } yield initializedEngines.collect { case Success(e) => e })
+      .map { engines =>
+        drawInfo("Harness Server Init", Seq(
+          ("════════════════════════════════════════", "══════════════════════════════════════"),
+          ("Number of Engines: ", engines.size),
+          ("Engines: ", engines.map(_.engineId))))
+        this.engines = engines.map(e => e.engineId -> e).toMap
+        this
+      }
   }
 
   def getEngine(engineId: EngineId): Option[Engine] = {

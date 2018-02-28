@@ -227,7 +227,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
     // remove old model since it is recreated with each new NavHintingEngine
-    ???
+    Future.successful(())
   }
 
 

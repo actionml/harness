@@ -25,7 +25,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.{Injector, Module}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 abstract class Administrator(implicit val injector: Module) extends LazyLogging {
@@ -42,7 +42,7 @@ abstract class Administrator(implicit val injector: Module) extends LazyLogging 
   def status(resourceId: Option[String] = None): Validated[ValidateError, String]
 
   // startup and shutdown
-  def init(): Administrator = this
+  def init()(implicit ec: ExecutionContext): Future[Administrator] = Future.successful(this)
   def start(): Administrator = this
   def stop(): Unit = {}
 
