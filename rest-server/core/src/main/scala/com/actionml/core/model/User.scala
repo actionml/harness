@@ -15,23 +15,13 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.core.model
 
-import cats.data.Validated
-import com.actionml.core.model.Event
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
-
-import scala.concurrent.{ExecutionContext, Future}
-
-abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) extends LazyLogging {
-
-  val resourceId = engineId
-
-  def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
-  def destroy()(implicit ec: ExecutionContext): Future[Unit]
-  def input(datum: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Event]]
-
-  def parseAndValidateInput(s: String): Validated[ValidateError, T]
-
+case class User(
+    _id: String = "",
+    properties: Map[String, Seq[String]] = Map.empty) {
 }
+
+// todo: is this needed?
+object User {}
+

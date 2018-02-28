@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.actionml.core.template
 
 import cats.data.Validated
-import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.validate.ValidateError
 
 /** Adds a method for train, which is expected to update the model through some potentially long lived task,
   *  usually in a batch or background mode.

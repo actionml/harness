@@ -19,34 +19,37 @@ package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{Dataset, Event}
+import com.actionml.core.template.Dataset
+import org.bson.BsonString
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.{BsonDocument, Document, ObjectId}
+
+import scala.concurrent.{ExecutionContext, Future}
+//import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
-import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import org.joda.time.DateTime
-import salat.dao._
-import salat.global._
 
 import scala.collection.immutable.HashMap
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
-  * The NavHintingDataset manages User journeys and the hint model. Users are not in-memory. Journeys may be in-memory
-  * and persisted after changes accumulate.
+  * The Dataset manages Users and Journeys. Users are not in-memory. Journeys may be in-memory and persisted
+  * immediately after any change.
   *
+  * @param engineId REST resource-id from POST /engines/<resource-id>/events also ids the mongo DB for all input
   */
 class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) with JsonParser with Mongo {
 
-  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(getDatabase(engineId).getCollection("active_journeys"))
+  val navHintsDAO: NavHintsDAO = NavHintsDAO(getDatabase(engineId).getCollection("nav_hints"))
 
-  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
-  val navHintsDAO: NavHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
+  //var navHintsDAO: SalatDAO[Map[String, Double], String] = _
 
   var trailLength: Int = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
         trailLength = algoParams.numQueueEvents.getOrElse(50)
@@ -57,65 +60,68 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
     if(res.isInvalid) Invalid(ParseError("Error parsing JSON params for numQueueEvents.")) else Valid(true)
   }
 
-  override def destroy() = {
-    client.dropDatabase(engineId)
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
+    client.getDatabase(engineId).drop.toFuture.map(_ => ())
   }
 
   // add one json, possibly an NHEvent, to the beginning of the dataset
-  override def input(json: String): Validated[ValidateError, NHEvent] = {
-    parseAndValidateInput(json).andThen(persist)
+  override def input(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, NHEvent]] = {
+    parseAndValidateInput(json).fold(e => Future.successful(Invalid(e)), persist)
   }
 
 
-  def persist(event: NHEvent): Validated[ValidateError, NHEvent] = {
+  def persist(event: NHEvent)(implicit ec: ExecutionContext): Future[Validated[ValidateError, NHEvent]] = {
     try {
       event match {
         case event: NHNavEvent => // nav events enqued for each user until conversion
 
-          val conversion = event.properties.conversion.getOrElse(false)
-          val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
-          if(!conversion) { // store in the user journey queue
-            if (unconvertedJourney.nonEmpty) {
-              val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
-              if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
-                activeJourneysDAO.save(updatedJourney.get)
-                Valid(true)
-              } // else the first event for the journey is a conversion so ignore
-            } else { // no persisted journey so create it
-              activeJourneysDAO.insert(
-                Journey(
-                  event.entityId,
-                  Seq((event.targetEntityId, DateTime.parse(event.eventTime)))
-                )
-              )
-              Valid(true)
+          activeJourneysDAO.findOneById(event.entityId).flatMap { unconvertedJourney =>
+
+            val conversion = event.properties.conversion.getOrElse(false)
+            if (!conversion) { // store in the user journey queue
+              if (unconvertedJourney.nonEmpty) {
+                val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
+                if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
+                  activeJourneysDAO
+                    .save(updatedJourney.get)
+                    .map(_ => Valid(true))
+                } // else the first event for the journey is a conversion so ignore
+              } else { // no persisted journey so create it
+                activeJourneysDAO.insert(
+                  Journey(
+                    event.entityId,
+                    Seq((event.targetEntityId, DateTime.parse(event.eventTime)))
+                  )
+                ).map(_ => Valid(true))
+              }
+              Future.successful(Valid(event))
+            } else {
+              Future.successful(Valid(event))
             }
-            Valid(event)
-          } else {
-            Valid(event)
           }
 
         case event: HNDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${engineId} removing any journey data for user: ${event.entityId}")
-              activeJourneysDAO.removeById(event.entityId)
-              Valid(event)
+              activeJourneysDAO
+                .removeById(event.entityId)
+                .map(_ => Valid(event))
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
-              Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+              Future.successful(Invalid(ParseError(s"Unrecognized event: ${event} will be ignored")))
           }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
-          Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+          Future.successful(Invalid(ParseError(s"Unrecognized event: ${event} will be ignored")))
       }
     } catch {
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
-        Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}"))
+        Future.successful(Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}")))
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
-        Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}"))
+        Future.successful(Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
   }
 
@@ -168,8 +174,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 }
  */
 
-
-case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
+case class UsersDAO(usersColl: MongoCollection[User])
 
 case class NHUserUpdateEvent(
     entityId: String,
@@ -232,27 +237,45 @@ case class NavEvent(
   converted: String,
   eventTime: DateTime)
 
-case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, ObjectId](eventColl)
-
+case class NavEventDAO(eventColl: MongoCollection[NavEvent])
 
 case class Journey(
   _id: String, // User-id we are recording nav events for
   trail: Seq[(String, DateTime)]) // most recent nav events
 
-
 // active journeys not yet converted
-case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
+case class ActiveJourneysDAO(col: MongoCollection[Journey]) {
+  import Util.mkIdDoc
+
+  def find(search: Document)(implicit ec: ExecutionContext): Future[Journey] = col.find(search.toBsonDocument).first.toFuture
+
+  def findOneById(id: String)(implicit ec: ExecutionContext): Future[Option[Journey]] = {
+    col.find(mkIdDoc(id))
+      .toFuture
+      .map(_.headOption)
+  }
+  def insert(journey: Journey)(implicit ec: ExecutionContext): Future[Unit] = col.insertOne(journey).toFuture().map(_ => ())
+
+  def save(journey: Journey)(implicit ec: ExecutionContext): Future[Unit] = col.replaceOne(mkIdDoc(journey._id), journey).toFuture.map(_ => ())
+
+  def removeById(id: String)(implicit ec: ExecutionContext): Future[Unit] = col.deleteOne(mkIdDoc(id)).toFuture.map(_ => ())
+
+}
+
+private object Util {
+  def mkIdDoc(id: String)(implicit ec: ExecutionContext): BsonDocument = BsonDocument(Seq("_id" -> new BsonString(id)))
+}
 
 // model = sum of converted jouney weighted vectors
 case class Hints(hints: Map[String, Double], _id: String = "1")
-case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[Hints, String](navHints)
-
+case class NavHintsDAO(navHints: MongoCollection[Hints]) {
+  def findOne(search: Document)(implicit ec: ExecutionContext): Future[Option[Hints]] = navHints.find(search).headOption
+  def save(hints: Hints)(implicit ec: ExecutionContext): Future[Unit] = navHints.replaceOne(Util.mkIdDoc(hints._id), hints).toFuture.map(_ => ())
+}
 
 case class NavHint(
     _id: String = "", // nav-id
     score: Double = Double.MinPositiveValue) // scored nav-ids
-
-
 
 /* HNUser Comes in NHEvent partially parsed from the Json:
 {

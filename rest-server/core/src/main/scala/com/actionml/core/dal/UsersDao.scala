@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.core.dal
 
-import cats.data.Validated
-import com.actionml.core.model.Event
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.model.User
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) extends LazyLogging {
 
-  val resourceId = engineId
-
-  def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
-  def destroy()(implicit ec: ExecutionContext): Future[Unit]
-  def input(datum: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Event]]
-
-  def parseAndValidateInput(s: String): Validated[ValidateError, T]
-
+trait UsersDao {
+  def findOne(id: String): Future[Option[User]]
+  def list(offset: Int, limit: Int): Future[Iterable[User]]
+  def insertOrUpdateOne(user: User): Future[Unit]
+  def insertOne(user: User): Future[Unit]
+  def deleteOne(userId: String): Future[Unit]
+  def unsetProperties(userId: String, unsetPropKeys: Set[String]): Future[Unit]
+  def setProperties(userId: String, setProps: Map[String, Seq[String]]): Future[Unit]
+  def addPropValue(userId: String, propName: String, propValues: Seq[String], maxValues: Int = 100): Future[Unit]
 }

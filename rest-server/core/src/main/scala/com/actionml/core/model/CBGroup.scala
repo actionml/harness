@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.core.model
 
-import cats.data.Validated
-import com.actionml.core.model.Event
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
+import org.joda.time.DateTime
 
-import scala.concurrent.{ExecutionContext, Future}
+case class CBGroup (
+    _id: String,
+    testPeriodStart: DateTime, // ISO8601 date
+    pageVariants: Map[String, String], //((1 -> "17"),(2 -> "18"))
+    testPeriodEnd: Option[DateTime])
+  extends CBEvent {
 
-abstract class Dataset[T](engineId: String,  sharedDB: Option[String] = None) extends LazyLogging {
-
-  val resourceId = engineId
-
-  def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
-  def destroy()(implicit ec: ExecutionContext): Future[Unit]
-  def input(datum: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Event]]
-
-  def parseAndValidateInput(s: String): Validated[ValidateError, T]
-
+  def keysToInt(v: Map[String, String]): Map[Int, String] = {
+    v.map( a => a._1.toInt -> a._2)
+  }
 }
+
+trait CBEvent extends Event
+

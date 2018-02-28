@@ -11,7 +11,7 @@ import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.AuthServerProxyService
-import com.actionml.router.config.{AppConfig, ConfigurationComponent}
+import com.actionml.core.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector

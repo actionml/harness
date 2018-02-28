@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package com.actionml.core.backup
+package backup
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
-import com.actionml.core.template.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.template.Engine
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Abstract class for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
@@ -33,7 +35,7 @@ import com.typesafe.scalalogging.LazyLogging
 abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
 
   def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
+  def importEvents(engine: Engine, location: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
 
   /**
     * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name

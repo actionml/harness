@@ -1,8 +1,8 @@
 package com.actionml.router.service
 
+import akka.pattern.pipe
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
-import com.actionml.core.template.Engine
 import com.actionml.core.validate.WrongParams
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
@@ -18,16 +18,16 @@ trait QueryService extends ActorInjectable
 
 class QueryServiceImpl(implicit inj: Injector) extends QueryService{
 
+  import context.dispatcher
   private val admin = inject[Administrator]
 
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
       admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.query(query).map(_.asJson)
+        case Some(engine) ⇒ engine.query(query).map(_.map(_.asJson)) pipeTo sender()
         case None ⇒ sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
       }
-
   }
 }
 

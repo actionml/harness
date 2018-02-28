@@ -8,7 +8,7 @@ import akka.pattern.ask
 import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.service._
 import scaldi.Injector
 

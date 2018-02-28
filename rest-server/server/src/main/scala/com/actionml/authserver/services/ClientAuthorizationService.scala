@@ -27,7 +27,7 @@ import akka.util.ByteString
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
 import com.actionml.circe.CirceSupport
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 import io.circe.syntax._

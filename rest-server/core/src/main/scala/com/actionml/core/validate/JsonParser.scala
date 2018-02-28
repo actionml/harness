@@ -42,7 +42,7 @@ trait JsonParser extends LazyLogging{
     json: String,
     errorMsg: String = "")(implicit tag: TypeTag[T]): Validated[ValidateError, T] = {
 
-    try{
+    try {
       Valid(parse(json).extract[T])
     } catch {
       case e: MappingException =>

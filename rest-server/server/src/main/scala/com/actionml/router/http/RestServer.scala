@@ -9,14 +9,15 @@ import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.DebuggingDirectives
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -55,18 +56,14 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   }
 
   private def https = {
-    val sslConfPath = System.getenv.getOrDefault("HARNESS_SSL_CONFIG_PATH", "./conf/akka-ssl.conf")
-    val config = ConfigFactory.parseFile(new File(sslConfPath))
-    val keyManagerConfig = scala.collection.JavaConversions.asScalaBuffer(config.getObjectList("akka.ssl-config.keyManager.stores"))
-      .headOption.getOrElse(throw new RuntimeException("Key manager store should be configured")).toConfig.resolve
-    val storeType = keyManagerConfig.getString("type")
-    val storePath = keyManagerConfig.getString("path")
-    val storePassword = keyManagerConfig.getString("password")
 
-    val password: Array[Char] = storePassword.toCharArray
+    val sslConfig = AkkaSSLConfig()
 
-    val keystore = KeyStore.getInstance(storeType)
-    val keystoreFile = new FileInputStream(new File(storePath))
+    val keystoreConfig = sslConfig.config.keyManagerConfig.keyStoreConfigs.headOption.getOrElse(throw new RuntimeException("Key manager store should be configured"))
+    val password: Array[Char] = keystoreConfig.password.getOrElse(throw new RuntimeException("password is required")).toCharArray
+
+    val keystore = KeyStore.getInstance(keystoreConfig.storeType)
+    val keystoreFile = new FileInputStream(new File(keystoreConfig.filePath.getOrElse(throw new RuntimeException("storage.Store path is required"))))
 
     require(keystoreFile != null, "Keystore required!")
     keystore.load(keystoreFile, password)

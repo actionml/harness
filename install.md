@@ -219,7 +219,7 @@ export HARNESS_CLIENT_USER_SECRET=<user-secret>
 
 The following must be setup to use either the Java or Python SDK
 
-    export HARNESS_SERVER_CERT_PATH=/path/to/harness/server/cert.pem
+    export HARNESS_SERVER_CERT_PATH=<!!!put-your-path-here!!!>
     # points to the server's .pem file, used for self-signed
    
     

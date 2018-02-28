@@ -21,46 +21,31 @@ import java.io.File
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.dal.mongo.{MongoSupport, UsersDaoImpl}
+import com.actionml.core.model.{AlgorithmParams, CBGroup, User}
 import com.actionml.core.storage._
-import com.actionml.core.template._
+import com.actionml.core.template.{Algorithm, AlgorithmInput, KappaAlgorithm}
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
-import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
-import com.mongodb.casbah.Imports._
-import salat.global._
 import com.typesafe.scalalogging.LazyLogging
-import salat.dao.SalatDAO
 
-import scala.concurrent.Await
-import scala.io.Source
-import scala.reflect.io.Path
-import scala.tools.nsc.classpath.FileUtils
-import scala.util.control.Breaks
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
 //import java.io.File
-import com.mongodb.casbah.MongoCollection
-import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
+import java.nio.file.{Files, Paths}
+
 import org.joda.time.{DateTime, Duration}
-import org.json4s.ext.JodaTimeSerializers
-import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
-import org.slf4j.event.SubstituteLoggingEvent
-
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{Files, Path, Paths}
-
-import com.typesafe.config.ConfigFactory
 import vowpalWabbit.learner._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+
 case class CBAlgorithmInput(
-    user: User,
+    user: Future[Option[User]],
     event: CBUsageEvent,
-    testGroup: GroupParams,
+    testGroup: Future[Option[CBGroup]],
     resourceId: String )
   extends AlgorithmInput
 
@@ -72,41 +57,46 @@ case class Train(datum: CBAlgorithmInput)
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 class CBAlgorithm(dataset: CBDataset)
-  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
+  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo with MongoSupport {
+
+  val serverHome = sys.env("HARNESS_HOME")
 
   private val actors = ActorSystem(dataset.resourceId)
-
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
+  var resourceId: String = _
+  var modelPath: String = _
 
   // from the Dataset determine which groups are defined and start training on them
 
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
-      parseAndValidate[CBAllParams](json).andThen { p =>
-        params = p.algorithm.copy(
-          namespace = engineId)
-        val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
-        logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
-        val exists = trainers.keys.toList
-        vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
+  override def init(json: String, rsrcId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = Future.successful {
+    //val response = parseAndValidate[ScaffoldAlgoParams](json)
+    resourceId = rsrcId
+    parseAndValidate[CBAllParams](json).andThen { p =>
+      modelPath = p.algorithm.modelContainer.getOrElse(serverHome) + resourceId
+      params = p.algorithm.copy(
+        modelName = modelPath,
+        namespace = resourceId)
+      val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
+      logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
 
-        groupEvents.foreach(groupName => add(groupName._1))
-        // params .close() should write to the file
+      vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
 
-        Valid(true)
-      }
+      groupEvents.foreach(groupName => add(groupName._1))
+      // params .close() should write to the file
+
+      Valid(true)
     }
   }
 
-  override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
+  override def input(datum: CBAlgorithmInput)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     events += 1
     if (events % 20 == 0) checkpointVW(params)
     val groupName = datum.event.toUsageEvent.testGroupId
-    try {
+    Future.successful(try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
       Valid(true)
@@ -114,25 +104,26 @@ class CBAlgorithm(dataset: CBDataset)
       case e: NoSuchElementException =>
         logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.")
         Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
-    }
+    })
   }
 
-  override def predict(query: CBQuery): CBQueryResult = {
+  override def predict(query: CBQuery)(implicit ec: ExecutionContext): Future[CBQueryResult] = {
     // todo: isDefinedAt is not enough to know there have been events
     if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
 
-  override def destroy(): Unit = {
-    try{ Await.result(
-      actors.terminate().andThen { case _ =>
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      }.map { _ =>
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-      }, 3 seconds) } catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
+    def deleteFiles = {
+      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
+        Future.fromTry(Try(while (!Files.deleteIfExists(Paths.get(modelPath))) {}))
+      else Future.successful(())
     }
+    def closeVw = Future.fromTry(Try(if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()))
+    for {
+      _ <- actors.terminate
+      _ <- closeVw
+      _ <- deleteFiles
+    } yield ()
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -207,18 +198,20 @@ class CBAlgorithm(dataset: CBDataset)
 
   def add(groupName: String): Unit = {
     logger.info("Create trainer {}", groupName)
-    if (!trainers.contains(groupName) &&  dataset.GroupsDAO.findOneById(groupName).nonEmpty) {
-      val actor = actors.actorOf(
-        SingleGroupTrainer.props(
-          dataset.usageEventGroups(groupName),
-          dataset.usersDAO.get,
-          params,
-          dataset.GroupsDAO.findOneById(groupName).get,
-          engineId,
-          modelPath,
-          this.asInstanceOf[CBAlgorithm]),
-        groupName)
-      trainers += groupName → actor
+    dataset.groups.findOne(groupName).map { groupOpt =>
+      if (!trainers.contains(groupName) && !groupOpt.isEmpty) {
+        val actor = actors.actorOf(
+          SingleGroupTrainer.props(
+            dataset.usageEventGroups(groupName),
+            dataset.users,
+            params,
+            groupOpt.get,
+            resourceId,
+            modelPath,
+            this.asInstanceOf[CBAlgorithm]),
+          groupName)
+        trainers += groupName → actor
+      }
     }
   }
 
@@ -226,71 +219,83 @@ class CBAlgorithm(dataset: CBDataset)
     actors.terminate().wait()
   }
 
-  def getVariant(query: CBQuery): CBQueryResult = {
+  def getVariant(query: CBQuery): Future[CBQueryResult] = {
     //val vw = new VW(" -i " + modelContainer)
 
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+    dataset.groups.findOne(query.groupId).flatMap {
 
-    val numClasses = group.pageVariants.size
+      case Some(CBGroup(_is, testPeriodStart, pageVariants, testPeriodEnd)) =>
+        val numClasses = pageVariants.size
+        //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
+        val classString = pageVariants.keySet.mkString(" ")
 
-    //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
-    val classString = group.pageVariants.keySet.mkString(" ")
+        dataset.users.findOne(query.user).map {
+          case Some(User(_id, properties)) =>
 
-    val user = dataset.usersDAO.get.findOneById(query.user).getOrElse(User("",Map.empty))
+            val queryText = SingleGroupTrainer.constructVWString(classString, _id, query.groupId, User(_id, properties),
+              resourceId)
 
-    val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
+            logger.info(s"Query string to VW: \n$queryText")
+            val pred = vw.predict(queryText)
+            logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
+            //vw.close() // not need to save the model for a query
 
+            //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
+            //we use testPeriods as epsilon0
 
-    logger.info(s"Query string to VW: \n$queryText")
-    val pred = vw.predict(queryText)
-    logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
-    //vw.close() // not need to save the model for a query
+            val startTime = testPeriodStart
+            val endTime = testPeriodEnd.getOrElse(new DateTime()) // Todo: no end means you are always on the last day, no
+            // randomness
 
-    //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
-    //we use testPeriods as epsilon0
+            val maxEpsilon = 1.0 - (1.0 / numClasses)
+            val currentTestDuration = new Duration(startTime, new DateTime()).getStandardMinutes().toDouble
+            val totalTestDuration = new Duration(startTime, endTime).getStandardMinutes().toDouble
 
-    val startTime = group.testPeriodStart
-    val endTime = group.testPeriodEnd.getOrElse(new DateTime()) // Todo: no end means you are always on the last day, no
-    // randomness
+            // Alex: scale epsilonT to the range 0.0-maxEpsilon
+            // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!
+            val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration / totalTestDuration)))
+            // the key->value needs to be in the DB when a test-group is defined
+            val groupMap = pageVariants.map( a => a._1.toInt -> a._2)
 
-    val maxEpsilon = 1.0 - (1.0/numClasses)
-    val currentTestDuration = new Duration(startTime, new DateTime()).getStandardMinutes().toDouble
-    val totalTestDuration = new Duration(startTime, endTime).getStandardMinutes().toDouble
+            val probabilityMap = groupMap.keys.map { keyInt =>
+              keyInt -> (
+                if(keyInt == pred)
+                  1.0 - epsilonT
+                else
+                  epsilonT / (numClasses - 1.0)
+                )
+            }.toMap
 
-    // Alex: scale epsilonT to the range 0.0-maxEpsilon
-    // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!
-    val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration/ totalTestDuration) ))
+            val sampledPred = sample(probabilityMap)
 
-    // the key->value needs to be in the DB when a test-group is defined
-    val groupMap = group.pageVariants.map( a => a._1.toInt -> a._2)
+            // todo: disables sampling
+            val pageVariant = groupMap(sampledPred)
+            //val pageVariant = groupMap(pred.head.getAction)
+            CBQueryResult(pageVariant, groupId = query.groupId)
 
-    val probabilityMap = groupMap.keys.map { keyInt =>
-      keyInt -> (
-        if(keyInt == pred)
-          1.0 - epsilonT
-        else
-          epsilonT / (numClasses - 1.0)
-      )
-    }.toMap
+          case _ => // no user
+            CBQueryResult("", Int.MinValue.toString)
+        }
 
-    val sampledPred = sample(probabilityMap)
-
-    // todo: disables sampling
-    val pageVariant = groupMap(sampledPred)
-    //val pageVariant = groupMap(pred.head.getAction)
-    CBQueryResult(pageVariant, groupId = query.groupId)
+      case _ => // no group
+        Future.successful(CBQueryResult("", Int.MinValue.toString))
+    }
   }
 
 
-  // this is likely to not be called since we don't keep track of whether a group has ever received training data
-  def getDefaultVariant(query: CBQuery): CBQueryResult = {
-    logger.info("Test group has no training data yet. Fall back to uniform distribution")
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
 
-    val variants = group.pageVariants
-    val numClasses = variants.size
-    val map = variants.map{ x => x._2 -> 1.0/numClasses}.toMap
-    CBQueryResult(sample[String](map), groupId = query.groupId)
+  // this is likely to not be called since we don't keep track of whether a group has ever received training data
+  def getDefaultVariant(query: CBQuery): Future[CBQueryResult] = {
+    logger.info("Test group has no training data yet. Fall back to uniform distribution")
+    dataset.groups.findOne(query.groupId).map {
+      case Some(CBGroup(_id, testPeriodStart, pageVariants, testPeriodEnd)) =>
+        val variants = pageVariants
+        val numClasses = variants.size
+        val map = variants.map{ x => x._2 -> 1.0/numClasses}
+        CBQueryResult(sample[String](map), groupId = query.groupId)
+      case _ => // no group
+        CBQueryResult("", groupId = Int.MinValue.toString)
+    }
   }
 
   def sample[A](dist: Map[A, Double]): A = {
@@ -320,6 +325,8 @@ case class CBAlgoParams(
     regParam: Double = 0.0,
     stepSize: Double = 0.1,
     bitPrecision: Int = 24,
+    modelContainer: Option[String] = None,
+    modelName: String = "",
     namespace: String = "n",
     maxClasses: Int = 3)
   extends AlgorithmParams
@@ -327,9 +334,9 @@ case class CBAlgoParams(
 
 class SingleGroupTrainer(
     events: UsageEventDAO,
-    users: SalatDAO[User, String],
+    users: UsersDaoImpl,
     params: CBAlgoParams,
-    group: GroupParams,
+    group: CBGroup,
     resourceId: String,
     modelPath: String,
     cbAlgo: CBAlgorithm)
@@ -348,29 +355,40 @@ class SingleGroupTrainer(
 
   private def train(input: CBAlgorithmInput): Unit = {
     log.debug(s"$name Start work")
-    val vwString: String = eventToVWStrings(
-      input.event,
-      input.testGroup.pageVariants.map( a => a._1.toInt -> a._2),
-      input.user,
-      input.resourceId)
-
-
-    if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
-      log.info(s"Sending the VW formatted string: \n$vwString")
-      var result = cbAlgo.vw.learn(vwString)
-/*      examples += 1
-      if (examples % 20 == 0) { // save every 20 events
-        log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
-        log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
-        result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
-        log.info(s"Got result to save of: ${result.toString}")
-      }
-*/
-    } else {
-      log.error(s"Error converting $input into VW string or VW is null, meaning it has crashed?")
+    @volatile var user: User = User()
+    input.user.onComplete {
+      case Success(u: Option[User]) => user = u.getOrElse(User())
+      case Failure(ex) =>
+        log.info(s"${ex.getMessage}")
+        log.warning(s"${ex.getStackTrace}")
+        log.warning(s"Could not find the user in the Query, return default result.")
+        User()
     }
-    //for ( item <- inputs ) log.info(s"$item\n")
 
+    input.testGroup.collect { case Some(cbGroup) =>
+      val vwString: String = eventToVWStrings(
+        input.event,
+        cbGroup.pageVariants.map( a => a._1.toInt -> a._2),
+        user,
+        input.resourceId)
+
+
+      if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
+        log.info(s"Sending the VW formatted string: \n$vwString")
+        var result = cbAlgo.vw.learn(vwString)
+        /*      examples += 1
+        if (examples % 20 == 0) { // save every 20 events
+          log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
+          log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
+          result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
+          log.info(s"Got result to save of: ${result.toString}")
+        }
+        */
+      } else {
+        log.error(s"Error converting $input into VW string or VW is null, meaning it has crashed?")
+      }
+      //for ( item <- inputs ) log.info(s"$item\n")
+    }
   }
 
   def eventToVWStrings(
@@ -422,9 +440,9 @@ object SingleGroupTrainer {
 
   def props(
     events: UsageEventDAO,
-    users: SalatDAO[User, String],
+    users: UsersDaoImpl,
     params: CBAlgoParams,
-    group: GroupParams,
+    group: CBGroup,
     resourceId: String,
     modelPath: String,
     cbAlgo: CBAlgorithm): Props = Props(new SingleGroupTrainer(events, users, params, group, resourceId, modelPath, cbAlgo))
@@ -464,7 +482,8 @@ object SingleGroupTrainer {
     val vwString = classString + " | " + // may need to make a namespace per group by engineId+testGroupId
       rawTextToVWFormattedString(
         "user_" + userId + " " + "testGroupId_" + testGroupId + " " +
-          user.propsToMapOfSeq.map { case(propId, propSeq) =>
+          user.properties.map { case(propId, propSeq) =>
+            // propString is a flatmapped Seq of Strings separated by %, to make into a user feature, split, sort, and flatmap
             propSeq.map { propVal  =>
               propId + "_" + propVal.replaceAll("\\s+", "_") + "_" + testGroupId
             }.mkString(" ")

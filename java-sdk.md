@@ -160,5 +160,3 @@ See [harness-config.md](harness-config.md) for a description of how to setup the
 ## Using Auth from the Client
 
 When Harness is running in "Authentication Required" mode a **User** and **Secret** must have been created on the Harness Server using the CLI or REST interface. When Harness is first started it is in non-TLS mode, with no need of an admin user, so create one before turning on authentication and make a note of the user-id and secret needed. The User must have **Permission** to access the resource/engineId used in the client code examples above and must have the role **Client** or **Admin**. See the [CLI docs](commands.md) for more details
-
-  
