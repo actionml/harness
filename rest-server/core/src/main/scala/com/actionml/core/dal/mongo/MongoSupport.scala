@@ -17,12 +17,7 @@
 
 package com.actionml.core.dal.mongo
 
-import java.time.Instant
-
 import com.actionml.core.config.AppConfig
-import com.actionml.core.model.User
-import org.bson.codecs.configuration.CodecRegistries.fromProviders
-import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.ServerAddress
 
 import scala.concurrent.duration.Duration
@@ -30,10 +25,6 @@ import scala.concurrent.duration.Duration
 // import com.actionml.authserver.config.AppConfig
 import com.mongodb.async.client.MongoClientSettings
 import com.mongodb.connection.ClusterSettings
-import org.bson.codecs.configuration.CodecRegistries
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
-import org.bson.{BsonReader, BsonWriter}
-import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.MongoClient
 
 import scala.reflect.ClassTag
@@ -61,28 +52,13 @@ object MongoSupport {
       ClusterSettings
         .builder()
         .hosts(List(ServerAddress(config.host, port = config.port))).build)
-    .codecRegistry(codecRegistry)
+    .codecRegistry(Codecs.codecRegistry)
     .build
 
   private val mongoClient = MongoClient(settings)
 
   // Todo: this should be set at runtime to the shared one in the Engine JSON or some global one
   //private val mongoDatabase = mongoClient.getDatabase(config.sharedDB)
-
-  import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
-  import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-  import org.mongodb.scala.bson.codecs.Macros._
-
-  private lazy val codecRegistry = fromRegistries(
-    CodecRegistries.fromCodecs(new InstantCodec),
-    /*
-     looks like list inside fromProviders should be in usage order (accessToken and userAccount contains permissions, so,
-     permissions should be declared first.
-     It also can correspond to https://jira.mongodb.org/browse/SCALA-338
-     */
-    fromProviders(classOf[User]), // todo: oh no, statically defined types? noooooooooo
-    DEFAULT_CODEC_REGISTRY
-  )
 
   /* todo: doens't work because the macros don't work on a passed in class so need to pass in codecs
 
@@ -93,10 +69,4 @@ object MongoSupport {
     )
   }
   */
-
-  class InstantCodec extends Codec[Instant] {
-    override def decode(reader: BsonReader, dc: DecoderContext) = Instant.ofEpochMilli(reader.readDateTime)
-    override def encode(writer: BsonWriter, value: Instant, ec: EncoderContext) = writer.writeDateTime(value.toEpochMilli)
-    override def getEncoderClass = classOf[Instant]
-  }
 }

@@ -42,7 +42,7 @@ abstract class Administrator(implicit val injector: Module) extends LazyLogging 
   def status(resourceId: Option[String] = None): Validated[ValidateError, String]
 
   // startup and shutdown
-  def init()(implicit ec: ExecutionContext): Future[Administrator] = Future.successful(this)
+  def init(): Administrator = this
   def start(): Administrator = this
   def stop(): Unit = {}
 

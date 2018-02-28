@@ -2,6 +2,7 @@ package com.actionml.core.storage
 
 import java.net.UnknownHostException
 
+import com.actionml.core.dal.mongo.Codecs
 import com.mongodb.MongoException
 import com.typesafe.config.ConfigFactory
 import org.mongodb.scala.bson.collection.immutable.Document
@@ -36,7 +37,7 @@ trait Mongo extends Store {
 
   lazy val client = MongoClient(uri)
   def getDatabase(dbName: String): MongoDatabase = {
-    client.getDatabase(dbName)
+    client.getDatabase(dbName).withCodecRegistry(Codecs.codecRegistry)
   }
 
   override def create(): Mongo = this

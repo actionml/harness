@@ -25,10 +25,12 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
+import org.mongodb.scala.bson.ObjectId
 import scaldi.{Injector, Module}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+case class CommonEngineData(_id: ObjectId, engineFactory: String, params: String)
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
