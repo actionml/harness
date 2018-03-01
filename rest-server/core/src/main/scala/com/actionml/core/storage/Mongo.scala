@@ -2,11 +2,14 @@ package com.actionml.core.storage
 
 import java.net.UnknownHostException
 
+import com.actionml.core.config.AppConfig
 import com.actionml.core.dal.mongo.Codecs
 import com.mongodb.MongoException
 import com.typesafe.config.ConfigFactory
+import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
 import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.mongodb.scala.connection.ClusterSettings
+import org.mongodb.scala.{MongoClient, MongoClientSettings, MongoDatabase, ServerAddress}
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -35,16 +38,30 @@ trait Mongo extends Store {
 
   implicit val allCollectionObjects = Document("_id" -> Document("$exists" -> true))
 
-  lazy val client = MongoClient(uri)
-  def getDatabase(dbName: String): MongoDatabase = {
-    client.getDatabase(dbName).withCodecRegistry(Codecs.codecRegistry)
+  private val mongoConfig = AppConfig.apply.mongoServer
+
+  def client(codecRegistry: CodecRegistry = Codecs.codecRegistry()) = {
+    import scala.collection.JavaConversions._
+    def settings(codecRegistry: CodecRegistry) = MongoClientSettings.builder
+      .clusterSettings(
+        ClusterSettings
+          .builder()
+          .hosts(List(ServerAddress(mongoConfig.host, port = mongoConfig.port))).build)
+      .codecRegistry(codecRegistry)
+      .build
+
+    MongoClient(settings(codecRegistry))
+  }
+
+  def getDatabase(dbName: String, codecProviders: List[CodecProvider] = List.empty): MongoDatabase = {
+    client(Codecs.codecRegistry(codecProviders)).getDatabase(dbName)
   }
 
   override def create(): Mongo = this
 
   override def destroy(dbName: String): Mongo = {
     try {
-      client.getDatabase(dbName).drop()
+      client(Codecs.codecRegistry()).getDatabase(dbName).drop()
     } catch {
       case e: UnknownHostException =>
         logger.error(s"Unknown host for address: $uri", e)

@@ -17,31 +17,26 @@
 
 package com.actionml.admin
 
-import java.lang.reflect.Constructor
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.core._
-import com.actionml.core.storage.Mongo
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core._
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Mongo
-import com.actionml.core.template.{CommonEngineData, Engine}
+import com.actionml.core.template.Engine
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.bson.ObjectId
+import org.mongodb.scala.bson.BsonString
 import org.mongodb.scala.bson.collection.immutable.Document
 import scaldi.{Injectable, Injector, Module}
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class MongoAdministrator(override implicit val injector: Module)
   extends Administrator with JsonParser with Mongo with Injectable {
 
-  lazy val enginesCollection: MongoCollection[CommonEngineData] = getDatabase("harness_meta_store").getCollection("engines")
+  lazy val enginesCollection: MongoCollection[Document] = getDatabase("harness_meta_store").getCollection("engines")
 //  lazy val commandsCollection: MongoCollection[Engine] = getDatabase("harness_meta_store").getCollection("commands") // async persistent though temporary commands
   var engines = Map.empty[EngineId, Engine]
   private val ec = inject[ExecutionContext]
@@ -59,20 +54,22 @@ class MongoAdministrator(override implicit val injector: Module)
   // instantiates all stored engine instances with restored state
   override def init(): MongoAdministrator = {
     implicit val _ = ec
-    def initEngine(engine: CommonEngineData): Future[Try[Engine]] = {
-      newEngineInstance(engine.engineFactory)
-        .initAndGet(engine.params)
-        .map(Success(_))
-        .recoverWith { case error =>
-          // it is possible that previously valid metadata is now bad, the Engine code must have changed
-          logger.error(s"Error creating engineId: ${engine._id} from ${engine.params}" +
-            s"\n\nTry deleting the engine instance by hand and re-adding to start fresh or fix the JSON config if there " +
-            s"is an error in it. Note: " +
-            s"this may happen when code for one version of the Engine has chosen to not be backwards compatible.")
-          // Todo: we need a way to cleanup in this situation
-          enginesCollection.deleteOne(Document("engineId" -> engine._id)).toFuture().map(_ => Failure(error))
-          // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
-        }
+    def initEngine(engineDoc: Document): Future[Try[Engine]] = {
+      Future.fromTry(Try(newEngineInstance(engineDoc.get("engineFactory").get.asString.getValue))).flatMap { engine =>
+        val params = engineDoc.get("params").get.asString.getValue
+        engine.initAndGet(params)
+          .map(Success(_))
+          .recoverWith { case error =>
+            // it is possible that previously valid metadata is now bad, the Engine code must have changed
+            logger.error(s"Error creating engineId: ${engine.engineId} from $params" +
+              s"\n\nTry deleting the engine instance by hand and re-adding to start fresh or fix the JSON config if there " +
+              s"is an error in it. Note: " +
+              s"this may happen when code for one version of the Engine has chosen to not be backwards compatible.")
+            // Todo: we need a way to cleanup in this situation
+            enginesCollection.deleteOne(Document("engineId" -> engine.engineId)).toFuture().map(_ => Failure(error))
+            // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+          }
+      }
     }
     // ask engines to init
     val f = (for {
@@ -117,7 +114,11 @@ class MongoAdministrator(override implicit val injector: Module)
           //add new
           engines += params.engineId -> newEngine
           logger.trace(s"Initializing new engine for resource-id: ${params.engineId} with params $json")
-          val data = CommonEngineData(new ObjectId(params.engineId), params.engineFactory, json)
+          val data = Document.fromSeq(Seq(
+            "engineId" -> BsonString(params.engineId),
+            "engineFactory" -> BsonString(params.engineFactory),
+            "params" -> BsonString(json)
+          ))
           enginesCollection.insertOne(data).toFuture.map(_ => Valid(params.engineId))
         }
       } yield result

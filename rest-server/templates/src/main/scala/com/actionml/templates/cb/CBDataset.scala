@@ -84,7 +84,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   }
 
   override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
-    client.getDatabase(engineId).drop.toFuture.map(_ => ())
+    client().getDatabase(engineId).drop.toFuture.map(_ => ())
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset

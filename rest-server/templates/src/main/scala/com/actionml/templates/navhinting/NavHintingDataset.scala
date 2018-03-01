@@ -23,6 +23,7 @@ import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
 import org.bson.BsonString
+import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.{BsonDocument, Document, ObjectId}
 
@@ -31,7 +32,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.actionml.core.validate._
 import org.joda.time.DateTime
 
-import scala.collection.immutable.HashMap
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
@@ -42,8 +42,13 @@ import scala.language.reflectiveCalls
   */
 class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) with JsonParser with Mongo {
 
-  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(getDatabase(engineId).getCollection("active_journeys"))
-  val navHintsDAO: NavHintsDAO = NavHintsDAO(getDatabase(engineId).getCollection("nav_hints"))
+  private val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[Journey], classOf[Hints])
+  }
+
+  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(getDatabase(engineId, codecs).getCollection[Journey]("active_journeys"))
+  val navHintsDAO: NavHintsDAO = NavHintsDAO(getDatabase(engineId, codecs).getCollection("nav_hints"))
 
   //var navHintsDAO: SalatDAO[Map[String, Double], String] = _
 
@@ -61,7 +66,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   }
 
   override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
-    client.getDatabase(engineId).drop.toFuture.map(_ => ())
+    client().getDatabase(engineId).drop.toFuture.map(_ => ())
   }
 
   // add one json, possibly an NHEvent, to the beginning of the dataset
@@ -90,7 +95,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
                 activeJourneysDAO.insert(
                   Journey(
                     event.entityId,
-                    Seq((event.targetEntityId, DateTime.parse(event.eventTime)))
+                    Seq(EventTime(event.targetEntityId, DateTime.parse(event.eventTime)))
                   )
                 ).map(_ => Valid(true))
               }
@@ -149,7 +154,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
       Some(
         Journey(
           journey._id,
-          (journey.trail :+ (event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
+          (journey.trail :+ EventTime(event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
         )
       )
     } else None
@@ -239,15 +244,16 @@ case class NavEvent(
 
 case class NavEventDAO(eventColl: MongoCollection[NavEvent])
 
+case class EventTime(eventId: String, time: DateTime)
 case class Journey(
   _id: String, // User-id we are recording nav events for
-  trail: Seq[(String, DateTime)]) // most recent nav events
+  trail: Seq[EventTime]) // most recent nav events
 
 // active journeys not yet converted
 case class ActiveJourneysDAO(col: MongoCollection[Journey]) {
   import Util.mkIdDoc
 
-  def find(search: Document)(implicit ec: ExecutionContext): Future[Journey] = col.find(search.toBsonDocument).first.toFuture
+  def find(search: Document)(implicit ec: ExecutionContext): Future[Iterable[Journey]] = col.find(search.toBsonDocument).toFuture
 
   def findOneById(id: String)(implicit ec: ExecutionContext): Future[Option[Journey]] = {
     col.find(mkIdDoc(id))

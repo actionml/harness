@@ -52,7 +52,7 @@ object MongoSupport {
       ClusterSettings
         .builder()
         .hosts(List(ServerAddress(config.host, port = config.port))).build)
-    .codecRegistry(Codecs.codecRegistry)
+    .codecRegistry(Codecs.codecRegistry())
     .build
 
   private val mongoClient = MongoClient(settings)

@@ -20,11 +20,12 @@ package com.actionml.core.dal.mongo
 import java.time.Instant
 
 import com.actionml.core.model.{CBGroup, User}
-import com.actionml.core.template.CommonEngineData
-import org.bson.codecs.configuration.CodecRegistries
+import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.joda.time.DateTime
+
+import scala.collection.JavaConversions
 
 object Codecs {
 
@@ -32,14 +33,15 @@ object Codecs {
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
 
-  lazy val codecRegistry = fromRegistries(
+  private val defaultProviders: List[CodecProvider] = List(classOf[User], classOf[CBGroup])
+  def codecRegistry(customProviders: List[CodecProvider] = List.empty) = fromRegistries(
     CodecRegistries.fromCodecs(new InstantCodec, new DateTimeCodec),
     /*
      looks like list inside fromProviders should be in usage order (accessToken and userAccount contains permissions, so,
      permissions should be declared first.
      It also can correspond to https://jira.mongodb.org/browse/SCALA-338
      */
-    fromProviders(classOf[User], classOf[CommonEngineData], classOf[CBGroup]), // todo: oh no, statically defined types? noooooooooo
+    fromProviders(JavaConversions.seqAsJavaList(defaultProviders ++ customProviders)), // todo: oh no, statically defined types? noooooooooo
     DEFAULT_CODEC_REGISTRY
   )
 
