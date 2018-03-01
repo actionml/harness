@@ -66,9 +66,9 @@ class MongoAdministrator(override implicit val injector: Module)
         .recoverWith { case error =>
           // it is possible that previously valid metadata is now bad, the Engine code must have changed
           logger.error(s"Error creating engineId: ${engine._id} from ${engine.params}" +
-            s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
-            s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
-            s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
+            s"\n\nTry deleting the engine instance by hand and re-adding to start fresh or fix the JSON config if there " +
+            s"is an error in it. Note: " +
+            s"this may happen when code for one version of the Engine has chosen to not be backwards compatible.")
           // Todo: we need a way to cleanup in this situation
           enginesCollection.deleteOne(Document("engineId" -> engine._id)).toFuture().map(_ => Failure(error))
           // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
