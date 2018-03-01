@@ -19,7 +19,9 @@ package com.actionml.templates.cb
 
 import com.actionml.core.dal.mongo.{MongoSupport, ObjectNotFoundException}
 import com.actionml.core.model.CBGroup
+import com.actionml.core.storage.Mongo
 import com.typesafe.scalalogging.LazyLogging
+import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.UpdateOptions
@@ -29,12 +31,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // for use with Scaldi
 // class groupsDaoImpl(implicit inj: Injector) extends groupsDao with MongoSupport with Injectable with LazyLogging {
-class CBGroupsDaoImpl(dbName: String)(implicit inj: Injector) extends CBGroupsDao with MongoSupport with Injectable with LazyLogging {
+class CBGroupsDaoImpl(dbName: String)(implicit inj: Injector) extends CBGroupsDao with Mongo with Injectable with LazyLogging {
 
   // todo: must find a way to pass in a codec instead of a class
   // MongoSupport.registerCodec(classOf[group])
   private val name = dbName
-  private val groups = collection[CBGroup](name, "groups")
+  private val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[CBGroup])
+  }
+  private val groups = getDatabase(name, codecs).getCollection[CBGroup]("groups")
   private implicit val ec = inject[ExecutionContext]
 
   override def findOne(_id: String): Future[Option[CBGroup]] = {

@@ -33,7 +33,7 @@ object Codecs {
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
   import org.mongodb.scala.bson.codecs.Macros._
 
-  private val defaultProviders: List[CodecProvider] = List(classOf[User], classOf[CBGroup])
+  private val defaultProviders: List[CodecProvider] = List(classOf[User])
   def codecRegistry(customProviders: List[CodecProvider] = List.empty) = fromRegistries(
     CodecRegistries.fromCodecs(new InstantCodec, new DateTimeCodec),
     /*

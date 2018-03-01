@@ -24,6 +24,7 @@ import com.actionml.core.model._
 import com.actionml.core.storage.Mongo
 import com.actionml.core.template.Dataset
 import com.actionml.core.validate._
+import org.bson.codecs.configuration.CodecProvider
 import org.joda.time.DateTime
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.ObjectId
@@ -61,6 +62,11 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   implicit val ec = inject[ExecutionContext]
   var users = new UsersDaoImpl(sharedDB.getOrElse(engineId))
   var groups = new CBGroupsDaoImpl(engineId)
+
+  private val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[UsageEvent])
+  }
   // Users can be shared among Datasets for multiple Engines
   //val u = inject[UsersDao]
   // val usersDAO = UsersDAO(connection(engineId)("users"))
@@ -75,7 +81,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
       groups.list(0, 100).map { groupsIterable =>
         groupsIterable.foreach { group =>
           usageEventGroups = usageEventGroups +
-            (group._id -> UsageEventDAO(getDatabase(engineId).getCollection[UsageEvent](group._id)))
+            (group._id -> UsageEventDAO(getDatabase(engineId, codecs).getCollection[UsageEvent](group._id)))
         }
       }
       Valid(p)
@@ -84,7 +90,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
   }
 
   override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
-    client().getDatabase(engineId).drop.toFuture.map(_ => ())
+    getDatabase(engineId, codecs).drop.toFuture.map(_ => ())
   }
 
   // add one json, possibly an CBEvent, to the beginning of the dataset
@@ -143,7 +149,7 @@ class CBDataset(engineId: String, sharedDB: Option[String] = None)(implicit val 
                else Future.successful(())
           _ <- groups.insertOne(event.toCBGroup)
         } yield {
-          usageEventGroups = usageEventGroups + (event.entityId -> UsageEventDAO(getDatabase(engineId).getCollection(event.entityId)))
+          usageEventGroups = usageEventGroups + (event.entityId -> UsageEventDAO(getDatabase(engineId, codecs).getCollection(event.entityId)))
           Valid(event)
         }
 
