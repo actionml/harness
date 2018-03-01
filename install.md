@@ -155,9 +155,21 @@ This creates a file in the admin user's .ssh directory containing the secret. No
 
     export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
 
-## Setup Server-side TLS/SSL 
+## Setup Server-side TLS/SSL
 
-TLS can be toggled via HARNESS_SSL_ENABLED env variable (true|false). When set to 'true' it must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
+------------ Andrey ----------------
+
+To enable TLS/SSL on the Harness Server you will need a certificate to install. 
+
+ - Generate a self-signed certificate or purchase one from a certificate authority. Use PKCS12 as the format.
+ - then generate a .jks to store the cert and use a private password to access the .jks file
+ - set env or harness-env to point to the .jks, and use the correct password
+ - set `HARNESS_SSL_ENABLED=true`
+
+------------ Andrey ----------------
+ 
+
+TLS can be toggled via `HARNESS_SSL_ENABLED` env variable (true|false). When set to 'true' it must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
 
     export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
 
@@ -191,7 +203,17 @@ also path to the keystore, it's type and password can be set via
     export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
 
 
-# SDK/Client-side Setup
+# SDK/Client-side TLS/SSL Setup
+
+------------ Andrey ----------------
+
+To enable TLS/SSL on the Harness Client Java SDK & Python SDK
+
+ - export the cert from the keystore
+ - set env to point to the cert
+
+------------ Andrey ----------------
+ 
 
 The Java and Python client classes take optional parameters for:
 
@@ -219,7 +241,7 @@ export HARNESS_CLIENT_USER_SECRET=<user-secret>
 
 The following must be setup to use either the Java or Python SDK
 
-    export HARNESS_SERVER_CERT_PATH=<!!!put-your-path-here!!!>
+    export HARNESS_SERVER_CERT_PATH=/path/to/harness/server/cert.pem
     # points to the server's .pem file, used for self-signed
    
     
