@@ -247,7 +247,7 @@ case class NavEventDAO(eventColl: MongoCollection[NavEvent])
 case class EventTime(eventId: String, time: DateTime)
 case class Journey(
   _id: String, // User-id we are recording nav events for
-  trail: Seq[EventTime]) // most recent nav events
+  trail: Seq[EventTime]) // most recent nav events, a PriorityQueue would be ideal here but maybe overkill.
 
 // active journeys not yet converted
 case class ActiveJourneysDAO(col: MongoCollection[Journey]) {
