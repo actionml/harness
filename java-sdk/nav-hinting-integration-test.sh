@@ -6,7 +6,7 @@ echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
-host=localhost
+host=http://localhost:9090
 engine=hinting
 test_queries=data/nh-queries.json
 user1_events=data/nh-pferrel-events.json
@@ -30,32 +30,32 @@ harness add ../../rest-server/data/hinting.json
 echo
 echo "Sending navigation events for user pferrel"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine $user1_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine $user1_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending hinting queries, no conversions yet so no hints"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false > nh-hinting-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false > nh-hinting-results.txt
 echo
 echo "Sending conversion for user pferrel"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine $user1_conversion" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine $user1_conversion -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending hinting queries, should have hints now."
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
 echo
 echo "Sending navigation events for user joe"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine $user2_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine $user2_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending conversion for user joe"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine $user2_conversion" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine $user2_conversion -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo
 echo "Sending queries after 2 conversion"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
 
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
@@ -70,7 +70,7 @@ sleep 10
 echo
 echo "Sending queries after 2 conversion"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
 
 echo "---------------------- profile query differences should only be timing ----------------------------"
 diff nh-hinting-results.txt data/expected-nh-hinting-results.txt
