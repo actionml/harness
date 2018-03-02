@@ -54,7 +54,8 @@ mkdir -p ${DISTDIR}/project
 mkdir -p ${DISTDIR}/sbt
 
 cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
-cp ${FWDIR}/conf/* ${DISTDIR}/conf
+cp ${FWDIR}/server/src/main/resources/* ${DISTDIR}/conf
+cp ${FWDIR}/keystore.jks ${DISTDIR}
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
 cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
 cp ${FWDIR}/server/target/universal/stage/lib/* ${DISTDIR}/lib
