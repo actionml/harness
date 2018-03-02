@@ -101,7 +101,7 @@
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-http_2.12</artifactId>
-            <version>10.0.7</version>
+            <version>10.0.11</version>
         </dependency>
 
         <dependency>

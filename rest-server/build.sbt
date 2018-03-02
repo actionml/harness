@@ -7,7 +7,7 @@ version := "0.1.1-RC1"
 scalaVersion := "2.11.11"
 
 lazy val akkaVersion = "2.4.18"
-lazy val akkaHttpVersion = "10.0.9"
+lazy val akkaHttpVersion = "10.0.11"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.4.3"
