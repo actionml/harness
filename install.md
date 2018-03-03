@@ -130,7 +130,7 @@ cd harness/java-sdk
 
 You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end has no "important differences" then the test passes.
 
-# Security **(!!!This needs to be updated!!!)**
+# Security
 
 So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
 
@@ -156,17 +156,12 @@ This creates a file in the admin user's .ssh directory containing the secret. No
     export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
 
 ## Setup Server-side TLS/SSL
-
------------- Andrey ----------------
-
 To enable TLS/SSL on the Harness Server you will need a certificate to install. 
 
- - Generate a self-signed certificate or purchase one from a certificate authority. Use PKCS12 as the format.
- - then generate a .jks to store the cert and use a private password to access the .jks file
- - set env or harness-env to point to the .jks, and use the correct password
+ - Generate a self-signed certificate or purchase one from a certificate authority. You can use JKS or PKCS12 formats. (On this step you have a key store with your private key and \[public\] certificate)
+ - set env or harness-env to point to your keystore, and use the correct password (env variables are: `HARNESS_KEYSTORE_TYPE`, `HARNESS_KEYSTORE_PATH` and `HARNESS_KEYSTORE_PASSWORD`. Values of the last two are obvious, values for HARNESS_KEYSTORE_TYPE are `PKCS12` or `JKS`
  - set `HARNESS_SSL_ENABLED=true`
 
------------- Andrey ----------------
  
 
 TLS can be toggled via `HARNESS_SSL_ENABLED` env variable (true|false). When set to 'true' it must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
@@ -205,21 +200,23 @@ also path to the keystore, it's type and password can be set via
 
 # SDK/Client-side TLS/SSL Setup
 
------------- Andrey ----------------
 
-To enable TLS/SSL on the Harness Client Java SDK & Python SDK
-
+You can use TLS/SSL on the Harness Client Java SDK & Python SDK. If you trying to connect via https protocol, you should provide information about hosts that you trust. If you purchaised certificate from commonly known certificate authority everything should work like a charm, but in case of self-signed certificate you should put that certificate (not the private key) on the client side:
  - export the cert from the keystore
- - set env to point to the cert
-
------------- Andrey ----------------
+ - set env to point to the certificate file via `HARNESS_SERVER_CERT_PATH`. This will work for python SDK. For java SDK you should also run your program with jvm parameters `-Dconfig.file=akka-ssl.conf` where akka-ssl.conf is
+```
+akka.ssl-config.trustManager.stores = [{
+  type = "PEM"
+  path = ${?HARNESS_SERVER_CERT_PATH}
+}]
+```
  
 
 The Java and Python client classes take optional parameters for:
 
  - **user-id**: The user who has been granted permission to access resource(s) on the Harness Server
  - **user-secret**: The secret associated with the user-id above
- - **server.pem**: The path to a .pem formatted certificate created or issued to the Harness Server instance to be communicated with
+ - **server.pem**: The path to a .pem formatted certificate created or issued to the Harness Server instance to be communicated with. It can be passed directly or implicitly via `HARNESS_SERVER_CERT_PATH` (as described above).
  - **URL**: The base URL for the Harness Server. This has always been used but must now the "https" prefix for TLS/SSL where "http" is sufficient for non-SSL.
 
 These can be provided directly to the various "Client" objects when they are constructed.
