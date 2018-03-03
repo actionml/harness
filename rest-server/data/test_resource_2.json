@@ -7,6 +7,6 @@
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "maxClasses": 3,
+    "maxClasses": 3
   }
 }
