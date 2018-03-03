@@ -18,11 +18,11 @@
 package com.actionml.entity;
 
 import com.actionml.DateTimeAdapter;
-import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.joda.time.DateTime;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -65,7 +65,7 @@ public class Event {
     // optional fields
     private String targetEntityType;
     private String targetEntityId;
-    private Map<String, Object> properties = Maps.newHashMap();
+    private Map<String, Object> properties = new HashMap();
     private DateTime eventTime;
     private DateTime creationTime;
 
