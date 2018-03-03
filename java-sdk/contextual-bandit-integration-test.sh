@@ -46,7 +46,7 @@ mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engi
 echo
 echo "Sending queries for joe and john to test_resource_2"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host' $engine_2 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> test-profile-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine_2 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> test-profile-results.txt
 
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
