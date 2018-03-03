@@ -1,7 +1,6 @@
 {
   "engineId": "hinting",
   "engineFactory": "com.actionml.templates.navhinting.NavHintingEngine",
-  "modelContainer": "/Users/pat/big-data/harness/models/",
   "algorithm":{
     "numQueueEvents": 50,
     "decayFunction": "click-order",
