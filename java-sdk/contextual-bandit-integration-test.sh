@@ -6,7 +6,7 @@ echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
-host=localhost
+host=http://localhost:9090
 engine_1=test_resource
 engine_2=test_resource_2
 test_queries=data/2-user-query.json
