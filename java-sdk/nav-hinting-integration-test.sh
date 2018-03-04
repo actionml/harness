@@ -6,7 +6,7 @@ echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
-host=http://localhost:9090
+host=localhost
 engine=hinting
 test_queries=data/nh-queries.json
 user1_events=data/nh-pferrel-events.json

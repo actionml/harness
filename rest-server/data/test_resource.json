@@ -12,7 +12,6 @@
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "maxClasses": 3,
-    "modelContainer": "/Users/pat/big-data/harness/models/"
+    "maxClasses": 3
   }
 }
