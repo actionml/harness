@@ -79,7 +79,6 @@ public class BaseClient {
         system = ActorSystem.create("actionml-sdk-client");
         Function<Throwable, Supervision.Directive> decider = exc -> {
             System.err.println(exc.getMessage());
-//            exc.printStackTrace();
             return Supervision.resume();
         };
         materializer = ActorMaterializer.create(
@@ -92,20 +91,13 @@ public class BaseClient {
 
         Boolean isHttps = host.startsWith("https");
         if (isHttps) {
-            ConnectionPoolSettings settings = ConnectionPoolSettings.create(system);
             try {
-                poolClientFlow = Http.get(system).cachedHostConnectionPool(
-                        ConnectHttp.toHostHttps(host, port),
-                        settings,
-                        system.log(),
-                        materializer);
+                poolClientFlow = Http.get(system).cachedHostConnectionPool(ConnectHttp.toHostHttps(host, port));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         } else {
-            poolClientFlow = Http.get(system).cachedHostConnectionPool(
-                    ConnectHttp.toHost(host, port),
-                    materializer);
+            poolClientFlow = Http.get(system).cachedHostConnectionPool(ConnectHttp.toHost(host, port));
         }
     }
 
