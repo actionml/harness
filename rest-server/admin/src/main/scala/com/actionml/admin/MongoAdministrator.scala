@@ -118,7 +118,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
             |  "comment":"Get engine status to see what was changed."
             |}
           """.stripMargin))
-      }.getOrElse(Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))
+      }.getOrElse(Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))
     }
   }
 
