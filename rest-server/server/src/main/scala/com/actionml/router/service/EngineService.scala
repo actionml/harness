@@ -17,17 +17,15 @@
 
 package com.actionml.router.service
 
+import akka.pattern.pipe
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.admin.Administrator
-import com.actionml.core.template.Engine
 import com.actionml.core.validate.{NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
 
 /**
-  *
-  *
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 14:49
   */
@@ -35,6 +33,7 @@ import scaldi.Injector
 trait EngineService extends ActorInjectable
 
 class EngineServiceImpl(implicit inj: Injector) extends EngineService{
+  import context.dispatcher
 
   private val admin = inject[Administrator]
 
@@ -49,11 +48,11 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
-      sender() ! admin.addEngine(engineJson).map(_.asJson)
+      admin.addEngine(engineJson).map(_.map(_.asJson)) pipeTo sender()
 
     case UpdateEngine(engineJson) =>
       log.info(s"Update existing engine, ${engineJson}")
-      sender() ! admin.updateEngine(engineJson).map(_.asJson)
+      admin.updateEngine(engineJson).map(_.map(_.asJson)) pipeTo sender()
 
     /*
     case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
@@ -67,7 +66,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
-      sender() ! admin.removeEngine(engineId).map(_.asJson)
+      admin.removeEngine(engineId).map(_.map(_.asJson)) pipeTo sender()
   }
 }
 

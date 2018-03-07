@@ -19,40 +19,40 @@ package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.core.drawInfo
+import com.actionml.core.model._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import scaldi.Injector
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
-class NavHintingEngine() extends Engine() with JsonParser {
+class NavHintingEngine()(override implicit val injector: Injector) extends Engine() with JsonParser {
 
   var dataset: NavHintingDataset = _
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
+  override def init(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
+    super.init(json).flatMap { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
         dataset = new NavHintingDataset(engineId)
+        algo = new NavHintingAlgorithm(dataset)
         drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer),
-          ("All Parameters:", params)))
+          ("Mirror Container: ", params.mirrorContainer)))
 
-        Valid(true)
-      }.andThen { _ =>
-        dataset.init(json).andThen { _ =>
-          if (deepInit) {
-            algo = new NavHintingAlgorithm(dataset)
-            algo.init(json, this)
-          } else Valid(true)
+        Valid(p)
+      }.fold(e => Future.successful(Invalid(e)), { p =>
+        dataset.init(json).flatMap { r =>
+          algo.init(json, engineId)
         }
-      }
+      })
     }
   }
 
@@ -60,14 +60,15 @@ class NavHintingEngine() extends Engine() with JsonParser {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): NavHintingEngine = {
-   val response = init(json)
-    if (response.isValid) {
-      logger.trace(s"Initialized with Engine's JSON: $json")
-      this
-    } else {
-      logger.error(s"Parse error with Engine's JSON: $json")
-      null.asInstanceOf[NavHintingEngine] // todo: ugly, replace
+  override def initAndGet(json: String)(implicit ec: ExecutionContext): Future[NavHintingEngine] = {
+    init(json).map { response =>
+      if (response.isValid) {
+        logger.trace(s"Initialized with Engine's JSON: $json")
+        this
+      } else {
+        logger.error(s"Parse error with Engine's JSON: $json")
+        null.asInstanceOf[NavHintingEngine] // todo: ugly, replace
+      }
     }
   }
 
@@ -83,10 +84,12 @@ class NavHintingEngine() extends Engine() with JsonParser {
       algorithmParams = algo.params).toJson)
   }
 
-  override def destroy(): Unit = {
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info(s"Dropping persisted data for id: $engineId")
-    dataset.destroy()
-    algo.destroy()
+    for {
+      _ <- dataset.destroy()
+      _ <- algo.destroy()
+    } yield ()
   }
 
   def train(): Unit = {
@@ -94,34 +97,35 @@ class NavHintingEngine() extends Engine() with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String, trainNow: Boolean = true)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
     // first detect a batch of events, then persist each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true)
+    super.input(json, trainNow).flatMap { sv =>
+      if(sv.isValid) {
+        dataset.input(json).flatMap(_.fold(e => Future.successful(Invalid(e)), event => process(event).map(_ => Valid(true))))
+      } else Future.successful(Valid(true))
+    }
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
-  def process(event: NHEvent): Validated[ValidateError, NHEvent] = {
+  def process(event: NHEvent)(implicit ec: ExecutionContext): Future[Validated[ValidateError, NHEvent]] = {
      event match {
       case event: NHNavEvent =>
-        algo.input(NavHintingAlgoInput(event, engineId))
+        algo.input(NavHintingAlgoInput(event, engineId)).map(_ => Valid(event))
       case _ => // anything else has already been dealt with by other parts of the input flow
+        Future.successful(Valid(event))
     }
-    Valid(event)
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]] = {
     logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[NHQuery](json).andThen { query =>
+    parseAndValidate[NHQuery](json).fold(e => Future.successful(Invalid(e)), { query =>
       // query ok if training group exists or group params are in the dataset
-      Valid( algo.predict(query).toJson)
-    }
+      algo.predict(query).map(r => Valid(r.toJson))
+    })
   }
 
 }

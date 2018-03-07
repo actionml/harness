@@ -1,4 +1,4 @@
-package com.actionml
+package com.actionml.core
 
 import com.typesafe.scalalogging.LazyLogging
 

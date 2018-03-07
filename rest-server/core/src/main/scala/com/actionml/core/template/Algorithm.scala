@@ -18,32 +18,21 @@
 package com.actionml.core.template
 
 import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
   * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
   * which differ in how they get data and update models
   */
-abstract class Algorithm[Q, R] extends JsonParser with LazyLogging {
-  var engineId: String = _
-  var modelPath: String = _
-
-  def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    engineId = engine.engineId
-    modelPath = engine.modelContainer // optional place in some filesystem to persist the model
-    Valid(true)
-  }
-
-  def destroy(): Unit
+abstract class Algorithm[Q, R] extends LazyLogging {
+  def init(json: String, rsrcId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
+  def destroy()(implicit ec: ExecutionContext): Future[Unit]
   def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
   def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
-  def predict(query: Q): R
+  def predict(query: Q)(implicit ec: ExecutionContext): Future[R]
 }
 
-trait AlgorithmParams
-trait AlgorithmQuery
-trait QueryResult

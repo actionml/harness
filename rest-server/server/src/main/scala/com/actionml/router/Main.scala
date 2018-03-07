@@ -3,13 +3,15 @@ package com.actionml
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.actionml.admin.{Administrator, MongoAdministrator}
-import com.actionml.router.config.AppConfig
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
+import com.actionml.core.config.AppConfig
+import com.actionml.core.dal.UsersDao
+import com.actionml.core.dal.mongo.UsersDaoImpl
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
@@ -28,7 +30,7 @@ object Main extends App with AkkaInjectable{
 
 }
 
-class BaseModule extends Module{
+class BaseModule extends Module {
 
   val config = AppConfig.apply
   bind[AppConfig] to config
@@ -59,6 +61,7 @@ class BaseModule extends Module{
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
+  implicit val inj = this.asInstanceOf[Module]
   bind[Administrator] to new MongoAdministrator initWith(_.init())
 
 }

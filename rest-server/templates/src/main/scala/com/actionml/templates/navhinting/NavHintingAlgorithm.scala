@@ -22,16 +22,17 @@ import java.nio.file.Paths
 import akka.actor._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.AlgorithmParams
 import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
-import salat.dao.SalatDAO
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.math._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 
 /** Creates an Actor to train for each input. The Actor works in a thread and when complete will accept any
@@ -54,59 +55,61 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   var params: NHAlgoParams = _
   var model: Map[String, Double] = Map.empty
-  var activeJourneys: Map[String, Seq[(String, DateTime)]] = Map.empty // kept as key - user-id, sequence of nav-ids and timestamps
+  var activeJourneys: Map[String, Seq[EventTime]] = Map.empty // kept as key - user-id, sequence of nav-ids and timestamps
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
-      parseAndValidate[NHAllParams](json).andThen { p =>
-        if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
-          params = p.algorithm.copy()
-          // init the in-memory model, from which predicitons will be made and to which new conversion Journeys will be added
-          dataset.activeJourneysDAO.find(allCollectionObjects).foreach { j =>
+  private val timeout = 5 seconds
 
-            activeJourneys += (j._id -> j.trail)
-          }
-          // TODO: create model from conversion Trails
+  override def init(json: String, engineId: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
+    parseAndValidate[NHAllParams](json).fold(e => Future.successful(Invalid(e)), { p =>
+      if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
+        params = p.algorithm.copy()
+        // init the in-memory model, from which predicitons will be made and to which new conversion Journeys will be added
+        dataset.activeJourneysDAO.find(allCollectionObjects).map(_.map { j =>
+          activeJourneys += j._id -> j.trail
+        }).zip {
           // trigger Train and wait for finish, then input will trigger Train and Query will us the latest trained model
-          model = dataset.navHintsDAO.findOne(allCollectionObjects).getOrElse(Hints(Map.empty)).hints
-          //trainer = Some(new NavHintTrainer(convertedJourneys, params, engineId, model, this).self)
-          // TODO: should train and wait for completion
-          Valid(true)
-        } else { //bad decay function name
-          Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}"))
-        }
+          // TODO: create model from conversion Trails
+          dataset.navHintsDAO.findOne(allCollectionObjects).collect {
+            case Some(hints) => model = hints.hints
+            case _ => Hints(Map.empty)
+          }
+        }.map(_ => Valid(true))
+        //trainer = Some(new NavHintTrainer(convertedJourneys, params, engineId, model, this).self)
+        // TODO: should train and wait for completion
+      } else { //bad decay function name
+        Future.successful(Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}")))
       }
-    }
+    })
   }
 
-  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, Boolean] = {
-      logger.trace(s"Train Nav Hinting Model with datum: $datum")
-      //trainer.get ! Train(datum)
-      val activeJourney = activeJourneys.get(datum.event.entityId)
-      val converted = datum.event.properties.conversion.getOrElse(false)
-      if (converted) { // update the model with the active journeys and remove it from active
-        if (activeJourney.nonEmpty) { // have an active journey
-          updateModel(Journey(datum.event.entityId, activeJourney.get), DateTime.parse(datum.event.eventTime))
-          activeJourneys -= datum.event.entityId // remove once converted
-        } else { // new event from this user, start a journey
-          activeJourneys += datum.event.entityId -> Seq((datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
-        }
-      } else { // no conversion so just update activeJourney
-        if (activeJourney.nonEmpty) { // have an active journey so update
-          activeJourneys += (datum.event.entityId -> updateTrail(
-            datum.event.targetEntityId,
-            DateTime.parse(datum.event.eventTime),
-            activeJourney.get))
-        } else { // no conversion, no journey, create a new one
-          activeJourneys += datum.event.entityId -> Seq((datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
-        }
+  override def input(datum: NavHintingAlgoInput)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]] = {
+    logger.trace(s"Train Nav Hinting Model with datum: $datum")
+    //trainer.get ! Train(datum)
+    val activeJourney = activeJourneys.get(datum.event.entityId)
+    val converted = datum.event.properties.conversion.getOrElse(false)
+    if (converted) { // update the model with the active journeys and remove it from active
+      if (activeJourney.nonEmpty) { // have an active journey
+        updateModel(Journey(datum.event.entityId, activeJourney.get), DateTime.parse(datum.event.eventTime))
+        activeJourneys -= datum.event.entityId // remove once converted
+      } else { // new event from this user, start a journey
+        activeJourneys += datum.event.entityId -> Seq(EventTime(datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
       }
-      Valid(true)
+    } else { // no conversion so just update activeJourney
+      if (activeJourney.nonEmpty) { // have an active journey so update
+        activeJourneys += (datum.event.entityId -> updateTrail(
+          datum.event.targetEntityId,
+          DateTime.parse(datum.event.eventTime),
+          activeJourney.get))
+      } else { // no conversion, no journey, create a new one
+        activeJourneys += datum.event.entityId -> Seq(EventTime(datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
+      }
+    }
+    Future.successful(Valid(true))
   }
 
   /** add the event to the end of an active journey subject to length limits */
-  def updateTrail(navId: String, timeStamp: DateTime, trail: Seq[(String, DateTime)]): Seq[(String, DateTime)] = {
-    val newTrail = trail :+ (navId, timeStamp)
+  def updateTrail(navId: String, timeStamp: DateTime, trail: Seq[EventTime]): Seq[EventTime] = {
+    val newTrail = trail :+ EventTime(navId, timeStamp)
     newTrail.takeRight(params.numQueueEvents.getOrElse(50))
   }
 
@@ -167,10 +170,9 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     if (numUpdates % params.updatesPerModelWrite.getOrElse(10) == 0 ) { // save after some number of updates of the in-memory model
       if (canStartWriter) { // its done so start a new write future, Todo: remove when using async client
         canStartWriter = false
-        Future[Unit] {
           // write the model to a DB
-          dataset.navHintsDAO.save(Hints(model))
-        }.onComplete(_ => canStartWriter = true) // attach a callback to release the lock
+        dataset.navHintsDAO.save(Hints(model))
+          .onComplete(_ => canStartWriter = true) // attach a callback to release the lock
       } // Future is still running so ignore this opportunity to write and try again later after more updates
     } // wait until its time to write
   }
@@ -182,13 +184,13 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
       val len = journey.trail.length
       decayFunctionName match {
         case DecayFunctionNames.ClickOrder =>
-          journey.trail.zipWithIndex.map { case((navId, timestamp), i) =>
+          journey.trail.zipWithIndex.map { case(EventTime(navId, timestamp), i) =>
             val reverseIndex = len - i
             val newWeight = 1d/reverseIndex
             navId -> newWeight
           }
         case DecayFunctionNames.ClickTimes =>
-          journey.trail.map { case (navId, timestamp) =>
+          journey.trail.map { case EventTime(navId, timestamp) =>
             val  millisFromConversion = now.getMillis - timestamp.getMillis
             val timeFromConversion = if (millisFromConversion == 0) 1 else millisFromConversion
             if (timeFromConversion < 0 ) {
@@ -197,7 +199,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
             navId -> (1d/timeFromConversion)
           }
         case DecayFunctionNames.HalfLife =>
-          journey.trail.map { case (navId, timestamp) =>
+          journey.trail.map { case EventTime(navId, timestamp) =>
             val  millisFromConversion = now.getMillis - timestamp.getMillis
             val daysFromConversion = if (millisFromConversion == 0) 1 else millisFromConversion / 8.64e+7f
             val halfLifeDays = params.halfLifeDecayLambda.getOrElse(1f)
@@ -205,7 +207,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
           }
         case _ =>
           logger.warn(s"Invalid decay function in Engines JSON config file: $decayFunctionName")
-          journey.trail.map { case (navId, timestamp) =>
+          journey.trail.map { case EventTime(navId, timestamp) =>
             navId -> 0d
           }
       }
@@ -214,17 +216,18 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
 
 
-  override def predict(query: NHQuery): NHQueryResult = {
+  override def predict(query: NHQuery)(implicit ec: ExecutionContext): Future[NHQueryResult] = {
     // find model elements that match eligible and sort by weight, sort before taking the top k
     val results = (query.eligibleNavIds collect model zip query.eligibleNavIds) // reduce the model to only nav events with the same key as eligible events
       .map { case (v, k) => k -> v } // swap key and value
       .sortBy(-_._2) // sort by value, which is the score here, minus for
       .take(params.num.getOrElse(1))
-    NHQueryResult(results)
+    Future.successful(NHQueryResult(results))
   }
 
-  override def destroy(): Unit = {
+  override def destroy()(implicit ec: ExecutionContext): Future[Unit] = {
     // remove old model since it is recreated with each new NavHintingEngine
+    Future.successful(())
   }
 
 

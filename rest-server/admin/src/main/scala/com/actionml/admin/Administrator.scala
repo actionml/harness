@@ -20,12 +20,15 @@ package com.actionml.admin
 import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.core.template.Engine
-import com.actionml.core.validate.{WrongParams, ValidateError}
+import com.actionml.core.validate.{ValidateError, WrongParams}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
+import scaldi.{Injector, Module}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
-abstract class Administrator extends LazyLogging {
+abstract class Administrator(implicit val injector: Module) extends LazyLogging {
 
   type EngineId = String
 
@@ -33,9 +36,9 @@ abstract class Administrator extends LazyLogging {
 
   // engine management
   def getEngine(engineId: EngineId): Option[Engine]
-  def addEngine(json: String): Validated[ValidateError, EngineId]
-  def removeEngine(engineId: EngineId): Validated[ValidateError, Boolean]
-  def updateEngine(json: String): Validated[ValidateError, String]
+  def addEngine(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, EngineId]]
+  def removeEngine(engineId: EngineId)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Boolean]]
+  def updateEngine(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, String]]
   def status(resourceId: Option[String] = None): Validated[ValidateError, String]
 
   // startup and shutdown

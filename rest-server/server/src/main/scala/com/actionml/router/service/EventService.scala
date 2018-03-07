@@ -1,9 +1,10 @@
 package com.actionml.router.service
 
+import akka.pattern.pipe
+import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
-import com.actionml.core.template.Engine
-import com.actionml.core.validate.{NotImplemented, WrongParams}
+import com.actionml.core.validate.{NotImplemented, ValidateError, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
@@ -19,6 +20,7 @@ trait EventService extends ActorInjectable
 
 class EventServiceImpl(implicit inj: Injector) extends EventService{
 
+  import context.dispatcher
   private val admin = inject[Administrator]
 
   override def receive: Receive = {
@@ -29,7 +31,7 @@ class EventServiceImpl(implicit inj: Injector) extends EventService{
     case CreateEvent(engineId, event) ⇒
       log.debug("Receive new event & stored, {}, {}", engineId, event)
       admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.input(event).map(_.asJson)
+        case Some(engine) ⇒ engine.input(event).map(_.map(_.asJson)) pipeTo sender()
         case None ⇒ sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
       }
 

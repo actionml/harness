@@ -6,7 +6,7 @@ echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
-host=localhost
+host=http://localhost:9090
 engine_1=test_resource
 engine_2=test_resource_2
 test_queries=data/2-user-query.json
@@ -34,19 +34,19 @@ harness add ../../rest-server/data/test_resource_2.json
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_resource"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_profile_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine_1 $engine_1_profile_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending events to create testGroup: 1, user: john, and one conversion event with no contextualTags to test_resource_2"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_2 $engine_2_profile_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine_2 $engine_2_profile_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending queries for joe and john to test_resource"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-profile-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine_1 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false > test-profile-results.txt
 echo
 echo "Sending queries for joe and john to test_resource_2"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_2 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-profile-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine_2 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> test-profile-results.txt
 
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
@@ -64,19 +64,19 @@ harness add ../../rest-server/data/test_resource_2.json
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with contextualTags to test_resource"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_behavior_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine_1 $engine_1_behavior_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending events to create testGroup: 1, user: john, and one conversion event with contextualTags to test_resource_2"
 echo
-mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_2 $engine_2_behavior_events" -Dexec.cleanupDaemonThreads=false
+mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="'$host' $engine_2 $engine_2_behavior_events -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false
 echo
 echo "Sending queries for joe and john to test_resource"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-behavior-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine_1 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false > test-behavior-results.txt
 echo
 echo "Sending queries for joe and john to test_resource_2"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_2 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-behavior-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="'$host' $engine_2 $test_queries -D='../src/main/resources/application.conf'" -Dexec.cleanupDaemonThreads=false >> test-behavior-results.txt
 
 
 echo "---------------------- profile query differences should only be timing ----------------------------"
