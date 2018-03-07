@@ -7,7 +7,6 @@
   "mirrorContainer": "/Users/pat/big-data/harness/mirrors/",
   "comment": "add sharedDBName for sharing a DBs for Users, should be named with lowercase and underscore separator, aka snake case",
   "sharedDBName": "harness_shared_user",
-  "modelContainer": "/Users/pat/big-data/harness/models/",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,
