@@ -164,7 +164,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   def persistModel(): Unit = {
     numUpdates += 1
-    if (numUpdates % params.updatesPerModelWrite.getOrElse(10) == 0 ) { // save after some number of updates of the in-memory model
+    if (numUpdates % params.updatesPerModelWrite.getOrElse(1) == 0 ) { // save after some number of updates of the in-memory model
       if (canStartWriter) { // its done so start a new write future, Todo: remove when using async client
         canStartWriter = false
         Future[Unit] {
