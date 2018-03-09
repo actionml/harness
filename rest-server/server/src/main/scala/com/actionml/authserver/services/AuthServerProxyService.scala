@@ -56,6 +56,6 @@ class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxy
     HttpRequest(method = req.method,
       uri = authServerRoot.copy(path = authServerRoot.path ++ req.uri.path, rawQueryString = req.uri.rawQueryString),
       entity = req.entity,
-      headers = req.headers
+      headers = req.headers.filterNot(_.is("timeout-access"))
     )
 }
