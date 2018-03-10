@@ -26,5 +26,5 @@ echo "---------------------- Important differences: Contextual Bandit behavior d
 diff example/test-behavior-results.txt example/data/expected-test-behavior-results.txt | grep Results
 echo
 echo "---------------------- Important differences: Navigation Hinting queries ----------------------------"
-diff example/nh-hinting-results.txt example/data/expected-nh-hinting-results.txt | grep Results
+diff example/nh-hinting-results.txt example/data/expected-nh-hinting-results-urls.txt | grep Results
 echo

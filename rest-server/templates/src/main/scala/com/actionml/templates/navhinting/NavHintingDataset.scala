@@ -41,8 +41,8 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
 
   RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
 
-  val activeJourneysDAO: ActiveJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
-  val navHintsDAO: NavHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
+  val activeJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
+  val navHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
 
   var trailLength: Int = _
 
@@ -85,7 +85,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
               activeJourneysDAO.insert(
                 Journey(
                   event.entityId,
-                  Seq((event.targetEntityId, DateTime.parse(event.eventTime)))
+                  Seq(JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime)))
                 )
               )
               Valid(true)
@@ -143,7 +143,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
       Some(
         Journey(
           journey._id,
-          (journey.trail :+ (event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
+          (journey.trail :+ JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
         )
       )
     } else None
@@ -169,9 +169,9 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
  */
 
 
-case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
+//case class UsersDAO(usersColl: MongoCollection)  extends SalatDAO[User, String](usersColl)
 
-case class NHUserUpdateEvent(
+/*case class NHUserUpdateEvent(
     entityId: String,
     // Todo:!!! this is the way they should be encoded, fix when we get good JSON
     properties: Option[Map[String, Seq[String]]] = None,
@@ -186,6 +186,7 @@ case class NHUserUnsetEvent(
     properties: Option[Map[String, Any]] = None,
     eventTime: String)
   extends NHEvent
+*/
 
 /*
 Some values are ignored
@@ -232,25 +233,31 @@ case class NavEvent(
   converted: String,
   eventTime: DateTime)
 
-case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, ObjectId](eventColl)
+//case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, ObjectId](eventColl)
 
+case class JourneyStep(
+    navId: String,
+    timeStamp: DateTime)
 
 case class Journey(
-  _id: String, // User-id we are recording nav events for
-  trail: Seq[(String, DateTime)]) // most recent nav events
+    _id: String, // User-id we are recording nav events for
+    trail: Seq[JourneyStep]) // most recent nav events
 
 
 // active journeys not yet converted
 case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
 
-// model = sum of converted jouney weighted vectors
-case class Hints(hints: Map[String, Double], _id: String = "1")
-case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[Hints, String](navHints)
+// model = sum of converted journey weighted vectors
+/*case class Hints(
+    _id: String = "1", // only one ever stored so fix it's _id
+    hints: Map[String, Double])
+*/
+case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[NavHint, String](navHints)
 
 
 case class NavHint(
-    _id: String = "", // nav-id
-    score: Double = Double.MinPositiveValue) // scored nav-ids
+    _id: String, // nav-id
+    weight: Double) // scored nav-ids
 
 
 
@@ -265,6 +272,7 @@ case class HNDeleteEvent(
     entityId: String,
     entityType: String)
   extends NHEvent
+
 
 // allows us to look at what kind of specialized event to create
 case class NHRawEvent (

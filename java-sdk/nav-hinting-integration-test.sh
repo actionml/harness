@@ -8,11 +8,11 @@ echo
 # export "HARNESS_CLIENT_USER_SECRET"=abc
 host=localhost
 engine=hinting
-test_queries=data/nh-queries.json
-user1_events=data/nh-pferrel-events.json
-user2_events=data/nh-joe-events.json
-user1_conversion=data/nh-pferrel-conversion.json
-user2_conversion=data/nh-joe-conversion.json
+test_queries=data/nh-queries-urls.json
+user1_events=data/nh-pferrel-events-urls.json
+user2_events=data/nh-joe-events-urls.json
+user1_conversion=data/nh-pferrel-conversion-urls.json
+user2_conversion=data/nh-joe-conversion-urls.json
 sleep_seconds=1
 
 # export HARNESS_SERVER_CERT_PATH=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
@@ -26,7 +26,7 @@ echo "--------------------------------------------------------------------------
 harness delete hinting
 sleep $sleep_seconds
 harness add ../../rest-server/data/hinting.json
-#sleep $sleep_seconds
+sleep $sleep_seconds
 
 echo
 echo "Sending navigation events for user pferrel"
@@ -74,7 +74,7 @@ echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
 
 echo "---------------------- profile query differences should only be timing ----------------------------"
-diff nh-hinting-results.txt data/expected-nh-hinting-results.txt
+diff nh-hinting-results.txt data/expected-nh-hinting-results-urls.txt
 echo
 
 cd ..
