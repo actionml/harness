@@ -40,7 +40,8 @@ class CBEngine() extends Engine() with JsonParser {
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("EngineId: ", engineId),
       ("Mirror Type: ", params.mirrorType),
-      ("Mirror Container: ", params.mirrorContainer)))
+      ("Mirror Container: ", params.mirrorContainer),
+      ("Model Container: ", modelContainer)))
     Valid(true)
   }
 

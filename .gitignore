@@ -173,6 +173,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
-/java-sdk/example/data/
+#/java-sdk/example/data/
 /it/shared/data/*.vw
 /it/shared/logs/*.log

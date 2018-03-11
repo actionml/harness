@@ -21,7 +21,9 @@ The Engine provides application or web site owners a way to nudge a user along a
 
 ## Algorithm Details for Non-Personalized Hints
 
-User navigation events are collected in a queue of fixed but configurable length until a conversion occurs. Then this "journey" is treated as a training journey. Meaning it is used to create the model of successful journeys. The queue events are down-weighted based on how old they are. This "decay function" is configurable. The simplest/default method uses nav event ordering with 1/(number of nav events till conversion). In other words the further the nav event is from the conversion, the lower it will be weighted in importance to the conversion. The number of events collected means that some are dropped if no conversion happens for a long time so those dropped events are assumed to have nothing to do with the conversion.
+User navigation events are collected in a queue of fixed but configurable length until a conversion occurs. The conversion event is not stored since it makes no sense to hint the actual conversion, which may be a "submit" button click or the display of some content like a landing page. This means the nav event previous to the conversion event will the the most highly weighted hint. The conversion event nav-id is never hinted and so can be any arbitrary string that can be used to id the conversion type even though this is never used in the algorithm it will be in logs if the information is deemed useful.
+
+Then this conversion "journey" is treated as a training journey. Meaning it is used to update or create the model of successful journeys. The queue events are down-weighted based on how old they are. This "decay function" is configurable. The simplest/default method uses nav event ordering with 1/(number of nav events till conversion). In other words the further the nav event is from the conversion, the lower it will be weighted in importance to the conversion. The number of events collected means that some are dropped if no conversion happens for a long time so those dropped events are assumed to have nothing to do with the conversion.
 
 Periodically the Engine takes all conversion paths and refreshes the model so there is no need to explicitly "train" the model. The model is created by summing all conversion vectors and ranking the resulting aggregate path vector. When a user navigates to a page the Engine is queried with a list of "eligible" links. The Hinting Engine returns the highest weighted eligible link. This will result in an arbitrary number of pages with no hints if they do not appear in the conversion journeys. 
 
@@ -132,7 +134,6 @@ The NH Engine has a configuration file defined below. This defines parameters fo
                                 // decay function, number of days
                                 // defaulted to 1
     "num": 1, // optional default 1
-    "updatesPerModelWrite": 10 // optional default 10
   }
 }
 ```
@@ -144,8 +145,7 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   - **numQueueEvents**: number of events stored in a user's journey. Older events are dropped once this limit is reached as newer ones are added. The default is 50 if omitted.
   - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
   - **halfLifeDecayLambda**: optional , default is 1 if omitted. Defines how quickly in days the weight of the event is 0.5 via: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`.
-  - **num**: how many of the highest ranking hints to return. Optional, default = 10 if omitted.
-  - **updatesPerModelWrite**: how many conversions to process before the in-memory live model is saved to the DB. Any conversions between the last save and the current state of the Engine will be lost on shutdown (this is usually not a big problem. Pick a number here that is high for a high conversions per day site and low for a lower volume site. **Note**: User Journeys are saved as they happen and so are not lost, only conversions that affect the hinting model may be lost. If this setting is set to 1, no conversions will be lost but this will slow the processing of conversions. Test to see if speed of conversion processing becomes a problem and adjust this setting accordingly
+  - **num**: how many of the highest ranking hints to return. Optional, default = 1 if omitted.
  
 # Training
 
