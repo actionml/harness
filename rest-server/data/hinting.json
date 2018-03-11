@@ -5,7 +5,6 @@
     "numQueueEvents": 50,
     "decayFunction": "click-order",
     "halfLifeDecayLambda": 1.0,
-    "updatesPerModelWrite": 1,
     "num": 6
   }
 }

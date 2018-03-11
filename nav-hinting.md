@@ -134,8 +134,6 @@ The NH Engine has a configuration file defined below. This defines parameters fo
                                 // decay function, number of days
                                 // defaulted to 1
     "num": 1, // optional default 1
-    "updatesPerModelWrite": 1 // optional default 1 meaning every update
-                              // writes the model to the db
   }
 }
 ```
@@ -147,8 +145,7 @@ The NH Engine has a configuration file defined below. This defines parameters fo
   - **numQueueEvents**: number of events stored in a user's journey. Older events are dropped once this limit is reached as newer ones are added. The default is 50 if omitted.
   - **decayFunction**: Must be one of `"click-order"`, `"click-time"`, `"half-life"`. The `"click-order"` and `"click-time"` functions needs no `"halfLifeDecayLambda"` parameters.  The default is `"click-order"` if omitted.
   - **halfLifeDecayLambda**: optional , default is 1 if omitted. Defines how quickly in days the weight of the event is 0.5 via: ![](images/half-life-equation.png) This is only used if the decay function is `"half-life"`.
-  - **num**: how many of the highest ranking hints to return. Optional, default = 10 if omitted.
-  - **updatesPerModelWrite**: how many conversions to process before the in-memory live model is saved to the DB. Any conversions between the last save and the current state of the Engine will be lost on shutdown (this is usually not a big problem. Pick a number here that is high for a high conversions per day site and low for a lower volume site. **Note**: User Journeys are saved as they happen and so are not lost, only conversions that affect the hinting model may be lost. If left as the default: 1, no conversions will be lost but this will slow the processing of conversions. Test to see if speed of conversion processing becomes a problem and adjust this setting accordingly, the higher the number the less often the hints table will be updated but less time will be spent persisting updates to the model. This only affect persistence, the in-memory version of the model is always updated for every conversion.
+  - **num**: how many of the highest ranking hints to return. Optional, default = 1 if omitted.
  
 # Training
 
