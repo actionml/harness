@@ -6,7 +6,7 @@
 
     <groupId>com.actionml</groupId>
     <artifactId>harness-java-sdk</artifactId>
-    <version>0.1.1-RC2</version>
+    <version>0.1.1-RC3</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -100,13 +100,13 @@
     <dependencies>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-http_2.12</artifactId>
+            <artifactId>akka-http_2.11</artifactId>
             <version>10.0.7</version>
         </dependency>
 
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-slf4j_2.12</artifactId>
+            <artifactId>akka-slf4j_2.11</artifactId>
             <version>2.4.18</version>
         </dependency>
 

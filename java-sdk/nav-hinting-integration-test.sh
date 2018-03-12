@@ -63,10 +63,10 @@ echo "--------------------------------------------------------------------------
 echo "TESTING NAV-HINTING MODEL PERSISTENCE BY RESTARTING HARNESS AND MAKING QUERIES"
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
-harness stop
-sleep $sleep_seconds
-harness start -f
-sleep 10
+#harness stop
+#sleep $sleep_seconds
+#harness start -f
+#3sleep 10
 
 echo
 echo "Sending queries after 2 conversion"

@@ -67,7 +67,7 @@ abstract class Engine extends LazyLogging with JsonParser {
 
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: should use File objects to avoid adding a slash to the path--ugh
-      if (deepInit) modelContainer = p.modelContainer.getOrElse(serverHome) + p.engineId + ".model"
+      if (deepInit) modelContainer = p.modelContainer.getOrElse(serverHome + "/") + p.engineId + ".model"
         // not allowed for `harness update`
       createResources(p)
     }

@@ -53,6 +53,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+import static scala.compat.java8.JFunction.*;
+
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
  *         20.02.17 20:16
@@ -202,13 +204,13 @@ public class BaseClient {
                 .map(this::createAccessTokenRequest)
                 .map(t -> Pair.create(t, 0L))
                 .via(this.poolClientFlow)
-                .flatMapConcat(p -> p.first().map(response ->
+                .flatMapConcat(p -> p.first().map(func(response ->
                     response.entity().getDataBytes().map(body -> {
                         JsonElement json = toJsonElement(body.decodeString("UTF-8"));
                         AccessTokenResponse tokenResponse = gson.fromJson(json, AccessTokenResponse.class);
                         return Optional.of(tokenResponse.access_token);
-                    })
-                ).getOrElse(() -> { throw new RuntimeException(); }));
+                    }))
+                ).getOrElse(func(() -> { throw new RuntimeException(); })));
     }
 
     public JsonElement toJsonElement(String json) {
