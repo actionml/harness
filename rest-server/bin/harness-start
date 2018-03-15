@@ -2,7 +2,7 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-PIDFILE=${HARNESS_HOME}/eventserver.pid
+export PIDFILE=${HARNESS_HOME}/harness.pid
 
 if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
     echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
@@ -11,20 +11,20 @@ if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
 fi
 
 
-echo -e "${CYAN}Harness Server settings${NC}"
-echo -e "${GLINE}"
-echo "HARNESS_HOME................${HARNESS_HOME}"
-echo "REST_SERVER_HOST............${REST_SERVER_HOST}"
-echo "REST_SERVER_PORT............${REST_SERVER_PORT}"
-echo "MONGO_HOST..................${MONGO_HOST}"
-echo "MONGO_PORT..................${MONGO_PORT}"
-echo "HARNESS_LOG_CONFIG..........${HARNESS_LOG_CONFIG}"
-echo "HARNESS_LOG_PATH............${HARNESS_LOG_PATH}"
-echo "HARNESS_SSL_ENABLED.........${HARNESS_SSL_ENABLED}"
-echo "HARNESS_AUTH_ENABLED........${HARNESS_AUTH_ENABLED}"
-echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
-echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
-echo "PIDFILE.....................${PIDFILE}"
+#echo -e "${CYAN}Harness Server settings${NC}"
+#echo -e "${GLINE}"
+#echo "HARNESS_HOME................${HARNESS_HOME}"
+#echo "REST_SERVER_HOST............${REST_SERVER_HOST}"
+#echo "REST_SERVER_PORT............${REST_SERVER_PORT}"
+#echo "MONGO_HOST..................${MONGO_HOST}"
+#echo "MONGO_PORT..................${MONGO_PORT}"
+#echo "HARNESS_LOG_CONFIG..........${HARNESS_LOG_CONFIG}"
+#echo "HARNESS_LOG_PATH............${HARNESS_LOG_PATH}"
+#echo "HARNESS_SSL_ENABLED.........${HARNESS_SSL_ENABLED}"
+#echo "HARNESS_AUTH_ENABLED........${HARNESS_AUTH_ENABLED}"
+#echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
+#echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
+#echo "PIDFILE.....................${PIDFILE}"
 
 if [[ "$1" = "-f" ]] || [[ ! -f ${PIDFILE} ]]; then
     if [[ -f ${PIDFILE} ]] && [[ "$1" = "-f" ]]; then
@@ -42,6 +42,12 @@ if [[ "$1" = "-f" ]] || [[ ! -f ${PIDFILE} ]]; then
     echo $! > ${PIDFILE}
     if [[ $? == 0 ]]; then
         echo -e "${CYAN}Started Harness with PID: $(cat ${PIDFILE})${NC}"
+        echo -e "${CYAN}Checking Harness Server status${NC}"
+        PYTHON_ARGS=" status ${USER_ARGS}"
+        #echo "User args: ${USER_ARGS}"
+        sleep 10
+        # ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
+        harness-status
         echo -e "${GLINE}${NC}"
     else
         echo -e "${RED}[Error] Unable to start Harness. Unknown reason.${NC}"

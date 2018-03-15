@@ -5,6 +5,8 @@
 RESOURCE_TYPE=$1
 RESOURCE_ID=$2
 
+export PIDFILE=${HARNESS_HOME}/harness.pid
+
 if [ -z "$RESOURCE_TYPE" ] ; then
     echo -e "${CYAN}Harness Server settings${NC}"
     echo -e "${GLINE}"
@@ -20,6 +22,7 @@ if [ -z "$RESOURCE_TYPE" ] ; then
     echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
     echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
     echo "HARNESS_EXTERNAL_ADDRESS....${HARNESS_EXTERNAL_ADDRESS}"
+    echo "PIDFILE.....................${PIDFILE}"
     echo -e "${RLINE}"
     echo -e "${CYAN}Checking Harness Server status${NC}"
     PYTHON_ARGS=" status ${USER_ARGS}"

@@ -4,7 +4,9 @@
 
 # Harness Server
 echo -e "${GREEN}Stopping Harness Server.${NC}"
-PIDFILE=${HARNESS_HOME}/eventserver.pid
+
+export PIDFILE=${HARNESS_HOME}/harness.pid
+
 if [ -e ${PIDFILE} ]; then
     cat ${PIDFILE} | xargs kill
     if [[ $? != 0 ]]; then
