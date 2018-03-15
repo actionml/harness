@@ -1,5 +1,5 @@
 {
-  "engineId": "test_resource_2",
+  "engineId": "test_cb_2",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
   "comment": "add sharedDBName for sharing a DBs for Users, should be named with lowercase and underscore separator, aka snake case",
   "algorithm":{

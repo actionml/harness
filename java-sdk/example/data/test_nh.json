@@ -1,5 +1,5 @@
 {
-  "engineId": "hinting",
+  "engineId": "test_nh",
   "engineFactory": "com.actionml.templates.navhinting.NavHintingEngine",
   "algorithm":{
     "numQueueEvents": 50,

@@ -1,0 +1,4 @@
+{"user": "pferrel", "eligibleNavIds": ["http://nav.domain3", "http://nav.domain5", "http://nav.domain1", "http://nav.domain4", "http://nav.domain2", "http://nav.domain6"]}
+{"user": "joe", "eligibleNavIds": ["http://nav.domain5", "http://nav.domain2", "http://nav.domain3", "http://nav.domain4"]}
+{"eligibleNavIds": ["http://nav.domain1", "http://nav.domain3", "http://nav.domain2", "http://nav.domain4", "http://nav.domain5"]}
+{"user": "pferrel", "eligibleNavIds": ["http://fake.nav/id#3", "http://fake.nav/id#5", "http://fake.nav/id#1", "http://fake.nav/id#4", "http://fake.nav/id#2", "http://fake.nav/id#6"]}
