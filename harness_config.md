@@ -77,7 +77,15 @@ This needs to be setup for the client and the server. Out of the box Harness req
         
 ### Python SDK and CLI
 
-The Python SDK does not need env variables since all parameters for the client are passed in and the CLI reads the same parameters as the server so typically (when running the CLI on the server machine) nothing else needs to be setup
+The Python SDK does not need env variables since all parameters for the client are passed in.
+
+The CLI reads the same parameters as the server so typically (when running the CLI on the server machine) only the extra:
+
+```
+HARNESS_EXTERNAL_ADDRESS=1.2.3.4 # actual IP or DNS used to connect over the internet
+```
+
+This needs to match the address for the TLS/SSL certificate and should not be `localhost` unless TLS is disabled, likewise 0.0.0.0 will not work since this is only used for listening, not connecting to.
 
 ### Java SDK
 

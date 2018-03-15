@@ -66,9 +66,10 @@ abstract class Engine extends LazyLogging with JsonParser {
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
 
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      // todo: should use File objects to avoid adding a slash to the path--ugh
-      if (deepInit) modelContainer = p.modelContainer.getOrElse(serverHome + "/") + p.engineId + ".model"
-        // not allowed for `harness update`
+      if (deepInit) {
+        val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
+        modelContainer = p.modelContainer.getOrElse(container) + engineId
+      } // not allowed to change with `harness update`
       createResources(p)
     }
   }

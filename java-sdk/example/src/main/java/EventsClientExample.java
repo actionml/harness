@@ -33,6 +33,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -147,6 +148,7 @@ public class EventsClientExample {
                     // as an alternative use "client.sendEventSync", which may throw the same exceptions listed below
                     Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
                     log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
+                    //TimeUnit.SECONDS.sleep(5); // should not need this
                 } catch (InterruptedException | ExecutionException e) {
                     log.error("Error in client.sendEvent waiting for a response ", e);
                 }
