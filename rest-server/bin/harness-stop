@@ -9,7 +9,7 @@ export PIDFILE=${HARNESS_HOME}/harness.pid
 
 if [ -e ${PIDFILE} ]; then
     cat ${PIDFILE} | xargs kill
-    if [[ $? != 0 ]]; then
+    if [[ $? != 0 ]]; then # this is not sufficient, the command is async so the stop will return but the pid may be active
         echo -e "${RED}Unable to stop Harness from PID file. May already be stopped.${NC}"
         echo -e "${RED}Removing PID file.${NC}"
     fi

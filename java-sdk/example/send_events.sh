@@ -9,7 +9,7 @@ if [ -z "$3" ]
 elif [ -z "$2" ]
   then
     echo "No resource-id"
-elif [ -z $1 ]
+elif [ -z "$1" ]
   then
     echo "No host name"
 else

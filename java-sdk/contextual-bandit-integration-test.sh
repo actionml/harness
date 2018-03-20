@@ -25,25 +25,19 @@ sleep_seconds=1
 # export HARNESS_CA_CERT=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
 cd example
 
-
-if [ $skip_restarts = false ]; then
-    harness stop -f
-    sleep 5
-    harness start -f
-    sleep 10
-fi
-
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
 echo "TESTING SIMILAR PROFILES, 2 PEOPLE $set, INTO 2 DIFFERENT ENGINES"
 echo "----------------------------------------------------------------------------------------------------------------"
-harness delete test_cb
+harness delete $engine_1
 sleep $sleep_seconds
-harness add data/test_cb.json
+harness add data/$engine_1.json
 sleep $sleep_seconds
-harness delete test_cb_2
+harness delete $engine_2
 sleep $sleep_seconds
-harness add data/test_cb_2.json
+harness add data/$engine_2.json
+harness status
+harness status engines
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_cb"
@@ -67,13 +61,15 @@ echo "--------------------------------------------------------------------------
 echo "TESTING SIMILAR BEHAVIORS, 2 PEOPLE'S CONVERSIONS, INTO 2 DIFFERENT ENGINES"
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
-harness delete test_cb
+harness delete $engine_1
 sleep $sleep_seconds
-harness add data/test_cb.json
+harness add data/$engine_1.json
 sleep $sleep_seconds
-harness delete test_cb_2
+harness delete $engine_2
 sleep $sleep_seconds
-harness add data/test_cb_2.json
+harness add data/$engine_2.json
+harness status
+harness status engines
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with contextualTags to test_cb"
@@ -99,11 +95,11 @@ echo "TESTING CONTEXTUAL BANDIT MODEL PERSISTENCE BY RESTARTING HARNESS AND MAKI
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
 
-if [ $skip_restarts = false ]; then
-    harness stop -f
+if [ "$skip_restarts" == true ]; then
+    harness stop
     sleep 5
     harness start -f
-    sleep 10
+    #sleep 10
 fi
 
 echo
@@ -123,9 +119,9 @@ echo "---------------------- behavior differences should only be timing --------
 diff test-behavior-results.txt data/expected-test-behavior-results.txt
 echo
 
-if [ $clean_test_artifacts = true ]; then
-    harness delete test_cb
-    harness delete test_cb_2
+if [ "$clean_test_artifacts" == true ]; then
+    harness delete $engine_1
+    harness delete $engine_2
 fi
 
 cd ..
