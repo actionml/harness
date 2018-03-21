@@ -40,18 +40,23 @@ import com.google.gson.JsonParser;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
+import com.typesafe.sslconfig.akka.AkkaSSLConfig;
+import com.typesafe.sslconfig.ssl.ConfigSSLContextBuilder;
+import com.typesafe.sslconfig.ssl.TrustManagerFactoryWrapper;
+import com.typesafe.sslconfig.ssl.TrustStoreConfig;
 import scala.util.Try;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.PasswordAuthentication;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.*;
-import java.security.cert.CertificateException;
-import java.util.Optional;
+import java.security.cert.*;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 
 import static scala.compat.java8.JFunction.*;
 
@@ -112,30 +117,25 @@ public class BaseClient {
         }
     }
 
-    private HttpsConnectionContext httpsContext() throws KeyStoreException, IOException, CertificateException,
-            NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
-        String sslConfPath = System.getenv().getOrDefault("HARNESS_SSL_CONFIG_PATH", "./conf/akka-ssl.conf");
-        Config config = ConfigFactory.parseFile(new File(sslConfPath));
-        ConfigObject keyManagerConfig = config.getObjectList("akka.ssl-config.keyManager.stores").get(0);
-        String storeType = (String) keyManagerConfig.get("type").unwrapped();
-        String storePath = (String) keyManagerConfig.get("path").unwrapped();
-        String storePassword = (String) keyManagerConfig.get("password").unwrapped();
+    private HttpsConnectionContext httpsContext() throws NoSuchAlgorithmException, KeyManagementException,
+            InvalidAlgorithmParameterException, CertificateException, IOException {
+        AkkaSSLConfig akkaSslConfig = AkkaSSLConfig.get(system);
+        TrustStoreConfig tsConfig = akkaSslConfig.config().trustManagerConfig().trustStoreConfigs().apply(0);
+        String path = tsConfig.filePath().get();
+        byte[] certContent = Files.lines(Paths.get(path))
+                .filter(l -> !l.equals("-----BEGIN CERTIFICATE-----") && !l.equals("-----END CERTIFICATE-----"))
+                .reduce((acc, l) -> acc + l)
+                .map(l -> Base64.getDecoder().decode(l)).get();
 
-        char[] password = storePassword.toCharArray();
-
-        KeyStore keystore = KeyStore.getInstance(storeType);
-        InputStream keystoreFile = new FileInputStream(new File(storePath));
-
-        keystore.load(keystoreFile, password);
-
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
-        keyManagerFactory.init(keystore, password);
-
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
-        tmf.init(keystore);
-
-        SSLContext sslContext = SSLContext.getInstance("SSL");
-        sslContext.init(keyManagerFactory.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
+        CertificateFactory factory = CertificateFactory.getInstance("X.509");
+        X509Certificate cert = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certContent));
+        TrustManagerFactoryWrapper tmf = akkaSslConfig.buildTrustManagerFactory(akkaSslConfig.config());
+        Set<TrustAnchor> trustAnchors = new HashSet() {{ add(new TrustAnchor(cert, null)); }};
+        PKIXBuilderParameters certParams = new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+        tmf.init(new CertPathTrustManagerParameters(certParams));
+        TrustManager[] trustManagers = tmf.getTrustManagers();
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustManagers, new SecureRandom());
         return ConnectionContext.https(sslContext);
     }
 
