@@ -94,7 +94,7 @@ class BaseClient(object):
         https_pattern = r'^https://(.*)'
         http_pattern = r'^http://(.*)'
         m = re.match(https_pattern, url)
-        self.https = False
+        self.https = True
         if m is None:  # not matching https
             m = re.match(http_pattern, url)
             self.https = False
