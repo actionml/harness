@@ -1,50 +1,46 @@
 [INFO] Scanning for projects...
 [INFO]                                                                         
 [INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.1.0-SNAPSHOT
+[INFO] Building harness-java-sdk-example 0.1.1-RC3
 [INFO] ------------------------------------------------------------------------
-Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.1.0-SNAPSHOT/maven-metadata.xml
-1006 B            Downloaded: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.1.0-SNAPSHOT/maven-metadata.xml (1006 B at 1.4 KB/sec)
 [INFO] 
 [INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_resource, data/2-user-query.json, localhost, 9090
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb, data/2-user-query.json, localhost, 9090
 [34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 1, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 392 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 338 ms.
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 1, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 14 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 12 ms.
 Shutting down client
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 3.382 s
-[INFO] Finished at: 2017-12-17T11:23:19-08:00
-[INFO] Final Memory: 25M/444M
+[INFO] Total time: 2.074 s
+[INFO] Finished at: 2018-03-20T13:10:57-07:00
+[INFO] Final Memory: 21M/447M
 [INFO] ------------------------------------------------------------------------
 [INFO] Scanning for projects...
 [INFO]                                                                         
 [INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.1.0-SNAPSHOT
+[INFO] Building harness-java-sdk-example 0.1.1-RC3
 [INFO] ------------------------------------------------------------------------
-Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.1.0-SNAPSHOT/maven-metadata.xml
-1006 B            Downloaded: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.1.0-SNAPSHOT/maven-metadata.xml (1006 B at 1.2 KB/sec)
 [INFO] 
 [INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_resource_2, data/2-user-query.json, localhost, 9090
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb_2, data/2-user-query.json, localhost, 9090
 [34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 286 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 342 ms.
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 11 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 13 ms.
 Shutting down client
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 3.288 s
-[INFO] Finished at: 2017-12-17T11:23:23-08:00
-[INFO] Final Memory: 22M/321M
+[INFO] Total time: 2.089 s
+[INFO] Finished at: 2018-03-20T13:11:00-07:00
+[INFO] Final Memory: 21M/448M
 [INFO] ------------------------------------------------------------------------

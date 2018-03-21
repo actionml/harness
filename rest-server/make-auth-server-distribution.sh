@@ -56,6 +56,7 @@ mkdir -p ${DISTDIR}/sbt
 cp ${FWDIR}/auth-server/bin/* ${DISTDIR}/bin || :
 cp ${FWDIR}/auth-server/src/main/resources/*.conf ${DISTDIR}/conf
 cp ${FWDIR}/auth-server/src/main/resources/*.xml ${DISTDIR}/conf
+cp ${FWDIR}/harness.jks ${DISTDIR}
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
 cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
 cp ${FWDIR}/auth-server/target/universal/stage/lib/* ${DISTDIR}/lib

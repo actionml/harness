@@ -2,8 +2,8 @@ package com.actionml.router.http
 
 import java.io.{File, FileInputStream}
 import java.security.{KeyStore, SecureRandom}
-import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
+import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
@@ -17,6 +17,7 @@ import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -55,18 +56,14 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   }
 
   private def https = {
-    val sslConfPath = System.getenv.getOrDefault("HARNESS_SSL_CONFIG_PATH", "./conf/akka-ssl.conf")
-    val config = ConfigFactory.parseFile(new File(sslConfPath))
-    val keyManagerConfig = scala.collection.JavaConversions.asScalaBuffer(config.getObjectList("akka.ssl-config.keyManager.stores"))
-      .headOption.getOrElse(throw new RuntimeException("Key manager store should be configured")).toConfig.resolve
-    val storeType = keyManagerConfig.getString("type")
-    val storePath = keyManagerConfig.getString("path")
-    val storePassword = keyManagerConfig.getString("password")
-
-    val password: Array[Char] = storePassword.toCharArray
+    val sslConfig = AkkaSSLConfig(actorSystem).config
+    val keyManagerConfig = sslConfig.keyManagerConfig.keyStoreConfigs.headOption.getOrElse(throw new RuntimeException("Key manager store should be configured"))
+    val storeType = keyManagerConfig.storeType
+    val storePath = keyManagerConfig.filePath.getOrElse(throw new RuntimeException("KeyStore file path is required"))
+    val password = keyManagerConfig.password.getOrElse(throw new RuntimeException("KeyStore password is required")).toCharArray
 
     val keystore = KeyStore.getInstance(storeType)
-    val keystoreFile = new FileInputStream(new File(storePath))
+    val keystoreFile = new FileInputStream(storePath)
 
     require(keystoreFile != null, "Keystore required!")
     keystore.load(keystoreFile, password)
@@ -77,7 +74,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     val tmf = TrustManagerFactory.getInstance("SunX509")
     tmf.init(keystore)
 
-    val sslContext = SSLContext.getInstance("SSL")
+    val sslContext = SSLContext.getInstance("TLS")
     sslContext.init(keyManagerFactory.getKeyManagers, tmf.getTrustManagers, new SecureRandom)
     ConnectionContext.https(sslContext)
   }
