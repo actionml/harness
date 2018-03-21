@@ -7,12 +7,12 @@
         </encoder>
     </appender>
 
-    <logger name="com.actionml.com.actionml.router" level="DEBUG"/>
+    <logger name="com.actionml" level="DEBUG"/>
     <logger name="com.mongodb" level="INFO"/>
     <logger name="org.mongodb" level="INFO"/>
     <logger name="com.typesafe" level="INFO"/>
 
-    <root level="TRACE">
+    <root level="DEBUG">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

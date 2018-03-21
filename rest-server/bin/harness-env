@@ -34,10 +34,12 @@ export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
 # =============================================================
 
 # Harness TLS/SSL server support. A dummy file needs to be provided even if TLS is not used, one is supplied with Harness
-export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
+export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-changeit}
 export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
 # export HARNESS_SSL_ENABLED=true # to enable TLS/SSL
 export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+
+export HARNESS_SERVER_CERT_PATH=/Users/andrey/Programming/harness/java-sdk/harness.pem # CLI only
 
 # Java and Python client SDKs use the following for TLS/SSL
 # export HARNESS_SERVER_CERT_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.pem}
