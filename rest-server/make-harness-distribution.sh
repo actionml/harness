@@ -68,9 +68,9 @@ touch ${DISTDIR}/RELEASE
 TARNAME="Harness-$VERSION.tar.gz"
 TARDIR="Harness-$VERSION"
 cp -r ${DISTDIR} ${TARDIR}
+rm -rf ${DISTDIR}
 
 tar zcvf ${TARNAME} ${TARDIR}
 rm -rf ${TARDIR}
-rm -rf ${DISTDIR}
 
 echo -e "\033[0;32mHarness binary distribution created at $TARNAME\033[0m"

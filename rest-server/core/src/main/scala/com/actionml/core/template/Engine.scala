@@ -68,7 +68,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       if (deepInit) {
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
-        modelContainer = p.modelContainer.getOrElse(container) + engineId
+        modelContainer = p.modelContainer.getOrElse(container) + p.engineId
       } // not allowed to change with `harness update`
       createResources(p)
     }

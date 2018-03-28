@@ -39,23 +39,49 @@ harness add data/$engine_2.json
 harness status
 harness status engines
 
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
+
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_cb"
 echo
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_profile_events" -Dexec.cleanupDaemonThreads=false
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending events to create testGroup: 1, user: john, and one conversion event with no contextualTags to test_cb_2"
 echo
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_2 $engine_2_profile_events" -Dexec.cleanupDaemonThreads=false
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending queries for joe and john to test_cb"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-profile-results.txt
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending queries for joe and john to test_cb_2"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_2 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-profile-results.txt
 
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
 echo "TESTING SIMILAR BEHAVIORS, 2 PEOPLE'S CONVERSIONS, INTO 2 DIFFERENT ENGINES"
@@ -70,23 +96,48 @@ sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
 harness status engines
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with contextualTags to test_cb"
 echo
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_behavior_events" -Dexec.cleanupDaemonThreads=false
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending events to create testGroup: 1, user: john, and one conversion event with contextualTags to test_cb_2"
 echo
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_2 $engine_2_behavior_events" -Dexec.cleanupDaemonThreads=false
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending queries for joe and john to test_cb"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-behavior-results.txt
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending queries for joe and john to test_cb_2"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_2 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-behavior-results.txt
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 
 
 echo
@@ -95,23 +146,43 @@ echo "TESTING CONTEXTUAL BANDIT MODEL PERSISTENCE BY RESTARTING HARNESS AND MAKI
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
 
-if [ "$skip_restarts" == true ]; then
+if [ "$skip_restarts" == false ]; then
+    sleep 10
     harness stop
-    sleep 5
+    sleep 10
+    h=`jps | grep Main | wc -l`
+    if [[ "$h" -gt "0" ]]; then
+        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+        exit 1
+    fi
     harness start -f
-    #sleep 10
+    h=`jps | grep Main | wc -l`
+    if [[ "$h" -gt "1" ]]; then
+        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+        exit 1
+    fi
 fi
 
 echo
 echo "Sending queries for joe and john to test_cb"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-behavior-results.txt
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo
 echo "Sending queries for joe and john to test_cb_2"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_2 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-behavior-results.txt
 
 
+h=`jps | grep Main | wc -l`
+if [[ "$h" -gt "1" ]]; then
+    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    exit 1
+fi
 echo "---------------------- profile query differences should only be timing ----------------------------"
 diff test-profile-results.txt data/expected-test-profile-results.txt
 echo
@@ -120,6 +191,11 @@ diff test-behavior-results.txt data/expected-test-behavior-results.txt
 echo
 
 if [ "$clean_test_artifacts" == true ]; then
+    h=`jps | grep Main | wc -l`
+    if [[ "$h" -gt "1" ]]; then
+        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+        exit 1
+    fi
     harness delete $engine_1
     harness delete $engine_2
 fi
