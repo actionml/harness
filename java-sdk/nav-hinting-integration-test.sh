@@ -150,9 +150,15 @@ if [ $clean_test_artifacts = true ]; then
     harness delete ${engine}
 fi
 
-h=`jps | grep Main | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-    exit 1
+if [ "$skip_restarts" == false ]; then
+    sleep 10
+    harness stop
+    sleep 10
+    h=`jps | grep Main | wc -l`
+    if [[ "$h" -gt "0" ]]; then
+        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+        exit 1
+    fi
 fi
+
 cd ..

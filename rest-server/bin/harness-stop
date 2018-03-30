@@ -2,13 +2,16 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-# Harness Server
-echo -e "${GREEN}Stopping Harness Server.${NC}"
-
 export PIDFILE=${HARNESS_HOME}/harness.pid
 
+# Harness Server
+
+
 if [ -e ${PIDFILE} ]; then
-    cat ${PIDFILE} | xargs kill
+    #cat ${PIDFILE} | xargs kill
+    pid=`cat ${PIDFILE}`
+    echo -e "${GREEN}Stopping Harness Server on pid: ${pid} ${NC}"
+    kill ${pid}
     if [[ $? != 0 ]]; then # this is not sufficient, the command is async so the stop will return but the pid may be active
         echo -e "${RED}Unable to stop Harness from PID file. May already be stopped.${NC}"
         echo -e "${RED}Removing PID file.${NC}"
@@ -17,3 +20,10 @@ if [ -e ${PIDFILE} ]; then
 else
     echo -e "${RED}PID file not found.${NC}"
 fi
+
+#sleep 10
+vw=`ps aux | grep " vw$"`
+vwnum=`ps aux | grep " vw$" | wc -l`
+echo ${vw}
+echo "Number of VW instances still running after harness stop: ${vwnum}"
+

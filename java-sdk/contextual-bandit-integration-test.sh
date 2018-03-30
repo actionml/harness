@@ -200,6 +200,17 @@ if [ "$clean_test_artifacts" == true ]; then
     harness delete $engine_2
 fi
 
+if [ "$skip_restarts" == false ]; then
+    sleep 10
+    harness stop
+    sleep 10
+    h=`jps | grep Main | wc -l`
+    if [[ "$h" -gt "0" ]]; then
+        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+        exit 1
+    fi
+fi
+
 cd ..
 #echo "Ending directory"
 #pwd

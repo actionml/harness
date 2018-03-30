@@ -35,7 +35,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   var engineId: String = _
   private var mirroring: Option[Mirroring] = None
   val serverHome = sys.env("HARNESS_HOME")
-  var modelContainer: String = _
+  var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
 
   /** This is the Engine factory method called only when creating a new Engine, and named in the engine-config.json file
     * the contents of which are passed in as a string. Overridden, not inherited. */
@@ -68,7 +68,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       if (deepInit) {
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
-        modelContainer = p.modelContainer.getOrElse(container) + p.engineId
+        modelContainer = p.modelContainer.getOrElse(container)
       } // not allowed to change with `harness update`
       createResources(p)
     }

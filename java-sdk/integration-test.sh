@@ -98,9 +98,10 @@ fi
 if [ "$do_cb_test" = true ]; then
     ./contextual-bandit-integration-test.sh
 fi
+
 h=`jps | grep Main | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+if [[ "$h" -gt "0" ]]; then
+    echo "==============> Something failed to stop harness in the contextual-bandit-integration-test.sh <=============="
     exit 1
 fi
 
@@ -110,7 +111,7 @@ fi
 
 h=`jps | grep Main | wc -l`
 if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+    echo "==============> Something failed to stop harness in nav-hinting-integration-test.sh <=============="
     exit 1
 fi
 
