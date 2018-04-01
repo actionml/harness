@@ -108,6 +108,11 @@ abstract class Engine extends LazyLogging with JsonParser {
     Valid( true )
   }
 
+  def batchInput(inputPath: String): Validated[ValidateError, Boolean] = {
+    mirroring.map(_.importEvents(this, inputPath))
+    Valid( true )
+  }
+
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
     *
     * @param json Format defined by the Engine

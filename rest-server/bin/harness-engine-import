@@ -9,7 +9,7 @@ while [ -n "$1" ]; do
     case "$1" in
         *) resource_id=$1
             input_path=$2
-            echo "Filename: ${input_path}"
+            echo "Engine id: ${resource_id} filename: ${input_path}"
             ;;
     esac
     shift
@@ -24,7 +24,7 @@ if [ -z "$resource_id" ]; then
     exit 1
 fi
 
-if [ ! -f ${input_path} ]; then
+if [ ! -f ${input_path} ] && [ ! -d ${input_path} ]; then
     echo -e "${RED}Engine events JSON file [${input_path}] not found!${NC}"
     echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
     echo -e "Verify that the correct directory or file path is specified."

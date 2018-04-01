@@ -121,7 +121,6 @@ def id_or_config():
     if args.config is not None:
         with open(args.config) as data_file:
             config = json.load(data_file)
-        config["input"] = None # this tell whether the update is harness import or harness update, no input in this case
 
     if args.engine_id is None:
         engine_id = config['engineId']

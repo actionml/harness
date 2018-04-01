@@ -318,18 +318,35 @@ class EnginesClient(BaseClient):
     def create(self, data):
         return self.async_create(data).get_response()
 
-    def async_update(self, engine_id, data):
+    def async_update(self, engine_id, input_path, update_config, data):
         """
-        Asynchronously update engine.
+        Asynchronously update engine with either input events OR new config JSON
         :param engine_id: should be same as in data, which is json config string
+        :param input_path: if non-empty, defines a path to input json files to import
+        :param update_config: if True means the data = JSON config params for engine
         :param data: json config data, as in create, engine_id's passed in and in json MUST match
         :return:
         """
 
-    #    query = {}
-    #        if data_delete:
-    #            query['data_delete'] = True
-    #        if force:
+        query = {}
+        if update_config:
+            query['update_config'] = True
+            print("Update config received in SDK: ".format(update_config))
+            print("Query for URL: {}".format(query))
+        else:
+            query['input_path'] = input_path
+            print("Input path received in SDK: {}".format(input_path))
+            print("Query for URL: {}".format(query))
+            # data = {"dummy": "data"}
+
+        path = self._add_segment(engine_id)
+        new_path = self._add_get_params(path, **query)
+        print("Fully constructed path: {}".format(new_path))
+        print("Data supplied: {}".format(data))
+
+        request = AsyncRequest("POST", new_path, **data)
+
+    #        if :
     #            query['force'] = True
     #        if input is not None:
     #            query['input'] = input
@@ -342,17 +359,18 @@ class EnginesClient(BaseClient):
     #        self._connection.make_request(request)
     #        return request
 
-        path = self._add_segment(engine_id)
         # path = self._add_get_params(path, **query)
 
-        request = AsyncRequest("POST", path, **data)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-
-    def update(self, engine_id, data):
-        return self.async_update(engine_id, data).get_response()
+    def update(self, engine_id, input_path, update_config, data):
+        req = self.async_update(engine_id, input_path, update_config, data)
+        print("Made request: {}".format(req))
+        ret = req.get_response()
+        print("Got response: {}".format(ret))
+        return ret
 
     def async_delete(self, engine_id):
         request = AsyncRequest("DELETE", self._add_segment(engine_id))

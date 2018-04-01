@@ -51,7 +51,8 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     if (config.sslEnabled) {
       Http().setDefaultServerHttpContext(https)
     }
-    logger.info(s"Start http server $host:$port")
+    val serverType = if (config.sslEnabled) "https" else "http"
+    logger.info(s"Start $serverType server $host:$port")
     Http().bindAndHandle(logResponseTime(route), host, port)
   }
 
