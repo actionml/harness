@@ -98,38 +98,24 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   }
 */
 
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
-    // Todo: no, this is bad code!!! we are passing in on the URL either /engines/engine-id?import_path=<some-URL> or
-    // /engines/engine-id?update_config=TRUE so fix this once the PythonSDK is formulating the correct URL
-    log.info("Update engine: {}", engineConfig)
-    if (engineConfig.findAllByKey("import").isEmpty ) {
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngine(engineConfig.toString())).mapTo[Response]
-      }
-    } else {
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithImport(engineId, engineConfig.findAllByKey("input").head.toString())).mapTo[Response]
-      }
-    }
-  }
 
-  /*
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (post & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
+
+  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (post & parameters('update_config.as[Boolean] ? false, 'import_path.as[String]) ) { (updateConfig, importPath) ⇒
     entity(as[Json]) { engineConfig ⇒
       //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
-      log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
+      log.info("Update engine: {}, updateConfig: {}, inputPath: {}", engineId, updateConfig, importPath)
       completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithConfig(engineId, engineConfig.toString(), dataDelete, force, input)).mapTo[Response]
+        (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Response]
       }
     } ~ {
-      log.info("Update engine: {}, delete: {}, force: {}, input: {}", engineId, dataDelete, force, input)
+      log.info("Update engine: {}, updateConfig: {}, inputPath: {}", engineId, updateConfig, importPath)
       completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithId(engineId, dataDelete, force, input)).mapTo[Response]
+        (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Response]
       }
     }
 
   }
-  */
+
 
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
     log.info("Delete engine: {}", engineId)

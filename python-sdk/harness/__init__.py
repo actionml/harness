@@ -318,11 +318,11 @@ class EnginesClient(BaseClient):
     def create(self, data):
         return self.async_create(data).get_response()
 
-    def async_update(self, engine_id, input_path, update_config, data):
+    def async_update(self, engine_id, import_path, update_config, data):
         """
         Asynchronously update engine with either input events OR new config JSON
         :param engine_id: should be same as in data, which is json config string
-        :param input_path: if non-empty, defines a path to input json files to import
+        :param import_path: if non-empty, defines a path to input json files to import
         :param update_config: if True means the data = JSON config params for engine
         :param data: json config data, as in create, engine_id's passed in and in json MUST match
         :return:
@@ -331,11 +331,15 @@ class EnginesClient(BaseClient):
         query = {}
         if update_config:
             query['update_config'] = True
+            query['import_path'] = ""
+
             print("Update config received in SDK: ".format(update_config))
             print("Query for URL: {}".format(query))
         else:
-            query['input_path'] = input_path
-            print("Input path received in SDK: {}".format(input_path))
+            query['import_path'] = import_path
+            query['update_config'] = False
+
+            print("Import path received in SDK: {}".format(import_path))
             print("Query for URL: {}".format(query))
             # data = {"dummy": "data"}
 
@@ -365,8 +369,8 @@ class EnginesClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def update(self, engine_id, input_path, update_config, data):
-        req = self.async_update(engine_id, input_path, update_config, data)
+    def update(self, engine_id, import_path, update_config, data):
+        req = self.async_update(engine_id, import_path, update_config, data)
         print("Made request: {}".format(req))
         ret = req.get_response()
         print("Got response: {}".format(ret))
