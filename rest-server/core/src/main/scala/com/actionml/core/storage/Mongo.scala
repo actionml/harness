@@ -28,10 +28,8 @@ trait Mongo extends Store {
 
   private lazy val config = ConfigFactory.load()
 
-  val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
-  val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
-
-  implicit val allCollectionObjects = MongoDBObject("_id" -> MongoDBObject("$exists" -> true))
+  private val master: String = if (config.getString("mongo.host").isEmpty) "localhost" else config.getString("mongo.host")
+  private val port: Int = if (config.getInt("mongo.port").toString.isEmpty) 27017 else config.getInt("mongo.port")
 
   lazy val client = Mongo.client(master, port)
 
@@ -64,8 +62,8 @@ trait Mongo extends Store {
 object Mongo {
 
   // TODO: should use apply to get rid of vars
-  var currentClient: Option[MongoClient] = None
-  var currentConnection: Option[MongoConnection] = None
+  private var currentClient: Option[MongoClient] = None
+  private var currentConnection: Option[MongoConnection] = None
 
   def client(master: String = "localhost", port: Int = 21017): MongoClient = {
     if(currentClient.isEmpty){

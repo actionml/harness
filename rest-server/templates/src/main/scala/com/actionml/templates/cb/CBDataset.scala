@@ -27,7 +27,9 @@ import com.mongodb.casbah.Imports._
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
-//import org.json4s.{DefaultFormats, Formats, MappingException}
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 import scala.language.reflectiveCalls
 
@@ -98,28 +100,21 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
 */
             usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
 
-            import scala.collection.JavaConversions._
-            import scala.collection.JavaConverters._
-
+            import scala.concurrent.ExecutionContext.Implicits.global
             if (event.properties.converted) { // store the preference with the user
-              val user = usersDAO.get.findOneById(event.entityId).getOrElse(User("", Map.empty))
-              val existingProps = user.propsToMapOfSeq
-              val updatedUser = if (existingProps.keySet.contains("contextualTags")) {
-                val newTags = (existingProps("contextualTags") ++ event.properties.contextualTags).takeRight(100)
-                val newTagString = newTags.mkString("%")
-                val newProps = user.properties + ("contextualTags" -> newTagString)
-                User(user._id, newProps)
-              } else {
-                val newTags = event.properties.contextualTags.takeRight(100).mkString("%")
-                User(user._id, user.properties + ("contextualTags" -> newTags))
-              }
-              usersDAO.get.update(
-                DBObject("_id" -> user._id),
-                updatedUser,
-                upsert = true,
-                multi = false,
-                wc = new WriteConcern)
-
+              Await.result(usersDAO.get.find("_id" -> event.entityId).map(_.getOrElse(User("", Map.empty))).flatMap { user =>
+                val existingProps = user.propsToMapOfSeq
+                val updatedUser = if (existingProps.keySet.contains("contextualTags")) {
+                  val newTags = (existingProps("contextualTags") ++ event.properties.contextualTags).takeRight(100)
+                  val newTagString = newTags.mkString("%")
+                  val newProps = user.properties + ("contextualTags" -> newTagString)
+                  User(user._id, newProps)
+                } else {
+                  val newTags = event.properties.contextualTags.takeRight(100).mkString("%")
+                  User(user._id, user.properties + ("contextualTags" -> newTags))
+                }
+                usersDAO.get.update("_id" -> user._id)(updatedUser)
+              }, 5.seconds)
             }
             Valid(event)
 
@@ -135,18 +130,12 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty)
-          val user = usersDAO.get.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
-          val newProps = user.propsToMapOfSeq ++ updateProps
-          val newUser = User(user._id, User.propsToMapString(newProps))
-          val debug = 0
-          usersDAO.get.update(
-            DBObject("_id" -> event.entityId),
-            newUser,
-            upsert = true,
-            multi = false,
-            wc = new WriteConcern)
-
-          Valid(event)
+          import scala.concurrent.ExecutionContext.Implicits.global
+          Await.result(usersDAO.get.find("_id" -> event.entityId).map(_.getOrElse(User(event.entityId, Map.empty))).flatMap { user =>
+            val newProps = user.propsToMapOfSeq ++ updateProps
+            val newUser = User(user._id, User.propsToMapString(newProps))
+            usersDAO.get.update("_id" -> event.entityId)(newUser).map(_ => Valid(event))
+          }, 5.seconds)
 
         case event: GroupParams => // group init event, modifies group definition
           logger.trace(s"Persisting a Group Init Event: ${event}")
@@ -170,11 +159,12 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty).keySet
-          val user = usersDAO.get.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
-          val newProps = user.propsToMapOfSeq -- updateProps
-          val newUser = User(user._id, User.propsToMapString(newProps))
-          val debug = 0
-          usersDAO.get.save(newUser) // overwrite the User
+          import scala.concurrent.ExecutionContext.Implicits.global
+          Await.result(usersDAO.get.find("_id" -> event.entityId).map(_.getOrElse(User(event.entityId, Map.empty))).flatMap { user =>
+            val newProps = user.propsToMapOfSeq -- updateProps
+            val newUser = User(user._id, User.propsToMapString(newProps))
+            usersDAO.get.insert(newUser) // overwrite the User
+          }, 5.seconds)
 
           Valid(event)
 /*          val unsetPropNames = event.properties.get.keys.toArray
@@ -187,7 +177,7 @@ class CBDataset(resourceId: String) extends SharedUserDataset[CBEvent](resourceI
             case "user" =>
               logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.get.removeById(event.entityId)
+              usersDAO.get.remove("_id" -> event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {

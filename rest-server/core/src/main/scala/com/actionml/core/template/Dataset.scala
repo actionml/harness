@@ -20,10 +20,11 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{Mongo, Store}
+import com.actionml.core.storage.{Mongo, MongoDao, Store}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.native.JsonParser
+import org.mongodb.scala.MongoClient
 
 abstract class Dataset[T](engineId: String) extends LazyLogging {
 
@@ -46,7 +47,7 @@ abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineI
   import salat.dao._
   import salat.global._
 
-  var usersDAO: Option[SalatDAO[User, String]] = None // todo: should this be _
+  var usersDAO: Option[MongoDao[User]] = None // todo: should this be _
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
@@ -54,8 +55,9 @@ abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineI
       // to find old users that will be orphaned.
 
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
-      usersDAO = Some(UsersDAO)
+//      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
+      val client = MongoClient("mongodb://localhost:27017")
+      usersDAO = Some(new MongoDao[User](client.getDatabase(p.sharedDBName.getOrElse(resourceId)).getCollection("users")))
       Valid(true)
     }
   }

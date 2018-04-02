@@ -20,7 +20,7 @@ package com.actionml.templates.navhinting
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.Mongo
+import com.actionml.core.storage.{Mongo, Storage}
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
@@ -30,6 +30,8 @@ import salat.dao._
 import salat.global._
 
 import scala.collection.immutable.HashMap
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
@@ -37,14 +39,13 @@ import scala.language.reflectiveCalls
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) with JsonParser with Mongo {
+class NavHintingDataset(engineId: String, storage: Storage, ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
+  implicit val _ = ec
 
-  RegisterJodaTimeConversionHelpers() // registers Joda time conversions used to serialize objects to Mongo
+  val activeJourneysDAO = storage.createDao[Journey]("active_journeys")
+  val navHintsDAO = storage.createDao[NavHint]("nav_hints")
 
-  val activeJourneysDAO = ActiveJourneysDAO(connection(engineId)("active_journeys"))
-  val navHintsDAO = NavHintsDAO(connection(engineId)("nav_hints"))
-
-  var trailLength: Int = _
+  private var trailLength: Int = _
 
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
@@ -58,7 +59,7 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   }
 
   override def destroy() = {
-    client.dropDatabase(engineId)
+    storage.drop //.dropDatabase(engineId)
   }
 
   // add one json, possibly an NHEvent, to the beginning of the dataset
@@ -67,40 +68,36 @@ class NavHintingDataset(engineId: String) extends Dataset[NHEvent](engineId) wit
   }
 
 
-  def persist(event: NHEvent): Validated[ValidateError, NHEvent] = {
+  private def persist(event: NHEvent): Validated[ValidateError, NHEvent] = {
     try {
       event match {
         case event: NHNavEvent => // nav events enqued for each user until conversion
-
           val conversion = event.properties.conversion.getOrElse(false)
-          val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
-          if(!conversion) { // store in the user journey queue
-            if (unconvertedJourney.nonEmpty) {
-              val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
-              if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
-                activeJourneysDAO.save(updatedJourney.get)
-                Valid(true)
-              } // else the first event for the journey is a conversion so ignore
-            } else { // no persisted journey so create it
-              activeJourneysDAO.insert(
-                Journey(
-                  event.entityId,
-                  Seq(JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime)))
+          Await.result(activeJourneysDAO.find("_id" -> event.entityId).flatMap { unconvertedJourney =>
+            if (!conversion) { // store in the user journey queue
+              (if (unconvertedJourney.nonEmpty) {
+                val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
+                if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
+                  activeJourneysDAO.insert(updatedJourney.get).map(_ => Valid(true))
+                } else Future.successful(()) // else the first event for the journey is a conversion so ignore
+              } else { // no persisted journey so create it
+                activeJourneysDAO.insert(
+                  Journey(
+                    event.entityId,
+                    Seq(JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime)))
+                  )
                 )
-              )
-              Valid(true)
+              }).map(_ => Valid(event))
+            } else {
+              Future.successful(Valid(event))
             }
-            Valid(event)
-          } else {
-            Valid(event)
-          }
+          }, 5.seconds)
 
         case event: HNDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${engineId} removing any journey data for user: ${event.entityId}")
-              activeJourneysDAO.removeById(event.entityId)
-              Valid(event)
+              Await.result(activeJourneysDAO.remove("_id" -> event.entityId).map(_ => Valid(event)), 5.seconds)
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
               Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))

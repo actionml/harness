@@ -25,6 +25,9 @@ import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
 
@@ -110,8 +113,9 @@ class CBEngine() extends Engine() with JsonParser {
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
+        import scala.concurrent.ExecutionContext.Implicits.global
         val datum = CBAlgorithmInput(
-          dataset.usersDAO.get.findOneById(event.toUsageEvent.userId).get,
+          Await.result(dataset.usersDAO.get.find("_id" -> event.toUsageEvent.userId).map(_.get), 5.seconds),
           event,
           dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
           engineId
