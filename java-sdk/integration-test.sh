@@ -22,7 +22,7 @@ do_cb_test=true
 export skip_restarts=false # send to child scripts
 export clean_test_artifacts=true
 
-export HARNESS_SERVER_CERT_PATH=../harness.pem
+export HARNESS_SERVER_CERT_PATH=../../harness.pem
 
 
 set -e # exit on any error

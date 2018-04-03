@@ -39,9 +39,9 @@ export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
 # export HARNESS_SSL_ENABLED=true # to enable TLS/SSL
 export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
 
-# Java and Python client SDKs use the following for TLS/SSL
+# Java and Python client SDKs use the following for TLS/SSL, not used by the server
 export HARNESS_SERVER_CERT_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.pem}
 
 # The Python CLI must connect to the external address of the server to use TLS, supply it here
-# export HARNESS_EXTERNAL_ADDRESS=1.2.3.4 # to connect with a certificate we need to use the matching address here
-export HARNESS_EXTERNAL_ADDRESS=localhost # for non-TLS local connections
+# export HARNESS_EXTERNAL_ADDRESS=0.0.0.0 # address to listen on, 0.0.0.0 is typical for external connections
+export HARNESS_EXTERNAL_ADDRESS=localhost
