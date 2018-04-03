@@ -33,7 +33,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
   // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
-  private var mirroring: Option[Mirroring] = None
+  private var mirroring: Mirroring = _
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
 
@@ -45,14 +45,14 @@ abstract class Engine extends LazyLogging with JsonParser {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
-      mirroring = None
+      mirroring = new FSMirroring("") // must create because Mirroring is also used for import Todo: decouple these for Lambda
       Valid(true)
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" =>
-          mirroring = Some(new FSMirroring(container))
+          mirroring = new FSMirroring(container)
           Valid(true)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
@@ -104,12 +104,12 @@ abstract class Engine extends LazyLogging with JsonParser {
     */
   def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
     // flatten the event into one string per line as per Spark json collection spec
-    if (mirroring.isDefined) mirroring.get.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
     Valid( true )
   }
 
   def batchInput(inputPath: String): Validated[ValidateError, Boolean] = {
-    mirroring.map(_.importEvents(this, inputPath))
+    mirroring.importEvents(this, inputPath)
     Valid( true )
   }
 

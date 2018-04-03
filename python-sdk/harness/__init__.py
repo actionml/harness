@@ -327,28 +327,19 @@ class EnginesClient(BaseClient):
         :param data: json config data, as in create, engine_id's passed in and in json MUST match
         :return:
         """
-
-        query = {}
-        if update_config:
-            query['update_config'] = True
-            query['import_path'] = ""
-
-            print("Update config received in SDK: ".format(update_config))
-            print("Query for URL: {}".format(query))
-        else:
-            query['import_path'] = import_path
-            query['update_config'] = False
-
-            print("Import path received in SDK: {}".format(import_path))
-            print("Query for URL: {}".format(query))
-            # data = {"dummy": "data"}
-
         path = self._add_segment(engine_id)
-        new_path = self._add_get_params(path, **query)
-        print("Fully constructed path: {}".format(new_path))
-        print("Data supplied: {}".format(data))
 
-        request = AsyncRequest("POST", new_path, **data)
+        if update_config:
+            path = path + "/configs"  # endpoint on an engine-id, flagging that data is the new config JSON
+        else:
+            path = path + "/imports"  # endpoint on an engine-id, that tells the engine to import from the import_path
+            query = {'import_path': import_path}
+            path = self._add_get_params(path, **query)
+
+        # print("Fully constructed path: {}".format(path))
+        # print("Data supplied: {}".format(data))
+
+        request = AsyncRequest("POST", path, **data)
 
     #        if :
     #            query['force'] = True
@@ -371,9 +362,9 @@ class EnginesClient(BaseClient):
 
     def update(self, engine_id, import_path, update_config, data):
         req = self.async_update(engine_id, import_path, update_config, data)
-        print("Made request: {}".format(req))
+        # print("Made request: {}".format(req))
         ret = req.get_response()
-        print("Got response: {}".format(ret))
+        # print("Got response: {}".format(ret))
         return ret
 
     def async_delete(self, engine_id):

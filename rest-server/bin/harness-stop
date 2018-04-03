@@ -11,7 +11,7 @@ if [ -e ${PIDFILE} ]; then
     #cat ${PIDFILE} | xargs kill
     pid=`cat ${PIDFILE}`
     echo -e "${GREEN}Stopping Harness Server on pid: ${pid} ${NC}"
-    kill ${pid}
+    kill -9 ${pid} # Todo: this should not use -9, find why Harness is sometimes not stopping with only kill pid
     if [[ $? != 0 ]]; then # this is not sufficient, the command is async so the stop will return but the pid may be active
         echo -e "${RED}Unable to stop Harness from PID file. May already be stopped.${NC}"
         echo -e "${RED}Removing PID file.${NC}"

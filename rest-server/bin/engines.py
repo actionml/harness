@@ -49,7 +49,7 @@ elif args.action == 'update':
 
 elif args.action == 'import':
     engine_id = args.engine_id
-    print("Import path: {}".format(args.import_path))
+    # print("Import path: {}".format(args.import_path))
     try:
         res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_config=False, data={})
         print_success(res, 'Importing to engine: {}\n'.format(engine_id))
