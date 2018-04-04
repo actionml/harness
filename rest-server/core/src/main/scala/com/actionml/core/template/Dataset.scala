@@ -20,10 +20,10 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{Mongo, MongoDao, Store}
+import com.actionml.core.storage.Mongo
+import com.actionml.core.storage.backends.MongoDao
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.json4s.native.JsonParser
 import org.mongodb.scala.MongoClient
 
 abstract class Dataset[T](engineId: String) extends LazyLogging {
@@ -57,7 +57,16 @@ abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineI
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
 //      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
       val client = MongoClient("mongodb://localhost:27017")
-      usersDAO = Some(new MongoDao[User](client.getDatabase(p.sharedDBName.getOrElse(resourceId)).getCollection("users")))
+      val db = client.getDatabase(p.sharedDBName.getOrElse(resourceId))
+      import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
+      import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+      import org.mongodb.scala.bson.codecs.Macros._
+      val codecRegistry = fromRegistries(
+        fromProviders(classOf[User]),
+        DEFAULT_CODEC_REGISTRY
+      )
+      val collection = db.getCollection[User]("users").withCodecRegistry(codecRegistry)
+      usersDAO = Some(new MongoDao[User](collection))
       Valid(true)
     }
   }

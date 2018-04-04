@@ -18,13 +18,12 @@
 package com.actionml.templates.navhinting
 
 import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
-import com.actionml.core.storage.MongoStorage
+import com.actionml.core.storage.backends.MongoStorage
 import com.actionml.core.template._
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import org.mongodb.scala.MongoClient
+import com.actionml.core.validate.{JsonParser, ValidateError}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
 class NavHintingEngine() extends Engine() with JsonParser {
@@ -38,8 +37,8 @@ class NavHintingEngine() extends Engine() with JsonParser {
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        val mongoStorage = new MongoStorage(MongoClient.apply("mongodb://localhost:27017").getDatabase(engineId))
-        dataset = new NavHintingDataset(engineId, mongoStorage, scala.concurrent.ExecutionContext.Implicits.global)
+        import scala.concurrent.ExecutionContext.Implicits.global
+        dataset = new NavHintingDataset(engineId, MongoStorage.getStorage(engineId, MongoStorageHelper.codecs))
         drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),

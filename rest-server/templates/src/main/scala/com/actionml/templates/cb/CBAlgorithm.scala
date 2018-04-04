@@ -26,6 +26,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.storage._
+import com.actionml.core.storage.backends.MongoDao
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import com.actionml.templates.cb.SingleGroupTrainer.constructVWString

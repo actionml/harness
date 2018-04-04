@@ -39,8 +39,7 @@ import scala.language.reflectiveCalls
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, storage: Storage, ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
-  implicit val _ = ec
+class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
 
   val activeJourneysDAO = storage.createDao[Journey]("active_journeys")
   val navHintsDAO = storage.createDao[NavHint]("nav_hints")
