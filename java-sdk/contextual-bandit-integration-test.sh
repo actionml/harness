@@ -3,6 +3,7 @@
 echo
 echo "Usage: contextual-bandit-integration-test.sh"
 echo "run from harness/java-sdk or from the integration-test.sh"
+echo "Make sure to set export HARNESS_CA_CERT=/path/to/harness.pem!!! or all sending to Harness will fail."
 echo
 
 # several flags are passed in via export from the integration test, otherwise they are undefined
@@ -38,17 +39,21 @@ sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
 harness status engines
+sleep 15
 
 h=`jps | grep Main | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
+if [[ "$h" -ne "1" ]]; then
+    echo "==============> Yak $h instances of harness, should be one running here <=============="
     exit 1
 fi
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_cb"
 echo
+# mvn compile
+# mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_profile_events" -Dexec.cleanupDaemonThreads=false
+
 h=`jps | grep Main | wc -l`
 if [[ "$h" -gt "1" ]]; then
     echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
