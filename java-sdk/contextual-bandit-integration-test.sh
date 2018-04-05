@@ -39,7 +39,7 @@ sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
 harness status engines
-sleep 15
+sleep 30
 
 h=`jps | grep Main | wc -l`
 if [[ "$h" -ne "1" ]]; then
