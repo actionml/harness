@@ -49,6 +49,10 @@ For "client" type users, POSTing to `/engines/<engine-id>/events` and `/engines/
 | GET | `/engines/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status **(not implemented)** |
 | POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
 | POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
+| POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
+| POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
+| POST | `/engines/<engine-id>/imports?import_path=<some-path>` | none | See Collection responses | none |The parameter tells Harness where to import from, see the `harness import` command for the file format |
+| POST | `/engines/<engine-id>/configs` | none | See Collection responses | new config to replace the one the Engine is using | Updates different params per Engine type, see Engine docs for details |
 | GET | `/commands/` | none | See Collection responses | JSON listing of active Commands | Some commands are long lived and those still active will have status reported. **(not implemented)** |
 
 # Harness User And Permission APIs

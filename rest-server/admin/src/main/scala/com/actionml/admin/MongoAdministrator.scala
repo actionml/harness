@@ -122,6 +122,17 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     }
   }
 
+  override def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, String] = {
+    engines.get(engineId).map { existingEngine =>
+      logger.trace(s"Importing a batch of events into engine: ${engineId} from $importPath")
+      existingEngine.batchInput(importPath).andThen(_ => Valid(
+        """{
+          |  "comment":"New events imported"
+          |}
+        """.stripMargin))
+    }.getOrElse(Invalid(WrongParams(s"Unable to import to Engine: $engineId}, the engine does not exist")))
+  }
+
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")

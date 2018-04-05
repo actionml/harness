@@ -32,30 +32,36 @@ import scala.io.Source
 
 class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
 
-  val f = new File(mirrorContainer)
-  if (f.exists() && f.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
+  private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
+  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean] = {
+    // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
 
-      try {
-        val resourceCollection = new File(containerName(engineId))
-        //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-        if (!resourceCollection.exists()) new File(s"${ containerName(engineId) }").mkdir()
-        val pw = new PrintWriter(new FileWriter(s"${ containerName(engineId) }/$batchName.json", true))
+      if (mirrorContainer != ""){
         try {
-          pw.write(json)
-        } finally {
-          pw.close()
+          val resourceCollection = new File(containerName(engineId))
+          //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
+          if (!resourceCollection.exists()) new File(s"${ containerName(engineId) }").mkdir()
+          val fn = batchName
+          val pw = new PrintWriter(new FileWriter(s"${ containerName(engineId) }/$batchName.json", true))
+          try {
+            pw.write(json)
+          } finally {
+            pw.close()
+          }
+        } catch {
+          case ex: Exception =>
+            val errMsg = "Problem mirroring while input"
+            logger.error(errMsg, ex)
+            mirrorEventError(s"$errMsg: ${ex.getMessage}")
         }
-      } catch {
-        case ex: Exception =>
-          val errMsg = "Problem mirroring while input"
-          logger.error(errMsg, ex)
-          mirrorEventError(s"$errMsg: ${ex.getMessage}")
+
       }
+
     Valid(true)
   }
 
@@ -69,15 +75,19 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
       val resourceCollection = new File(location)
       if (mirrorLocation.getCanonicalPath.compare(resourceCollection.getCanonicalPath) != 0) {
         if (resourceCollection.exists() && resourceCollection.isDirectory) { // read all files as json and input
-          val flist = new java.io.File(location).listFiles.filterNot(_.getName.contains(".")) // Spark json will be part-xxxxx files with no extension otherwise
-          // .filter(_.getName.endsWith(".json"))
-          logger.info(s"Reading files from directory: ${ location }")
+          // val flist = new java.io.File(location).listFiles.filterNot(_.getName.contains(".")) // Spark json will be
+          // part-xxxxx files with no extension otherwise use .filter(_.getName.endsWith(".json"))
+          // not mirrored with Spark, but may import from some source that creates a spark-like directory of part files
+          // Todo: update for Spark
+          val flist = new java.io.File(location).listFiles.filterNot(_.getName.startsWith(".")) // importing files that do not start with a dot like .DStore on Mac
+          logger.info(s"Reading files from directory: ${location}")
           for (file <- flist) {
             Source.fromFile(file).getLines().foreach { line =>
               engine.input(line)
             }
           }
         } else if (resourceCollection.exists()) { // single file
+          logger.info(s"Reading events from single file: ${location}")
           Source.fromFile(location).getLines().foreach { line =>
             engine.input(line)
           }

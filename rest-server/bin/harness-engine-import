@@ -7,9 +7,9 @@
 
 while [ -n "$1" ]; do
     case "$1" in
-        *) RESOURCE_ID=$1
-            FILENAME=$2
-            #echo "Filename: ${FILENAME}"
+        *) resource_id=$1
+            import_path=$2
+            # echo "Engine id: ${resource_id} filename: ${import_path}"
             ;;
     esac
     shift
@@ -17,25 +17,22 @@ while [ -n "$1" ]; do
 done
 
 
-if [ -z "$RESOURCE_ID" ]; then
+if [ -z "$resource_id" ]; then
     echo -e "${RED}Engine resource id not specified!${NC}"
     echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
     echo "The engine-id is missing."
     exit 1
 fi
 
-if [ ! -f ${FILENAME} ]; then
-    echo -e "${RED}Engine events JSON file [${FILENAME}] not found!${NC}"
+if [ ! -f ${import_path} ] && [ ! -d ${import_path} ]; then
+    echo -e "${RED}Engine events JSON file [${import_path}] not found!${NC}"
     echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
     echo -e "Verify that the correct directory or file path is specified."
     exit 1
 fi
 
-PYTHON_ARGS="update"
-if [ -n "$RESOURCE_ID" ]; then PYTHON_ARGS="${PYTHON_ARGS} ${RESOURCE_ID}"; fi
-if [ -n "$FILENAME" ]; then PYTHON_ARGS="${PYTHON_ARGS} --input ${FILENAME}"; fi
-echo "CLI to Python: ${PYTHON_ARGS}"
+python_args="import ${python_args} ${resource_id} --import_path ${import_path}"
 
-#echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
+#echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${python_args}${NC}"
 
-${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
+${HARNESS_HOME}/bin/engines.py ${python_args}

@@ -54,10 +54,12 @@ mkdir -p ${DISTDIR}/project
 mkdir -p ${DISTDIR}/sbt
 
 cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
-cp ${FWDIR}/conf/logback.xml ${DISTDIR}/conf
-cp ${FWDIR}/server/src/main/resources/*.conf ${DISTDIR}/conf
-cp ${FWDIR}/harness.jks ${DISTDIR}
-cp ${FWDIR}/../java-sdk/harness.pem ${DISTDIR}
+cp ${FWDIR}/conf/* ${DISTDIR}/conf
+# cp ${FWDIR}/conf/harness.jks ${DISTDIR}/conf
+# cp ${FWDIR}/conf/harness.pem ${DISTDIR}/conf
+# cp ${FWDIR}/server/src/main/resources/*.conf ${DISTDIR}/conf
+# cp ${FWDIR}/harness.jks ${DISTDIR}
+# cp ${FWDIR}/harness.pem ${DISTDIR}
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
 cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
 cp ${FWDIR}/server/target/universal/stage/lib/* ${DISTDIR}/lib
