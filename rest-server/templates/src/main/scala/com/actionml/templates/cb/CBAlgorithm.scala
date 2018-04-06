@@ -18,6 +18,8 @@
 package com.actionml.templates.cb
 
 import java.io.File
+import java.time.temporal.ChronoUnit
+import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime}
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
@@ -38,8 +40,6 @@ import scala.reflect.io.Path
 import scala.tools.nsc.classpath.FileUtils
 import scala.util.control.Breaks
 //import java.io.File
-import org.joda.time.{DateTime, Duration}
-import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
@@ -67,10 +67,10 @@ case class Train(datum: CBAlgorithmInput)
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-class CBAlgorithm(dataset: CBDataset)
+class CBAlgorithm(resourceId: String, dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
-  private val actors = ActorSystem(dataset.resourceId)
+  private val actors = ActorSystem(resourceId)
 
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
@@ -85,7 +85,7 @@ class CBAlgorithm(dataset: CBDataset)
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
           namespace = engineId)
-        val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
+        val groupEvents: Map[String, DAO[UsageEvent]] = dataset.usageEventGroups
         logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
         val exists = trainers.keys.toList
         vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
@@ -203,13 +203,13 @@ class CBAlgorithm(dataset: CBDataset)
 
   def add(groupName: String): Unit = {
     logger.info("Create trainer {}", groupName)
-    if (!trainers.contains(groupName) &&  dataset.GroupsDAO.findOneById(groupName).nonEmpty) {
+    if (!trainers.contains(groupName) &&  Await.result(dataset.groupsDao.find("_id" -> groupName), 5.seconds).nonEmpty) {
       val actor = actors.actorOf(
         SingleGroupTrainer.props(
           dataset.usageEventGroups(groupName),
-          dataset.usersDAO.get,
+          dataset.usersDAO,
           params,
-          dataset.GroupsDAO.findOneById(groupName).get,
+          Await.result(dataset.groupsDao.find("_id" -> groupName), 5.seconds).get,
           engineId,
           modelPath,
           this.asInstanceOf[CBAlgorithm]),
@@ -225,14 +225,14 @@ class CBAlgorithm(dataset: CBDataset)
   def getVariant(query: CBQuery): CBQueryResult = Await.result({
     //val vw = new VW(" -i " + modelContainer)
 
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+    val group = Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).get
 
     val numClasses = group.pageVariants.size
 
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    dataset.usersDAO.get.find("_id" -> query.user).map(_.getOrElse(User("",Map.empty))).map { user =>
+    dataset.usersDAO.find("_id" -> query.user).map(_.getOrElse(User("",Map.empty))).map { user =>
 
       val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
 
@@ -245,12 +245,12 @@ class CBAlgorithm(dataset: CBDataset)
       //we use testPeriods as epsilon0
 
       val startTime = group.testPeriodStart
-      val endTime = group.testPeriodEnd.getOrElse(new DateTime()) // Todo: no end means you are always on the last day, no
+      val endTime = group.testPeriodEnd.getOrElse(OffsetDateTime.now) // Todo: no end means you are always on the last day, no
       // randomness
 
       val maxEpsilon = 1.0 - (1.0 / numClasses)
-      val currentTestDuration = new Duration(startTime, new DateTime()).getStandardMinutes().toDouble
-      val totalTestDuration = new Duration(startTime, endTime).getStandardMinutes().toDouble
+      val currentTestDuration = Duration.between(startTime, OffsetDateTime.now).get(ChronoUnit.MINUTES).toDouble
+      val totalTestDuration = Duration.between(startTime, endTime).get(ChronoUnit.MINUTES).toDouble
 
       // Alex: scale epsilonT to the range 0.0-maxEpsilon
       // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!
@@ -281,7 +281,7 @@ class CBAlgorithm(dataset: CBDataset)
   // this is likely to not be called since we don't keep track of whether a group has ever received training data
   def getDefaultVariant(query: CBQuery): CBQueryResult = {
     logger.info("Test group has no training data yet. Fall back to uniform distribution")
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+    val group = Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).get
 
     val variants = group.pageVariants
     val numClasses = variants.size
@@ -322,8 +322,8 @@ case class CBAlgoParams(
 
 
 class SingleGroupTrainer(
-    events: UsageEventDAO,
-    users: MongoDao[User],
+    events: DAO[UsageEvent],
+    users: DAO[User],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -417,8 +417,8 @@ object SingleGroupTrainer {
 
 
   def props(
-    events: UsageEventDAO,
-    users: MongoDao[User],
+    events: DAO[UsageEvent],
+    users: DAO[User],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,

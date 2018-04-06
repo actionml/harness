@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package com.actionml.core.storage
+package com.actionml.templates.cb
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
+import com.actionml.core.model.User
+import org.bson.codecs.configuration.CodecProvider
 
+object MongoStorageHelper {
 
-trait Storage {
-  def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
-  def removeCollection(name: String)(implicit ec: ExecutionContext): Future[Unit]
-  def drop()(implicit ec: ExecutionContext): Future[Unit]
-}
-
-trait DAO[T] {
-  def find(filter: (String, Any)*): Future[Option[T]]
-  def list(filter: (String, Any)*): Future[Iterable[T]]
-  def insert(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def update(filter: (String, Any)*)(o: T): Future[T]
-  def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def remove(filter: (String, Any)*): Future[T]
+  val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[GroupParams], classOf[User], classOf[UsageEvent])
+  }
 }

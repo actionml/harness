@@ -17,11 +17,16 @@
 
 package com.actionml.core.storage.backends
 
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
+
 import com.actionml.core.storage.{DAO, Storage}
-import org.bson.codecs.configuration.CodecProvider
+import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
+import org.bson.{BsonReader, BsonWriter}
+import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.Filters
-import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
+import org.mongodb.scala.{Completed, MongoClient, MongoCollection, MongoDatabase, Observer}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -34,7 +39,11 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Stora
     import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 
     import scala.collection.JavaConversions._
-    val codecRegistry = fromRegistries(fromProviders(codecs), DEFAULT_CODEC_REGISTRY)
+    val codecRegistry = fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
+      fromProviders(codecs),
+      DEFAULT_CODEC_REGISTRY
+    )
     new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry))
   }
 
@@ -51,6 +60,18 @@ object MongoStorage {
 }
 
 
+class InstantCodec extends Codec[Instant] {
+  override def decode(reader: BsonReader, dc: DecoderContext): Instant = Instant.ofEpochMilli(reader.readDateTime)
+  override def encode(writer: BsonWriter, value: Instant, ec: EncoderContext): Unit = writer.writeDateTime(value.toEpochMilli)
+  override def getEncoderClass: Class[Instant] = classOf[Instant]
+}
+
+class OffsetDateTimeCodec extends Codec[OffsetDateTime] {
+  override def decode(reader: BsonReader, dc: DecoderContext): OffsetDateTime = OffsetDateTime.ofInstant(Instant.ofEpochMilli(reader.readDateTime), ZoneOffset.UTC)
+  override def encode(writer: BsonWriter, value: OffsetDateTime, ec: EncoderContext): Unit = writer.writeDateTime(value.toInstant.toEpochMilli)
+  override def getEncoderClass: Class[OffsetDateTime] = classOf[OffsetDateTime]
+}
+
 class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] {
 
   override def find(filter: (String, Any)*): Future[Option[T]] =
@@ -59,11 +80,29 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
   override def list(filter: (String, Any)*): Future[Iterable[T]] =
     collection.find(mkBson(filter)).toFuture
 
-  override def insert(o: T)(implicit ec: ExecutionContext): Future[Unit] =
-    collection.insertOne(o).toFuture.map(_ => ())
+  override def insert(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    val s = collection.insertOne(o)
+    s.subscribe(new Observer[Completed] {
+      override def onNext(result: Completed): Unit = println(s"onNext: $result")
+      override def onError(e: Throwable): Unit = println(s"onError: $e")
+      override def onComplete(): Unit = println("onComplete")
+    })
+    val f = s.headOption
+    f.onFailure {
+      case e => e.printStackTrace
+    }
+    f.map(_ => ())
+  }
 
-  override def update(filter: (String, Any)*)(o: T): Future[T] = {
+  override def update(filter: (String, Any)*)(o: T): Future[T] =
     collection.findOneAndReplace(mkBson(filter), o).toFuture
+
+  override def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    for {
+      opt <- collection.find(mkBson(filter)).headOption
+      _ <- if (opt.isDefined) collection.replaceOne(mkBson(filter), o).headOption.recover { case e => e.printStackTrace }
+           else insert(o)
+    } yield ()
   }
 
   override def remove(filter: (String, Any)*): Future[T] =
@@ -71,6 +110,7 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
 
 
   private def mkBson(fields: Seq[(String, Any)]): Bson = {
-    Filters.and(fields.map { case (k, v) => Filters.eq(k, v) }.toArray: _*)
+    if (fields.isEmpty) Document("_id" -> Document("$exists" -> true))
+    else Filters.and(fields.map { case (k, v) => Filters.eq(k, v) }.toArray: _*)
   }
 }

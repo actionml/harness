@@ -20,15 +20,11 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.Mongo
-import com.actionml.core.storage.backends.MongoDao
+import com.actionml.core.storage.{Mongo, Storage}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.mongodb.scala.MongoClient
 
-abstract class Dataset[T](engineId: String) extends LazyLogging {
-
-  val resourceId: String = engineId
+abstract class Dataset[T] extends LazyLogging {
 
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
@@ -41,13 +37,10 @@ abstract class Dataset[T](engineId: String) extends LazyLogging {
 
 }
 
-abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineId)
+abstract class SharedUserDataset[T](storage: Storage) extends Dataset[T]
   with JsonParser with Mongo with LazyLogging {
 
-  import salat.dao._
-  import salat.global._
-
-  var usersDAO: Option[MongoDao[User]] = None // todo: should this be _
+  val usersDAO = storage.createDao[User]("users")
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
@@ -56,17 +49,6 @@ abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineI
 
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
 //      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
-      val client = MongoClient("mongodb://localhost:27017")
-      val db = client.getDatabase(p.sharedDBName.getOrElse(resourceId))
-      import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
-      import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-      import org.mongodb.scala.bson.codecs.Macros._
-      val codecRegistry = fromRegistries(
-        fromProviders(classOf[User]),
-        DEFAULT_CODEC_REGISTRY
-      )
-      val collection = db.getCollection[User]("users").withCodecRegistry(codecRegistry)
-      usersDAO = Some(new MongoDao[User](collection))
       Valid(true)
     }
   }

@@ -22,6 +22,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.storage.backends.MongoStorage
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
@@ -38,7 +39,9 @@ class CBEngine() extends Engine() with JsonParser {
   private def createResourses(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
     params = p
     engineId = params.engineId
-    dataset = new CBDataset(engineId)
+    val storage = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
+    val usersStorage = MongoStorage.getStorage(p.sharedDBName.getOrElse(engineId), MongoStorageHelper.codecs)
+    dataset = new CBDataset(engineId, storage, usersStorage)
     drawInfo("Contextual Bandit Init", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("EngineId: ", engineId),
@@ -54,7 +57,7 @@ class CBEngine() extends Engine() with JsonParser {
         createResourses(p).andThen{ _ =>
           dataset.init(json, deepInit).andThen { _ =>
             if (deepInit) {
-              algo = new CBAlgorithm(dataset)
+              algo = new CBAlgorithm(p.engineId, dataset)
               algo.init(json, this)
             } else Valid(true)
           }
@@ -115,9 +118,9 @@ class CBEngine() extends Engine() with JsonParser {
       case event: CBUsageEvent =>
         import scala.concurrent.ExecutionContext.Implicits.global
         val datum = CBAlgorithmInput(
-          Await.result(dataset.usersDAO.get.find("_id" -> event.toUsageEvent.userId).map(_.get), 5.seconds),
+          Await.result(dataset.usersDAO.find("_id" -> event.toUsageEvent.userId).map(_.get), 5.seconds),
           event,
-          dataset.GroupsDAO.findOneById(event.toUsageEvent.testGroupId).get,
+          Await.result(dataset.groupsDao.find("_id" -> event.toUsageEvent.testGroupId), 5.seconds).get,
           engineId
         )
         algo.input(datum)
@@ -140,7 +143,7 @@ class CBEngine() extends Engine() with JsonParser {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId) || dataset.GroupsDAO.findOneById(query.groupId).nonEmpty) {
+      if(algo.trainers.isDefinedAt(query.groupId) || Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).nonEmpty) {
         val result = algo.predict(query)
         Valid(result.toJson)
       } else {

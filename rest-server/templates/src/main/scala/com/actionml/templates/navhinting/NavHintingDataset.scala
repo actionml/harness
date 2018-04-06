@@ -19,19 +19,17 @@ package com.actionml.templates.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{Mongo, Storage}
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.storage.Storage
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers
 import org.joda.time.DateTime
 import salat.dao._
 import salat.global._
 
-import scala.collection.immutable.HashMap
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.reflectiveCalls
 
 /** Navigation Hinting input data
@@ -39,7 +37,7 @@ import scala.language.reflectiveCalls
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
+class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
 
   val activeJourneysDAO = storage.createDao[Journey]("active_journeys")
   val navHintsDAO = storage.createDao[NavHint]("nav_hints")
