@@ -143,6 +143,7 @@ The CB has a configuration file defined below. This defines parameters for for t
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
  - **modelContainer**: this must point to a directory on the server machine and will be used by VW to keep the live model in a file named the same as the `engineId` above.
+ - **sharedDBName**: The name of a db shared between all engine instances that as configured to use it. Each CBEngine will put user profile information here with the goal of using any shared user information in all algorithms that have access. It is assumed that if 2 or more clients use this shared DB that user ids are globally unique (only the same user will have the same id between clients). If is further assumed that the profile information shared is something that gives and indication for what variant a user might prefer. For example "name" would not be a good shared user profile attribute, but "location" might be. 
  - **algorithm**: params known only by the algorithm, which is a part of the Template definition.
   - **maxIter**: max iterations to calculate classification, best left at 100 so pathological cases won't take forever to complete.
   - **regParam**: regularization parameter, see VW docs.
