@@ -72,9 +72,14 @@ The common settings for all engine instances available or required in any JSON f
 ```
 "engineId": "test_scaffold_resource",
 "engineFactory": "com.actionml.templates.scaffold.ScaffoldEngine",
+"comment": "only localfs for Harness < 0.2.0, then hdfs is allowed",
 "mirrorType": "localfs",
+"comment": "a directory or container for the mirrorType, not a file name",
 "mirrorContainer": "!!!< directory for local fs storage of mirrored events >!!!",
+"comment": "a directory or container for the mirrorType, not a file name",
 "modelContainer": "!!!< directory for local fs storage of models >!!!",
+"comment": "it is usually safe to use lower case with snake case for readability",
+"sharedDBName": "!!!<name of db to share data>!!!",
 "algorithm": {
   ...
 }
@@ -82,8 +87,8 @@ The common settings for all engine instances available or required in any JSON f
 
  - **engineId**: This is a URL encoded REST resource id for the engine instance. It is therefore the "address" by which it is know to the REST API. No default: required.
  - **engineFactory**: The fully qualified classname which contains a factory or construction method named `initAndGet` which takes this JSON file as the input parameter and responds with an HTTP status code and explanation body. No default: required.
- - **mirrorType**: localfs is the only allowed type at present but in teh future the HDFS distributed file system and possible Kafka topic names will be supported. No default: not required. The presence of this and the `mirrorLocation` turns on mirroring.
- - **mirrorContainer**: A descriptor for the location of mirroring for this engine instance. No default: not required. The presence of this and the `mirrorType` turns on mirroring.
- - **modelContainer**: A descriptor for the location the engine instance may use to keep the persistent form of any model needed by the instance. This may be a localfs location or some id required by the Engine. Default to the `HARMESS_HOME` but is by no means required unless the Engine needs it.
+ - **mirrorType**: `localfs` is the only allowed type at present but in the future the `hdfs` distributed file system and possible Kafka topic names will be supported. No default: not required. The presence of this and the `mirrorContainer` turns on mirroring.
+ - **mirrorContainer**: A descriptor for the location of mirroring for this engine instance. This should be a directory or other container, not a file name. If using localfs a subdirectory will be created with the engine-id as a name and files will accumulate labeled for each day of mirroring. No default: not required. The presence of this and the `mirrorType` turns on mirroring.
+ - **modelContainer**: A descriptor for the location the engine instance may use to keep the persistent form of any model needed by the instance. This may be a localfs directory or some id required by the Engine. Typically this is a directory, which will have a model named for each engine-id. Defaults to the `HARMESS_HOME` if the Engine needs it.
+ - **sharedDBName**: The name of a db shared between all engine instances that as configured to use it. Each Engine decides what it can share. Data stored here must be carefully coordinated between engines, use at your own risk. The primary use would be for user information shared between all Engine instances assigned to a single client app or site. See each Engine docs for specifics.   
  - **algorithm**: this is special to all Engine types and is not specified here.
-

@@ -55,6 +55,10 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
       log.info(s"Update existing engine, ${engineJson}")
       sender() ! admin.updateEngine(engineJson).map(_.asJson)
 
+    case UpdateEngineWithImport(engineId, inputPath) =>
+      log.info(s"Update existing engine by importing, ${inputPath}")
+      sender() ! admin.updateEngineWithImport(engineId, inputPath).map(_.asJson)
+
     /*
     case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
       log.info(s"Update existing engine, ${engineId}, ${engineJson}, ${dataDelete}, ${dataDelete}, ${force}, ${input}")
@@ -76,6 +80,7 @@ case class GetEngine(engineId: String) extends EngineAction
 case class GetEngines() extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
 case class UpdateEngine(engineJson: String) extends EngineAction
+case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
 
 // keeping update simple, only allow sending new json config
 //case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction

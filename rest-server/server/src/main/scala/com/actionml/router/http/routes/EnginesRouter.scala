@@ -56,13 +56,14 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
         getEngines ~
         createEngine
       } ~
-      path(Segment) { engineId ⇒
+      pathPrefix(Segment) { engineId ⇒
         hasAccess(engine.read, engineId).apply {
           getEngine(engineId)
         } ~
         hasAccess(engine.modify, engineId).apply {
-          updateEngine(engineId) ~
-          deleteEngine(engineId)
+          delete(deleteEngine(engineId)) ~
+          (post & path("imports"))(updateEngineWithImport(engineId)) ~
+          (post & path("configs"))(updateEngineWithConfig(engineId))
         }
       }
     }
@@ -90,32 +91,21 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
   }
 
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
-    log.info("Update engine: {}", engineConfig)
+  private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[Json]) { engineConfig ⇒
+    log.info("Update engine: {}, updateConfig: true", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngine(engineConfig.toString())).mapTo[Response]
+      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Response]
     }
   }
 
-  /*
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (post & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
-    entity(as[Json]) { engineConfig ⇒
-      //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
-      log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithConfig(engineId, engineConfig.toString(), dataDelete, force, input)).mapTo[Response]
-      }
-    } ~ {
-      log.info("Update engine: {}, delete: {}, force: {}, input: {}", engineId, dataDelete, force, input)
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithId(engineId, dataDelete, force, input)).mapTo[Response]
-      }
+  private def updateEngineWithImport(engineId: String)(implicit log: LoggingAdapter): Route = parameter('import_path) { importPath ⇒
+    log.info("Update engine: {}, importPath: {}", engineId, importPath)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Response]
     }
-
   }
-  */
 
-  private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
+  private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? DeleteEngine(engineId)).mapTo[Response]

@@ -25,7 +25,7 @@ elif args.action == 'update':
     # print("Engine-id: " + engine_id)
     # print("Json config: \n" + str(config))
     try:
-        res = engine_client.update(engine_id=engine_id, data=config)
+        res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_config=True, data=config)
         # print_success_string('Updating engine-id: {} \n'.format(engine_id))
         print_success(res, 'Updating engine: \n')
     except HttpError as err:
@@ -46,6 +46,17 @@ elif args.action == 'update':
 #        print_success(res, 'Updating existing engine. Success:\n')
 #    except HttpError as err:
 #        print_failure(err, 'Error updating engine.')
+
+elif args.action == 'import':
+    engine_id = args.engine_id
+    # print("Import path: {}".format(args.import_path))
+    try:
+        res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_config=False, data={})
+        print_success(res, 'Importing to engine: {}\n'.format(engine_id))
+    except HttpError as err:
+        print_failure(err, 'Error importing to engine-id: {} from {}\n'.format(engine_id, args.import_path))
+    #  else:
+    #      print_failure(None, "Error: no input for import command.")
 
 elif args.action == 'delete':
     engine_id, config = id_or_config()

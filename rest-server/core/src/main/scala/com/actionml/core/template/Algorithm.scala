@@ -30,17 +30,17 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Algorithm[Q, R] extends JsonParser with LazyLogging {
   var engineId: String = _
-  var modelPath: String = _
+  var modelPath: String = _  // optional place in some filesystem to persist the model, a file path
 
   def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
     engineId = engine.engineId
-    modelPath = engine.modelContainer // optional place in some filesystem to persist the model
+    modelPath = engine.modelContainer + engineId //todo: should the Engine even know about the modelContainer?
     Valid(true)
   }
 
   def destroy(): Unit
-  def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base KappaLambdaAlgorithm"); this}
-  def stop(): Unit = {logger.trace(s"No-op stopping base KappaLambdaAlgorithm")}
+  def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Kappa/Lambda Algorithm"); this}
+  def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
   def predict(query: Q): R
 }
 

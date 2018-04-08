@@ -1,14 +1,10 @@
 # Commands
 
-Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server and have admin credentials. The only exception is Starting and Stoping Harness, which must be done on the machine Harness runs on.
+Harness includes an admin command line interface. It triggers the REST interface and can be run remotely as long as you point the CLI to the correct Harness server. The only exception is Starting and Stoping Harness, which must be done on the machine Harness runs on.
 
 Harness must be running for all but the `harness start` command. All other commands work against the running Harness server.
 
-Internal to Harness are ***Engines*** that are instances of ***Templates*** made of objects like datasets and algorithms. All input data is validated by the engine, and must be readable by the algorithm. The simple basic form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
-
-## REST Endpoints for the CLI 
-
-See the [Harness REST-Spec](rest_spec.md) for all HTTP APIs. These are used by the CLI.
+Internal to Harness are ***Engines Instances*** that are instances of ***Engines*** made of objects like datasets and algorithms, plus a specific configuration. All input data is validated by the engine, and must be readable by the algorithm. The simple form of workflow is; start server, add engine, input data to the engine, train (for Lambda, Kappa will auto train with each new input), query. See the workflow section for more detail.
 
 ## The Command Line Interface
 
@@ -17,16 +13,18 @@ Harness uses resource-ids to identify all objects in the system, engines and com
 **Things to remember:** 
 
  - The file `<some-engine-json-file>` can be named anything and put anywhere. `harness-env.sh` contains parameter overrides and must be in `/path/to/harness/bin/harness-env.sh`.
- - The working copy of all engine parameters and input data is actually in a shared database and so until you create a new engine or modify it, the engine config is not active and event data sent to the resource-id will be rejected.
+ - The working copy of all engine parameters and input data is actually in a shared database and so until you add or update an engine instance, the engine config is not active and event data sent to an inactive engine-id will be rejected.
  - No command works before you start the server except for `harness start`
 
-**Commands**:
+# Harness Start and Stop:
 
 Set your path to include to the directory containing the `harness` script. **Note**: Commands not yet implemented in Harness are marked with a dagger character (**&dagger;**)
 
  - **`harness start [-f]`** starts the harness server based on configuration in `harness-env`. The `-f` argument forces a restart if Harness is already running. All other commands require the service to be running, it is always started as a daemon/background process. All previously configured engines are started in the state they were in when harness was last run.
 
- - **`harness stop`** gracefully stops harness and all engines.
+ - **`harness stop`** gracefully stops harness and all engines. If the pid-file has become out of sync, looks for the `Main` process for Harness with `jps -lm` and execute `kill <pid>` to stop it.
+
+See the [Harness REST-Spec](rest_spec.md) for all HTTP APIs. These are used by the CLI.
 
 # Engine Management
 
@@ -148,9 +146,9 @@ All config of Harness is done with `harness-env`. Any needed services are to be 
     
 A full list of these will be provided in a `harness-env` and `auth-server-env`.
 
-## `some-engine.json` Required Parameters
+## `some-engine.json` Engine Parameters
 
-This file provide the parameters and config for anything that is Template/Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are used by the Harness framework for functions that are available to all Engines like mirroring.
+This file provide the parameters and config for anything that is Engine specific like algorithm parameters or compute engine config (for instance Spark or VW, if used). Each Template comes with a description of all parameters and they're meaning. Some fields are used by the Harness framework for functions that are available to all Engines like mirroring.
 
     {
         "engineId": "some_resource_id"
@@ -176,37 +174,46 @@ The `"other"` section or section(s) are named according to what the Template def
 
 # Input Mirroring
 
-Some special events like `$set`, `$unset`, `$delete` may cause mutable database data to be modified as they are received, while events that do not use the reserved "$" names represent an immutable event stream. That is to say sequence matters with input and some state is mutable and some immutable. In order to provide for replay or modification of the event stream, we provide mirroring of all events with no validation. This is useful if you wanted to change the params for an engine and re-create it using all past data.
+Harness will mirror all events with no validation, when configured to do so for a specific Engine instance. This is useful if you wanted to be able to backup/restore all data or are experimenting with changes in engine parameters and wish to recreate the models using past mirrored data.
 
-To accomplish this, you must set up mirroring for the Harness Server. Once the Engine is launched with a mirrored configuration all events sent to `/engines/resource-id/events` will be mirrored to a location set in `some-engine.json`. **Note** that best practice would be to start with mirroring and then turn if off once everything is running correctly since mirroring will save all events and grow without limit, like unrotated server logs. This can easily lead to out-of-disk type errors. 
+To accomplish this, you must set up mirroring for the Harness Server. Once the Engine is launched with a mirrored configuration all events sent to `POST /engines/<engine-id>/events` will be mirrored to a location set in `some-engine.json`. **Note** Events will be mirrored until the config setting is changed and so can grow without limit, like unrotated server logs.  
 
-*In the future HDFS* can be used and mirrored file rotation will be implemented to solve this problem. We also allow mirroring to be enabled and disabled per engine-id.
-
-To enable mirroring add the following to the `some-engine.json` that you want to mirror events:
+To enable mirroring add the following to the `some-engine.json` for the engine you want to mirror events:
 
     "mirrorType": "localfs", // optional, turn on a type of mirroring
     "mirrorContainer": "path/to/mirror", // optional, where to mirror input
 
-set these in the global engine params, not in algorithm params as in the "Required Parameters" section above. 
-
-To use mirrored files, for instance to re-run a test with different algorithm parameters:
-
-    harness delete <some-resource-id>
-    # change algo parameters in some-engine.json
-    harness add </path/to/some-engine.json>
-    # you cannot import from the mirrored directory since every event
-    # will be also mirrored, causing an infinite loop so move them first
-    mv </path/to/mirrored/events> </some/new/path>
-    harness import -i </some/new/path>   
-
-**Note**: any Event sent to an Engine will be mirrored to `$MIRROR_CONTAINER_NAME/engine-id/dd-MM-yy.json` as long as the event source app has write access to the endpoint, with no validation.
+set these in the global engine params, not in algorithm params as in the "Base Parameters" section above. 
 
 ## Scenarios for Mirroring
 
- 1. **Auto-backup**: To automatically backup all data, mirror it and periodically save the files to archival storage of some type. Then remove the mirrored file in the live system so they do not continue to accumulate.
- 2. **Experimental Startup**: This is the case where input is used with several Engine configurations to get the best performance. In this case the input comes into the Engine and is moved to a non-mirror location once. As the Engine config or code is changed the data is imported and the Engine tested, without mirroring since as long as the input does not change there is no need to keep multiple copies of it.
- 3. **Input Format Validation**: Early in the use of an Engine it is often useful to run Events into the Engine for validation. If there are errors the Events will need to be changed and can be re-imported for new validation. In this case all mirrored data will likely be deleted to avoid corrupting the backup, which should start once the Events pass validation.
+Mirroring is similar to logging. Each new events if received by Harness and copied into a file. This is before any validation, a simple log. The format is JSON one event per line. One primary use of mirrored data is to import into an Engine instance later.
 
-# Importing and Bootstrapping
+### Auto-Backup/Restore Senario
 
-The `harness import </path/to/events>` command is useful when json events have been derived from past log history or from mirrored Events, perhaps from another Engine or when using a different Engine config JSON file. Importing is also the primary method for restoring backed up input data. Importing will add to the Engine's existing data and will also be mirrored so if the import is meant to be a clean start for the Engine, run `harness delete <engine-id>` then `harness add </path/to/engine/json/file>`. Deleting any accumulating or unneeded previously mirrored data is the responsibility of the user. Continuous mirroring will eventually lead to storage overflow.
+ - Setup mirroring in you Engine's JSON config.
+ - Periodically archive the mirrored data and erase the files backed up. Be careful to only archive up to the current date since it is still receiving updates so only archive from the previous day backwards
+ - To restore an engine instance for backed up data use `harness import </path/to/backed/up/events/directory>`. Specifying the directory will cause all event files to be imported.
+
+### Experimental Startup Scenario
+
+ - Add an engine to Harness using mirroring, this will put all events into the location specified. We'll call this `engine_1`
+ - When you want to try different settings just create a new engine with a new config JSON file making sure to use a **new engine-id**. We'll call this `engine_2`. This will allow you to use the mirrored events as input to the new `engine_2` instance directly from where they were mirrored.
+ - Now use `harness import <some-directory-of-event-files>` to batch import the events from `engine_1` into the new `engine_`  
+
+To do this perform the following sequence:
+
+    # create a new JSON config file for `engine_2`
+    harness add </path/to/engine_2/config/json-file>
+    
+you cannot import from the mirrored directory since every imported event will be also mirrored, causing an infinite loop so make sure the new config file give the engine-id of `engine_2`
+
+    harness import </some/path/to/mirror/directory/engine_1>   
+
+at this point you will have a new engine with a new engine-id but the model will be created using the new configuration params even though the events will have the same data.
+
+# Bootstrapping With Import
+
+Import can be used to restore backed up data but also for bootstrapping a new Engine instance with previously logged or collected batches of data. Imagine a recommender that takes in people's purchase history. This might exist in server logs and converting these to files of JSON events is an easy and reproducible way to "bootstrap" your recommender with previous data before you start to send live events. This, in effect, trains your recommender retro-actively, improving the quality of recommendations at its first startup. This is one popular solution to the "cold-start" problem but can be used to bootstrap any Engine with training data.  
+
+The `harness import </path/to/events>` command is one way to read JSON events directly. It is equivalent to sending Events via the REST input API. 

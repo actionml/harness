@@ -81,7 +81,7 @@ class CBEngine() extends Engine() with JsonParser {
   }
 
   override def stop(): Unit = {
-    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
+    logger.info(s"Waiting for CBAlgorithm for engineId: $engineId to terminate")
     algo.stop()
   }
 
