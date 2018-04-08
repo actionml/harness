@@ -20,7 +20,7 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{Mongo, Storage}
+import com.actionml.core.storage.Storage
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -38,7 +38,7 @@ abstract class Dataset[T] extends LazyLogging {
 }
 
 abstract class SharedUserDataset[T](storage: Storage) extends Dataset[T]
-  with JsonParser with Mongo with LazyLogging {
+  with JsonParser with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {

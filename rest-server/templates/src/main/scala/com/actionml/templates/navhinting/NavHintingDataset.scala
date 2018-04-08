@@ -17,16 +17,16 @@
 
 package com.actionml.templates.navhinting
 
+import java.time.OffsetDateTime
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.storage.Storage
 import com.actionml.core.template.{Dataset, Event}
 import com.actionml.core.validate._
-import com.mongodb.casbah.Imports._
 import org.joda.time.DateTime
-import salat.dao._
-import salat.global._
+import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -81,7 +81,7 @@ class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: Executi
                 activeJourneysDAO.insert(
                   Journey(
                     event.entityId,
-                    Seq(JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime)))
+                    Seq(JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime)))
                   )
                 )
               }).map(_ => Valid(event))
@@ -137,7 +137,7 @@ class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: Executi
       Some(
         Journey(
           journey._id,
-          (journey.trail :+ JourneyStep(event.targetEntityId, DateTime.parse(event.eventTime))).takeRight(trailLength)
+          (journey.trail :+ JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime))).takeRight(trailLength)
         )
       )
     } else None
@@ -220,7 +220,6 @@ case class NHNavEvent(
 }
 
 case class NavEvent(
-  _id: ObjectId = new ObjectId(),
   event: String,
   userId: String,
   itemId: String,
@@ -231,23 +230,11 @@ case class NavEvent(
 
 case class JourneyStep(
     navId: String,
-    timeStamp: DateTime)
+    timeStamp: OffsetDateTime)
 
 case class Journey(
     _id: String, // User-id we are recording nav events for
     trail: Seq[JourneyStep]) // most recent nav events
-
-
-// active journeys not yet converted
-case class ActiveJourneysDAO(activeJourneys: MongoCollection) extends SalatDAO[Journey, String](activeJourneys)
-
-// model = sum of converted journey weighted vectors
-/*case class Hints(
-    _id: String = "1", // only one ever stored so fix it's _id
-    hints: Map[String, Double])
-*/
-case class NavHintsDAO(navHints: MongoCollection) extends SalatDAO[NavHint, String](navHints)
-
 
 case class NavHint(
     _id: String, // nav-id

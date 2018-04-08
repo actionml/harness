@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package com.actionml.core.storage
+package com.actionml.admin
 
 import java.net.UnknownHostException
 
+import com.actionml.core.storage.Store
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClient
 import com.mongodb.casbah.commons.conversions.scala.RegisterJodaTimeConversionHelpers

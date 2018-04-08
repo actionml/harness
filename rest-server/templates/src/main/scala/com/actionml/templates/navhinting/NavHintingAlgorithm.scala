@@ -18,6 +18,7 @@
 package com.actionml.templates.navhinting
 import java.io.{FileInputStream, FileNotFoundException, FileOutputStream, IOException}
 import java.nio.file.Paths
+import java.time.OffsetDateTime
 
 import akka.actor._
 import cats.data.Validated
@@ -26,8 +27,6 @@ import com.actionml.core.storage._
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.joda.time.DateTime
-import salat.dao.SalatDAO
 
 import scala.concurrent.{Await, Future}
 import scala.math._
@@ -77,32 +76,32 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     val converted = datum.event.properties.conversion.getOrElse(false)
     if (converted) { // update the model with the active journeys and remove it from active
       if (activeJourney.nonEmpty) { // have an active journey
-        updateModel(Journey(datum.event.entityId, activeJourney.get), DateTime.parse(datum.event.eventTime))
+        updateModel(Journey(datum.event.entityId, activeJourney.get), OffsetDateTime.parse(datum.event.eventTime))
         activeJourneys -= datum.event.entityId // remove once converted
       } else { // new event from this user, start a journey
-        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
+        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, OffsetDateTime.parse(datum.event.eventTime)))
       }
     } else { // no conversion so just update activeJourney
       if (activeJourney.nonEmpty) { // have an active journey so update
         activeJourneys += (datum.event.entityId -> updateTrail(
           datum.event.targetEntityId,
-          DateTime.parse(datum.event.eventTime),
+          OffsetDateTime.parse(datum.event.eventTime),
           activeJourney.get))
       } else { // no conversion, no journey, create a new one
-        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, DateTime.parse(datum.event.eventTime)))
+        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, OffsetDateTime.parse(datum.event.eventTime)))
       }
     }
     Valid(true)
   }
 
   /** add the event to the end of an active journey subject to length limits */
-  def updateTrail(navId: String, timeStamp: DateTime, trail: Seq[JourneyStep]): Seq[JourneyStep] = {
+  def updateTrail(navId: String, timeStamp: OffsetDateTime, trail: Seq[JourneyStep]): Seq[JourneyStep] = {
     val newTrail = trail :+ JourneyStep(navId, timeStamp)
     newTrail.takeRight(params.numQueueEvents.getOrElse(50))
   }
 
   /** update the model with a Future for every input. This may cause Futures to accumulate */
-  def updateModel(convertedJourney: Journey,  now: DateTime): Unit = {
+  def updateModel(convertedJourney: Journey,  now: OffsetDateTime): Unit = {
     Await.result(applyDecayFunction(convertedJourney, now).map { weightedVectors =>
       //Semigroup[Map[String, Double]].combine(model, weightedVectors.toMap)
       weightedVectors.foreach { case (_id, weight) =>
@@ -166,7 +165,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
   */
 
-  private def applyDecayFunction(journey: Journey, now: DateTime): Future[Seq[(String, Double)]] = {
+  private def applyDecayFunction(journey: Journey, now: OffsetDateTime): Future[Seq[(String, Double)]] = {
     val decayFunctionName = params.decayFunction.getOrElse("click-order")
     Future[Seq[(String, Double)]] {
       val weigthedVector = Seq[(String, Double)]()
@@ -180,7 +179,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
           }
         case DecayFunctionNames.ClickTimes =>
           journey.trail.map { case step =>
-            val  millisFromConversion = now.getMillis - step.timeStamp.getMillis
+            val  millisFromConversion = now.getNano - step.timeStamp.getNano
             val timeFromConversion = if (millisFromConversion == 0) 1 else millisFromConversion
             if (timeFromConversion < 0 ) {
               val debug = timeFromConversion
@@ -189,7 +188,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
           }
         case DecayFunctionNames.HalfLife =>
           journey.trail.map { case step =>
-            val  millisFromConversion = now.getMillis - step.timeStamp.getMillis
+            val  millisFromConversion = now.getNano - step.timeStamp.getNano
             val daysFromConversion = if (millisFromConversion == 0) 1 else millisFromConversion / 8.64e+7f
             val halfLifeDays = params.halfLifeDecayLambda.getOrElse(1f)
             step.navId -> pow(2.0d, -daysFromConversion / halfLifeDays)

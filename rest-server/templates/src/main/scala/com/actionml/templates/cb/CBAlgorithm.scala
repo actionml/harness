@@ -37,7 +37,6 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.concurrent.Await
 import scala.io.Source
 import scala.reflect.io.Path
-import scala.tools.nsc.classpath.FileUtils
 import scala.util.control.Breaks
 //import java.io.File
 import org.json4s.jackson.JsonMethods._
@@ -249,8 +248,8 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       // randomness
 
       val maxEpsilon = 1.0 - (1.0 / numClasses)
-      val currentTestDuration = Duration.between(startTime, OffsetDateTime.now).get(ChronoUnit.MINUTES).toDouble
-      val totalTestDuration = Duration.between(startTime, endTime).get(ChronoUnit.MINUTES).toDouble
+      val currentTestDuration = Duration.between(startTime, OffsetDateTime.now).toMinutes.toDouble
+      val totalTestDuration = Duration.between(startTime, endTime).toMinutes.toDouble
 
       // Alex: scale epsilonT to the range 0.0-maxEpsilon
       // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!

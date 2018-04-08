@@ -32,7 +32,6 @@ lazy val commonSettings = Seq(
 
     "com.typesafe" % "config" % "1.3.1",
     "com.iheart" %% "ficus" % "1.4.0",
-    "joda-time" % "joda-time" % "2.9.9",
 
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
@@ -42,9 +41,6 @@ lazy val core = (project in file("core")).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.2",
-
       "org.mongodb.scala" %% "mongo-scala-driver" % "2.2.1",
       "org.mongodb.scala" %% "mongo-scala-bson" % "2.2.1",
       "org.mongodb" % "bson" % "3.4.2",
@@ -99,6 +95,11 @@ lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
+      "org.mongodb" %% "casbah" % "3.1.1",
+      "com.github.salat" %% "salat" % "1.11.2",
+
+      "joda-time" % "joda-time" % "2.9.9",
+
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
     )

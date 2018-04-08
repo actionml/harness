@@ -22,7 +22,7 @@ import java.time.{Instant, LocalDateTime, OffsetDateTime}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{DAO, Mongo, Storage}
+import com.actionml.core.storage.{DAO, Storage}
 import com.actionml.core.template.{Dataset, Event, SharedUserDataset}
 import com.actionml.core.validate._
 

@@ -24,6 +24,6 @@ object MongoStorageHelper {
 
   val codecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
-    List(classOf[User])
+    List(classOf[Journey], classOf[JourneyStep], classOf[NavHint], classOf[User])
   }
 }
