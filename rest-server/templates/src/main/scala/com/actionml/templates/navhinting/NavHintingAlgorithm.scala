@@ -107,7 +107,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
       weightedVectors.foreach { case (_id, weight) =>
         for {
           existingModelHint  <- dataset.navHintsDAO.find("_id" -> _id).map(_.getOrElse(NavHint(_id, 0d)))
-          _ <- dataset.navHintsDAO.insert(NavHint(_id, weight + existingModelHint.weight))
+          _ <- dataset.navHintsDAO.upsert("_id" -> _id)(NavHint(_id, weight + existingModelHint.weight))
           updatedWeight = weight + existingModelHint.weight
         } yield logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight}")
       }

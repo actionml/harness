@@ -75,10 +75,11 @@ class NavHintingDataset(engineId: String, storage: Storage)(implicit ec: Executi
               (if (unconvertedJourney.nonEmpty) {
                 val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
                 if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
-                  activeJourneysDAO.insert(updatedJourney.get).map(_ => Valid(true))
+                  val j = updatedJourney.get
+                  activeJourneysDAO.upsert("_id" -> j._id)(j).map(_ => Valid(true))
                 } else Future.successful(()) // else the first event for the journey is a conversion so ignore
               } else { // no persisted journey so create it
-                activeJourneysDAO.insert(
+                activeJourneysDAO.upsert("_id" -> event.entityId)(
                   Journey(
                     event.entityId,
                     Seq(JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime)))

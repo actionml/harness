@@ -96,7 +96,7 @@ class CBDataset(resourceId: String, storage: Storage, usersStorage: Storage) ext
               "converted" -> event.properties.converted,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
 */
-            usageEventGroups(event.properties.testGroupId).insert(event.toUsageEvent)
+            usageEventGroups(event.properties.testGroupId).upsert("_id" -> event.entityId)(event.toUsageEvent)
 
             if (event.properties.converted) { // store the preference with the user
               Await.result(usersDAO.find("_id" -> event.entityId).map(_.getOrElse(User("", Map.empty))).flatMap { user =>
