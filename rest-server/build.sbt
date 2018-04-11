@@ -93,16 +93,7 @@ lazy val templates = (project in file("templates")).dependsOn(core).
 
 lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
-    commonSettings,
-    libraryDependencies ++= Seq(
-      "org.mongodb" %% "casbah" % "3.1.1",
-      "com.github.salat" %% "salat" % "1.11.2",
-
-      "joda-time" % "joda-time" % "2.9.9",
-
-      "org.json4s" %% "json4s-jackson" % "3.5.1",
-      "org.json4s" %% "json4s-ext" % "3.5.1"
-    )
+    commonSettings
   )
 
 lazy val drivers = (project in file("drivers")).dependsOn(core, templates, admin).settings(

@@ -40,9 +40,12 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Stora
     import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 
     import scala.collection.JavaConversions._
-    val codecRegistry = fromRegistries(
+    val codecRegistry = if (codecs.nonEmpty) fromRegistries(
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
       fromProviders(codecs),
+      DEFAULT_CODEC_REGISTRY
+    ) else fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
       DEFAULT_CODEC_REGISTRY
     )
     new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry))
