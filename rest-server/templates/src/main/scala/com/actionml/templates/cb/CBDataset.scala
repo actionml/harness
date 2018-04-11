@@ -50,6 +50,7 @@ import scala.language.reflectiveCalls
   *                   data.
   */
 class CBDataset(resourceId: String, storage: Storage, usersStorage: Storage) extends SharedUserDataset[CBEvent](usersStorage) with JsonParser {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 

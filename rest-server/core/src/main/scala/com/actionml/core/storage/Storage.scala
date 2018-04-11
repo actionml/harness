@@ -28,10 +28,10 @@ trait Storage {
 }
 
 trait DAO[T] {
-  def find(filter: (String, Any)*): Future[Option[T]]
-  def list(filter: (String, Any)*): Future[Iterable[T]]
+  def find(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]]
+  def list(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]]
   def insert(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def update(filter: (String, Any)*)(o: T): Future[T]
+  def update(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
   def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def remove(filter: (String, Any)*): Future[T]
+  def remove(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
 }

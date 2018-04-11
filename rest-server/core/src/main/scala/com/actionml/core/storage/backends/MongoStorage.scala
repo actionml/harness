@@ -49,10 +49,17 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Stora
   }
 
   override def removeCollection(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
-    db.getCollection(name).drop.toFuture.map(_ => ())
+    db.getCollection(name).drop.headOption()
+      .flatMap {
+        case Some(_) => Future.successful(())
+        case None => Future.failed(new RuntimeException(s"Can't remove collection $name"))
+      }
   }
 
-  override def drop()(implicit ec: ExecutionContext): Future[Unit] = db.drop.toFuture.map(_ => ())
+  override def drop()(implicit ec: ExecutionContext): Future[Unit] = db.drop.headOption.map {
+    case Some(_) => Future.successful(())
+    case None => Future.failed(new RuntimeException("Can't drop db"))
+  }
 }
 
 object MongoStorage {
@@ -75,20 +82,24 @@ class OffsetDateTimeCodec extends Codec[OffsetDateTime] {
 
 class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
 
-  override def find(filter: (String, Any)*): Future[Option[T]] =
+  override def find(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] =
     collection.find(mkBson(filter)).headOption
 
-  override def list(filter: (String, Any)*): Future[Iterable[T]] =
+  override def list(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]] =
     collection.find(mkBson(filter)).toFuture
 
   override def insert(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    collection.insertOne(o).headOption.map(_ => ()).recover {
-      case e => logger.error(s"Can't insert object $o", e)
+    collection.insertOne(o).headOption.flatMap {
+      case Some(t) => Future.successful(t)
+      case None => Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
     }
   }
 
-  override def update(filter: (String, Any)*)(o: T): Future[T] =
-    collection.findOneAndReplace(mkBson(filter), o).toFuture
+  override def update(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] =
+    collection.findOneAndReplace(mkBson(filter), o).headOption.flatMap {
+      case Some(t) => Future.successful(t)
+      case None => Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
+    }
 
   override def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     for {
@@ -99,8 +110,11 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
     } yield ()
   }
 
-  override def remove(filter: (String, Any)*): Future[T] =
-    collection.findOneAndDelete(mkBson(filter)).toFuture
+  override def remove(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] =
+    collection.findOneAndDelete(mkBson(filter)).headOption.flatMap {
+      case Some(t) => Future.successful(t)
+      case None => Future.failed(new RuntimeException(s"Can't remove from collection ${collection.namespace} with filter $filter"))
+    }
 
 
   private def mkBson(fields: Seq[(String, Any)]): Bson = {

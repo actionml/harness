@@ -31,6 +31,7 @@ import scala.concurrent.duration._
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   var dataset: CBDataset = _
   var algo: CBAlgorithm = _
@@ -116,7 +117,6 @@ class CBEngine() extends Engine() with JsonParser {
   def process(event: CBEvent): Validated[ValidateError, CBEvent] = {
      event match {
       case event: CBUsageEvent =>
-        import scala.concurrent.ExecutionContext.Implicits.global
         val datum = CBAlgorithmInput(
           Await.result(dataset.usersDAO.find("_id" -> event.toUsageEvent.userId).map(_.get), 5.seconds),
           event,
