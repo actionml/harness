@@ -2,7 +2,7 @@
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * ActionML licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
+package com.actionml.core.engine
 
-package com.actionml.core.storage
-
+import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
-// TODO: switch to dal pattern using latest Mongo Scala lib
-trait Store extends LazyLogging {
+/** Adds a method for input, which is expected to update the model immediately. */
+//trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
+trait KappaAlgorithm[T] extends LazyLogging {
 
-  def create(): Store
-
-  def destroy(collectionName: String): Store
+  def input(datum: T): Validated[ValidateError, Boolean]
 
 }
+
+trait AlgorithmInput

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}

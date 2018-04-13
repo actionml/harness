@@ -15,7 +15,7 @@ echo "        using the MongoDB shell but this option is best used with great ca
 echo "        -m is good for CI type automated tests. DBs are only dropped with Harness shut down so"
 echo "        this option is ignored if -s is skipping restarts."
 echo
-echo "Make sure to set export HARNESS_CA_CERT=/path/to/harness.pem!!! or all Harness connections will fail."
+echo "Make sure to set export HARNESS_SERVER_CERT_PATH=/path/to/harness.pem!!! or all Harness connections will fail."
 echo
 
 

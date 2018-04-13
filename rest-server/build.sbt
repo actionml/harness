@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.1.1-RC4"
+version := "0.2.0-SNAPSHOT"
 
 scalaVersion := "2.11.11"
 
@@ -17,7 +17,7 @@ resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  version := "0.1.1-RC4",
+  version := "0.2.0-SNAPSHOT",
   scalaVersion := "2.11.8",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
@@ -76,7 +76,7 @@ lazy val common = (project in file("common")).
     )
   )
 
-lazy val templates = (project in file("templates")).dependsOn(core).
+lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
@@ -96,20 +96,20 @@ lazy val admin = (project in file("admin")).dependsOn(core).
     commonSettings
   )
 
-lazy val drivers = (project in file("drivers")).dependsOn(core, templates, admin).settings(
-  commonSettings,
-  libraryDependencies ++= Seq(
-    "com.github.scopt" %% "scopt" % "3.5.0"
-  )
-)
+//lazy val drivers = (project in file("drivers")).dependsOn(core, engines, admin).settings(
+//  commonSettings,
+//  libraryDependencies ++= Seq(
+//    "com.github.scopt" %% "scopt" % "3.5.0"
+//  )
+//)
 
-lazy val server = (project in file("server")).dependsOn(core, common, templates, admin).settings(
+lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   )
-).enablePlugins(JavaAppPackaging).aggregate(core, common, templates, admin)
+).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
 
 lazy val authServer = (project in file("auth-server")).dependsOn(common)
   .settings(commonSettings)

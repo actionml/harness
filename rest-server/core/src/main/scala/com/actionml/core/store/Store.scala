@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package com.actionml.core.storage
+package com.actionml.core.store
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 
-trait Storage {
+trait Store {
   def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
   def removeCollection(name: String)(implicit ec: ExecutionContext): Future[Unit]
   def drop()(implicit ec: ExecutionContext): Future[Unit]

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package com.actionml.core.template
+package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.Storage
+import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -37,7 +37,7 @@ abstract class Dataset[T] extends LazyLogging {
 
 }
 
-abstract class SharedUserDataset[T](storage: Storage) extends Dataset[T]
+abstract class SharedUserDataset[T](storage: Store) extends Dataset[T]
   with JsonParser with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")

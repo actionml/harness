@@ -21,7 +21,7 @@ import java.io.{File, FileWriter, PrintWriter}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.template.Engine
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source

@@ -14,16 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.actionml.core.engine
 
-package com.actionml.templates.navhinting
+import cats.data.Validated
+import com.actionml.core.validate.ValidateError
+import com.typesafe.scalalogging.LazyLogging
 
-import com.actionml.core.model.User
-import org.bson.codecs.configuration.CodecProvider
+/** Adds a method for train, which is expected to update the model through some potentially long lived task,
+  *  usually in a batch or background mode.
+  */
+trait LambdaAlgorithm[T] extends LazyLogging {
 
-object MongoStorageHelper {
+  def train(algoTrainSpec: T): Validated[ValidateError, Boolean]
 
-  val codecs: List[CodecProvider] = {
-    import org.mongodb.scala.bson.codecs.Macros._
-    List(classOf[Journey], classOf[JourneyStep], classOf[NavHint], classOf[User])
-  }
 }
+
+// some extended version of this should be passed to "train"
+trait AlgorithmTrainSpec

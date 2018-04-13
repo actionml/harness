@@ -21,8 +21,8 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.storage.backends.MongoStorage
-import com.actionml.core.template.Engine
+import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate._
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString

@@ -1,3 +1,7 @@
+package com.actionml.core
+
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,15 +19,24 @@
  * limitations under the License.
  */
 
-package com.actionml.templates.cb
+package object store {
 
-import com.actionml.core.model.User
-import org.bson.codecs.configuration.CodecProvider
-
-object MongoStorageHelper {
-
-  val codecs: List[CodecProvider] = {
-    import org.mongodb.scala.bson.codecs.Macros._
-    List(classOf[GroupParams], classOf[User], classOf[UsageEvent])
+  /** create a byte array for writing to a binary file */
+  def serialise(value: Any): Array[Byte] = {
+    val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(stream)
+    oos.writeObject(value)
+    oos.close
+    stream.toByteArray
   }
+
+
+  /** create an object from a byte array read from a binary filee */
+  def deserialise(bytes: Array[Byte]): Any = {
+    val ois = new ObjectInputStream(new ByteArrayInputStream(bytes))
+    val value = ois.readObject
+    ois.close
+    value.asInstanceOf[Any]
+  }
+
 }

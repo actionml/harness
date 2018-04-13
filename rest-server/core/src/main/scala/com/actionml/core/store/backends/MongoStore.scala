@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package com.actionml.core.storage.backends
+package com.actionml.core.store.backends
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
-import com.actionml.core.storage.{DAO, Storage}
+import com.actionml.core.store.{DAO, Store}
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 
-class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Storage {
+class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store {
 
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
     import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
