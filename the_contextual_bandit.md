@@ -81,7 +81,9 @@ Using the SDK of your choice define an event of the form:
    "targetEntityId" : "variantA",
    "properties" : {
       "testGroupId" : "A",
-      "converted" : true
+      "converted" : true,
+      "contextualTags": ["tag-2","tag-3","tag-4","tag-5","tag-6"]
+      }
     }
 }
 ```
@@ -94,6 +96,7 @@ Using the SDK of your choice define an event of the form:
  - **properties**: define
   - **testGroupId**: id of a set of variants
   - **converted**: true or false
+  - **contextualTags**: an array of strings, each should say something about the content, style, or essence of the variant converted on. This allows the CB to use the "context" of a conversion to predict future conversions.q
 
 # Contextual Bandit Query API
 
