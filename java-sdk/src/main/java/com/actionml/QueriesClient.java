@@ -23,6 +23,7 @@ import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
 
 import java.net.PasswordAuthentication;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
@@ -32,11 +33,15 @@ import java.util.concurrent.CompletionStage;
 public class QueriesClient extends RestClient {
 
     public QueriesClient(String engineId, String host, Integer port) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), Optional.empty());
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), Optional.empty(), Optional.empty());
     }
 
     public QueriesClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> credentials) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), credentials);
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), credentials, Optional.empty());
+    }
+
+    public QueriesClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> credentials, Optional<Path> optionalServerCertPath) {
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("queries"), credentials, optionalServerCertPath);
     }
 
     public CompletionStage<Pair<Integer, String>> sendQuery(String query) {

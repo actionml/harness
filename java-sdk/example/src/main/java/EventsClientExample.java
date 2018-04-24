@@ -24,6 +24,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.PasswordAuthentication;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,8 @@ public class EventsClientExample {
                 new PasswordAuthentication(username, password.toCharArray())
         ));
 
-        EventsClient client = new EventsClient(engineId, serverHost, serverPort, optionalCreds);
+        Optional<Path> cert = Optional.empty();
+        EventsClient client = new EventsClient(engineId, serverHost, serverPort, optionalCreds, cert);
 
         // example of JSON for creating an event
         String json = "{" +
