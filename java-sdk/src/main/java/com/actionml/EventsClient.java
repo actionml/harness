@@ -26,6 +26,7 @@ import akka.stream.javadsl.Source;
 import com.actionml.entity.Event;
 
 import java.net.PasswordAuthentication;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -38,11 +39,15 @@ import java.util.concurrent.CompletionStage;
 public class EventsClient extends RestClient {
 
     public EventsClient(String engineId, String host, Integer port) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), Optional.empty());
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), Optional.empty(), Optional.empty());
     }
 
     public EventsClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds) {
-        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds);
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds, Optional.empty());
+    }
+
+    public EventsClient(String engineId, String host, Integer port, Optional<PasswordAuthentication> optionalCreds, Optional<Path> optionalServerCertPath) {
+        super(host, port, Uri.create("/engines").addPathSegment(engineId).addPathSegment("events"), optionalCreds, optionalServerCertPath);
     }
 
     /**

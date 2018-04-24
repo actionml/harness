@@ -50,6 +50,7 @@ import javax.net.ssl.*;
 import java.io.*;
 import java.net.PasswordAuthentication;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.*;
 import java.security.cert.*;
@@ -80,12 +81,13 @@ public class BaseClient {
     }
 
     protected final Gson gson = gsonBuilder.create();
+    protected final Optional<Path> optionalServerCertPath;
 
-    public BaseClient(String host, Integer port) {
+    public BaseClient(String host, Integer port, Optional<Path> optionalServerCertPath) {
+        this.optionalServerCertPath = optionalServerCertPath;
         system = ActorSystem.create("actionml-sdk-client");
-        Function<Throwable, Supervision.Directive> decider = exc -> {
-            System.err.println(exc.getMessage());
-//            exc.printStackTrace();
+        Function<Throwable, Supervision.Directive> decider = e -> {
+            system.log().error(e, "Supervision error");
             return Supervision.resume();
         };
         materializer = ActorMaterializer.create(
@@ -120,12 +122,14 @@ public class BaseClient {
     private HttpsConnectionContext httpsContext() throws NoSuchAlgorithmException, KeyManagementException,
             InvalidAlgorithmParameterException, CertificateException, IOException {
         AkkaSSLConfig akkaSslConfig = AkkaSSLConfig.get(system);
-        TrustStoreConfig tsConfig = akkaSslConfig.config().trustManagerConfig().trustStoreConfigs().apply(0);
-        String path = tsConfig.filePath().get();
-        byte[] certContent = Files.lines(Paths.get(path))
+        Path certPath = optionalServerCertPath.orElseGet(() -> {
+            TrustStoreConfig tsConfig = akkaSslConfig.config().trustManagerConfig().trustStoreConfigs().apply(0);
+            return Paths.get(tsConfig.filePath().get());
+        });
+        byte[] certContent = Files.lines(certPath)
                 .filter(l -> !l.equals("-----BEGIN CERTIFICATE-----") && !l.equals("-----END CERTIFICATE-----"))
                 .reduce((acc, l) -> acc + l)
-                .map(l -> Base64.getDecoder().decode(l)).get();
+                .map(l -> Base64.getDecoder().decode(l)).orElseThrow(() -> new RuntimeException("Wrong PEM format or empty certificate"));
 
         CertificateFactory factory = CertificateFactory.getInstance("X.509");
         X509Certificate cert = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certContent));
