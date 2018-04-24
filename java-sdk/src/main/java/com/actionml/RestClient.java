@@ -27,6 +27,7 @@ import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 
 import java.net.PasswordAuthentication;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -42,11 +43,10 @@ abstract class RestClient extends BaseClient {
     protected final Optional<PasswordAuthentication> credentials;
     private Optional<String> accessToken = Optional.empty();
 
-    RestClient(String host, Integer port, Uri uri, Optional<PasswordAuthentication> optionalCreds) {
-        super(host, port);
+    RestClient(String host, Integer port, Uri uri, Optional<PasswordAuthentication> optionalCreds, Optional<Path> optionalServerCertPath) {
+        super(host, port, optionalServerCertPath);
         this.uri = uri;
         this.credentials = optionalCreds;
-
     }
 
     /**
