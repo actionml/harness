@@ -2,13 +2,22 @@
 
 Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and all Engines in source form and is released only as source from it's GitHub repository. This integrated build makes it easy to use with a debugger to create new Engines or modify in other ways.
 
-## v0.1.1-RC1
+## v0.2.0-SNAPSHOT (work in progress)
 
- - The Navigation Hinting Kappa-style Template is complete in non-personalized form
+ - Migration to new Mongo Scala Client complete. **Warning**: a schema change will make the existing DB unusable and need to be recreated. Data import compatibility is maintained.
  - TTLs are implemented for user click-path journeys have a TTL described in Engines params
  - All User collections, including the shared user collection has a TTL so that inactive users will be aged out of the DB, without this they would need to have `$delete` for each removed User. This still works but is very difficult to coordinate when sharing user data across Engine Instances.
  - The asynchronous MongoDB client is used for all DB access. This improves performance in high throughput cases.
  - DAL/DAO/DAOImpl pattern is used for all DB access, making it easier to port to some other DB store by just creating a new DAOImpl for the new DB.
+ - Generic DAO now allows a DAO for any case class using parameterized types.
+ - Dependency injection supported for DAO implementation so no code needs to change to support new DB backing Stores.
+
+## v0.1.1
+
+ - The Navigation Hinting Kappa-style Engine is complete in non-personalized form.
+ - Integration tests for Nav Hinting added
+ - User profiles may be shared between Engine Instances so that the PVR can use both profile and usage data to make better recommendations.
+ - Java SDK allows a path to the certificate `.pem` file to be passed in. This is in addition to setting with env or in the source code.
 
 ## v0.1.0
 
