@@ -21,8 +21,8 @@ import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.http.javadsl.*;
 import akka.http.javadsl.model.*;
-import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.http.javadsl.model.headers.Authorization;
+import akka.http.javadsl.settings.ConnectionPoolSettings;
 import akka.japi.Pair;
 import akka.japi.function.Function;
 import akka.stream.ActorMaterializer;
@@ -37,29 +37,31 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigObject;
 import com.typesafe.sslconfig.akka.AkkaSSLConfig;
-import com.typesafe.sslconfig.ssl.ConfigSSLContextBuilder;
 import com.typesafe.sslconfig.ssl.TrustManagerFactoryWrapper;
-import com.typesafe.sslconfig.ssl.TrustStoreConfig;
 import scala.util.Try;
 
-import javax.net.ssl.*;
-import java.io.*;
+import javax.net.ssl.CertPathTrustManagerParameters;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.PasswordAuthentication;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.*;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 
-import static scala.compat.java8.JFunction.*;
+import static scala.compat.java8.JFunction.func;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -123,13 +125,28 @@ public class BaseClient {
             InvalidAlgorithmParameterException, CertificateException, IOException {
         AkkaSSLConfig akkaSslConfig = AkkaSSLConfig.get(system);
         Path certPath = optionalServerCertPath.orElseGet(() -> {
-            TrustStoreConfig tsConfig = akkaSslConfig.config().trustManagerConfig().trustStoreConfigs().apply(0);
-            return Paths.get(tsConfig.filePath().get());
+            return akkaSslConfig.config()
+                    .trustManagerConfig()
+                    .trustStoreConfigs()
+                    .headOption()
+                    .flatMap(func(c -> c.filePath().map(func(URI::create))))
+                    .getOrElse(func(() -> {
+                        Map<String, String> env = System.getenv();
+                        String result = null;
+                        if (env.containsKey("HARNESS_SERVER_CERT_PATH")) {
+                            result = env.get("HARNESS_SERVER_CERT_PATH");
+                        } else {
+                            URL fallbackCert = ClassLoader.getSystemResource("harness.pem");
+                            if (fallbackCert == null) throw new RuntimeException("Wrong TLS config. Server certificate is not provided.");
+                            result = fallbackCert.getPath();
+                        }
+                        return Paths.get(result);
+                    }));
         });
         byte[] certContent = Files.lines(certPath)
                 .filter(l -> !l.equals("-----BEGIN CERTIFICATE-----") && !l.equals("-----END CERTIFICATE-----"))
                 .reduce((acc, l) -> acc + l)
-                .map(l -> Base64.getDecoder().decode(l)).orElseThrow(() -> new RuntimeException("Wrong PEM format or empty certificate"));
+                .map(l -> Base64.getDecoder().decode(l)).orElseThrow(() -> new RuntimeException("Wrong PEM format or empty certificate."));
 
         CertificateFactory factory = CertificateFactory.getInstance("X.509");
         X509Certificate cert = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certContent));
@@ -142,7 +159,6 @@ public class BaseClient {
         sslContext.init(null, trustManagers, new SecureRandom());
         return ConnectionContext.https(sslContext);
     }
-
 
     public CompletionStage<HttpResponse> single(HttpRequest request) {
         return Source.single(Pair.create(request, 0L))
