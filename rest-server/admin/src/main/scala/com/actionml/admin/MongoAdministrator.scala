@@ -21,16 +21,21 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.storage.Mongo
+import com.actionml.core.storage.backends.MongoStorage
 import com.actionml.core.template.Engine
 import com.actionml.core.validate._
-import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.MongoDBObject
+import org.mongodb.scala.Document
+import org.mongodb.scala.bson.BsonString
 
-class MongoAdministrator extends Administrator with JsonParser with Mongo {
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
-  lazy val enginesCollection: MongoCollection = connection("harness_meta_store")("engines")
-  lazy val commandsCollection: MongoCollection = connection("harness_meta_store")("commands") // async persistent though temporary commands
+
+class MongoAdministrator extends Administrator with JsonParser {
+  import scala.concurrent.ExecutionContext.Implicits.global
+  val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
+
+  lazy val enginesCollection = storage.createDao[Document]("engines")
   var engines = Map.empty[EngineId, Engine]
 
   drawActionML
@@ -41,10 +46,10 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
-    engines = enginesCollection.find.map { engine =>
-      val engineId = engine.get("engineId").toString
-      val engineFactory = engine.get("engineFactory").toString
-      val params = engine.get("params").toString
+    engines = Await.result(enginesCollection.list(), 5.seconds).map { engine =>
+      val engineId = engine.get("engineId").get.asString.getValue
+      val engineFactory = engine.get("engineFactory").get.asString.getValue
+      val params = engine.get("params").get.asString.getValue
       // create each engine passing the params
       val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
       if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
@@ -53,7 +58,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
           s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
-        enginesCollection.remove(MongoDBObject("engineId" -> engineId))
+        enginesCollection.remove("engineId" -> engineId)
         // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
       }
       e
@@ -81,22 +86,21 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
-      if (newEngine != null && enginesCollection.find(MongoDBObject("engineId" -> params.engineId)).size == 1) {
+      if (newEngine != null && Await.result(enginesCollection.find("engineId" -> params.engineId), 5.seconds).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        val query = MongoDBObject("engineId" -> params.engineId)
-        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
-        enginesCollection.findAndModify(query, update)
+        val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
+        enginesCollection.update("engineId" -> params.engineId)(update)
         Valid(params.engineId)
       } else if (newEngine != null) {
         //add new
         engines += params.engineId -> newEngine
         logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        val builder = MongoDBObject.newBuilder
-        builder += "engineId" -> params.engineId
-        builder += "engineFactory" -> params.engineFactory
-        builder += "params" -> json
-        enginesCollection += builder.result()
+        val builder = Document.builder
+        builder += "engineId" -> BsonString(params.engineId)
+        builder += "engineFactory" -> BsonString(params.engineFactory)
+        builder += "params" -> BsonString(json)
+        enginesCollection.insert(builder.result)
         Valid(params.engineId)
 
       } else {
@@ -110,9 +114,8 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        val query = MongoDBObject("engineId" -> params.engineId)
-        val update = MongoDBObject("$set" -> MongoDBObject("engineFactory" -> params.engineFactory, "params" -> json))
-        enginesCollection.findAndModify(query, update)
+        val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
+        enginesCollection.update("engineId" -> params.engineId)(update)
         existingEngine.init(json, deepInit = false).andThen(_ => Valid(
           """{
             |  "comment":"Get engine status to see what was changed."
@@ -138,7 +141,7 @@ class MongoAdministrator extends Administrator with JsonParser with Mongo {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
-      enginesCollection.remove(MongoDBObject("engineId" -> engineId))
+      enginesCollection.remove("engineId" -> engineId)
       deadEngine.destroy()
       Valid(true)
     } else {

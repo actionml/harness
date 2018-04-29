@@ -41,7 +41,7 @@ if [ -e ${PIDFILE} ]; then
     killwait ${pid}
     #sleep ${sd_delay}
 
-    h=`jps | grep Main | wc -l`
+    h=`jps -l | grep actionml | wc -l`
     if [[ "$h" -gt "0" ]]; then
         echo -e "${RED}Error Harness failed to shutdown after ${sd_delay} seconds, there are $h instances of harness running.${NC}"
         exit 1

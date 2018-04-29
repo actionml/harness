@@ -32,8 +32,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError}
   * base classes but is better used as a starting point for new Engines.
   */
 class ScaffoldAlgorithm(dataset: ScaffoldDataset)
-  extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser
-    with Mongo {
+  extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {

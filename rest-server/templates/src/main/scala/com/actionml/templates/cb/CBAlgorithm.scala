@@ -18,6 +18,8 @@
 package com.actionml.templates.cb
 
 import java.io.File
+import java.time.temporal.ChronoUnit
+import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime}
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
@@ -26,24 +28,17 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.storage._
+import com.actionml.core.storage.backends.MongoDao
 import com.actionml.core.template._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import com.actionml.templates.cb.SingleGroupTrainer.constructVWString
-import com.mongodb.casbah.Imports._
-import salat.global._
 import com.typesafe.scalalogging.LazyLogging
-import salat.dao.SalatDAO
 
 import scala.concurrent.Await
 import scala.io.Source
 import scala.reflect.io.Path
-import scala.tools.nsc.classpath.FileUtils
 import scala.util.control.Breaks
 //import java.io.File
-import com.mongodb.casbah.MongoCollection
-import com.mongodb.casbah.commons.{MongoDBObject, TypeImports}
-import org.joda.time.{DateTime, Duration}
-import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 import org.slf4j.event.SubstituteLoggingEvent
@@ -71,10 +66,10 @@ case class Train(datum: CBAlgorithmInput)
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-class CBAlgorithm(dataset: CBDataset)
-  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser with Mongo {
+class CBAlgorithm(resourceId: String, dataset: CBDataset)
+  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
-  private val actors = ActorSystem(dataset.resourceId)
+  private val actors = ActorSystem(resourceId)
 
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
@@ -89,7 +84,7 @@ class CBAlgorithm(dataset: CBDataset)
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
           namespace = engineId)
-        val groupEvents: Map[String, UsageEventDAO] = dataset.usageEventGroups
+        val groupEvents: Map[String, DAO[UsageEvent]] = dataset.usageEventGroups
         logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
         val exists = trainers.keys.toList
         vw = createVW(params) // sets up the parameters for the model and names the file for storage of the\\
@@ -207,13 +202,13 @@ class CBAlgorithm(dataset: CBDataset)
 
   def add(groupName: String): Unit = {
     logger.info("Create trainer {}", groupName)
-    if (!trainers.contains(groupName) &&  dataset.GroupsDAO.findOneById(groupName).nonEmpty) {
+    if (!trainers.contains(groupName) &&  Await.result(dataset.groupsDao.find("_id" -> groupName), 5.seconds).nonEmpty) {
       val actor = actors.actorOf(
         SingleGroupTrainer.props(
           dataset.usageEventGroups(groupName),
-          dataset.usersDAO.get,
+          dataset.usersDAO,
           params,
-          dataset.GroupsDAO.findOneById(groupName).get,
+          Await.result(dataset.groupsDao.find("_id" -> groupName), 5.seconds).get,
           engineId,
           modelPath,
           this.asInstanceOf[CBAlgorithm]),
@@ -226,66 +221,66 @@ class CBAlgorithm(dataset: CBDataset)
     actors.terminate().wait()
   }
 
-  def getVariant(query: CBQuery): CBQueryResult = {
+  def getVariant(query: CBQuery): CBQueryResult = Await.result({
     //val vw = new VW(" -i " + modelContainer)
 
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+    val group = Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).get
 
     val numClasses = group.pageVariants.size
 
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    val user = dataset.usersDAO.get.findOneById(query.user).getOrElse(User("",Map.empty))
+    dataset.usersDAO.find("_id" -> query.user).map(_.getOrElse(User("",Map.empty))).map { user =>
 
-    val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
+      val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
 
+      logger.info(s"Query string to VW: \n$queryText")
+      val pred = vw.predict(queryText)
+      logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
+      //vw.close() // not need to save the model for a query
 
-    logger.info(s"Query string to VW: \n$queryText")
-    val pred = vw.predict(queryText)
-    logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
-    //vw.close() // not need to save the model for a query
+      //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
+      //we use testPeriods as epsilon0
 
-    //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
-    //we use testPeriods as epsilon0
+      val startTime = group.testPeriodStart
+      val endTime = group.testPeriodEnd.getOrElse(OffsetDateTime.now) // Todo: no end means you are always on the last day, no
+      // randomness
 
-    val startTime = group.testPeriodStart
-    val endTime = group.testPeriodEnd.getOrElse(new DateTime()) // Todo: no end means you are always on the last day, no
-    // randomness
+      val maxEpsilon = 1.0 - (1.0 / numClasses)
+      val currentTestDuration = Duration.between(startTime, OffsetDateTime.now).toMinutes.toDouble
+      val totalTestDuration = Duration.between(startTime, endTime).toMinutes.toDouble
 
-    val maxEpsilon = 1.0 - (1.0/numClasses)
-    val currentTestDuration = new Duration(startTime, new DateTime()).getStandardMinutes().toDouble
-    val totalTestDuration = new Duration(startTime, endTime).getStandardMinutes().toDouble
+      // Alex: scale epsilonT to the range 0.0-maxEpsilon
+      // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!
+      val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration / totalTestDuration)))
 
-    // Alex: scale epsilonT to the range 0.0-maxEpsilon
-    // Todo: this is wacky, it introduces too much randomness and none if there is no test period end--ugh!
-    val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration/ totalTestDuration) ))
+      // the key->value needs to be in the DB when a test-group is defined
+      val groupMap = group.pageVariants.map(a => a._1.toInt -> a._2)
 
-    // the key->value needs to be in the DB when a test-group is defined
-    val groupMap = group.pageVariants.map( a => a._1.toInt -> a._2)
+      val probabilityMap = groupMap.keys.map { keyInt =>
+        keyInt -> (
+          if (keyInt == pred)
+            1.0 - epsilonT
+          else
+            epsilonT / (numClasses - 1.0)
+          )
+      }.toMap
 
-    val probabilityMap = groupMap.keys.map { keyInt =>
-      keyInt -> (
-        if(keyInt == pred)
-          1.0 - epsilonT
-        else
-          epsilonT / (numClasses - 1.0)
-      )
-    }.toMap
+      val sampledPred = sample(probabilityMap)
 
-    val sampledPred = sample(probabilityMap)
-
-    // todo: disables sampling
-    val pageVariant = groupMap(sampledPred)
-    //val pageVariant = groupMap(pred.head.getAction)
-    CBQueryResult(pageVariant, groupId = query.groupId)
-  }
+      // todo: disables sampling
+      val pageVariant = groupMap(sampledPred)
+      //val pageVariant = groupMap(pred.head.getAction)
+      CBQueryResult(pageVariant, groupId = query.groupId)
+    }
+  }, 5.seconds)
 
 
   // this is likely to not be called since we don't keep track of whether a group has ever received training data
   def getDefaultVariant(query: CBQuery): CBQueryResult = {
     logger.info("Test group has no training data yet. Fall back to uniform distribution")
-    val group = dataset.GroupsDAO.findOneById(query.groupId).get
+    val group = Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).get
 
     val variants = group.pageVariants
     val numClasses = variants.size
@@ -326,8 +321,8 @@ case class CBAlgoParams(
 
 
 class SingleGroupTrainer(
-    events: UsageEventDAO,
-    users: SalatDAO[User, String],
+    events: DAO[UsageEvent],
+    users: DAO[User],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,
@@ -421,8 +416,8 @@ object SingleGroupTrainer {
 
 
   def props(
-    events: UsageEventDAO,
-    users: SalatDAO[User, String],
+    events: DAO[UsageEvent],
+    users: DAO[User],
     params: CBAlgoParams,
     group: GroupParams,
     resourceId: String,

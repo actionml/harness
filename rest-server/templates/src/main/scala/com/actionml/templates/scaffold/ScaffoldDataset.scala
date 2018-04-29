@@ -20,7 +20,6 @@ package com.actionml.templates.scaffold
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.storage.Mongo
 import com.actionml.core.template.{Dataset, GenericEvent}
 import com.actionml.core.validate._
 
@@ -33,7 +32,7 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonParser {
+class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent] with JsonParser {
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {

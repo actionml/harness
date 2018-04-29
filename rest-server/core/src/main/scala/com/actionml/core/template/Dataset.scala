@@ -20,14 +20,11 @@ package com.actionml.core.template
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, User}
-import com.actionml.core.storage.{Mongo, Store}
+import com.actionml.core.storage.Storage
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.json4s.native.JsonParser
 
-abstract class Dataset[T](engineId: String) extends LazyLogging {
-
-  val resourceId: String = engineId
+abstract class Dataset[T] extends LazyLogging {
 
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
@@ -40,13 +37,10 @@ abstract class Dataset[T](engineId: String) extends LazyLogging {
 
 }
 
-abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineId)
-  with JsonParser with Mongo with LazyLogging {
+abstract class SharedUserDataset[T](storage: Storage) extends Dataset[T]
+  with JsonParser with LazyLogging {
 
-  import salat.dao._
-  import salat.global._
-
-  var usersDAO: Option[SalatDAO[User, String]] = None // todo: should this be _
+  val usersDAO = storage.createDao[User]("users")
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
@@ -54,8 +48,7 @@ abstract class SharedUserDataset[T](engineId: String) extends Dataset[T](engineI
       // to find old users that will be orphaned.
 
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
-      usersDAO = Some(UsersDAO)
+//      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
       Valid(true)
     }
   }
