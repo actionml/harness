@@ -27,11 +27,11 @@ export clean_test_artifacts=true
 
 
 set -e # exit on any error
-: "${HARNESS_SERVER_CERT_PATH:?HARNESS_SERVER_CERT_PATH is not set to point to the correct harness.pem file}"
+#: "${HARNESS_SERVER_CERT_PATH:?HARNESS_SERVER_CERT_PATH is not set to point to the correct harness.pem file}"
 echo "Server cert path=${HARNESS_SERVER_CERT_PATH}"
 
 
-m=`jps -lm | grep Main | wc -l`
+m=`jps -lm | grep actionml | wc -l`
 
 
 while [ -n "$1" ]; do
@@ -66,7 +66,7 @@ while [ -n "$1" ]; do
     shift
 done
 
-h=`jps | grep Main | wc -l`
+h=`jps | grep actionml | wc -l`
 if [[ "$h" -gt "1" ]]; then
     echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
     exit 1
@@ -76,7 +76,7 @@ fi
 if [ "$skip_restarts" = false ]; then
     harness stop
     #sleep 10
-    h=`jps | grep Main | wc -l`
+    h=`jps | grep actionml | wc -l`
     if [[ "$h" -gt "1" ]]; then
         echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
         exit 1
@@ -89,7 +89,7 @@ if [ "$skip_restarts" = false ]; then
     # this makes the test immune to schema changes
     harness start -f
     sleep 10
-    h=`jps | grep Main | wc -l`
+    h=`jps | grep actionml | wc -l`
     if [[ "$h" -gt "1" ]]; then
         echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
         exit 1
@@ -126,7 +126,7 @@ if [ "$do_nh_test" = true ]; then
     echo
 fi
 
-h=`jps | grep Main | wc -l`
+h=`jps | grep actionml | wc -l`
 if [[ "$h" -gt "1" ]]; then
     echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
     exit 1
