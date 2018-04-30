@@ -3,7 +3,7 @@ Provides easy-to-use functions for integrating
 Python applications with ActionML's REST API for the Harness Server.
 """
 
-__version__ = "0.1.1-RC5"
+__version__ = "0.1.1-RC6"
 
 # import packages
 import re

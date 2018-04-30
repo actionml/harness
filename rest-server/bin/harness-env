@@ -23,7 +23,8 @@ export HARNESS_LOG_PATH="${HARNESS_HOME}/logs"
 export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-changeit}
 export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/conf/harness.jks}
 # export HARNESS_SSL_ENABLED=true # to enable TLS/SSL
-export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+#export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+export HARNESS_SSL_ENABLED=false
 
 # Java and Python client SDKs use the following for TLS/SSL, not used by the server
 export HARNESS_SERVER_CERT_PATH=${HARNESS_SERVER_CERT_PATH:-$HARNESS_HOME/conf/harness.pem}

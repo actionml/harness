@@ -11,7 +11,6 @@
     "regParam": 0.0,
     "stepSize": 0.1,
     "bitPrecision": 24,
-    "comment": "modelContainer is output an should be a full directory path on your local fs",
     "maxClasses": 3
   }
 }

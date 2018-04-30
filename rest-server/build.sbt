@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.1.1-RC5"
+version := "0.1.1-RC6"
 
 scalaVersion := "2.11.11"
 
@@ -18,7 +18,7 @@ resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  version := "0.1.1-RC5",
+  version := "0.1.1-RC6",
   scalaVersion := "2.11.8",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
