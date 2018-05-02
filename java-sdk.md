@@ -155,7 +155,21 @@ Not also that you cannot have a secure deployment without both TLS and Auth. TLS
 
 ## Setup TLS/SSL
 
-See [harness-config.md](harness-config.md) for a description of how to setup the Harness Server and Java SDK for TLS/SSL
+The Java SDK works with or without TLS. In either case a `.pem` certificate must be provided, even if it is not used. The cert file is used too encrypt data to a specific Harness server, which has the correct key installed. See [harness-config.md](harness-config.md) for a description of how to setup the Harness Server and Python CLI for use with TLS/SSL.
+
+The Java SDK has 3 methods for supplying the `.pem` file:
+
+ 1. **Change the config** in `harness/java-sdk/src/main/resources/akka.conf` to point to the `.pem` file on the desired machine and recompile the client for use on a specific machine.
+ - **Add an environment variable** by putting `export HARNESS_SERVER_CERT_PATH=/path/to/pem-file` in one of the shell startup files like `~/.profile` or `~/.bashrc` as per recommendations for your OS.
+ - **Pass in the location** when creating any client. All clients have an optional parameter for setting the path to the `.pem` file.
+
+The method falls back from #3 to #2 to #1 and if a `.pem` file is not found there will always be an exception thrown.
+
+Harness is built with a `.pem` and `.jks` file for localhost execution of TLS with pointers to these files are setup in the correct places. By default Harness does not use TLS but to try TLS with localhost all you have to do is turn it on in `bin/harness-env` and start Harness. The CLI will use TLS to communicate with Harness on localhost and the Java SDK tests will work. 
+
+To use a custom certificate with the Java SDK, just make sure it can find the `.pem` at runtime.
+
+**Note about how this is done**: The Akka java client requires a certificate file on startup before the Harnress SDK Clients are constructed so a dummy pem file is built into the SDK for localhost. This can be used with localhost TLS but is most likely to be replaced using the above methods. The #3 methods uses the dummy pem file to initialize and then overrides it with the one passed in to the SDK client constructors. Works fine.
     
 ## Using Auth from the Client
 

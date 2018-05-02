@@ -20,7 +20,7 @@ import scala.concurrent.ExecutionContext
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:54
   */
-object Main extends App with AkkaInjectable{
+object HarnessServer extends App with AkkaInjectable{
 
   implicit val injector = new BaseModule
 
