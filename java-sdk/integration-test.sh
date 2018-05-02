@@ -66,21 +66,10 @@ while [ -n "$1" ]; do
     shift
 done
 
-h=`jps -l | grep actionml | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-    exit 1
-fi
-
 
 if [ "$skip_restarts" = false ]; then
     harness stop
     #sleep 10
-    h=`jps -l | grep actionml | wc -l`
-    if [[ "$h" -gt "1" ]]; then
-        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-        exit 1
-    fi
     if [ "$clean_mongo" = true ]; then
         echo "Wiping the database"
         mongo clean_harness_mongo.js # drops meta store (all engines) and specific dbs used by test engine instances
@@ -89,11 +78,6 @@ if [ "$skip_restarts" = false ]; then
     # this makes the test immune to schema changes
     harness start -f
     sleep 10
-    h=`jps -l | grep actionml | wc -l`
-    if [[ "$h" -gt "1" ]]; then
-        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-        exit 1
-    fi
 fi
 
 if [ "$do_cb_test" = true ]; then
@@ -124,10 +108,4 @@ if [ "$do_nh_test" = true ]; then
     echo "---------------------- Important differences: Navigation Hinting queries ----------------------------"
     diff example/nh-hinting-results.txt example/data/expected-nh-hinting-results-urls.txt | grep Results
     echo
-fi
-
-h=`jps -l | grep actionml | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-    exit 1
 fi
