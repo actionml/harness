@@ -24,9 +24,14 @@ if [ -z "$RESOURCE_TYPE" ] ; then
     echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
     echo "HARNESS_EXTERNAL_ADDRESS....${HARNESS_EXTERNAL_ADDRESS}"
     echo "PIDFILE.....................${PIDFILE}"
-    harness_pid=`cat ${PIDFILE}`
-    echo "Harness pid.................${harness_pid}"
-    echo -e "${RLINE}"
+    if [[ -f ${PIDFILE} ]]; then
+        harness_pid=`cat ${PIDFILE}`
+        echo "Harness pid.................${harness_pid}"
+        echo -e "${RLINE}"
+    else
+        echo -e "${RLINE}"
+        echo -e "${CYAN}No pid file exists, Harness will need to be stopped by hand.${NC}"
+    fi
     echo -e "${CYAN}Checking Harness Server status${NC}"
     PYTHON_ARGS=" status ${USER_ARGS}"
     #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}${NC}"
