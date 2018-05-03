@@ -23,6 +23,11 @@ sleep_seconds=2
 
 cd example
 
+# initialize these in case not running from integrated test script
+skip_restarts=${skip_restarts:-false}
+clean_test_artifacts=${clean_test_artifacts:-false}
+
+
 
 
 echo
@@ -100,7 +105,7 @@ mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine
 
 
 echo "---------------------- profile query differences should only be timing ----------------------------"
-diff nh-hinting-results.txt data/expected-nh-hinting-results-urls.txt
+diff nh-hinting-results.txt data/expected-nh-hinting-results-urls.txt | grep Results
 echo
 
 if [ "$clean_test_artifacts" == true ]; then

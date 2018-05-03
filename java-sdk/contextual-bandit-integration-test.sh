@@ -26,6 +26,11 @@ sleep_seconds=1
 # export HARNESS_CA_CERT=/Users/pat/harness/rest-server/server/src/main/resources/keys/harness.pem
 cd example
 
+# initialize these in case not running from integrated test script
+skip_restarts=${skip_restarts:-false}
+clean_test_artifacts=${clean_test_artifacts:-false}
+
+
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
 echo "TESTING SIMILAR PROFILES, 2 PEOPLE $set, INTO 2 DIFFERENT ENGINES"
@@ -125,10 +130,10 @@ mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine
 
 
 echo "---------------------- profile query differences should only be timing ----------------------------"
-diff test-profile-results.txt data/expected-test-profile-results.txt
+diff test-profile-results.txt data/expected-test-profile-results.txt | grep Results
 echo
 echo "---------------------- behavior differences should only be timing ----------------------------"
-diff test-behavior-results.txt data/expected-test-behavior-results.txt
+diff test-behavior-results.txt data/expected-test-behavior-results.txt | grep Results
 echo
 
 if [ "$clean_test_artifacts" == true ]; then
