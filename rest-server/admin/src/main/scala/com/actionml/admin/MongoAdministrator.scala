@@ -46,7 +46,7 @@ class MongoAdministrator extends Administrator with JsonParser {
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
-    engines = Await.result(enginesCollection.list(), 5.seconds).map { engine =>
+    engines = enginesCollection.list().map { engine =>
       val engineId = engine.get("engineId").get.asString.getValue
       val engineFactory = engine.get("engineFactory").get.asString.getValue
       val params = engine.get("params").get.asString.getValue
@@ -86,7 +86,7 @@ class MongoAdministrator extends Administrator with JsonParser {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
-      if (newEngine != null && Await.result(enginesCollection.find("engineId" -> params.engineId), 5.seconds).size == 1) {
+      if (newEngine != null && enginesCollection.list("engineId" -> params.engineId).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))

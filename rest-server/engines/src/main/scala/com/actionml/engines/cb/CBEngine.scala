@@ -118,9 +118,9 @@ class CBEngine() extends Engine() with JsonParser {
      event match {
       case event: CBUsageEvent =>
         val datum = CBAlgorithmInput(
-          Await.result(dataset.usersDAO.find("_id" -> event.toUsageEvent.userId).map(_.get), 5.seconds),
+          dataset.usersDAO.findOneById(event.toUsageEvent.userId).get,
           event,
-          Await.result(dataset.groupsDao.find("_id" -> event.toUsageEvent.testGroupId), 5.seconds).get,
+          dataset.groupsDao.findOneById(event.toUsageEvent.testGroupId).get,
           engineId
         )
         algo.input(datum)
@@ -143,7 +143,7 @@ class CBEngine() extends Engine() with JsonParser {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      if(algo.trainers.isDefinedAt(query.groupId) || Await.result(dataset.groupsDao.find("_id" -> query.groupId), 5.seconds).nonEmpty) {
+      if(algo.trainers.isDefinedAt(query.groupId) || dataset.groupsDao.findOneById(query.groupId).nonEmpty) {
         val result = algo.predict(query)
         Valid(result.toJson)
       } else {

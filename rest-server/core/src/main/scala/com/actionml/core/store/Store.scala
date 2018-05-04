@@ -17,7 +17,8 @@
 
 package com.actionml.core.store
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 
@@ -27,11 +28,30 @@ trait Store {
   def drop()(implicit ec: ExecutionContext): Future[Unit]
 }
 
-trait DAO[T] {
-  def find(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]]
-  def list(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]]
-  def insert(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def update(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
-  def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def remove(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
+trait DAO[T] extends AsyncDao[T] with SyncDao[T]
+
+trait AsyncDao[T] {
+  def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]]
+  def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]]
+  def listAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]]
+  def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
+  def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
+  def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
+  def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
+  def removeByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
+}
+
+trait SyncDao[T] { self: AsyncDao[T] =>
+  import scala.concurrent.ExecutionContext.Implicits.global
+  private val timeout = 5 seconds
+  private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
+
+  def findOneById(id: String): Option[T] = sync(findOneByIdAsync(id))
+  def find(filter: (String, Any)*): Option[T] = sync(findAsync(filter: _*))
+  def list(filter: (String, Any)*): Iterable[T] = sync(listAsync(filter: _*))
+  def insert(o: T): Unit = sync(insertAsync(o))
+  def update(filter: (String, Any)*)(o: T): T = sync(updateAsync(filter: _*)(o))
+  def save(id: String, o: T): Unit = sync(saveAsync(id, o))
+  def remove(filter: (String, Any)*): T = sync(removeAsync(filter: _*))
+  def removeById(id: String): T = sync(removeByIdAsync(id))
 }

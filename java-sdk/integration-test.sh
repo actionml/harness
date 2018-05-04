@@ -26,8 +26,6 @@ export skip_restarts=false # send to child scripts
 export clean_test_artifacts=true
 
 
-set -e # exit on any error
-: "${HARNESS_SERVER_CERT_PATH:?HARNESS_SERVER_CERT_PATH is not set to point to the correct harness.pem file}"
 echo "Server cert path=${HARNESS_SERVER_CERT_PATH}"
 
 

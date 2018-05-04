@@ -102,16 +102,15 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   /** update the model with a Future for every input. This may cause Futures to accumulate */
   def updateModel(convertedJourney: Journey,  now: OffsetDateTime): Unit = {
-    Await.result(applyDecayFunction(convertedJourney, now).map { weightedVectors =>
+    applyDecayFunction(convertedJourney, now).map { weightedVectors =>
       //Semigroup[Map[String, Double]].combine(model, weightedVectors.toMap)
       weightedVectors.foreach { case (_id, weight) =>
-        for {
-          existingModelHint  <- dataset.navHintsDAO.find("_id" -> _id).map(_.getOrElse(NavHint(_id, 0d)))
-          _ <- dataset.navHintsDAO.upsert("_id" -> _id)(NavHint(_id, weight + existingModelHint.weight))
-          updatedWeight = weight + existingModelHint.weight
-        } yield logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight}")
+        val existingModelHint = dataset.navHintsDAO.findOneById(_id).getOrElse(NavHint(_id, 0d))
+        val status = dataset.navHintsDAO.save(_id, NavHint(_id, weight + existingModelHint.weight))
+        val updatedWeight = weight + existingModelHint.weight
+        logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight} status: ${status} ")
       }
-    }, 5.seconds)
+    }
   }
 
   /* works if we save to a file, but using a db
@@ -203,17 +202,13 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
 
   override def predict(query: NHQuery): NHQueryResult = {
-    val results = Await.result(
-      // find model elements that match eligible and sort by weight, sort before taking the top k
-      Future.sequence(query.eligibleNavIds.toSeq.map { id =>
-        dataset.navHintsDAO.find("_id" -> id)
-      }).map { navHints =>
-        navHints.flatten.filter(x => x.weight > 0)
-          .map { navHint => navHint._id -> navHint.weight } // swap key and value
-          .sortBy(-_._2) // sort by value, which is the score here, minus for
-          .take(params.num.getOrElse(1))
-      }, 5.seconds)
-    NHQueryResult(results.toArray)
+    // find model elements that match eligible and sort by weight, sort before taking the top k
+    val results = query.eligibleNavIds.map((_,0d)).map { case (eligibleNavId, w) =>
+      dataset.navHintsDAO.findOneById(eligibleNavId).getOrElse(NavHint(eligibleNavId, 0))
+    }.filter(_.weight > 0).map { navHint => navHint._id -> navHint.weight } // swap key and value
+      .sortBy(-_._2) // sort by value, which is the score here, minus for
+      .take(params.num.getOrElse(1))
+    NHQueryResult(results)
   }
 
   override def destroy(): Unit = {

@@ -85,39 +85,44 @@ class OffsetDateTimeCodec extends Codec[OffsetDateTime] {
 
 class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
 
-  override def find(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] =
+  override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = findAsync("_id" -> id)
+
+  override def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] =
     collection.find(mkBson(filter)).headOption
 
-  override def list(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]] =
+  override def listAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]] =
     collection.find(mkBson(filter)).toFuture
 
-  override def insert(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+  override def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertOne(o).headOption.flatMap {
       case Some(t) => Future.successful(t)
       case None => Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
     }
   }
 
-  override def update(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] =
+  override def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] =
     collection.findOneAndReplace(mkBson(filter), o).headOption.flatMap {
       case Some(t) => Future.successful(t)
       case None => Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
     }
 
-  override def upsert(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+  override def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    val filter = Seq("_id" -> id)
     for {
       opt <- collection.find(mkBson(filter)).headOption
       _ <- if (opt.isDefined) collection.replaceOne(mkBson(filter), o).headOption.recover {
              case e => logger.error(s"Can't replace object $o", e)
-           } else insert(o)
+           } else insertAsync(o)
     } yield ()
   }
 
-  override def remove(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] =
+  override def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] =
     collection.findOneAndDelete(mkBson(filter)).headOption.flatMap {
       case Some(t) => Future.successful(t)
       case None => Future.failed(new RuntimeException(s"Can't remove from collection ${collection.namespace} with filter $filter"))
     }
+
+  override def removeByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = removeAsync("_id" -> id)
 
 
   private def mkBson(fields: Seq[(String, Any)]): Bson = {
