@@ -73,7 +73,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     logger.trace(s"Train Nav Hinting Model with datum: $datum")
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)
-    val converted = datum.event.properties.conversion.getOrElse(false)
+    val converted = datum.event.properties.flatMap(_.conversion).getOrElse(false)
     if (converted) { // update the model with the active journeys and remove it from active
       if (activeJourney.nonEmpty) { // have an active journey
         updateModel(Journey(datum.event.entityId, activeJourney.get), OffsetDateTime.parse(datum.event.eventTime))

@@ -45,14 +45,6 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   }
 
   override def destroy(): Unit = {
-    // remove old model since it is recreated with each new ScaffoldEngine
-    // may want to await completetion of a Future here in a "try" if destroy may take time.
-    /*
-    try{ Await.result(deleteModel, 2 seconds) } catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath in the 2 second timeout.")
-    }
-    */
   }
 
   override def input(datum: GenericEvent): Validated[ValidateError, Boolean] = {

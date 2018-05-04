@@ -69,7 +69,7 @@ class NavHintingDataset(engineId: String, storage: Store)(implicit ec: Execution
     try {
       event match {
         case event: NHNavEvent => // nav events enqued for each user until conversion
-          val conversion = event.properties.conversion.getOrElse(false)
+          val conversion = event.properties.flatMap(_.conversion).getOrElse(false)
           val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
           if(!conversion) { // store in the user journey queue
             if (unconvertedJourney.nonEmpty) {
@@ -207,7 +207,7 @@ case class NHNavEvent(
     event: String,
     entityId: String,
     targetEntityId: String,
-    properties: NHNavEventProperties,
+    properties: Option[NHNavEventProperties],
     eventTime: String)
   extends NHEvent {
 
@@ -266,7 +266,7 @@ case class NHRawEvent (
     entityType: String,
     entityId: String,
     targetEntityId: Option[String] = None,
-    properties: Option[Map[String, Boolean]] = None,
+    properties: Map[String, Boolean] = Map.empty,
     eventTime: String) // ISO8601 date
   extends NHEvent
 

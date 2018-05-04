@@ -118,7 +118,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   }
 
   override def destroy(): Unit = {
-    try{ Await.result(
+    try { Await.result(
       actors.terminate().andThen { case _ =>
         if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
       }.map { _ =>
