@@ -83,6 +83,7 @@ echo "Sending queries after 2 conversion"
 echo
 mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine $test_queries" -Dexec.cleanupDaemonThreads=false >> nh-hinting-results.txt
 
+
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
 echo "TESTING NAV-HINTING MODEL PERSISTENCE BY RESTARTING HARNESS AND MAKING QUERIES"
@@ -110,12 +111,6 @@ echo
 
 if [ "$clean_test_artifacts" == true ]; then
     harness delete ${engine}
-fi
-
-if [ "$skip_restarts" == false ]; then
-    sleep 10
-    harness stop
-    harness start
 fi
 
 cd ..

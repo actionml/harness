@@ -81,30 +81,29 @@ User navigation events are the only type of input allowed. These have all inform
 
 When the first conversion is seen for a particular `nav-id` a model is started, which can later be deleted using the same `nav-id`, though it is later called a `conversion-id` in the `target-delete` event.
 
-**`target-delete`**
+**`$delete` Models**
 
-The `nav-id` when `"conversion": true` is here referred to as the `conversion-id` It identifies the model associated with a particular conversion target. When the target is added, the Nav-Hinting Engine does not need to know immediately. The model for a particular `conversion-id` will be created on the first conversion and updated on every subsequent conversion. When the conversion target is deleted, its model can be removed so that no hints will be for that conversion target. Send an event like this:
+The `nav-id` where `"conversion": true` is here referred to as the `conversion-id` It identifies the Model associated with a particular conversion target. When the target is added, the Nav-Hinting Engine does not need to know immediately. The model for a particular `conversion-id` will be created on the first conversion and updated on every subsequent conversion. When the conversion target is deleted, its model can be removed so that no hints will be made for that conversion target. Send an event like this:
 
 ```
 {
-    "event" : "target-delete",
-    "entityType" : "user",
-    "entityId" : "pferrel",
-    "targetEntityId" : "conversion-id", <-- taken from conversion nav-event
+    "event" : "$delete",
+    "entityId" : "conversion-id", <-- taken from conversion nav-event
+    "entityType" : "model",
     "eventTime": "ISO-8601 encoded string"
 }
 ```
 
 This will delete the model for the conversion-id so none of the hints will be for this target.
 
-**$delete**
+**`$delete` Users**
 
 As with other Engines to delete any Journey information (not the model, which remains unaffected) attached to a user you should `$delete` the User with:
 
     {
         "event" : "$delete",
-        "entityType" : "user",
         "entityId" : "pferrel",
+        "entityType" : "user",
     }
 
 Since the number of Users will increase without bounds some external method for trimming them will eventually be required. Since old inactive users will not generally have meaningful Journeys is they have not converted in a long time, a TTL could be employed if the user's journey has not been modified in some period of time. The Nav Event will re-create the user later if they later become active again. 

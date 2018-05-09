@@ -37,10 +37,11 @@ import scala.language.reflectiveCalls
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, storage: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
+class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
 
-  val activeJourneysDAO = storage.createDao[Journey]("active_journeys")
-  val navHintsDAO = storage.createDao[NavHint]("nav_hints")
+  val activeJourneysDAO = store.createDao[Journey]("active_journeys")
+  // val navHintsDAO = store.createDao[NavHint]("nav_hints")
+  val navHintsModels = store.createDao[NavModels]("nav_models")
 
   private var trailLength: Int = _
 
@@ -56,7 +57,7 @@ class NavHintingDataset(engineId: String, storage: Store)(implicit ec: Execution
   }
 
   override def destroy() = {
-    storage.drop //.dropDatabase(engineId)
+    store.drop //.dropDatabase(engineId)
   }
 
   // add one json, possibly an NHEvent, to the beginning of the dataset
@@ -89,15 +90,20 @@ class NavHintingDataset(engineId: String, storage: Store)(implicit ec: Execution
               Valid(true)
             }
             Valid(event)
-          } else {
+          } else { // a conversion lets the Engine decide what to do, which will delegate to the Algorithm
             Valid(event)
           }
 
-        case event: HNDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
+        case event: NHDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${engineId} removing any journey data for user: ${event.entityId}")
-              activeJourneysDAO.removeById(event.entityId)
+              activeJourneysDAO.removeOneById(event.entityId)
+              Valid(event)
+            case "model" =>
+              logger.trace(s"Dataset: ${engineId} removing model for conversion-id: ${event.entityId}")
+              navHintsModels.removeOneById(event.entityId) // todo: does this throw an exception if it fails to find?
+              store.removeCollection(event.entityId) // todo: does this throw an exception if it fails to find?
               Valid(event)
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
@@ -125,9 +131,11 @@ class NavHintingDataset(engineId: String, storage: Store)(implicit ec: Execution
           event.entityType match {
             case "user"  => // got a user profile update event
               logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
-              parseAndValidate[HNDeleteEvent](json)
+              parseAndValidate[NHDeleteEvent](json)
+            case "model" => // deleteing a convversion hinting model
+              logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
+              parseAndValidate[NHDeleteEvent](json)
           }
-
         case _ => // default is a self describing usage event, kept as a stream
           logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[NHNavEvent](json)
@@ -244,7 +252,7 @@ case class NavHint(
     _id: String, // nav-id
     weight: Double) // scored nav-ids
 
-
+case class NavModels(_id: String) // id for NavHint collections that are active/have an active target
 
 /* HNUser Comes in NHEvent partially parsed from the Json:
 {
@@ -253,7 +261,7 @@ case class NavHint(
   "entityId" : "pferrel",
 }
  */
-case class HNDeleteEvent(
+case class NHDeleteEvent(
     entityId: String,
     entityType: String)
   extends NHEvent

@@ -84,6 +84,7 @@ fi
 
 if [ "$do_nh_test" = true ]; then
     ./nav-hinting-integration-test.sh
+    ./nh-integration-test-2-conversion-ids.sh
 fi
 
 echo
@@ -103,7 +104,10 @@ if [ "$do_cb_test" = true ]; then
 fi
 
 if [ "$do_nh_test" = true ]; then
-    echo "---------------------- Important differences: Navigation Hinting queries ----------------------------"
+    echo "---------------------- Important differences: Navigation Hinting queries ---------------------------------"
     diff example/nh-hinting-results.txt example/data/expected-nh-hinting-results-urls.txt | grep Results
+    echo
+    echo "---------------------- Important differences: Navigation Hinting target delete ---------------------------"
+    diff example/nh-hinting-results-2-models.txt example/data/expected-nh-hinting-results-2-models-urls.txt | grep Results
     echo
 fi
