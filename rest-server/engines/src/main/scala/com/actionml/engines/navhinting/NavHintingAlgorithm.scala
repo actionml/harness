@@ -23,8 +23,9 @@ import java.time.OffsetDateTime
 import akka.actor._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.store._
+import com.actionml.core.store.{DAO, _}
 import com.actionml.core.engine._
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -44,7 +45,8 @@ import scala.concurrent.duration._
 class NavHintingAlgorithm(dataset: NavHintingDataset)
   extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonParser {
 
-  private var activeJourneys: Map[String, Seq[JourneyStep]] = Map.empty // kept as key - user-id, sequence of nav-ids and timestamps
+  private var activeJourneys = Map[String, Seq[JourneyStep]]() // kept as key - user-id, sequence of nav-ids and timestamps
+  private var navHintsModels = Map[String, DAO[NavHint]]()
 
   var params: NHAlgoParams = _ // todo achtung! public var
 
@@ -53,14 +55,11 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
       parseAndValidate[NHAllParams](json).andThen { p =>
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
           params = p.algorithm.copy()
-          // init the in-memory model, from which predicitons will be made and to which new conversion Journeys will be added
-          /* dataset.activeJourneysDAO.find(allCollectionObjects).foreach { j =>
-
-            activeJourneys += (j._id -> j.trail)
+          // init nav hints DAOs for existing models
+          dataset.navHintsModels.list().foreach { navModel =>
+            navHintsModels += navModel._id -> MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
+              .createDao[NavHint](navModel._id)
           }
-          */
-          // trigger Train and wait for finish, then input will trigger Train and Query will us the latest trained model
-          // model = dataset.navHintsDAO.findOneById("1").getOrElse(Hints(hints = Map.empty)).hints
           Valid(true)
         } else { //bad decay function name
           Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}"))
@@ -76,10 +75,21 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     val converted = datum.event.properties.flatMap(_.conversion).getOrElse(false)
     if (converted) { // update the model with the active journeys and remove it from active
       if (activeJourney.nonEmpty) { // have an active journey
-        updateModel(Journey(datum.event.entityId, activeJourney.get), OffsetDateTime.parse(datum.event.eventTime))
+        // create and empty model if this is a new cconversion-id or find the right navHintModel
+        val navHintsModel = if(navHintsModels.contains(datum.event.targetEntityId)) navHintsModels(datum.event.targetEntityId) else {
+          // no model yet so create one and add it to the list
+          // always persist the new model's id after creating it!
+          val model = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
+            .createDao[NavHint](datum.event.targetEntityId)
+          dataset.navHintsModels.save(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
+          navHintsModels += datum.event.targetEntityId -> model
+          navHintsModels(datum.event.targetEntityId)
+        }
+        updateModel(navHintsModel, Journey(datum.event.targetEntityId, activeJourney.get), OffsetDateTime.parse(datum.event.eventTime))
         activeJourneys -= datum.event.entityId // remove once converted
       } else { // new event from this user, start a journey
-        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, OffsetDateTime.parse(datum.event.eventTime)))
+        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
+          OffsetDateTime.parse(datum.event.eventTime)))
       }
     } else { // no conversion so just update activeJourney
       if (activeJourney.nonEmpty) { // have an active journey so update
@@ -88,7 +98,8 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
           OffsetDateTime.parse(datum.event.eventTime),
           activeJourney.get))
       } else { // no conversion, no journey, create a new one
-        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId, OffsetDateTime.parse(datum.event.eventTime)))
+        activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
+          OffsetDateTime.parse(datum.event.eventTime)))
       }
     }
     Valid(true)
@@ -101,12 +112,12 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
 
   /** update the model with a Future for every input. This may cause Futures to accumulate */
-  def updateModel(convertedJourney: Journey,  now: OffsetDateTime): Unit = {
+  def updateModel(navHintsModel: DAO[NavHint], convertedJourney: Journey,  now: OffsetDateTime): Unit = {
     applyDecayFunction(convertedJourney, now).map { weightedVectors =>
       //Semigroup[Map[String, Double]].combine(model, weightedVectors.toMap)
       weightedVectors.foreach { case (_id, weight) =>
-        val existingModelHint = dataset.navHintsDAO.findOneById(_id).getOrElse(NavHint(_id, 0d))
-        val status = dataset.navHintsDAO.save(_id, NavHint(_id, weight + existingModelHint.weight))
+        val existingModelHint = navHintsModel.findOneById(_id).getOrElse(NavHint(_id, 0d))
+        val status = navHintsModel.save(_id, NavHint(_id, weight + existingModelHint.weight))
         val updatedWeight = weight + existingModelHint.weight
         logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight} status: ${status} ")
       }
@@ -203,11 +214,19 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   override def predict(query: NHQuery): NHQueryResult = {
     // find model elements that match eligible and sort by weight, sort before taking the top k
-    val results = query.eligibleNavIds.map((_,0d)).map { case (eligibleNavId, w) =>
-      dataset.navHintsDAO.findOneById(eligibleNavId).getOrElse(NavHint(eligibleNavId, 0))
-    }.filter(_.weight > 0).map { navHint => navHint._id -> navHint.weight } // swap key and value
-      .sortBy(-_._2) // sort by value, which is the score here, minus for
+    // adds the weights of hints with the same id from multiple conversion-id models
+    val results = query.eligibleNavIds.map((_,0d)).flatMap { case (eligibleNavId, w) =>
+      navHintsModels.map(_._2.findOneById(eligibleNavId))
+      //dataset.navHintsDAO.findOneById(eligibleNavId).getOrElse(NavHint(eligibleNavId, 0))
+    }.flatten // remove undefined Options
+      .groupBy(_._id).map { case (id, navHints) => // get nav-hints with matching ids
+        var sum = 0d
+        navHints.foreach(sum += _.weight)
+        NavHint(id, sum) // sum weights for all of same id
+      }.filter(_.weight > 0).map { navHint => navHint._id -> navHint.weight }.toArray // swap key and value
+      .sortBy(-_._2) // sort by weight, minus for descending
       .take(params.num.getOrElse(1))
+
     NHQueryResult(results)
   }
 

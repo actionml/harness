@@ -122,7 +122,7 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
       case None => Future.failed(new RuntimeException(s"Can't remove from collection ${collection.namespace} with filter $filter"))
     }
 
-  override def removeByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = removeAsync("_id" -> id)
+  override def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = removeAsync("_id" -> id)
 
 
   private def mkBson(fields: Seq[(String, Any)]): Bson = {

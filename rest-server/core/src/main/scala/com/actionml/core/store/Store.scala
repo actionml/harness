@@ -38,7 +38,7 @@ trait AsyncDao[T] {
   def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
   def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
   def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
-  def removeByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
+  def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
 }
 
 trait SyncDao[T] { self: AsyncDao[T] =>
@@ -53,5 +53,5 @@ trait SyncDao[T] { self: AsyncDao[T] =>
   def update(filter: (String, Any)*)(o: T): T = sync(updateAsync(filter: _*)(o))
   def save(id: String, o: T): Unit = sync(saveAsync(id, o))
   def remove(filter: (String, Any)*): T = sync(removeAsync(filter: _*))
-  def removeById(id: String): T = sync(removeByIdAsync(id))
+  def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
 }
