@@ -1,0 +1,5 @@
+{"event" : "nav-event", "entityType" : "user", "entityId" : "pferrel", "targetEntityId" : "http://nav.domain1", "properties" : {}, "eventTime": "2017-12-24T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "pferrel", "targetEntityId" : "http://model_1.domain1", "properties" : {"conversion": true}, "eventTime": "2017-12-30T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "pferrel", "targetEntityId" : "http://nav.domain2", "properties" : {}, "eventTime": "2017-12-24T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "pferrel", "targetEntityId" : "http://nav.domain2", "properties" : {}, "eventTime": "2017-12-24T18:10:34Z"}
+{"event" : "nav-event", "entityType" : "user", "entityId" : "pferrel", "targetEntityId" : "http://model_2.domain1", "properties" : {"conversion": true}, "eventTime": "2017-12-30T18:10:34Z"}

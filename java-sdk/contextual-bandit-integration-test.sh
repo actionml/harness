@@ -44,13 +44,15 @@ sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
 harness status engines
-sleep 30
 
+echo "Adding a restart to temporarily fix the CBEngine delete issue"
+harness stop
+harness start -f
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_cb"
 echo
-# mvn compile
+#mvn compile
 # mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_profile_events" -Dexec.cleanupDaemonThreads=false
 
@@ -83,6 +85,11 @@ sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
 harness status engines
+
+echo "Adding a restart to temporarily fix the CBEngine delete issue"
+harness stop
+harness start -f
+
 
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with contextualTags to test_cb"
@@ -139,6 +146,10 @@ echo
 if [ "$clean_test_artifacts" == true ]; then
     harness delete $engine_1
     harness delete $engine_2
+
+    echo "Adding a restart to temporarily fix the CBEngine delete issue"
+    harness stop
+    harness start -f
 fi
 
 cd ..
