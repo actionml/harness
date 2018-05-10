@@ -15,14 +15,14 @@ if [[ "$1" = "-f" ]] || [[ ! -f ${PIDFILE} ]]; then
         echo -e "${CYAN}Trying to stop Harness from existing PID file before restarting${NC}"
         harness-stop
     fi
-    exec ${HARNESS_HOME}/bin/main \
+    exec ${HARNESS_HOME}/bin/main -v \
     -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
     -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
     -Drest-server.host=${REST_SERVER_HOST} \
     -Drest-server.port=${REST_SERVER_PORT} \
     -Dmongo.host=${MONGO_HOST} \
     -Dmongo.port=${MONGO_PORT} \
-    <&- > /dev/null 2>&1 &
+    <&- > /tmp/harness.log 2>&1 &
     echo $! > ${PIDFILE}
     if [[ $? == 0 ]]; then
         echo -e "${CYAN}Started Harness with PID: $(cat ${PIDFILE})${NC}"

@@ -17,7 +17,7 @@
 
 package com.actionml.engines.cb
 
-import java.io.File
+import java.io.{File, IOException}
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime}
 import java.util.concurrent.TimeoutException
@@ -107,7 +107,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       Valid(true)
     } catch {
       case e: NoSuchElementException =>
-        logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.")
+        logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.", e)
         Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
     }
   }
@@ -115,19 +115,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   override def predict(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
     if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
-  }
-
-  override def destroy(): Unit = {
-    try { Await.result(
-      actors.terminate().andThen { case _ =>
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      }.map { _ =>
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-      }, 3 seconds) } catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
-    }
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -300,9 +287,32 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
+  override def destroy(): Unit = CBAlgorithm.destroy(actors, vw, engineId, Paths.get(modelPath), params)
+
 }
 
 object CBAlgorithm extends LazyLogging {
+
+  def destroy(actors: ActorSystem, vw: VWMulticlassLearner, engineId: String, modelPath: java.nio.file.Path, params: CBAlgoParams): Unit = synchronized {
+    try {
+      Await.result(
+        actors.terminate().flatMap { _ =>
+          logger.info(s"Closing vw $vw")
+          if (vw != null.asInstanceOf[VWMulticlassLearner]) Future(vw.close())
+          else Future.successful(())
+        }.map { _ =>
+          if (Files.exists(modelPath) && !Files.isDirectory(modelPath)) {
+            logger.info(s"Deleting file ${modelPath} for vw $vw")
+            while (!Files.deleteIfExists(modelPath)) {logger.info(s"trying to delete ${modelPath}")}
+          } else logger.info(s"$vw has no file to delete")
+        }, 2 minutes)
+      logger.info(s"Algorithm for $engineId (created with params $params) was destroyed")
+    } catch {
+      case e: IOException => logger.error(s"Can't destroy $this", e)
+      case e: TimeoutException => logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.", e)
+      case e => logger.error(s"Can't destroy algorithm for $engineId (created with params $params) - unknown error", e)
+    }
+  }
 
 }
 

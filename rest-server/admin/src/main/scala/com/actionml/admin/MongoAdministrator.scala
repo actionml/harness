@@ -27,9 +27,6 @@ import com.actionml.core.validate._
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
 
 class MongoAdministrator extends Administrator with JsonParser {
   import scala.concurrent.ExecutionContext.Implicits.global

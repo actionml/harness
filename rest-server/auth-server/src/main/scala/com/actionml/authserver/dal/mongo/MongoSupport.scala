@@ -20,6 +20,8 @@ trait MongoSupport {
 }
 
 object MongoSupport {
+  def close = mongoClient.close()
+
   private val config = AppConfig.apply.authServer.mongoDb
 
   import scala.collection.JavaConversions._
