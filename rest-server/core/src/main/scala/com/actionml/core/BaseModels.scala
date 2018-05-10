@@ -17,7 +17,6 @@
 
 package com.actionml.core.model
 
-import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
 import org.json4s.JsonDSL.WithBigDecimal._

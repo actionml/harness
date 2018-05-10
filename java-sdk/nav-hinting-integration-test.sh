@@ -41,6 +41,7 @@ sleep $sleep_seconds
 harness add data/${engine}.json
 sleep $sleep_seconds
 
+harness status
 
 echo
 echo "Sending navigation events for user pferrel"
