@@ -310,7 +310,6 @@ object CBAlgorithm extends LazyLogging {
     } catch {
       case e: IOException => logger.error(s"Can't destroy $this", e)
       case e: TimeoutException => logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.", e)
-      case e => logger.error(s"Can't destroy algorithm for $engineId (created with params $params) - unknown error", e)
     }
   }
 
