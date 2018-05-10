@@ -24,11 +24,8 @@ import scala.reflect.ClassTag
 
 trait JsonParser extends LazyLogging{
 
-  import org.joda.time.DateTime
-  import org.json4s.ext.JodaTimeSerializers
   import org.json4s.jackson.JsonMethods._
   import org.json4s.{DefaultFormats, Formats, MappingException}
-  import org.json4s.ext.JodaTimeSerializers
   import org.json4s.jackson.JsonMethods._
   import org.json4s.{DefaultFormats, MappingException}
   import cats.data.Validated
@@ -36,7 +33,7 @@ trait JsonParser extends LazyLogging{
   import scala.reflect.runtime.universe._
 
 
-  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all //needed for json4s parsing
+  implicit val formats: Formats = DefaultFormats
 
   def parseAndValidate[T : ClassTag](
     json: String,

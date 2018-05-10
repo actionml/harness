@@ -26,8 +26,9 @@ import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
+import org.mongodb.scala.connection.ClusterSettings
 import org.mongodb.scala.model.Filters
-import org.mongodb.scala.{Completed, MongoClient, MongoCollection, MongoDatabase, Observer}
+import org.mongodb.scala.{Completed, MongoClient, MongoClientSettings, MongoCollection, MongoDatabase, Observer, ServerAddress}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -65,9 +66,20 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   }
 }
 
-object MongoStorage {
+object MongoStorage extends LazyLogging {
+  import scala.collection.JavaConversions._
+  private lazy val settings = MongoClientSettings.builder
+    .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress(MongoConfig.mongo.host, MongoConfig.mongo.port))).build)
+    .build
+  private lazy val mongoClient = MongoClient(settings)
 
-  def getStorage(dbName: String, codecs: List[CodecProvider]) = new MongoStorage(MongoClient("mongodb://localhost:27017").getDatabase(dbName), codecs)
+
+  def close = {
+    logger.info(s"Closing mongo client $mongoClient")
+    mongoClient.close()
+  }
+
+  def getStorage(dbName: String, codecs: List[CodecProvider]) = new MongoStorage(mongoClient.getDatabase(dbName), codecs)
 }
 
 

@@ -18,6 +18,7 @@
 package com.actionml.engines.navhinting
 
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -25,12 +26,12 @@ import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.Store
 import com.actionml.core.engine.{Dataset, Event}
 import com.actionml.core.validate._
-import org.joda.time.DateTime
 import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.reflectiveCalls
+import scala.util.Try
 
 /** Navigation Hinting input data
   * The NavHintingDataset manages User journeys and the hint model. Users are not in-memory. Journeys may be in-memory
@@ -84,7 +85,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
               activeJourneysDAO.insert(
                 Journey(
                   event.entityId,
-                  Seq(JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime)))
+                  Seq(JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime))) // TODO: what to do with the parse error?
                 )
               )
               Valid(true)
@@ -213,6 +214,7 @@ case class NHNavEventProperties(
 
 case class NHNavEvent(
     event: String,
+    entityType: String,
     entityId: String,
     targetEntityId: String,
     properties: Option[NHNavEventProperties],
@@ -236,7 +238,7 @@ case class NavEvent(
   userId: String,
   itemId: String,
   converted: String,
-  eventTime: DateTime)
+  eventTime: OffsetDateTime)
 
 //case class NavEventDAO(eventColl: MongoCollection) extends SalatDAO[NavEvent, ObjectId](eventColl)
 

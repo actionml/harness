@@ -6,6 +6,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
+import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -15,6 +16,8 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
+
+import scala.concurrent.Future
 
 /**
   *
@@ -105,10 +108,13 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
   }
 
+  private val admin = inject[Administrator]
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
+    import io.circe.syntax._
+
     completeByValidated(StatusCodes.OK) {
-      (engineService ? DeleteEngine(engineId)).mapTo[Response]
+      Future.successful(admin.removeEngine(engineId).map(_.asJson))
     }
   }
 }
