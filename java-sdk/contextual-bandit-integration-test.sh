@@ -48,7 +48,7 @@ harness status engines
 echo
 echo "Sending events to create testGroup: 1, user: joe, and one conversion event with no contextualTags to test_cb"
 echo
-# mvn compile
+#mvn compile
 # mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$1 $2 $3" -Dexec.cleanupDaemonThreads=false
 mvn exec:java -Dexec.mainClass="EventsClientExample" -Dexec.args="$host $engine_1 $engine_1_profile_events" -Dexec.cleanupDaemonThreads=false
 
