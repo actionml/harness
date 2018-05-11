@@ -30,11 +30,13 @@ import org.mongodb.scala.connection.ClusterSettings
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.{Completed, MongoClient, MongoClientSettings, MongoCollection, MongoDatabase, Observer, ServerAddress}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 
 class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
     import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
@@ -52,18 +54,27 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
     new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry))
   }
 
-  override def removeCollection(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
-    db.getCollection(name).drop.headOption()
-      .flatMap {
+  override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))
+
+  override def drop(): Unit = sync(dropAsync)
+
+  override def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
+    db.getCollection(name).drop.headOption().flatMap {
         case Some(_) => Future.successful(())
         case None => Future.failed(new RuntimeException(s"Can't remove collection $name"))
       }
   }
 
-  override def drop()(implicit ec: ExecutionContext): Future[Unit] = db.drop.headOption.map {
-    case Some(_) => Future.successful(())
-    case None => Future.failed(new RuntimeException("Can't drop db"))
+  override def dropAsync()(implicit ec: ExecutionContext): Future[Unit] = {
+    db.drop.headOption.flatMap {
+      case Some(_) => Future.successful(())
+      case None => Future.failed(new RuntimeException("Can't drop db"))
+    }
   }
+
+
+  private val timeout = 5 seconds
+  private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
 }
 
 object MongoStorage extends LazyLogging {
