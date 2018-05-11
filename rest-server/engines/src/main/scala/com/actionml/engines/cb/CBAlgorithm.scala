@@ -18,6 +18,7 @@
 package com.actionml.engines.cb
 
 import java.io.{File, IOException}
+import java.nio.file.attribute.{PosixFileAttributes, PosixFilePermission}
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime}
 import java.util.concurrent.TimeoutException
@@ -114,7 +115,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
   override def predict(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
-    if(dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
+    if (dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -181,7 +182,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       actors stop trainers(groupName)
       logger.info("Remove trainer {}", groupName)
       trainers -= groupName
-    } catch{
+    } catch {
       case e: NoSuchElementException =>
         logger.error(s"Deleting non-existent group: $groupName The group must be initialized first. Ingoring event.")
     }
@@ -189,7 +190,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
   def add(groupName: String): Unit = {
     logger.info("Create trainer {}", groupName)
-    if (!trainers.contains(groupName) &&  dataset.groupsDao.findOneById(groupName).nonEmpty) {
+    if (!trainers.contains(groupName) && dataset.groupsDao.findOneById(groupName).nonEmpty) {
       val actor = actors.actorOf(
         SingleGroupTrainer.props(
           dataset.usageEventGroups(groupName),
@@ -218,7 +219,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     //val classString = (1 to numClasses).mkString(" ") // todo: use keys in pageVariants 0..n
     val classString = group.pageVariants.keySet.mkString(" ")
 
-    val user = dataset.usersDAO.findOneById(query.user).getOrElse(User("",Map.empty))
+    val user = dataset.usersDAO.findOneById(query.user).getOrElse(User("", Map.empty))
 
     val queryText = SingleGroupTrainer.constructVWString(classString, user._id, query.groupId, user, engineId)
 
@@ -244,7 +245,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     val epsilonT = scala.math.max(0, scala.math.min(maxEpsilon, maxEpsilon * (1.0 - currentTestDuration / totalTestDuration)))
 
     // the key->value needs to be in the DB when a test-group is defined
-    val groupMap = group.pageVariants.map( a => a._1.toInt -> a._2)
+    val groupMap = group.pageVariants.map(a => a._1.toInt -> a._2)
 
     val probabilityMap = groupMap.keys.map { keyInt =>
       keyInt -> (
@@ -271,7 +272,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
     val variants = group.pageVariants
     val numClasses = variants.size
-    val map = variants.map{ x => x._2 -> 1.0/numClasses}.toMap
+    val map = variants.map { x => x._2 -> 1.0 / numClasses }.toMap
     CBQueryResult(sample[String](map), groupId = query.groupId)
   }
 
@@ -282,29 +283,24 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
     val rangedMap = (dist.keys zip rangedProbs).toMap
 
-    val item = dist.filter( x => rangedMap(x._1) >= p).keys.head
+    val item = dist.filter(x => rangedMap(x._1) >= p).keys.head
 
     item
   }
 
-  override def destroy(): Unit = CBAlgorithm.destroy(actors, vw, engineId, Paths.get(modelPath), params)
-
-}
-
-object CBAlgorithm extends LazyLogging {
-
-  def destroy(actors: ActorSystem, vw: VWMulticlassLearner, engineId: String, modelPath: java.nio.file.Path, params: CBAlgoParams): Unit = synchronized {
+  override def destroy(): Unit = {
     try {
       Await.result(
-        actors.terminate().flatMap { _ =>
+        actors.terminate().map { _ =>
           logger.info(s"Closing vw $vw")
-          if (vw != null.asInstanceOf[VWMulticlassLearner]) Future(vw.close())
-          else Future.successful(())
+          if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
         }.map { _ =>
-          if (Files.exists(modelPath) && !Files.isDirectory(modelPath)) {
-            logger.info(s"Deleting file ${modelPath} for vw $vw")
-            while (!Files.deleteIfExists(modelPath)) {logger.info(s"trying to delete ${modelPath}")}
-          } else logger.info(s"$vw has no file to delete")
+          if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
+            logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
+            while (!Files.deleteIfExists(Paths.get(modelPath))) {
+              logger.info(s"trying to delete ${modelPath}")
+            }
+          } else logger.info(s"$vw of engine $engineId has no file to delete")
         }, 2 minutes)
       logger.info(s"Algorithm for $engineId (created with params $params) was destroyed")
     } catch {
@@ -312,7 +308,6 @@ object CBAlgorithm extends LazyLogging {
       case e: TimeoutException => logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.", e)
     }
   }
-
 }
 
 case class CBAllParams(

@@ -108,13 +108,10 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
   }
 
-  private val admin = inject[Administrator]
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
-    import io.circe.syntax._
-
     completeByValidated(StatusCodes.OK) {
-      Future.successful(admin.removeEngine(engineId).map(_.asJson))
+      (engineService ? DeleteEngine(engineId)).mapTo[Response]
     }
   }
 }

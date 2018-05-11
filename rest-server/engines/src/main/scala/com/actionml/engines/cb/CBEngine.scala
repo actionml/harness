@@ -94,7 +94,7 @@ class CBEngine() extends Engine() with JsonParser {
       activeGroups = algo.trainers.size).toJson)
   }
 
-  override def destroy(): Unit = {
+  override def destroy(): Unit = synchronized {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
     algo.destroy()
