@@ -36,7 +36,7 @@ trait EngineService extends ActorInjectable
 
 class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
-  private val admin = inject[Administrator]
+  private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
     case GetEngine(engineId) =>

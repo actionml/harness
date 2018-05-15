@@ -24,18 +24,14 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
-import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.connection.ClusterSettings
-import org.mongodb.scala.model.Filters
-import org.mongodb.scala.{Completed, MongoClient, MongoClientSettings, MongoCollection, MongoDatabase, Observer, ServerAddress}
+import org.mongodb.scala.{MongoClient, MongoDatabase}
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 
-class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store {
+class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
@@ -59,16 +55,26 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   override def drop(): Unit = sync(dropAsync)
 
   override def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
+    logger.debug(s"Trying to remove collection $name from database ${db.name}")
     db.getCollection(name).drop.headOption().flatMap {
-        case Some(_) => Future.successful(())
-        case None => Future.failed(new RuntimeException(s"Can't remove collection $name"))
+        case Some(_) =>
+          logger.debug(s"Collection $name successfully removed from database ${db.name}")
+          Future.successful(())
+        case None =>
+          logger.debug(s"Failure. Collection $name can't be removed from database ${db.name}")
+          Future.failed(new RuntimeException(s"Can't remove collection $name"))
       }
   }
 
   override def dropAsync()(implicit ec: ExecutionContext): Future[Unit] = {
+    logger.debug(s"Trying to drop database ${db.name}")
     db.drop.headOption.flatMap {
-      case Some(_) => Future.successful(())
-      case None => Future.failed(new RuntimeException("Can't drop db"))
+      case Some(_) =>
+        logger.debug(s"Database ${db.name} was successfully dropped")
+        Future.successful(())
+      case None =>
+        logger.debug(s"Can't drop database ${db.name}")
+        Future.failed(new RuntimeException("Can't drop db"))
     }
   }
 
@@ -78,11 +84,8 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 }
 
 object MongoStorage extends LazyLogging {
-  import scala.collection.JavaConversions._
-  private lazy val settings = MongoClientSettings.builder
-    .clusterSettings(ClusterSettings.builder().hosts(List(ServerAddress(MongoConfig.mongo.host, MongoConfig.mongo.port))).build)
-    .build
-  private lazy val mongoClient = MongoClient(settings)
+  val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
+  private lazy val mongoClient = MongoClient(uri)
 
 
   def close = {
@@ -104,52 +107,4 @@ class OffsetDateTimeCodec extends Codec[OffsetDateTime] {
   override def decode(reader: BsonReader, dc: DecoderContext): OffsetDateTime = OffsetDateTime.ofInstant(Instant.ofEpochMilli(reader.readDateTime), ZoneOffset.UTC)
   override def encode(writer: BsonWriter, value: OffsetDateTime, ec: EncoderContext): Unit = writer.writeDateTime(value.toInstant.toEpochMilli)
   override def getEncoderClass: Class[OffsetDateTime] = classOf[OffsetDateTime]
-}
-
-class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
-
-  override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = findAsync("_id" -> id)
-
-  override def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] =
-    collection.find(mkBson(filter)).headOption
-
-  override def listAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]] =
-    collection.find(mkBson(filter)).toFuture
-
-  override def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    collection.insertOne(o).headOption.flatMap {
-      case Some(t) => Future.successful(t)
-      case None => Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
-    }
-  }
-
-  override def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] =
-    collection.findOneAndReplace(mkBson(filter), o).headOption.flatMap {
-      case Some(t) => Future.successful(t)
-      case None => Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
-    }
-
-  override def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    val filter = Seq("_id" -> id)
-    for {
-      opt <- collection.find(mkBson(filter)).headOption
-      _ <- if (opt.isDefined) collection.replaceOne(mkBson(filter), o).headOption.recover {
-             case e => logger.error(s"Can't replace object $o", e)
-           } else insertAsync(o)
-    } yield ()
-  }
-
-  override def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] =
-    collection.findOneAndDelete(mkBson(filter)).headOption.flatMap {
-      case Some(t) => Future.successful(t)
-      case None => Future.failed(new RuntimeException(s"Can't remove from collection ${collection.namespace} with filter $filter"))
-    }
-
-  override def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = removeAsync("_id" -> id)
-
-
-  private def mkBson(fields: Seq[(String, Any)]): Bson = {
-    if (fields.isEmpty) Document("_id" -> Document("$exists" -> true))
-    else Filters.and(fields.map { case (k, v) => Filters.eq(k, v) }.toArray: _*)
-  }
 }

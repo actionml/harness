@@ -26,6 +26,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.store.{DAO, _}
 import com.actionml.core.engine._
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -69,7 +70,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
 
   override def input(datum: NavHintingAlgoInput): Validated[ValidateError, Boolean] = {
-    logger.trace(s"Train Nav Hinting Model with datum: $datum")
+    logger.debug(s"Train Nav Hinting Model with datum: $datum")
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)
     val converted = datum.event.properties.flatMap(_.conversion).getOrElse(false)
@@ -79,27 +80,31 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
         val navHintsModel = if(navHintsModels.contains(datum.event.targetEntityId)) navHintsModels(datum.event.targetEntityId) else {
           // no model yet so create one and add it to the list
           // always persist the new model's id after creating it!
+          logger.debug(s"Creating DAO for engine $engineId ...")
           val model = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
             .createDao[NavHint](datum.event.targetEntityId)
+          logger.debug(s"Saving $datum")
           dataset.navHintsModels.save(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
           navHintsModels += datum.event.targetEntityId -> model
           navHintsModels(datum.event.targetEntityId)
         }
-        updateModel(navHintsModel, Journey(datum.event.targetEntityId, activeJourney.get), OffsetDateTime.parse(datum.event.eventTime))
+        updateModel(navHintsModel, Journey(datum.event.targetEntityId, activeJourney.get),
+          DateTimeUtil.parseOffsetDateTime(datum.event.eventTime))
         activeJourneys -= datum.event.entityId // remove once converted
       } else { // new event from this user, start a journey
         activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
-          OffsetDateTime.parse(datum.event.eventTime)))
+          DateTimeUtil.parseOffsetDateTime(datum.event.eventTime)))
       }
     } else { // no conversion so just update activeJourney
+      val datetime = DateTimeUtil.parseOffsetDateTime(datum.event.eventTime)
       if (activeJourney.nonEmpty) { // have an active journey so update
         activeJourneys += (datum.event.entityId -> updateTrail(
           datum.event.targetEntityId,
-          OffsetDateTime.parse(datum.event.eventTime),
+          datetime,
           activeJourney.get))
       } else { // no conversion, no journey, create a new one
         activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
-          OffsetDateTime.parse(datum.event.eventTime)))
+          datetime))
       }
     }
     Valid(true)

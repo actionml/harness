@@ -25,19 +25,18 @@ import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import com.typesafe.scalalogging.Logger
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  var dataset: CBDataset = _
-  var algo: CBAlgorithm = _
-  var params: GenericEngineParams = _
+  private var dataset: CBDataset = _
+  private var algo: CBAlgorithm = _
+  private var params: GenericEngineParams = _
 
-  private def createResourses(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
+  private def createResources(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
     params = p
     engineId = params.engineId
     val storage = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
@@ -55,7 +54,7 @@ class CBEngine() extends Engine() with JsonParser {
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(json, deepInit).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
-        createResourses(p).andThen{ _ =>
+        createResources(p).andThen{ _ =>
           dataset.init(json, deepInit).andThen { _ =>
             if (deepInit) {
               algo = new CBAlgorithm(p.engineId, dataset)
@@ -94,7 +93,7 @@ class CBEngine() extends Engine() with JsonParser {
       activeGroups = algo.trainers.size).toJson)
   }
 
-  override def destroy(): Unit = synchronized {
+  override def destroy(): Unit = {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
     algo.destroy()

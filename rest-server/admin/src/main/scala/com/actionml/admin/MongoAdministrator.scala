@@ -30,10 +30,10 @@ import org.mongodb.scala.bson.BsonString
 
 class MongoAdministrator extends Administrator with JsonParser {
   import scala.concurrent.ExecutionContext.Implicits.global
-  val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
+  private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
 
-  lazy val enginesCollection = storage.createDao[Document]("engines")
-  var engines = Map.empty[EngineId, Engine]
+  private lazy val enginesCollection = storage.createDao[Document]("engines")
+  @volatile private var engines = Map.empty[EngineId, Engine]
 
   drawActionML
   private def newEngineInstance(engineFactory: String): Engine = {
@@ -88,18 +88,19 @@ class MongoAdministrator extends Administrator with JsonParser {
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
         enginesCollection.update("engineId" -> params.engineId)(update)
+        engines += params.engineId -> newEngine
         Valid(params.engineId)
       } else if (newEngine != null) {
         //add new
-        engines += params.engineId -> newEngine
-        logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
+        logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
         val builder = Document.builder
         builder += "engineId" -> BsonString(params.engineId)
         builder += "engineFactory" -> BsonString(params.engineFactory)
         builder += "params" -> BsonString(json)
         enginesCollection.insert(builder.result)
+        engines += params.engineId -> newEngine
+        logger.debug(s"Engine for resource-id: ${ params.engineId } with params $json initialized successfully")
         Valid(params.engineId)
-
       } else {
         // ignores case of too many engine with the same engineId
         Invalid(ParseError(s"Unable to create Engine: ${params.engineId}, the config JSON seems to be in error"))

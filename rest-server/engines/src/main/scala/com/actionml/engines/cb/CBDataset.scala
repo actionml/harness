@@ -24,6 +24,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.engine.{Dataset, Event, SharedUserDataset}
+import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
 import scala.concurrent.Await
@@ -371,10 +372,10 @@ case class CBGroupInitEvent (
       .map( t => t._1.toString -> t._2)
     GroupParams(
       _id = this.entityId,
-      testPeriodStart = OffsetDateTime.parse(this.properties.testPeriodStart),
+      testPeriodStart = DateTimeUtil.parseOffsetDateTime(this.properties.testPeriodStart),
       // use the index as the key for the variant string
       pageVariants = pvsStringKeyed,
-      testPeriodEnd = if (this.properties.testPeriodEnd.isEmpty) None else Some(OffsetDateTime.parse(this.properties.testPeriodEnd.get))
+      testPeriodEnd = if (this.properties.testPeriodEnd.isEmpty) None else Some(DateTimeUtil.parseOffsetDateTime(this.properties.testPeriodEnd.get))
     )
   }
 }

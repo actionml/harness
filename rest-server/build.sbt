@@ -41,11 +41,11 @@ lazy val core = (project in file("core")).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "org.mongodb.scala" %% "mongo-scala-driver" % "2.2.1",
-      "org.mongodb.scala" %% "mongo-scala-bson" % "2.2.1",
-      "org.mongodb" % "bson" % "3.4.2",
-      "org.mongodb" % "mongodb-driver-core" % "3.4.2",
-      "org.mongodb" % "mongodb-driver-async" % "3.4.2",
+      "org.mongodb.scala" %% "mongo-scala-driver" % "2.3.0",
+      "org.mongodb.scala" %% "mongo-scala-bson" % "2.3.0",
+      "org.mongodb" % "bson" % "3.7.0",
+      "org.mongodb" % "mongodb-driver-core" % "3.7.0",
+      "org.mongodb" % "mongodb-driver-async" % "3.7.0",
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
@@ -64,13 +64,6 @@ lazy val common = (project in file("common")).
 
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-
-      "org.mongodb" % "mongodb-driver-core" % "3.6.3",
-      "org.mongodb" % "mongodb-driver-async" % "3.6.3",
-      "org.mongodb" % "mongo-java-driver" % "3.6.3",
-      "org.mongodb" % "bson" % "3.6.3",
-      "org.mongodb.scala" %% "mongo-scala-driver" % "2.2.1",
-      "org.mongodb.scala" %% "mongo-scala-bson" % "2.2.1",
 
       "org.scaldi" %% "scaldi-akka" % "0.5.8"
     )
@@ -96,13 +89,6 @@ lazy val admin = (project in file("admin")).dependsOn(core).
     commonSettings
   )
 
-//lazy val drivers = (project in file("drivers")).dependsOn(core, engines, admin).settings(
-//  commonSettings,
-//  libraryDependencies ++= Seq(
-//    "com.github.scopt" %% "scopt" % "3.5.0"
-//  )
-//)
-
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
@@ -111,7 +97,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
 
-lazy val authServer = (project in file("auth-server")).dependsOn(common)
+lazy val authServer = (project in file("auth-server")).dependsOn(core, common)
   .settings(commonSettings)
   .enablePlugins(JavaAppPackaging)
   .aggregate(common)

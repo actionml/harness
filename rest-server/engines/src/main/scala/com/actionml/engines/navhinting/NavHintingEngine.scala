@@ -112,7 +112,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
      event match {
       case event: NHNavEvent =>
         algo.input(NavHintingAlgoInput(event, engineId))
-      case _ => // anything else has already been dealt with by other parts of the input flow
+      case _ => logger.debug(s"Ignoring not nav-hinting nav event - $event")// anything else has already been dealt with by other parts of the input flow
     }
     Valid(event)
   }

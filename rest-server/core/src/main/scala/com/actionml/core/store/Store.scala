@@ -17,6 +17,8 @@
 
 package com.actionml.core.store
 
+import com.typesafe.scalalogging.LazyLogging
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
@@ -30,7 +32,9 @@ trait Store {
   def dropAsync()(implicit ec: ExecutionContext): Future[Unit]
 }
 
-trait DAO[T] extends AsyncDao[T] with SyncDao[T]
+trait DAO[T] extends AsyncDao[T] with SyncDao[T] {
+  def name: String
+}
 
 trait AsyncDao[T] {
   def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]]
@@ -43,10 +47,16 @@ trait AsyncDao[T] {
   def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
 }
 
-trait SyncDao[T] { self: AsyncDao[T] =>
+trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   import scala.concurrent.ExecutionContext.Implicits.global
   private val timeout = 5 seconds
-  private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
+  private def sync[A](f: => Future[A]): A = try {
+    Await.result(f, timeout)
+  } catch {
+    case e =>
+      logger.error("Sync DAO error", e)
+      throw e
+  }
 
   def findOneById(id: String): Option[T] = sync(findOneByIdAsync(id))
   def find(filter: (String, Any)*): Option[T] = sync(findAsync(filter: _*))

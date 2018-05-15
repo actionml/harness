@@ -25,6 +25,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.Store
 import com.actionml.core.engine.{Dataset, Event}
+import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection
 
@@ -73,6 +74,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
         case event: NHNavEvent => // nav events enqued for each user until conversion
           val conversion = event.properties.flatMap(_.conversion).getOrElse(false)
           val unconvertedJourney = activeJourneysDAO.findOneById(event.entityId)
+          logger.debug(s"Trying to persist event $event to the ${activeJourneysDAO.name}. ${activeJourneysDAO.name} contains $unconvertedJourney with id: ${event.entityId}")
           if(!conversion) { // store in the user journey queue
             if (unconvertedJourney.nonEmpty) {
               val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
@@ -82,14 +84,15 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
                 Valid(true)
               } // else the first event for the journey is a conversion so ignore
             } else { // no persisted journey so create it
+              val datetime = DateTimeUtil.parseOffsetDateTime(event.eventTime)
               activeJourneysDAO.insert(
                 Journey(
                   event.entityId,
-                  Seq(JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime))) // TODO: what to do with the parse error?
+                  Seq(JourneyStep(event.targetEntityId, datetime))
                 )
               )
               Valid(true)
-            }
+            }.getOrElse(Valid(false))
             Valid(event)
           } else { // a conversion lets the Engine decide what to do, which will delegate to the Algorithm
             Valid(event)
@@ -131,14 +134,14 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
         case "$delete" => // remove an object
           event.entityType match {
             case "user"  => // got a user profile update event
-              logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
+              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
               parseAndValidate[NHDeleteEvent](json)
             case "model" => // deleteing a convversion hinting model
-              logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
+              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
               parseAndValidate[NHDeleteEvent](json)
           }
         case _ => // default is a self describing usage event, kept as a stream
-          logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
+          logger.debug(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[NHNavEvent](json)
       }
     }
@@ -150,7 +153,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       Some(
         Journey(
           journey._id,
-          (journey.trail :+ JourneyStep(event.targetEntityId, OffsetDateTime.parse(event.eventTime))).takeRight(trailLength)
+          (journey.trail :+ JourneyStep(event.targetEntityId, DateTimeUtil.parseOffsetDateTime(event.eventTime))).takeRight(trailLength)
         )
       )
     } else None

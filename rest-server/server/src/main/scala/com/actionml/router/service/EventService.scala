@@ -19,7 +19,7 @@ trait EventService extends ActorInjectable
 
 class EventServiceImpl(implicit inj: Injector) extends EventService{
 
-  private val admin = inject[Administrator]
+  private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
     case GetEvent(engineId, eventId) ⇒

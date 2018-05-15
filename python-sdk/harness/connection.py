@@ -36,7 +36,7 @@ except NameError:
     xrange = range
 
 # some constants
-MAX_RETRY = 1  # 0 means no retry
+MAX_RETRY = 0  # 0 means no retry
 
 # logger
 logger = None

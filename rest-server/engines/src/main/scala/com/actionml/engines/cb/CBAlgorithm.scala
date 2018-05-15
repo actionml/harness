@@ -22,6 +22,7 @@ import java.nio.file.attribute.{PosixFileAttributes, PosixFilePermission}
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime}
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.locks.ReentrantLock
 
 import akka.actor._
 import akka.event.Logging
@@ -33,11 +34,12 @@ import com.actionml.core.store.backends.MongoDao
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString
-import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.scalalogging.{LazyLogging, Logger}
 
 import scala.concurrent.Await
 import scala.io.Source
 import scala.reflect.io.Path
+import scala.util.{Failure, Success}
 import scala.util.control.Breaks
 //import java.io.File
 import org.json4s.jackson.JsonMethods._
@@ -71,6 +73,9 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
   private val actors = ActorSystem(resourceId)
+  actors.whenTerminated.onComplete {
+    case r => logger.info(s"ActorSystem: $actors for engine: $resourceId with dataset: $dataset terminated with result: $r")
+  }
 
   var trainers = Map.empty[String, ActorRef]
   var params: CBAlgoParams = _
@@ -288,25 +293,23 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
-  override def destroy(): Unit = {
-    try {
-      Await.result(
-        actors.terminate().map { _ =>
-          logger.info(s"Closing vw $vw")
-          if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-        }.map { _ =>
-          if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
-            logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
-            while (!Files.deleteIfExists(Paths.get(modelPath))) {
-              logger.info(s"trying to delete ${modelPath}")
-            }
-          } else logger.info(s"$vw of engine $engineId has no file to delete")
-        }, 2 minutes)
-      logger.info(s"Algorithm for $engineId (created with params $params) was destroyed")
-    } catch {
-      case e: IOException => logger.error(s"Can't destroy $this", e)
-      case e: TimeoutException => logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.", e)
+  def destroy(): Unit = {
+    val f = Future {
+      logger.info(s"Closing vw $vw")
+      if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
+      logger.info(s"VW is closed ($vw)")
+      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
+        logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
+        while (!Files.deleteIfExists(Paths.get(modelPath))) {
+          logger.info(s"trying to delete ${modelPath}")
+        }
+      } else logger.info(s"$vw of engine $engineId has no file to delete")
+    }.flatMap(_ => actors.terminate)
+    f.onComplete {
+      case Success(r) => logger.info(s"Algorithm for $engineId was destroyed with result: $r")
+      case Failure(e) => logger.error(s"Can't destroy $this", e)
     }
+    Await.result(f, 4.seconds)
   }
 }
 

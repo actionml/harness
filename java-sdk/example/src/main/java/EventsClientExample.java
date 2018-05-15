@@ -146,11 +146,10 @@ public class EventsClientExample {
                     // using the .get() forces the code to wait for the response and so id blocking
                     // as an alternative use "client.sendEventSync", which may throw the same exceptions listed below
                     log.info("Sending event: " + event + " to the engine " + engineId);
-                    Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event))
-                            .get(3, TimeUnit.SECONDS);
+                    Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
                     log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
                     //TimeUnit.SECONDS.sleep(5); // should not need this
-                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                } catch (InterruptedException | ExecutionException e) {
                     log.error("Error in client.sendEvent waiting for a response ", e);
                 }
             }

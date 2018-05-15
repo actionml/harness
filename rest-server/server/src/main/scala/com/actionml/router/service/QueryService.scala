@@ -18,7 +18,7 @@ trait QueryService extends ActorInjectable
 
 class QueryServiceImpl(implicit inj: Injector) extends QueryService{
 
-  private val admin = inject[Administrator]
+  private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒

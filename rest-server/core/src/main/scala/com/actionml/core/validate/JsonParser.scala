@@ -18,13 +18,13 @@
 package com.actionml.core.validate
 
 import com.typesafe.scalalogging.LazyLogging
+import org.json4s.ext.JodaTimeSerializers
 
 import scala.reflect.ClassTag
 
 
-trait JsonParser extends LazyLogging{
+trait JsonParser extends LazyLogging {
 
-  import org.json4s.jackson.JsonMethods._
   import org.json4s.{DefaultFormats, Formats, MappingException}
   import org.json4s.jackson.JsonMethods._
   import org.json4s.{DefaultFormats, MappingException}
@@ -33,7 +33,7 @@ trait JsonParser extends LazyLogging{
   import scala.reflect.runtime.universe._
 
 
-  implicit val formats: Formats = DefaultFormats
+  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all
 
   def parseAndValidate[T : ClassTag](
     json: String,

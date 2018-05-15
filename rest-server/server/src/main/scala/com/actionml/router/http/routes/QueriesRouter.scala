@@ -51,7 +51,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
 
   private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
     case e =>
-      log.error("Internal error", e)
+      log.error(e, "Internal error")
       complete(StatusCodes.InternalServerError)
   }
 }
