@@ -53,7 +53,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   private def sync[A](f: => Future[A]): A = try {
     Await.result(f, timeout)
   } catch {
-    case e =>
+    case e: Throwable =>
       logger.error("Sync DAO error", e)
       throw e
   }
