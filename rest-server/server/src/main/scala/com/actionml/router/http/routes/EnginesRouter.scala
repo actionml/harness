@@ -91,7 +91,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService.ask(CreateEngine(engineConfig.toString()))(5.seconds)).mapTo[Response]
+      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Response]
     }
   }
 
@@ -112,7 +112,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService.ask(DeleteEngine(engineId))(5.seconds)).mapTo[Response]
+      (engineService ? DeleteEngine(engineId)).mapTo[Response]
     }
   }
 }
