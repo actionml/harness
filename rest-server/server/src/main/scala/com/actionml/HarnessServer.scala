@@ -47,6 +47,7 @@ class BaseModule extends Module with LazyLogging {
     system.whenTerminated.onComplete { t =>
       logger.info(s"Actor system terminated: $t")
     }
+    system.terminate
   }
 
   implicit lazy val system: ActorSystem = inject [ActorSystem]
