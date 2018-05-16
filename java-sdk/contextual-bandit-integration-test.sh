@@ -37,9 +37,16 @@ echo "TESTING SIMILAR PROFILES, 2 PEOPLE $set, INTO 2 DIFFERENT ENGINES"
 echo "----------------------------------------------------------------------------------------------------------------"
 harness delete $engine_1
 sleep $sleep_seconds
-harness add data/$engine_1.json
-sleep $sleep_seconds
 harness delete $engine_2
+if [ "$skip_restarts" == false ]; then
+    #sleep 10
+    harness stop
+    #sleep 10
+    harness start -f
+fi
+
+sleep $sleep_seconds
+harness add data/$engine_1.json
 sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
@@ -74,9 +81,16 @@ echo "--------------------------------------------------------------------------
 echo
 harness delete $engine_1
 sleep $sleep_seconds
-harness add data/$engine_1.json
-sleep $sleep_seconds
 harness delete $engine_2
+sleep $sleep_seconds
+if [ "$skip_restarts" == false ]; then
+    #sleep 10
+    harness stop
+    #sleep 10
+    harness start -f
+fi
+
+harness add data/$engine_1.json
 sleep $sleep_seconds
 harness add data/$engine_2.json
 harness status
@@ -119,7 +133,7 @@ fi
 echo
 echo "Sending queries for joe and john to test_cb"
 echo
-mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false > test-behavior-results.txt
+mvn exec:java -Dexec.mainClass="QueriesClientExample" -Dexec.args="$host $engine_1 $test_queries" -Dexec.cleanupDaemonThreads=false >> test-behavior-results.txt
 
 echo
 echo "Sending queries for joe and john to test_cb_2"
@@ -137,6 +151,13 @@ echo
 if [ "$clean_test_artifacts" == true ]; then
     harness delete $engine_1
     harness delete $engine_2
+if [ "$skip_restarts" == false ]; then
+    #sleep 10
+    harness stop
+    #sleep 10
+    harness start -f
+fi
+
 fi
 
 cd ..

@@ -105,7 +105,8 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
   override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
     events += 1
-    if (events % 20 == 0) checkpointVW(params)
+    // if (events % 20 == 0) checkpointVW(params)
+    checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to save model
     val groupName = datum.event.toUsageEvent.testGroupId
     try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
@@ -293,6 +294,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
+  /*
   def destroy(): Unit = {
     val f = Future {
       logger.info(s"Closing vw $vw")
@@ -311,6 +313,22 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
     Await.result(f, 4.seconds)
   }
+  */
+
+
+  override def destroy(): Unit = {
+    try{ Await.result(
+      actors.terminate().andThen { case _ =>
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close() else logger.warn("CBAlgo Destroy found NULL VW instance.")
+      }.map { _ =>
+        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
+          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
+      }, 3 seconds) } catch {
+      case e: TimeoutException =>
+        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
+    }
+  }
+
 }
 
 case class CBAllParams(
