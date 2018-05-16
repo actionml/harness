@@ -16,9 +16,9 @@ killwait(){ # pid passed as $1
     p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
 
     #echo "Killing pid: ${killwait_pid}"
-    # while `kill  -2 "${killwait_pid}"`; do
+    # while `kill   "${killwait_pid}"`; do
     while (( p == 1 )); do
-        kill  -2 "${killwait_pid}"
+        kill   "${killwait_pid}"
         printf "%0.s." # print dots every half-second
         sleep ${killwait_sleep}
         p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
