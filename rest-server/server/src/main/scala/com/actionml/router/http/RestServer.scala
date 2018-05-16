@@ -53,7 +53,12 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     }
     val serverType = if (config.sslEnabled) "https" else "http"
     logger.info(s"Start $serverType server $host:$port")
-    Http().bindAndHandle(logResponseTime(route), host, port)
+    val bindingFuture = Http().bindAndHandle(logResponseTime(route), host, port)
+    bindingFuture.failed.foreach { e =>
+      logger.error("Harness Server binding error", e)
+      System.exit(1)
+    }
+    bindingFuture
   }
 
   private def https = {
