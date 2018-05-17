@@ -106,11 +106,11 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
     events += 1
     // if (events % 20 == 0) checkpointVW(params)
-    checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to save model
     val groupName = datum.event.toUsageEvent.testGroupId
     try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
+      checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to save model
       Valid(true)
     } catch {
       case e: NoSuchElementException =>
@@ -121,7 +121,13 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
   override def predict(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
-    if (dataset.usageEventGroups isDefinedAt query.groupId) getVariant(query) else getDefaultVariant(query)
+    if (dataset.usageEventGroups isDefinedAt query.groupId) {
+      logger.info(s"Making query for group: ${query.groupId}")
+      getVariant(query)
+    } else {
+      logger.info(s"Making default query since dataset.usageEventGroups isDefinedAt query.groupId is false for group: ${query.groupId}")
+      getDefaultVariant(query)
+    }
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
@@ -317,13 +323,26 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
 
   override def destroy(): Unit = {
-    try{ Await.result(
+    try {
       actors.terminate().andThen { case _ =>
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close() else logger.warn("CBAlgo Destroy found NULL VW instance.")
+        // todo if we are deleting we may not want to close, which may have side-effects
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) {
+          /*logger.info("Closing the VW instance now that Actors are terminated.")
+          vw.close()
+          logger.info("VW instance is closed.")
+          //vw.finalize()
+          */
+          logger.info("Making the VW instance NULL now it is closed, just to be safe.")
+          vw = null.asInstanceOf[VWMulticlassLearner]
+        } else {
+          logger.warn("CBAlgo Destroy found NULL VW instance.")
+        }
       }.map { _ =>
+        logger.info(s"CBAlgorithm has terminated Actors. Now deleting the model here: $modelPath")
         if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) {}
-      }, 3 seconds) } catch {
+          while (!Files.deleteIfExists(Paths.get(modelPath))) { logger.info("tried to delete model, will try again")}
+      }
+    }catch {
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
     }
@@ -377,7 +396,9 @@ class SingleGroupTrainer(
 
     if (vwString != null.asInstanceOf[String] && vwString.nonEmpty && cbAlgo.vw != null.asInstanceOf[VWMulticlassLearner]) {
       log.info(s"Sending the VW formatted string: \n$vwString")
-      var result = cbAlgo.vw.learn(vwString)
+      val result = cbAlgo.vw.learn(vwString)
+      log.info(s"Saving model for path: $modelPath")
+      cbAlgo.vw.learn(s" save_${modelPath}")// save after every event
 /*      examples += 1
       if (examples % 20 == 0) { // save every 20 events
         log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")

@@ -38,13 +38,6 @@ echo "--------------------------------------------------------------------------
 harness delete $engine_1
 sleep $sleep_seconds
 harness delete $engine_2
-if [ "$skip_restarts" == false ]; then
-    #sleep 10
-    harness stop
-    #sleep 10
-    harness start -f
-fi
-
 sleep $sleep_seconds
 harness add data/$engine_1.json
 sleep $sleep_seconds
@@ -83,13 +76,6 @@ harness delete $engine_1
 sleep $sleep_seconds
 harness delete $engine_2
 sleep $sleep_seconds
-if [ "$skip_restarts" == false ]; then
-    #sleep 10
-    harness stop
-    #sleep 10
-    harness start -f
-fi
-
 harness add data/$engine_1.json
 sleep $sleep_seconds
 harness add data/$engine_2.json
@@ -123,12 +109,20 @@ echo "TESTING CONTEXTUAL BANDIT MODEL PERSISTENCE BY RESTARTING HARNESS AND MAKI
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
 
+echo "Harness running, queries return correct results"
+ls -al /tmp/harness/models/
+
 if [ "$skip_restarts" == false ]; then
-    #sleep 10
+    sleep 10
     harness stop
+    echo "Stopped"
+    ls -al /tmp/harness/models/
     #sleep 10
     harness start -f
 fi
+
+echo "Started, now we have bad results"
+ls -al /tmp/harness/models/
 
 echo
 echo "Sending queries for joe and john to test_cb"
@@ -151,13 +145,6 @@ echo
 if [ "$clean_test_artifacts" == true ]; then
     harness delete $engine_1
     harness delete $engine_2
-if [ "$skip_restarts" == false ]; then
-    #sleep 10
-    harness stop
-    #sleep 10
-    harness start -f
-fi
-
 fi
 
 cd ..
