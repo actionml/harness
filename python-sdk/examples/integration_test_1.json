@@ -1,6 +1,6 @@
 {
   "engineId": "integration_test_1",
-  "engineFactory": "com.actionml.templates.cb.CBEngine",
+  "engineFactory": "com.actionml.engines.cb.CBEngine",
   "mirrorType": "localfs",
   "comment": "This should be a location on your system,",
   "mirrorContainer": "/Users/pat/big-data/harness/mirrors/",

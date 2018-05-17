@@ -43,7 +43,7 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   private val queries = inject[QueriesRouter]
   private val authProxy = inject[AuthServerProxyRouter]
 
-  private val route: Route = DebuggingDirectives.logRequestResult("Harness-Server", Logging.InfoLevel) {
+  private val route: Route = (DebuggingDirectives.logRequest("Harness-Server", Logging.InfoLevel) & DebuggingDirectives.logRequestResult("Harness-Server", Logging.InfoLevel)) {
     authProxy.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
   }
 
@@ -53,7 +53,12 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
     }
     val serverType = if (config.sslEnabled) "https" else "http"
     logger.info(s"Start $serverType server $host:$port")
-    Http().bindAndHandle(logResponseTime(route), host, port)
+    val bindingFuture = Http().bindAndHandle(logResponseTime(route), host, port)
+    bindingFuture.failed.foreach { e =>
+      logger.error("Harness Server binding error", e)
+      System.exit(1)
+    }
+    bindingFuture
   }
 
   private def https = {

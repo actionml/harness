@@ -168,6 +168,8 @@ The method falls back from #3 to #2 to #1 and if a `.pem` file is not found ther
 Harness is built with a `.pem` and `.jks` file for localhost execution of TLS with pointers to these files are setup in the correct places. By default Harness does not use TLS but to try TLS with localhost all you have to do is turn it on in `bin/harness-env` and start Harness. The CLI will use TLS to communicate with Harness on localhost and the Java SDK tests will work. 
 
 To use a custom certificate with the Java SDK, just make sure it can find the `.pem` at runtime.
+
+**Note about how this is done**: The Akka java client requires a certificate file on startup before the Harnress SDK Clients are constructed so a dummy pem file is built into the SDK for localhost. This can be used with localhost TLS but is most likely to be replaced using the above methods. The #3 methods uses the dummy pem file to initialize and then overrides it with the one passed in to the SDK client constructors. Works fine.
     
 ## Using Auth from the Client
 

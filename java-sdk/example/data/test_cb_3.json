@@ -1,0 +1,13 @@
+{
+  "engineId": "test_cb_3",
+  "engineFactory": "com.actionml.engines.cb.CBEngine",
+  "comment": "modelContainer is output an should be a full directory path on your local fs",
+  "modelContainer": "/tmp/harness/models/",
+  "algorithm":{
+    "maxIter": 100,
+    "regParam": 0.0,
+    "stepSize": 0.1,
+    "bitPrecision": 24,
+    "maxClasses": 3
+  }
+}

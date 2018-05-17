@@ -1,6 +1,6 @@
 {
   "engineId": "test_nh",
-  "engineFactory": "com.actionml.templates.navhinting.NavHintingEngine",
+  "engineFactory": "com.actionml.engines.navhinting.NavHintingEngine",
   "algorithm":{
     "numQueueEvents": 50,
     "decayFunction": "click-order",

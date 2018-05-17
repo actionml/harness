@@ -3,7 +3,7 @@ package com.actionml.router.http.routes
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import akka.pattern.ask
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
@@ -40,8 +40,9 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
   override val authEnabled = config.auth.enabled
 
   val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
-    pathPrefix("engines" / Segment) { engineId =>
-      (pathPrefix("events") & extractLog) { implicit log =>
+    (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
+      implicit val _ = log
+      (pathPrefix("events") & handleExceptions(exceptionHandler(log))) {
         (pathEndOrSingleSlash & hasAccess(event.create, ResourceId.*)) {
           createEvent(engineId, log)
         } ~
@@ -66,6 +67,12 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
     completeByValidated(StatusCodes.Created) {
       (eventService ? CreateEvent(engineId, event.toString())).mapTo[Response]
     }
+  }
+
+  private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
+    case e =>
+      log.error(e, "Internal error")
+      complete(StatusCodes.InternalServerError)
   }
 
 }

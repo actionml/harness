@@ -15,7 +15,7 @@ echo "        using the MongoDB shell but this option is best used with great ca
 echo "        -m is good for CI type automated tests. DBs are only dropped with Harness shut down so"
 echo "        this option is ignored if -s is skipping restarts."
 echo
-echo "Make sure to set export HARNESS_CA_CERT=/path/to/harness.pem!!! or all Harness connections will fail."
+echo "Make sure to set export HARNESS_SERVER_CERT_PATH=/path/to/harness.pem!!! or all Harness connections will fail."
 echo
 
 
@@ -26,12 +26,10 @@ export skip_restarts=false # send to child scripts
 export clean_test_artifacts=true
 
 
-set -e # exit on any error
-: "${HARNESS_SERVER_CERT_PATH:?HARNESS_SERVER_CERT_PATH is not set to point to the correct harness.pem file}"
 echo "Server cert path=${HARNESS_SERVER_CERT_PATH}"
 
 
-m=`jps -lm | grep Main | wc -l`
+m=`jps -lm | grep actionml | wc -l`
 
 
 while [ -n "$1" ]; do
@@ -66,21 +64,10 @@ while [ -n "$1" ]; do
     shift
 done
 
-h=`jps | grep Main | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-    exit 1
-fi
-
 
 if [ "$skip_restarts" = false ]; then
     harness stop
     #sleep 10
-    h=`jps | grep Main | wc -l`
-    if [[ "$h" -gt "1" ]]; then
-        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-        exit 1
-    fi
     if [ "$clean_mongo" = true ]; then
         echo "Wiping the database"
         mongo clean_harness_mongo.js # drops meta store (all engines) and specific dbs used by test engine instances
@@ -89,11 +76,6 @@ if [ "$skip_restarts" = false ]; then
     # this makes the test immune to schema changes
     harness start -f
     sleep 10
-    h=`jps | grep Main | wc -l`
-    if [[ "$h" -gt "1" ]]; then
-        echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-        exit 1
-    fi
 fi
 
 if [ "$do_cb_test" = true ]; then
@@ -102,6 +84,7 @@ fi
 
 if [ "$do_nh_test" = true ]; then
     ./nav-hinting-integration-test.sh
+    ./nh-integration-test-2-conversion-ids.sh
 fi
 
 echo
@@ -121,13 +104,10 @@ if [ "$do_cb_test" = true ]; then
 fi
 
 if [ "$do_nh_test" = true ]; then
-    echo "---------------------- Important differences: Navigation Hinting queries ----------------------------"
+    echo "---------------------- Important differences: Navigation Hinting queries ---------------------------------"
     diff example/nh-hinting-results.txt example/data/expected-nh-hinting-results-urls.txt | grep Results
     echo
-fi
-
-h=`jps | grep Main | wc -l`
-if [[ "$h" -gt "1" ]]; then
-    echo "==============> Yak $h instances of harness, something failed to stop harness <=============="
-    exit 1
+    echo "---------------------- Important differences: Navigation Hinting target delete ---------------------------"
+    diff example/nh-hinting-results-2-models.txt example/data/expected-nh-hinting-results-2-models-urls.txt | grep Results
+    echo
 fi

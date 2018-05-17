@@ -2,7 +2,7 @@ package com.actionml.router.service
 
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
-import com.actionml.core.template.Engine
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.WrongParams
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
@@ -18,7 +18,7 @@ trait QueryService extends ActorInjectable
 
 class QueryServiceImpl(implicit inj: Injector) extends QueryService{
 
-  private val admin = inject[Administrator]
+  private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
     case GetPrediction(engineId, query) ⇒

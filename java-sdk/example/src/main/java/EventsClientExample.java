@@ -29,12 +29,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
@@ -148,6 +145,7 @@ public class EventsClientExample {
                 try {
                     // using the .get() forces the code to wait for the response and so id blocking
                     // as an alternative use "client.sendEventSync", which may throw the same exceptions listed below
+                    log.info("Sending event: " + event + " to the engine " + engineId);
                     Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
                     log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
                     //TimeUnit.SECONDS.sleep(5); // should not need this

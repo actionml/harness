@@ -36,7 +36,7 @@ except NameError:
     xrange = range
 
 # some constants
-MAX_RETRY = 1  # 0 means no retry
+MAX_RETRY = 0  # 0 means no retry
 
 # logger
 logger = None
@@ -394,7 +394,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=False, timeout=5, user_id=None, user_secret=None):
+    def __init__(self, host, threads=1, qsize=0, https=False, timeout=10, user_id=None, user_secret=None):
         """constructor
         Args:
           host: host of the server.

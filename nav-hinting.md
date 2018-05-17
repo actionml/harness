@@ -14,8 +14,8 @@ To make the UX uncluttered and more self explaining:
 
 The algorithm is simple and comes in 2 flavors:
 
- - **Non-personalized**: this shows the most popular nav event for all users who convert. It will work best until there are enough conversions to differentiate personal journeys to conversion.
- - **Personalized**: this works like non-personalized but find conversion journeys most similar to the journey of the current user. **Note**: this is planned for Hinting V0.2.0 
+ - **Non-personalized**: this shows the most popular nav event for all users who convert (any conversion). The nav-id in the conversion event identifies the model created for what we will call the conversion-id. Later this nav-id/conversion-id can be used to remove the model, for instance when the conversion target is removed.
+ - **Personalized**: this works like non-personalized but find conversion journeys most similar to the journey of the current user. **Note**: this is planned for Hinting V0.2.0+ TBD. 
 
 The Engine provides application or web site owners a way to nudge a user along a proven successful path to conversion. It adapts to changes in navigation on app or site automatically given time. If the app has a major redesign the Engine can be reset to start fresh.
 
@@ -55,18 +55,20 @@ This assumes the server is listening on localhost:9090, the default, and the Nav
 
 User navigation events are the only type of input allowed. These have all information needed to create a model. Journeys internally are keyed to the user-id so the only exception to the usage event is the $delete event for removing any stored User Journey data. 
 
-Nav Events are encoded:
+**nav-event**
 
-    {
-        "event" : "nav-event", // value is ignored since this is the only event except $delete
-        "entityType" : "user",
-        "entityId" : "pferrel",
-        "targetEntityId" : "nav-id",
-        "properties" : {
-            "conversion": true | false
-        },
-        "eventTime": "ISO-8601 encoded string"
-    }
+```
+{
+    "event" : "nav-event",
+    "entityType" : "user",
+    "entityId" : "pferrel",
+    "targetEntityId" : "nav-id",
+    "properties" : {
+        "conversion": true | false
+    },
+    "eventTime": "ISO-8601 encoded string"
+}
+```    
 
  - **event**: this must be named "nav-event"
  - **entityType**: this must be "user"
@@ -77,17 +79,36 @@ Nav Events are encoded:
   - **conversion**: true of false, false if omitted.
  - **eventTime**: ISO-8601 encoded string. This is a required field.
 
-As with other Engines to delete any Journey information attached to a user you should `$delete` the User with:
+When the first conversion is seen for a particular `nav-id` a model is started, which can later be deleted using the same `nav-id`, though it is later called a `conversion-id` in the `target-delete` event.
+
+**`$delete` Models**
+
+The `nav-id` where `"conversion": true` is here referred to as the `conversion-id` It identifies the Model associated with a particular conversion target. When the target is added, the Nav-Hinting Engine does not need to know immediately. The model for a particular `conversion-id` will be created on the first conversion and updated on every subsequent conversion. When the conversion target is deleted, its model can be removed so that no hints will be made for that conversion target. Send an event like this:
+
+```
+{
+    "event" : "$delete",
+    "entityId" : "conversion-id", <-- taken from conversion nav-event
+    "entityType" : "model",
+    "eventTime": "ISO-8601 encoded string"
+}
+```
+
+This will delete the model for the conversion-id so none of the hints will be for this target.
+
+**`$delete` Users**
+
+As with other Engines to delete any Journey information (not the model, which remains unaffected) attached to a user you should `$delete` the User with:
 
     {
         "event" : "$delete",
-        "entityType" : "user",
         "entityId" : "pferrel",
+        "entityType" : "user",
     }
 
 Since the number of Users will increase without bounds some external method for trimming them will eventually be required. Since old inactive users will not generally have meaningful Journeys is they have not converted in a long time, a TTL could be employed if the user's journey has not been modified in some period of time. The Nav Event will re-create the user later if they later become active again. 
 
-**Note**: the TTL is a DB feature and should be added to the Engine's JSON config file (Not done yet). **TBD for v0.1.0.** 
+**Note**: the TTL is a DB feature and should be added to the Engine's JSON config file. **TBD for v0.2.0+.** 
 
 ## User Attributes (Non-Personalized)
 
@@ -153,7 +174,7 @@ Harness was designed for streaming data sources and in the case of the NH non-pe
 
 For Personalized Hinting a more heavy weight background process can be triggered periodically that will not interrupt querying or input. This will use Spark and Elasticsearch and is targeted for NH v0.2.0.
 
-# Personalized Algorithm: Hinting v0.2.0 Planned
+# Personalized Algorithm: Hinting v0.2.0+ Planned
 
 The Personalized version is similar to the non-personalized and has the same configurable decays and other parameters. The decay function here acts as a threshold to detect events that are too old to consider. This threshold is applied to both the user's current journey and the data used to calculate the cooccurrence model. After passing this threshold LLR is used to find the most likely nav events correlate with a conversion.
 

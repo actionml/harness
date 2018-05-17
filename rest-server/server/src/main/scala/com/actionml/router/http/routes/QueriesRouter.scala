@@ -3,7 +3,7 @@ package com.actionml.router.http.routes
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import akka.pattern.ask
 import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -30,8 +30,9 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private val queryService = inject[ActorRef]('QueryService)
 
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
-    pathPrefix("engines" / Segment) { engineId =>
-      (pathPrefix("queries") & extractLog) { implicit log =>
+    (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
+      implicit val _ = log
+      (pathPrefix("queries") & handleExceptions(exceptionHandler(log))) {
         pathEndOrSingleSlash {
           hasAccess(Roles.query.read, engineId).apply {
             getPrediction(engineId, log)
@@ -46,5 +47,11 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     completeByValidated(StatusCodes.OK) {
       (queryService ? GetPrediction(engineId, query.toString())).mapTo[Response]
     }
+  }
+
+  private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
+    case e =>
+      log.error(e, "Internal error")
+      complete(StatusCodes.InternalServerError)
   }
 }

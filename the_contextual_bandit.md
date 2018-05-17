@@ -1,8 +1,6 @@
 # The Contextual Bandit
 
-This Harness Template is based on Vowpal Wabbit's - CSOAA algorithm.  
-
-The CB gets data and is trained in approximately realtime making queries available immediately. With every new input the recommender model is updated automatically and without interruption the fresh predictions begin with the next query.
+This Harness Template is based on Vowpal Wabbit's - CSOAA algorithm randomized sampling, which converges based on the length of a test group, which defines a single experiment. The CB gets data and is trained in approximately realtime making queries available immediately.
 
 [For some discussion of the underlying algorithm and citations](cb_algorithm.md)
 
@@ -125,13 +123,17 @@ Note that you can also request a page variant for a new or anonymous user, in wh
 
 # Configuration of the Contextual Bandit
 
-The CB has a configuration file defined below. This defines parameters for for the Engine itself and for the VW compute engine which updates the model and responds to queries. The parameters effect how fast the CB will converge on the best choice for a user. Most parameters are defaulted to the ones below and unless you want to use something else, need not be specified.
+The CB has a configuration file defined below. The CB has a configuration file defined below.  The first section of the configuration is the same as for all Engines, see [Harness Configuration](harness_config.md) for a description of the generic params. The one that has a specific meaning for the CBEngine is `sharedDBName` which in the case of all instances of the CB will store and read user profile information from the same DB. The DB will never be dropped and so may need to be managed external to Harness.
+
+The algorithm parameters are for the VW compute engine which updates the model and responds to queries. The parameters affect how fast the CB will converge on the best choice for a user. Most parameters are defaulted to the ones below and unless you want to use something else, need not be specified.
 
 ```
 {
   "engineId": "test_resource",
   "engineFactory": "com.actionml.templates.cb.CBEngine",
-  "modelContainer": "!!put the path to a directory for models here!!",
+  "modelContainer": "!!!<put the path to a directory for models here>!!!",
+  "comment": "it is usually safe to use lower case with snake case for readability",
+  "sharedDBName": "!!!<name of db to share data>!!!",
   "algorithm":{
     "maxIter": 100,
     "regParam": 0.0,

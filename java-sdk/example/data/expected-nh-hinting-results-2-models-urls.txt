@@ -1,0 +1,120 @@
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.2.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-2-conversion-ids.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain2, 1.5},\n       \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 281 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain2, 1.5},\n       \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 15 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.387 s
+[INFO] Finished at: 2018-05-09T05:26:30-07:00
+[INFO] Final Memory: 22M/445M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.2.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-2-conversion-ids.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 267 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 14 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.359 s
+[INFO] Finished at: 2018-05-09T05:26:38-07:00
+[INFO] Final Memory: 21M/332M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.2.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-2-conversion-ids.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 400 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 1.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 14 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.695 s
+[INFO] Finished at: 2018-05-09T05:27:13-07:00
+[INFO] Final Memory: 21M/332M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.2.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-2-conversion-ids.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 2.0},\n       \n {http://nav.domain2, 1.5},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 252 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 2.0},\n       \n {http://nav.domain2, 1.5},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 15 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.374 s
+[INFO] Finished at: 2018-05-09T05:27:21-07:00
+[INFO] Final Memory: 22M/450M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+Downloading: https://raw.github.com/actionml/harness/mvn-repo/com/actionml/harness-java-sdk/0.2.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-2-conversion-ids.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 3.0},\n       \n {http://nav.domain2, 3.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 267 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain1", "http://nav.domain2"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain1, 3.0},\n       \n {http://nav.domain2, 3.0},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 15 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.443 s
+[INFO] Finished at: 2018-05-09T05:27:29-07:00
+[INFO] Final Memory: 22M/447M
+[INFO] ------------------------------------------------------------------------

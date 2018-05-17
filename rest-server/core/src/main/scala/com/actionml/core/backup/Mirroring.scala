@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
-import com.actionml.core.template.Engine
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -36,7 +36,7 @@ abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
   def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
 
   /**
-    * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name
+    * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
     * for mirrored files of events. It means differnent things so other types of Mirrors
     *
     * @return timestamp-based name

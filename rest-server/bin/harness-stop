@@ -9,19 +9,19 @@ sd_delay=60
 
 # wait for a pid to be killed for max time then kill -9 to really kill it
 killwait(){ # pid passed as $1
-killwait_pid=$1
-killwait_timeout=30
-killwait_loops=0
-killwait_sleep=0.5
-p=`ps aux | grep "${killwait_pid}.*com.actionml.Main$" | wc -l`
+    killwait_pid=$1
+    killwait_timeout=30
+    killwait_loops=0
+    killwait_sleep=0.5
+    p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
 
-    echo "Killing pid: ${killwait_pid}"
-    # while `kill  -2 "${killwait_pid}"`; do
+    #echo "Killing pid: ${killwait_pid}"
+    # while `kill   "${killwait_pid}"`; do
     while (( p == 1 )); do
-        kill  -2 "${killwait_pid}"
+        kill   "${killwait_pid}"
         printf "%0.s." # print dots every half-second
         sleep ${killwait_sleep}
-        p=`ps aux | grep "${killwait_pid}.*com.actionml.Main$" | wc -l`
+        p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
         (( killwait_loops = killwait_loops + 1 ))
         if (( killwait_loops > killwait_timeout )); then
             echo -e "\nTimed out, performing hard termination" # \n after dot
@@ -41,11 +41,11 @@ if [ -e ${PIDFILE} ]; then
     killwait ${pid}
     #sleep ${sd_delay}
 
-    h=`jps | grep Main | wc -l`
-    if [[ "$h" -gt "0" ]]; then
-        echo -e "${RED}Error Harness failed to shutdown after ${sd_delay} seconds, there are $h instances of harness running.${NC}"
-        exit 1
-    fi
+    #h=`jps -l | grep actionml | wc -l`
+    #if [[ "$h" -gt "0" ]]; then
+    #    echo -e "${RED}Error Harness failed to shutdown after ${sd_delay} seconds, there are $h instances of harness running.${NC}"
+    #    exit 1
+    #fi
 
     if [[ $? != 0 ]]; then # this is not sufficient, the command is async so the stop will return but the pid may be active
         echo -e "${RED}Unable to stop Harness from PID file. May already be stopped.${NC}"
@@ -55,10 +55,3 @@ if [ -e ${PIDFILE} ]; then
 else
     echo -e "${RED}PID file not found.${NC}"
 fi
-
-#sleep 10
-#vw=`ps aux | grep " vw$"`
-#vwnum=`ps aux | grep " vw$" | wc -l`
-#echo ${vw}
-#echo "Number of VW instances still running after harness stop: ${vwnum}"
-

@@ -1,6 +1,6 @@
 {
   "engineId": "test_scaffold_resource",
-  "engineFactory": "com.actionml.templates.scaffold.ScaffoldEngine",
+  "engineFactory": "com.actionml.engines.scaffold.ScaffoldEngine",
   "mirrorType": "localfs",
   "comment": "This should be a location on your system,",
   "mirrorContainer": "/Users/pat/big-data/harness/mirrors/",

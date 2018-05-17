@@ -6,6 +6,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
+import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -15,6 +16,9 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 /**
   *
@@ -87,7 +91,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService ? CreateEngine(engineConfig.toString())).mapTo[Response]
+      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Response]
     }
   }
 
