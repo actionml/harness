@@ -216,7 +216,7 @@ class HarnessHttpConnection(object):
         self.access_token = None
         if https:  # https connection
             ca_file = os.getenv("HARNESS_SERVER_CERT_PATH", "harness.pem")
-            ssl_context = ssl.SSLContext()
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
             ssl_context.load_verify_locations(ca_file)
             self._connection = httplib.HTTPSConnection(host, timeout=timeout, context=ssl_context)
         else:
