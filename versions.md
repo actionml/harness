@@ -2,13 +2,11 @@
 
 Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and all Engines in source form and is released only as source from it's GitHub repository. This integrated build makes it easy to use with a debugger to create new Engines or modify in other ways.
 
-## v0.2.0-SNAPSHOT (work in progress)
+## v0.2.0-RC1 (work in progress)
 
- - Migration to new Mongo Scala Client complete. **Warning**: a schema change will make the existing DB unusable and need to be recreated. Data import compatibility is maintained.
- - TTLs are implemented for user click-path journeys have a TTL described in Engines params
- - All User collections, including the shared user collection has a TTL so that inactive users will be aged out of the DB, without this they would need to have `$delete` for each removed User. This still works but is very difficult to coordinate when sharing user data across Engine Instances.
- - The asynchronous MongoDB client is used for all DB access. This improves performance in high throughput cases.
- - DAL/DAO/DAOImpl pattern is used for all DB access, making it easier to port to some other DB store by just creating a new DAOImpl for the new DB.
+ - Refactoring causes the Engine factory names to be of the form `com.actionml.engines...` changing from `org.actionml.templates...`. **NOTE**: this requires that all engine jSON config files to update this factory name or adding the Engine will result in a `timeout` error.
+ - Migration to new Mongo Scala Client complete. **NOTE**: a schema change will make the existing DB unusable so they will need to be recreated. Data import compatibility is maintained so if a mirror was kept simply import the saved events to re-create the DB and model.
+ - DAO/DAOImpl pattern is used for all DB access, making it easier to port to some other DB store by just creating a new DAOImpl for the new DB.
  - Generic DAO now allows a DAO for any case class using parameterized types.
  - Dependency injection supported for DAO implementation so no code needs to change to support new DB backing Stores.
 
