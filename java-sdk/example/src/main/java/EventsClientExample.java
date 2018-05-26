@@ -147,7 +147,7 @@ public class EventsClientExample {
                     // as an alternative use "client.sendEventSync", which may throw the same exceptions listed below
                     log.info("Sending event: " + event + " to the engine " + engineId);
                     Pair<Integer, String> p = ((CompletableFuture<Pair<Integer, String>>) client.sendEvent(event)).get();
-                    log.info("Sent event: " + event + "\nResponse code: " + p.first().toString());
+                    log.info("Sent event: " + event + "\nResponse code: " + p.first().toString() + " message: " + p.second());
                     //TimeUnit.SECONDS.sleep(5); // should not need this
                 } catch (InterruptedException | ExecutionException e) {
                     log.error("Error in client.sendEvent waiting for a response ", e);

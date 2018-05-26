@@ -52,6 +52,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Fa
       case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: EventOutOfSequence) ⇒ complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: NotImplemented) ⇒ complete(StatusCodes.NotImplemented, error.message)
+      case Invalid(error: ResourceNotFound) ⇒ complete(StatusCodes.custom(404, "Resource not found"), error.message)
       case _ ⇒ complete(StatusCodes.NotFound)
     }
 
