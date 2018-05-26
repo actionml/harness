@@ -106,9 +106,16 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
               Valid(event)
             case "model" =>
               logger.trace(s"Dataset: ${engineId} removing model for conversion-id: ${event.entityId}")
-              navHintsModels.removeOneById(event.entityId) // todo: does this throw an exception if it fails to find?
-              store.removeCollection(event.entityId) // todo: does this throw an exception if it fails to find?
-              Valid(event)
+              try {
+                navHintsModels.removeOneById(event.entityId) // todo: does this throw an exception if it fails to find?
+                store.removeCollection(event.entityId) // todo: does this throw an exception if it fails to find?
+                Valid(event)
+
+              } catch {
+                case _ => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
+                  logger.error(s"Cannot $$delete non-existent model: ${event.entityId}")
+                  Invalid(ResourceNotFound(s"Cannot $$delete non-existent model: ${event.entityId}"))
+              }
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
               Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
