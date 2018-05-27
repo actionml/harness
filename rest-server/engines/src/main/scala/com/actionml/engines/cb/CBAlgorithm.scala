@@ -325,6 +325,22 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
 
   override def destroy(): Unit = {
+
+    try{ Await.result(
+      actors.terminate().andThen { case _ =>
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
+      }.map { _ =>
+        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
+          while (!Files.deleteIfExists(Paths.get(modelPath))) {
+            logger.info(s"Could not delete the model: $modelPath, trying again.")
+          }
+          logger.info(s"Success deleting model: $modelPath")
+        }
+      }, 3 seconds) } catch {
+      case e: TimeoutException =>
+        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
+    }
+    /*
     try {
       actors.terminate().andThen { case _ =>
         // todo if we are deleting we may not want to close, which may have side-effects
@@ -347,6 +363,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
     }
+    */
   }
 
 }
