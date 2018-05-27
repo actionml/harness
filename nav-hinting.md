@@ -104,6 +104,7 @@ As with other Engines to delete any Journey information (not the model, which re
         "event" : "$delete",
         "entityId" : "pferrel",
         "entityType" : "user",
+        "eventTime": "ISO-8601 encoded string"
     }
 
 Since the number of Users will increase without bounds some external method for trimming them will eventually be required. Since old inactive users will not generally have meaningful Journeys is they have not converted in a long time, a TTL could be employed if the user's journey has not been modified in some period of time. The Nav Event will re-create the user later if they later become active again. 

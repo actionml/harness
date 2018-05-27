@@ -157,6 +157,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
 
   def checkpointVW(params: CBAlgoParams): Unit = {
 
+    /*
     val regressorType = s" --csoaa 10 "
     val reg = s" --l2 ${params.regParam} "
     val iters = s" -c -k --passes ${params.maxIter} "
@@ -166,12 +167,13 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     val checkpointing = " --save_resume "
     val newModel = s" -f ${modelPath} "
     val trainedModel = s" -i ${modelPath} "
+    */
 
     // holly crap this is the only way to get a model saved??????????
-    val initVWConfig = trainedModel + checkpointing
+    // val initVWConfig = trainedModel + checkpointing
     // vw.close() // should checkpoint
     // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
-    logger.trace(s"Checkpointing model")
+    logger.info(s"Checkpointing model")
     vw.saveModel(new File(modelPath))
   }
 
@@ -330,7 +332,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
           /*logger.info("Closing the VW instance now that Actors are terminated.")
           vw.close()
           logger.info("VW instance is closed.")
-          //vw.finalize()
           */
           logger.info("Making the VW instance NULL now it is closed, just to be safe.")
           vw = null.asInstanceOf[VWMulticlassLearner]
