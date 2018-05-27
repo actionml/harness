@@ -2,7 +2,7 @@
 [INFO] Scanning for projects...
 [INFO]                                                                         
 [INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.2.0-RC1
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
 [INFO] ------------------------------------------------------------------------
 [INFO] 
 [INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
@@ -10,54 +10,7 @@
 [34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 322 ms.
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 17 ms.
-Shutting down client
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time: 2.400 s
-[INFO] Finished at: 2018-05-27T12:05:20-07:00
-[INFO] Final Memory: 23M/450M
-[INFO] ------------------------------------------------------------------------
-[INFO] Scanning for projects...
-[INFO]                                                                         
-[INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.2.0-RC1
-[INFO] ------------------------------------------------------------------------
-[INFO] 
-[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb_2, data/2-user-query.json, localhost, 9090
-[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 236 ms.
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 12 ms.
-Shutting down client
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time: 2.259 s
-[INFO] Finished at: 2018-05-27T12:05:24-07:00
-[INFO] Final Memory: 23M/447M
-[INFO] ------------------------------------------------------------------------
-================================== After restart queries ==================================
-[INFO] Scanning for projects...
-[INFO]                                                                         
-[INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.2.0-RC1
-[INFO] ------------------------------------------------------------------------
-[INFO] 
-[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb, data/2-user-query.json, localhost, 9090
-[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 338 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 427 ms.
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 14 ms.
@@ -65,30 +18,77 @@ Shutting down client
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 2.423 s
-[INFO] Finished at: 2018-05-27T12:05:49-07:00
+[INFO] Total time: 2.539 s
+[INFO] Finished at: 2018-05-27T13:48:59-07:00
 [INFO] Final Memory: 23M/449M
 [INFO] ------------------------------------------------------------------------
 [INFO] Scanning for projects...
 [INFO]                                                                         
 [INFO] ------------------------------------------------------------------------
-[INFO] Building harness-java-sdk-example 0.2.0-RC1
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
 [INFO] ------------------------------------------------------------------------
 [INFO] 
 [INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb_2, data/2-user-query.json, localhost, 9090
 [34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 1, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 303 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 252 ms.
 [34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 1, \"groupId\": 1}")
-[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 15 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 12 ms.
 Shutting down client
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 2.432 s
-[INFO] Finished at: 2018-05-27T12:05:53-07:00
-[INFO] Final Memory: 23M/447M
+[INFO] Total time: 2.466 s
+[INFO] Finished at: 2018-05-27T13:49:03-07:00
+[INFO] Final Memory: 23M/436M
+[INFO] ------------------------------------------------------------------------
+================================== After restart queries ==================================
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb, data/2-user-query.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 422 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 16 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.474 s
+[INFO] Finished at: 2018-05-27T13:49:28-07:00
+[INFO] Final Memory: 23M/452M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_cb_2, data/2-user-query.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"joe","groupId":"1"}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 239 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user":"john","groupId":"1"}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"{\"variant\": 2, \"groupId\": 1}")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 14 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 2.238 s
+[INFO] Finished at: 2018-05-27T13:49:31-07:00
+[INFO] Final Memory: 23M/448M
 [INFO] ------------------------------------------------------------------------
