@@ -30,9 +30,8 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Engine extends LazyLogging with JsonParser {
 
-  // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
-  // for instance. Because each Dataset may have a different parameter type
-  var engineId: String = _
+  lazy val engineId: String = eid
+  private var eid: String = _
   private var mirroring: Mirroring = _
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
@@ -42,7 +41,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   def initAndGet(json: String): Engine
 
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
-    engineId = params.engineId
+    eid = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirroring("") // must create because Mirroring is also used for import Todo: decouple these for Lambda

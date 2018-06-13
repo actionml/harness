@@ -17,6 +17,7 @@
 package com.actionml.core.engine
 
 import cats.data.Validated
+import cats.data.Validated.Valid
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -25,6 +26,8 @@ import com.typesafe.scalalogging.LazyLogging
   */
 trait LambdaAlgorithm[T] extends LazyLogging {
 
+  def input(datum: T): Validated[ValidateError, Boolean] = Valid(true) // Lambda algos may ignore input as it comes in
+  // if it expects to batch process persisted input during train.
   def train(algoTrainSpec: T): Validated[ValidateError, Boolean]
 
 }

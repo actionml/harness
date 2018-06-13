@@ -302,28 +302,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
-  /*
-  def destroy(): Unit = {
-    val f = Future {
-      logger.info(s"Closing vw $vw")
-      if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      logger.info(s"VW is closed ($vw)")
-      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
-        logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
-        while (!Files.deleteIfExists(Paths.get(modelPath))) {
-          logger.info(s"trying to delete ${modelPath}")
-        }
-      } else logger.info(s"$vw of engine $engineId has no file to delete")
-    }.flatMap(_ => actors.terminate)
-    f.onComplete {
-      case Success(r) => logger.info(s"Algorithm for $engineId was destroyed with result: $r")
-      case Failure(e) => logger.error(s"Can't destroy $this", e)
-    }
-    Await.result(f, 4.seconds)
-  }
-  */
-
-
   override def destroy(): Unit = {
 
     try{ Await.result(
@@ -340,30 +318,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
     }
-    /*
-    try {
-      actors.terminate().andThen { case _ =>
-        // todo if we are deleting we may not want to close, which may have side-effects
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) {
-          /*logger.info("Closing the VW instance now that Actors are terminated.")
-          vw.close()
-          logger.info("VW instance is closed.")
-          */
-          logger.info("Making the VW instance NULL now it is closed, just to be safe.")
-          vw = null.asInstanceOf[VWMulticlassLearner]
-        } else {
-          logger.warn("CBAlgo Destroy found NULL VW instance.")
-        }
-      }.map { _ =>
-        logger.info(s"CBAlgorithm has terminated Actors. Now deleting the model here: $modelPath")
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) { logger.info("tried to delete model, will try again")}
-      }
-    }catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
-    }
-    */
   }
 
 }
