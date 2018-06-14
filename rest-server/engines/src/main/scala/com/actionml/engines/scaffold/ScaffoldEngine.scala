@@ -124,3 +124,16 @@ class ScaffoldEngine() extends Engine() with JsonParser {
 
 }
 
+object ScaffoldEngine {
+  def apply(json: String): ScaffoldEngine = {
+    val engine = new ScaffoldEngine()
+    engine.initAndGet(json)
+  }
+
+  // in case we don't want to use "apply", which is magically connected to the class's constructor
+  def createEngine(json: String): ScaffoldEngine = {
+    val engine = new ScaffoldEngine()
+    engine.initAndGet(json)
+  }
+
+}

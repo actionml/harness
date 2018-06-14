@@ -33,11 +33,17 @@ class MongoAdministrator extends Administrator with JsonParser {
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
 
   private lazy val enginesCollection = storage.createDao[Document]("engines")
-  @volatile private var engines = Map.empty[EngineId, Engine]
+  @volatile private var engines = Map.empty[String, Engine]
 
   drawActionML
   private def newEngineInstance(engineFactory: String): Engine = {
     Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
+    /* The following is a dead end because it requires the constructed object to invoke a method on
+    but we are using the Java equivalent of a static class, a companion object. So the Java method seems insufficient
+    val json: String = "" // we can get the real json later, just a stub for now
+    Class.forName(engineFactory).getDeclaredMethod("createEngine", json.getClass).invoke("damn, we need the constructed obj here", json).asInstanceOf[Engine]
+    */
+
   }
 
   // instantiates all stored engine instances with restored state
@@ -68,7 +74,7 @@ class MongoAdministrator extends Administrator with JsonParser {
     this
   }
 
-  def getEngine(engineId: EngineId): Option[Engine] = {
+  def getEngine(engineId: String): Option[Engine] = {
     engines.get(engineId)
   }
 
@@ -79,7 +85,7 @@ class MongoAdministrator extends Administrator with JsonParser {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, EngineId] = {
+  def addEngine(json: String): Validated[ValidateError, String] = {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
