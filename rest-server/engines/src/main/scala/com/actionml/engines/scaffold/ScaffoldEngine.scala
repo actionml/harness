@@ -20,7 +20,7 @@ package com.actionml.engines.scaffold
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, GenericQuery}
+import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
@@ -72,11 +72,6 @@ class ScaffoldEngine() extends Engine() with JsonParser {
     }
   }
 
-  override def stop(): Unit = {
-    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
-  }
-
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(this.params.toString)
@@ -95,11 +90,11 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   */
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       logger.trace("Got JSON body: " + json)
       // validation happens as the input goes to the dataset
-      if (super.input(json, trainNow).isValid)
+      if (super.input(json).isValid)
         dataset.input(json).andThen(process).map(_ => true)
       else
         Valid(true) // Some error like an ExecutionError in super.input happened
@@ -122,7 +117,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      val result = algo.predict(query)
+      val result = algo.query(query)
       Valid(result.toJson)
     }
   }

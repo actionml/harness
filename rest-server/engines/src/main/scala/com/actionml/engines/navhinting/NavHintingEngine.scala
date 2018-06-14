@@ -73,11 +73,6 @@ class NavHintingEngine() extends Engine() with JsonParser {
     }
   }
 
-  override def stop(): Unit = {
-    logger.info(s"Waiting for NavHintingAlgorithm with id: $engineId to terminate")
-    algo.stop()
-  }
-
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(NavHintingStatus(
@@ -96,15 +91,19 @@ class NavHintingEngine() extends Engine() with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then persist each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.debug("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    if(super.input(json, trainNow).isValid)
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
+
+    /*
+    if(super.input(json).isValid)
       dataset.input(json).andThen(process).map(_ => true)
     else
       Valid(true)
+    */
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -122,7 +121,7 @@ class NavHintingEngine() extends Engine() with JsonParser {
     logger.debug(s"Got a query JSON string: $json")
     parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      Valid( algo.predict(query).toJson)
+      Valid( algo.query(query).toJson)
     }
   }
 

@@ -119,7 +119,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def predict(query: CBQuery): CBQueryResult = {
+  override def query(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
     if (dataset.usageEventGroups isDefinedAt query.groupId) {
       logger.info(s"Making query for group: ${query.groupId}")
@@ -219,11 +219,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def stop(): Unit = {
-    actors.terminate().wait()
-  }
-
-  def getVariant(query: CBQuery): CBQueryResult = {
+ def getVariant(query: CBQuery): CBQueryResult = {
     //val vw = new VW(" -i " + modelContainer)
 
     val group = dataset.groupsDao.findOneById(query.groupId).get

@@ -32,5 +32,3 @@ trait LambdaAlgorithm[T] extends LazyLogging {
 
 }
 
-// some extended version of this should be passed to "train"
-trait AlgorithmTrainSpec

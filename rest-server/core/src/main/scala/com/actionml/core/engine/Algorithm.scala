@@ -39,9 +39,12 @@ abstract class Algorithm[Q, R] extends JsonParser with LazyLogging {
   }
 
   def destroy(): Unit
-  def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Algorithm"); this}
-  def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
-  def predict(query: Q): R
+
+  // todo: remove these is not needed
+  // def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Algorithm"); this}
+  // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
+
+  def query(query: Q): R
 }
 
 trait AlgorithmParams

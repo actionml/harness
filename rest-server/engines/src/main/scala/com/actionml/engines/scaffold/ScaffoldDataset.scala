@@ -19,8 +19,8 @@ package com.actionml.engines.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.engine.{Dataset, GenericEvent}
+import com.actionml.core.model.{GenericEngineParams, GenericEvent}
+import com.actionml.core.engine.{Dataset}
 import com.actionml.core.validate._
 
 import scala.language.reflectiveCalls

@@ -22,9 +22,9 @@ import java.time.format.DateTimeFormatter
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.model.{Event, GenericEngineParams}
 import com.actionml.core.store.Store
-import com.actionml.core.engine.{Dataset, Event}
+import com.actionml.core.engine.Dataset
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection

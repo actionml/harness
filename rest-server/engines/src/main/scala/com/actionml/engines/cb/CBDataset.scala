@@ -21,9 +21,9 @@ import java.time.{Instant, LocalDateTime, OffsetDateTime}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.{DAO, Store}
-import com.actionml.core.engine.{Dataset, Event, SharedUserDataset}
+import com.actionml.core.engine.{Dataset, SharedUserDataset}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 

@@ -167,7 +167,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     }
   }
 
-  override def predict(query: NHQuery): NHQueryResult = {
+  override def query(query: NHQuery): NHQueryResult = {
     // find model elements that match eligible and sort by weight, sort before taking the top k
     // adds the weights of hints with the same id from multiple conversion-id models
     val results = query.eligibleNavIds.map((_,0d)).flatMap { case (eligibleNavId, w) =>
@@ -187,10 +187,6 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   override def destroy(): Unit = {
     // remove old model since it is recreated with each new NavHintingEngine
-  }
-
-  override def stop(): Unit = {
-    // actors.terminate().wait()
   }
 
 }
