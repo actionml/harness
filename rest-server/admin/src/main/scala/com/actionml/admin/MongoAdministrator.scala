@@ -36,8 +36,9 @@ class MongoAdministrator extends Administrator with JsonParser {
   @volatile private var engines = Map.empty[String, Engine]
 
   drawActionML
-  private def newEngineInstance(engineFactory: String): Engine = {
-    Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
+  private def newEngineInstance(engineFactory: String, json: String): Engine = {
+    //Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
+    Class.forName(engineFactory).getDeclaredConstructor(classOf[String]).newInstance(json).asInstanceOf[Engine]
     /* The following is a dead end because it requires the constructed object to invoke a method on
     but we are using the Java equivalent of a static class, a companion object. So the Java method seems insufficient
     val json: String = "" // we can get the real json later, just a stub for now
@@ -54,7 +55,7 @@ class MongoAdministrator extends Administrator with JsonParser {
       val engineFactory = engine.get("engineFactory").get.asString.getValue
       val params = engine.get("params").get.asString.getValue
       // create each engine passing the params
-      val e = (engineId -> newEngineInstance(engineFactory).initAndGet(params))
+      val e = engineId -> newEngineInstance(engineFactory, params)
       if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
         logger.error(s"Error creating engineId: $engineId from $params" +
           s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
@@ -88,7 +89,7 @@ class MongoAdministrator extends Administrator with JsonParser {
   def addEngine(json: String): Validated[ValidateError, String] = {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
-      val newEngine = newEngineInstance(params.engineFactory).initAndGet(json)
+      val newEngine = newEngineInstance(params.engineFactory, json)
       if (newEngine != null && enginesCollection.list("engineId" -> params.engineId).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
