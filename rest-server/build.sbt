@@ -4,7 +4,7 @@ name := "harness"
 
 version := "0.3.0-SNAPSHOT"
 
-scalaVersion := "2.11.11"
+scalaVersion := "2.11.12"
 
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
@@ -18,7 +18,7 @@ resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 lazy val commonSettings = Seq(
   organization := "com.actionml",
   version := "0.3.0-SNAPSHOT",
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.11.12",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -92,12 +92,8 @@ lazy val admin = (project in file("admin")).dependsOn(core).
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
+    "com.actionml" %% "harness-auth-common" % "0.3.0-SNAPSHOT",
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
-
-lazy val authServer = (project in file("auth-server")).dependsOn(core, common)
-  .settings(commonSettings)
-  .enablePlugins(JavaAppPackaging)
-  .aggregate(common)
