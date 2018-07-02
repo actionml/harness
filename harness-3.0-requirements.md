@@ -4,6 +4,7 @@ Harness 0.3.0 will run big-data Lambda style algorithms based, at first, on Spar
 
 Basic requirements:
 
+- HDFS 2.8 or latest
 - Spark 2.3 or latest stable
 - MongoDB 4.x: read a collection into a Dataframe. Question: does the Spark lib for MongoDB support Spark 2.3?
 - Elasticsearch 6.x: write a Spark distributed dataset (maybe Dataframe) to an ES index.Question: does the Spark lib for Elasticsearch support Spark 2.3?
@@ -51,3 +52,11 @@ The UR can work if the ordering is defaulted per collection and does not need to
 To make the order performant it may be required to create an index on the key that is used to order&mdash;at least with Mongo. Other DBs may not support this but this is not our primary concern now.
 
 This can be encoded in any way that fits the DAO/Store pattern using an appropriate API. This is a general feature of DB Stores so is not part of the Spark extension and so may be best put in the generic `Store`/`DAO` interface.
+
+# HDFS Support
+
+With big-data and Spark come the need for a scalable distributed file system in HDFS. HDFS 2.8 seems to be compatible with tools that need it.
+
+The mirroring support should be upgraded to store in HDFS. There is a way to specify which store to use for mirroring in the global part of the Engine's JSON so we now need to use and support this otherwise mirroring big data will overwhelm a single machine's file system
+
+HDFS is also used by Spark for all storage and so the config at very least needs to be known to Spark.
