@@ -37,14 +37,7 @@ class MongoAdministrator extends Administrator with JsonParser {
 
   drawActionML
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
-    //Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
-    Class.forName(engineFactory).getDeclaredConstructor(classOf[String]).newInstance(json).asInstanceOf[Engine]
-    /* The following is a dead end because it requires the constructed object to invoke a method on
-    but we are using the Java equivalent of a static class, a companion object. So the Java method seems insufficient
-    val json: String = "" // we can get the real json later, just a stub for now
-    Class.forName(engineFactory).getDeclaredMethod("createEngine", json.getClass).invoke("damn, we need the constructed obj here", json).asInstanceOf[Engine]
-    */
-
+    Class.forName(engineFactory).getMethod("apply", classOf[String]).invoke(null, json).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state

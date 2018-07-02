@@ -64,7 +64,7 @@ case class AllParams(
 
 
 case class ScaffoldAlgoParams(
-    dummyParam: String) // since not an Option, this is required for this Engine
+    dummy: String) // since not an Option, this is required for this Engine
   extends AlgorithmParams
 
 case class ScaffoldAlgorithmInput(

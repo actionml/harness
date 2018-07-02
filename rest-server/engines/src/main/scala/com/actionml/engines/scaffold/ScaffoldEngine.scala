@@ -131,9 +131,5 @@ object ScaffoldEngine {
   }
 
   // in case we don't want to use "apply", which is magically connected to the class's constructor
-  def createEngine(json: String): ScaffoldEngine = {
-    val engine = new ScaffoldEngine()
-    engine.initAndGet(json)
-  }
-
+  def createEngine(json: String) = apply(json)
 }

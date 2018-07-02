@@ -205,3 +205,13 @@ case class CBStatus(
     """.stripMargin
   }
 }
+
+object CBEngine {
+  def apply(json: String): CBEngine = {
+    val engine = new CBEngine()
+    engine.initAndGet(json)
+  }
+
+  // in case we don't want to use "apply", which is magically connected to the class's constructor
+  def createEngine(json: String) = apply(json)
+}
