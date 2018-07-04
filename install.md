@@ -2,32 +2,41 @@
 
 This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. Much of this is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
 
-There are 4 projects in the GitHub repo:
+# Requirements
 
- 1. The Harness server 
- 2. java-sdk 
- 3. java-sdk examples 
+These projects are related and should be built together when installing from source (tarball and jar build TBD):
+
+ 1. The Harness server
+ 2. Engines' dependencies
+ 3. java-sdk 
  4. python sdk
+
+## Repositories
+For Harness 0.3.0+ These are split into 3 GitHub repositories. `git clone` these into separate direcories.
+
+ 1. [Harness](https://github.com/actionml/harness/tree/release/0.3.0-SNAPSHOT): rest-server + Engines + Python CLI and Python SDK
+ 2. [Harness-Auth-Server](https://github.com/actionml/harness-auth-server): this is quite stable and has had no major changes for since 1/2018 and so is less subject to change
+ 3. The [Harness-Java-SDK](https://github.com/actionml/harness-java-sdk/tree/release/0.3.0-SNAPSHOT) only supports Events and Queries and so is also stable and not very likely to change
 
 For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md). Much of this is targeted at Debian/Ubuntu with side notes for macOS (BSD Unix based).
 
-When using the source from GitHub follow these instructions to build and deploy.
+## General Requirements
 
-**General Requirements:**
-
- - Scala 2.11, install using `apt-get`, `yum`, or `brew`
  - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
+ - Scala 2.11, install using `apt-get`, `yum`, or `brew`
  - Boost 1.55.0 or higher is fine. This is only for Vowpal Wabbit
  - Git
- - MongoDB 3.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. For example, these instructions [install Mongo 3.4 on Ubuntu](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - MongoDB 3.6+ or 4.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. For example, these instructions [install Mongo 3.4 on Ubuntu](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
 
-# The Contextual Bandit
+## The Contextual Bandit
  
 Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
 
 **For macOS** get dependencies:
 
- - `sudo brew install boost maven clang`
+ - `brew install boost`
+ - `brew install maven`
+ - `brew install clang`
 
 
 **For Ubuntu 16.04+ or Debian** get dependencies:
@@ -49,6 +58,13 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     scala> System.getProperty("java.library.path")
     res0: String = /usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
     ```
+    
+    For masOS the location may be something like: 
+    
+    ```
+    res0: String = /Users/aml/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.
+    ```
+    
     We will use the JNI lib location `/usr/lib/jni` or its equivalent on your system
     
     Build VW and install it in the right place. First find the path above using the Scala REPL shell, then make sure the directory exists, you may need to create it, then copy the binary dynamic lib to the jni location.
