@@ -18,7 +18,7 @@
 package com.actionml.core.store
 
 
-case class Query(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
+case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
 
 object Ordering extends Enumeration {
   type Ordering = Value

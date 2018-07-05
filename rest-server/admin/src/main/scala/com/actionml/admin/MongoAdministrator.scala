@@ -23,7 +23,7 @@ import com.actionml.core.{store, _}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine.Engine
-import com.actionml.core.store.{OrderBy, Query}
+import com.actionml.core.store.{OrderBy, DaoQuery}
 import com.actionml.core.validate._
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString
@@ -83,7 +83,7 @@ class MongoAdministrator extends Administrator with JsonParser {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.list(Query(filter = Seq("engineId" -> params.engineId))).size == 1) {
+      if (newEngine != null && enginesCollection.list(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))

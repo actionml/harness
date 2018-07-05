@@ -17,7 +17,7 @@
 
 package com.actionml.core.store.backends
 
-import com.actionml.core.store.{DAO, OrderBy, Query}
+import com.actionml.core.store.{DAO, OrderBy, DaoQuery}
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
@@ -40,7 +40,7 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
     collection.find(mkFilter(filter)).headOption
   }
 
-  override def listAsync(query: Query)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
+  override def listAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
     val find = collection.find(mkFilter(query.filter))
     query.orderBy.fold(find) { order =>
       find.sort(mkOrder(order))
