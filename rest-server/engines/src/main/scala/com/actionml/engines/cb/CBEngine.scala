@@ -17,20 +17,17 @@
 
 package com.actionml.engines.cb
 
-import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
+import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import com.typesafe.scalalogging.Logger
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
