@@ -17,15 +17,14 @@
 
 package com.actionml.core.store
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
 
+case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
 
-trait Store {
-  def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
-  def removeCollection(name: String): Unit
-  def drop(): Unit
-  def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit]
-  def dropAsync()(implicit ec: ExecutionContext): Future[Unit]
+object Ordering extends Enumeration {
+  type Ordering = Value
+  val asc = Value("asc")
+  val desc = Value("desc")
 }
+
+case class OrderBy(ordering: Ordering.Ordering, fieldNames: String*)
 
