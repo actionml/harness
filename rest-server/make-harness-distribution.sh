@@ -47,6 +47,7 @@ cd ${FWDIR}
 rm -rf ${DISTDIR}
 mkdir -p ${DISTDIR}/bin
 mkdir -p ${DISTDIR}/conf
+mkdir -p ${DISTDIR}/data
 mkdir -p ${DISTDIR}/logs
 mkdir -p ${DISTDIR}/lib
 mkdir -p ${DISTDIR}/project
@@ -55,6 +56,7 @@ mkdir -p ${DISTDIR}/sbt
 
 cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
 cp ${FWDIR}/conf/* ${DISTDIR}/conf
+cp ${FWDIR}/data/* ${DISTDIR}/data
 # cp ${FWDIR}/conf/harness.jks ${DISTDIR}/conf
 # cp ${FWDIR}/conf/harness.pem ${DISTDIR}/conf
 # cp ${FWDIR}/server/src/main/resources/*.conf ${DISTDIR}/conf

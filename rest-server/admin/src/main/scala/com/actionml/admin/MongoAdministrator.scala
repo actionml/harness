@@ -56,7 +56,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
         enginesCollection.remove("engineId" -> engineId)
-        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
     }.filter(_._2 != null).toMap
