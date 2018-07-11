@@ -25,7 +25,6 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
-    "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
 
     "org.typelevel" %% "cats" % "0.9.0",
@@ -47,8 +46,15 @@ lazy val core = (project in file("core")).
       "org.mongodb" % "mongodb-driver-core" % "3.7.0",
       "org.mongodb" % "mongodb-driver-async" % "3.7.0",
 
+      "org.apache.spark" % "spark-core_2.11" % "2.3.1",
+      "org.apache.spark" %% "spark-sql" % "2.3.1",
+      "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
+
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
+//    ).map(_.exclude("org.slf4j", "*")),
+//    libraryDependencies ++= Seq(
+//      "ch.qos.logback" % "logback-classic" % "1.1.3"
     )
   )
 
