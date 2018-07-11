@@ -141,6 +141,8 @@ Then source the `.profile` with
 
 The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
 
+The Python SDK requires python3 to be installed and all use of python will invoke `python3` This means that no code should assume `python` executes `python3`. In other words no symlink of `python -> python3` exists.
+
 ```
 cd harness/python-sdk
 python3 setup.py install
