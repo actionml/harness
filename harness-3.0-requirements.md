@@ -60,3 +60,13 @@ With big-data and Spark come the need for a scalable distributed file system in 
 The mirroring support should be upgraded to store in HDFS. There is a way to specify which store to use for mirroring in the global part of the Engine's JSON so we now need to use and support this otherwise mirroring big data will overwhelm a single machine's file system
 
 HDFS is also used by Spark for all storage and so the config at very least needs to be known to Spark.
+
+# New Harness CLI
+
+New commands are needed to manage batch jobs that create models in Lambda offline learners. They are:
+
+ - **`harness train <some-engine-id>** This requests an existing Engine train up a model from existing data.
+ - **`harness kill-job <some-engine-id>** This assumes one job per Engine and the Engine will try to kill it, reporting status afterwards.
+ - **harness status engine <some-engine-id>** This command already exists but will include a section of the response JSON that gives job status if any.
+
+Using `harness train` and periodic `harness status` a script can tell when training has completed. This in turn can be used for custom workflows. For example, if one Engine instance takes the output of another as input.

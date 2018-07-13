@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirroring, Mirroring}
 import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
@@ -129,6 +129,12 @@ abstract class Engine extends LazyLogging with JsonParser {
   def batchInput(inputPath: String): Validated[ValidateError, Boolean] = {
     mirroring.importEvents(this, inputPath)
     Valid( true )
+  }
+
+  /** train is only used in Lambda offline learners */
+  def train(): Validated[ValidateError, String] = {
+    logger.warn(s"Train is not a valid operation for engineId: ${engineId}")
+    Invalid(NotImplemented(s"Train is not a valid operation for engineId: ${engineId}"))
   }
 
 }

@@ -31,7 +31,7 @@ if [ ! -f ${import_path} ] && [ ! -d ${import_path} ]; then
     exit 1
 fi
 
-python_args="import ${python_args} ${resource_id} --import_path ${import_path}"
+python_args="import ${python_args} ${resource_id} --import_path ${import_path} ${USER_ARGS}"
 
 #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${python_args}${NC}"
 
