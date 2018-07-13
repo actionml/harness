@@ -67,7 +67,8 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
         hasAccess(engine.modify, engineId).apply {
           delete(deleteEngine(engineId)) ~
           (post & path("imports"))(updateEngineWithImport(engineId)) ~
-          (post & path("configs"))(updateEngineWithConfig(engineId))
+          (post & path("configs"))(updateEngineWithConfig(engineId)) ~
+          (post & path("jobs"))(updateEngineWithTrain(engineId))
         }
       }
     }
@@ -106,6 +107,13 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     log.info("Update engine: {}, importPath: {}", engineId, importPath)
     completeByValidated(StatusCodes.OK) {
       (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Response]
+    }
+  }
+
+  private def updateEngineWithTrain(engineId: String)(implicit log: LoggingAdapter): Route = {
+    log.info("Update engine: {}, trainPath: {}", engineId)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngineWithTrain(engineId)).mapTo[Response]
     }
   }
 
