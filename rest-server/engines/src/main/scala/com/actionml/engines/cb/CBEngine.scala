@@ -91,10 +91,6 @@ class CBEngine() extends Engine() with JsonParser {
     algo.destroy()
   }
 
-  def train(): Unit = {
-    logger.warn(s"Only used for Lambda style training")
-  }
-
   /** Triggers parse, validation, and processing of event encoded in the json */
   override def input(json: String): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed

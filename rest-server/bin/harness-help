@@ -29,9 +29,9 @@ echo -e "   ${CYAN}harness delete <engine-id>${NC}"
 echo -e "       Deletes engine and all data"
 echo ""
 
-#echo -e "   ${CYAN}harness train engine-id${NC}"
-#echo -e "       In the Lambda model this trains the algorithm on all previously accumulated data. WARNING: not implemented."
-#echo ""
+echo -e "   ${CYAN}harness train engine-id${NC}"
+echo -e "       For batch trained Engined this creates a model from previously accumulated data."
+echo ""
 
 echo -e "   ${CYAN}harness status [[ engines | engines <engine-id>]]${NC}"
 echo -e "       Prints a status message for the harness server, all engines, or the engine specified."

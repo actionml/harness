@@ -56,7 +56,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
         enginesCollection.remove("engineId" -> engineId)
-        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
     }.filter(_._2 != null).toMap
@@ -132,6 +132,20 @@ class MongoAdministrator extends Administrator with JsonParser {
           |}
         """.stripMargin))
     }.getOrElse(Invalid(WrongParams(s"Unable to import to Engine: $engineId}, the engine does not exist")))
+  }
+
+  override def updateEngineWithTrain(engineId: String): Validated[ValidateError, String] = {
+    engines.get(engineId).map { existingEngine =>
+      logger.trace(s"Requesting engine: ${engineId} train on available data.")
+      existingEngine.train()
+        /*
+        .andThen(_ => Valid(
+        """{
+          |  "comment": "New train job requested, will add the job status or id here for supporting engines"
+          |}
+        """.stripMargin))
+        */
+    }.getOrElse(Invalid(WrongParams(s"Unable to train Engine: $engineId}, the engine does not exist")))
   }
 
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {

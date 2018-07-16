@@ -14,7 +14,7 @@ These projects are related and should be built together when installing from sou
 ## Repositories
 For Harness 0.3.0+ These are split into 3 GitHub repositories. `git clone` these into separate direcories.
 
- 1. [Harness](https://github.com/actionml/harness/tree/release/0.3.0-SNAPSHOT): rest-server + Engines + Python CLI and Python SDK
+ 1. [Harness](https://github.com/actionml/harness/tree/release/0.3.0-SNAPSHOT): rest-server + Engines + Python CLI + Python SDK
  2. [Harness-Auth-Server](https://github.com/actionml/harness-auth-server): this is quite stable and has had no major changes for since 1/2018 and so is less subject to change
  3. The [Harness-Java-SDK](https://github.com/actionml/harness-java-sdk/tree/release/0.3.0-SNAPSHOT) only supports Events and Queries and so is also stable and not very likely to change
 
@@ -86,41 +86,78 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     
     This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. You are now ready to build the Harness Server. This includes the CLI and services the Harness REST API.
 
-# Harness Server
+# Full Harness 0.3.0-SNAPSHOT Build
 
- - Get and build source:
+The AuthServer must be built first and jars put in the local sbt cache. Then the Harness Server with build successfully. This is needed even if you are not using the AuthServer.
+
+## AuthServer-0.3.0-SNAPSHOT
+
+Get and build from source
+
+```
+git clone -b release/0.3.0-SNAPSHOT https://github.com/actionml/harness-auth-server.git harness-auth-server
+cd harness-auth-server
+./make-auth-server-distribution.sh
+tar xvf AuthServer-0.3.0-SNAPSHOT.tar.gz
+```
+
+This creates the AuthServer but it is not needed for local testing.
+
+If all you need is the jars for imported classes to be cached for SBT when building the Harness server. Run this command:
+
+```
+sbt harnessAuthCommon/publish-local
+```
+
+## Harness-0.3.0-SNAPSHOT
+
+Get and build source:
  
-    ```
-    git clone https://github.com/actionml/harness.git
-    cd harness/rest-server
-    ./make-distribution
-    tar xvf Harness-0.1.1-RC3
-    nano Harness-0.1.1-RC3/bin/harness-env # config the env for Harness
-    ```
+```
+git clone -b release/0.3.0-SNAPSHOT https://github.com/actionml/harness.git harness
+cd harness/rest-server
+./make-distribution
+tar xvf Harness-0.3.0-SNAPSHOT
+nano Harness-0.0.3.0-SNAPSHOT/bin/harness-env # config the env for Harness
+```
 
-    Add the path to the Harness CLI to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
-    
-    ```
-    export PATH=$PATH:/home/aml/harness/rest-server/Harness-0.1.1-RC3/bin/
-    # substitute your path to the distribution's "bin" directory
-    # it should have the .../bin/main file
-    ```
-    
-    Then source the `.profile` with 
-    
-    ```
-    . ~/.profile
-    ```
+The default config in `harness-env` is usually sufficient for testing locally.
 
-    You are now ready to launch and run Harness with the included Contextual Bandit.
+Add the Harness CLI (the `bin/` directory in the distribution) to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
+    
+```
+export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.3.0-SNAPSHOT/bin/
+# substitute your path to the distribution's "bin" directory
+# it should have the .../bin/main file and other CLI scripts
+```
+    
+Then source the `.profile` with 
+    
+```
+. ~/.profile
+```
+
+## Python SDK 0.3.0a0
+
+The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
+
+The Python SDK requires python3 to be installed and all use of python will invoke `python3` This means that no code should assume `python` executes `python3`. In other words no symlink of `python -> python3` exists.
+
+```
+cd harness/python-sdk
+python3 setup.py install
+```
+
+You are now ready to launch and run Harness with the included Engines
 
 # Launching Harness  
 
-To configure Harness for localhost connections you should not need to change the configuration in `harness/Harness-0.1.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing port numbers and if you want to connect to Harness from other hosts have it listen to `0.0.0.0` instead of `localhost`.
+To configure Harness for localhost connections you should not need to change the configuration in `harness/Harness-0.3.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing port numbers and if you want to connect to Harness from other hosts have it listen to `0.0.0.0` instead of `localhost`, which is default.
 
 ```
 harness start # you will get a status message printed
-harness add !!path to the engine's JSON params file!! # get a success response
+harness add <path-to-engine's-json-file> # get a success response
+harness status <engine-id-from-json-file>
 ```
 
 You now have an empty Engine of the type, `engineId`, and params defined in the Engines config JSON file.
@@ -136,6 +173,15 @@ harness stop
 ```
 
 **Note**: if you have put the `harness` script on your path commands can be executed from anywhere
+
+## Simple CLI Integration Test
+
+A simple CLI integration test is included
+
+```
+cd harness/rest-server/Harness-0.3.0-SNAPSHOT/
+./harness-cli-test
+```
 
 # Running the Integration Test
 

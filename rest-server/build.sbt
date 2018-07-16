@@ -10,6 +10,8 @@ lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
+lazy val mongoVersion = "3.8.0"
+lazy val mongoScalaDriverVersion = "2.4.0"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -42,9 +44,9 @@ lazy val core = (project in file("core")).
     libraryDependencies ++= Seq(
       "org.mongodb.scala" %% "mongo-scala-driver" % "2.3.0",
       "org.mongodb.scala" %% "mongo-scala-bson" % "2.3.0",
-      "org.mongodb" % "bson" % "3.7.0",
-      "org.mongodb" % "mongodb-driver-core" % "3.7.0",
-      "org.mongodb" % "mongodb-driver-async" % "3.7.0",
+      "org.mongodb" % "bson" % mongoVersion,
+      "org.mongodb" % "mongodb-driver-core" % mongoVersion,
+      "org.mongodb" % "mongodb-driver-async" % mongoVersion,
 
       "org.apache.spark" % "spark-core_2.11" % "2.3.1",
       "org.apache.spark" %% "spark-sql" % "2.3.1",
