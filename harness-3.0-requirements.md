@@ -39,6 +39,42 @@ The `sparkConf` section in the Engine config will validate only part of the conf
 
 Note that there are special requirements to support Yarn's Cluster mode deployment and these will need to be enumerated here and supported.
 
+# UREngine JSON
+
+The config JSON file for the UREngine will have the above `sparkConf` but also an `algorithm` section like this:
+
+```json
+"algorithm": {
+  "comment": "simplest setup where all values are default, popularity based backfill, must add eventsNames",
+  "name": "ur",
+  "params": {
+    "appName": "handmade",
+    "indexName": "urindex",
+    "typeName": "items",
+    "comment": "must have data for the first event or the model will not build, other events are optional",
+    "indicators": [
+      {
+        "name": "purchase"
+      },{
+        "name": "view",
+        "maxCorrelatorsPerItem": 50
+      },{
+        "name": "category-pref",
+        "maxCorrelatorsPerItem": 50,
+        "minLLR": 5.0,
+      }
+    ],
+    "availableDateName": "available",
+    "expireDateName": "expires",
+    "dateName": "date",
+    "num": 4
+  }
+}
+```
+
+This section will be parsed by the algorithm and does not need parsing until the algo implementation is under way.
+
+
 # MongoDB Spark Support
 
 MongoDB is already supported in the generic `Store` and `DAO` with a custom implementation for Mongo. Since not all Engines will require the reading (or writing) of distributed Spark datasets it might be good to separate this into a trait or some king of extension of the base classes. This support should be something the Engine can pick. We ideally want to allow future versions of Harness to inject the `DAO` and `Store` implementation so whatever mechanism used should probably allow injection. This might be something like a `DAO` abstract interface and a `SparkDAO` interface with implementation of the same structure. In any case injection is not a hard requirement so we can pick a solution without injection if it make things significantly easier.
