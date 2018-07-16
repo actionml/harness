@@ -50,13 +50,12 @@ lazy val core = (project in file("core")).
 
       "org.apache.spark" % "spark-core_2.11" % "2.3.1",
       "org.apache.spark" %% "spark-sql" % "2.3.1",
+      "org.apache.spark" %% "spark-yarn" % "2.3.1",
+
       "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
 
       "org.json4s" %% "json4s-jackson" % "3.5.1",
       "org.json4s" %% "json4s-ext" % "3.5.1"
-//    ).map(_.exclude("org.slf4j", "*")),
-//    libraryDependencies ++= Seq(
-//      "ch.qos.logback" % "logback-classic" % "1.1.3"
     )
   )
 

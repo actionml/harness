@@ -19,21 +19,33 @@ package com.actionml.core.spark
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
 import org.apache.spark.{SparkConf, SparkContext}
 
 
 trait SparkConfigSupport extends JsonParser {
+  import com.actionml.core.spark.SparkConfigSupport.SparkConfig
 
   def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
-    parseAndValidate[SparkConfig](config).andThen { sparkConfig =>
+    parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf").andThen { configMap =>
+      (for {
+        master <- configMap.get("master")
+        appName <- configMap.get("appName")
+        db <- configMap.get("database")
+        collection <- configMap.get("collection")
+      } yield SparkConfig(master, appName, db, collection, configMap -- Seq("master", "appName", "database", "collection")))
+        .map(Valid(_))
+        .getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
+    }.andThen { sparkConfig =>
       try {
         val conf = new SparkConf()
           .setMaster(sparkConfig.master)
           .setAppName(sparkConfig.appName)
-        conf.set("spark.mongodb.input.uri", "mongodb://localhost/") // todo take it from file config or from incoming json config?
+        conf.set("deploy-mode", "cluster")
+        conf.set("spark.mongodb.input.uri", "mongodb://localhost/")
         conf.set("spark.mongodb.input.database", sparkConfig.database)
         conf.set("spark.mongodb.input.collection", sparkConfig.collection)
+        conf.setAll(sparkConfig.properties)
         Valid(new SparkContext(conf))
       } catch {
         case e: Exception =>
@@ -44,4 +56,6 @@ trait SparkConfigSupport extends JsonParser {
   }
 }
 
-case class SparkConfig(master: String, appName: String, database: String, collection: String)
+object SparkConfigSupport {
+  private case class SparkConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
+}

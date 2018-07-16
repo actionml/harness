@@ -21,26 +21,22 @@ import cats.data.Validated
 import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 
-class SparkScaffoldEngine extends Engine {
-  private val lambdaAlgo = new SparkLambdaAlgorithm
+class SparkScaffoldEngine(lambdaAlgo: SparkLambdaAlgorithm) extends Engine {
 
-  override def initAndGet(json: String): Engine = this
-
-  override def destroy(): Unit = ()
-
-  override def query(json: String): Validated[ValidateError, String] = {
-    lambdaAlgo.train(json).map(r => s""""result":"$r"""")
+  override def initAndGet(json: String): Engine = {
+    this
   }
+
+  override def destroy(): Unit = ???
+
+  override def query(json: String): Validated[ValidateError, String] = ???
+
+  override def train(): Validated[ValidateError, String] = lambdaAlgo.train()
 }
 
 object SparkScaffoldEngine extends App {
-  println(new SparkScaffoldEngine().query(
-    """
-      |{
-      |    "master": "local[2]",
-      |    "appName": "scaffold-spark-test",
-      |    "database": "harness_auth",
-      |    "collection": "users"
-      |}
-    """.stripMargin))
+
+  def apply(json: String): SparkScaffoldEngine = {
+    new SparkScaffoldEngine(new SparkLambdaAlgorithm(json))
+  }
 }

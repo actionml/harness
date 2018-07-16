@@ -18,6 +18,7 @@
 package com.actionml.core.validate
 
 import com.typesafe.scalalogging.LazyLogging
+import org.json4s.JValue
 import org.json4s.ext.JodaTimeSerializers
 
 import scala.reflect.ClassTag
@@ -37,10 +38,11 @@ trait JsonParser extends LazyLogging {
 
   def parseAndValidate[T : ClassTag](
     json: String,
-    errorMsg: String = "")(implicit tag: TypeTag[T]): Validated[ValidateError, T] = {
+    errorMsg: String = "",
+    transform: JValue => JValue = a => a)(implicit tag: TypeTag[T]): Validated[ValidateError, T] = {
 
     try{
-      Valid(parse(json).extract[T])
+      Valid(transform(parse(json)).extract[T])
     } catch {
       case e: MappingException =>
         val msg = if (errorMsg.isEmpty) {

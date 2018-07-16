@@ -18,17 +18,25 @@
 package com.actionml.core.spark
 
 import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.LambdaAlgorithm
-import com.actionml.core.validate.ValidateError
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.mongodb.spark.MongoSpark
+import org.apache.spark.SparkContext
 import org.bson.Document
 
-class SparkLambdaAlgorithm extends LambdaAlgorithm[String] with SparkConfigSupport {
+class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkConfigSupport {
 
-  override def train(algoTrainSpec: String): Validated[ValidateError, Boolean] = {
-    createSparkContext(algoTrainSpec).map { sparkContext =>
+  private lazy val validatedSparkContext: Validated[ValidateError, SparkContext] = createSparkContext(sparkContextConfig)
+
+  override def train(): Validated[ValidateError, String] = validatedSparkContext.andThen { sparkContext =>
+    try {
       val rdd = MongoSpark.load[Document](sparkContext)
-      checkResult(sparkContext.runJob(rdd, processPartition))
+      Valid(checkResult(sparkContext.runJob(rdd, processPartition)))
+    } catch {
+      case e: Exception =>
+        logger.error(s"Can't run spark job for config $sparkContextConfig", e)
+        Invalid(ValidRequestExecutionError("Can't run Spark job"))
     }
   }
 
@@ -37,5 +45,5 @@ class SparkLambdaAlgorithm extends LambdaAlgorithm[String] with SparkConfigSuppo
     i.foldLeft("")(_ + _)
   }
 
-  private def checkResult[T](a: Array[T]): Boolean = a.nonEmpty && a.foldLeft("")(_ + _).trim.nonEmpty
+  private def checkResult[String](a: Array[String]) = a.foldLeft("")(_ + _).trim
 }
