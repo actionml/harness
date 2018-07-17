@@ -1,0 +1,7 @@
+{
+  "engineId": "ur",
+  "engineFactory": "com.actionml.engines.ur.UREngine",
+  "algorithm":{
+    "dummy": 1
+  }
+}
