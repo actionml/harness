@@ -25,7 +25,7 @@ import com.mongodb.spark.MongoSpark
 import org.apache.spark.SparkContext
 import org.bson.Document
 
-class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkConfigSupport {
+class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkContextSupport {
 
   private lazy val validatedSparkContext: Validated[ValidateError, SparkContext] = createSparkContext(sparkContextConfig)
 

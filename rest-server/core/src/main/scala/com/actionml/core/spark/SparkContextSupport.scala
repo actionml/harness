@@ -23,8 +23,8 @@ import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecution
 import org.apache.spark.{SparkConf, SparkContext}
 
 
-trait SparkConfigSupport extends JsonParser {
-  import com.actionml.core.spark.SparkConfigSupport.SparkConfig
+trait SparkContextSupport extends JsonParser {
+  import com.actionml.core.spark.SparkContextSupport.SparkConfig
 
   def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
     parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf").andThen { configMap =>
@@ -56,6 +56,6 @@ trait SparkConfigSupport extends JsonParser {
   }
 }
 
-object SparkConfigSupport {
+object SparkContextSupport {
   private case class SparkConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
 }
