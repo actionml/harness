@@ -17,10 +17,6 @@
 
 package com.actionml.core.model
 
-
-import scala.collection.JavaConverters._
-import org.json4s.JsonDSL.WithBigDecimal._
-
 case class User(
     _id: String,
     properties: Map[String, String]) {
@@ -49,7 +45,8 @@ case class GenericEngineParams(
     mirrorType: Option[String] = None,
     mirrorContainer: Option[String] = None,
     sharedDBName: Option[String] = None,
-    modelContainer: Option[String] = None)
+    modelContainer: Option[String] = None,
+    algorithm: Option[String] = None)
   extends EngineParams
 
 

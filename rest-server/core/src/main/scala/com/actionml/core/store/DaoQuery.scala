@@ -14,21 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.actionml.core.engine
 
-import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
+package com.actionml.core.store
 
-/** Adds a method for train, which is expected to update the model through some potentially long lived task,
-  *  usually in a batch or background mode.
-  */
-trait LambdaAlgorithm[T] extends LazyLogging {
 
-  def input(datum: T): Validated[ValidateError, Boolean] = Valid(true) // Lambda algos may ignore input as it comes in
-  // if it expects to batch process persisted input during train.
-  def train(): Validated[ValidateError, String]
+case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
 
+object Ordering extends Enumeration {
+  type Ordering = Value
+  val asc = Value("asc")
+  val desc = Value("desc")
 }
+
+case class OrderBy(ordering: Ordering.Ordering, fieldNames: String*)
 

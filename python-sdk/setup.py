@@ -9,7 +9,7 @@ __copyright__ = "Copyright 2018, ActionML, LLC"
 __license__ = "Apache License, Version 2.0"
 
 setup(
-    name='Harness',
+    name='harness',
     version="0.3.0a0",
     author=__author__,
     author_email=__email__,

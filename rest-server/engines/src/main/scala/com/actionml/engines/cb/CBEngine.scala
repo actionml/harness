@@ -17,20 +17,17 @@
 
 package com.actionml.engines.cb
 
-import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
+import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import com.typesafe.scalalogging.Logger
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine() extends Engine() with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
@@ -92,10 +89,6 @@ class CBEngine() extends Engine() with JsonParser {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
     algo.destroy()
-  }
-
-  def train(): Unit = {
-    logger.warn(s"Only used for Lambda style training")
   }
 
   /** Triggers parse, validation, and processing of event encoded in the json */
@@ -204,4 +197,14 @@ case class CBStatus(
       |}
     """.stripMargin
   }
+}
+
+object CBEngine {
+  def apply(json: String): CBEngine = {
+    val engine = new CBEngine()
+    engine.initAndGet(json)
+  }
+
+  // in case we don't want to use "apply", which is magically connected to the class's constructor
+  def createEngine(json: String) = apply(json)
 }

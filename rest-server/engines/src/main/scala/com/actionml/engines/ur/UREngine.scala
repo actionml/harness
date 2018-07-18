@@ -1,3 +1,13 @@
+package com.actionml.engines.ur
+
+import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.core.drawInfo
+import com.actionml.core.engine.Engine
+import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
+import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.engines.ur.{URAlgorithm, URDataset}
+
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,23 +25,14 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.scaffold
+class UREngine extends Engine() with JsonParser {
+  /** This is an empty scaffolding Template for an Engine that does only generic things.
+    * This is not the minimal Template because many methods are implemented generically in the
+    * base classes but is better used as a starting point for new Engines.
+    */
 
-import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
-import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-
-/** This is an empty scaffolding Template for an Engine that does only generic things.
-  * This is not the minimal Template because many methods are implemented generically in the
-  * base classes but is better used as a starting point for new Engines.
-  */
-class ScaffoldEngine() extends Engine() with JsonParser {
-
-  var dataset: ScaffoldDataset = _
-  var algo: ScaffoldAlgorithm = _
+  var dataset: URDataset = _
+  var algo: URAlgorithm = _
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
@@ -40,9 +41,9 @@ class ScaffoldEngine() extends Engine() with JsonParser {
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
         engineId = params.engineId
-        dataset = new ScaffoldDataset(engineId)
-        algo = new ScaffoldAlgorithm(dataset)
-        drawInfo("Generic Scaffold Engine", Seq(
+        dataset = new URDataset(engineId)
+        algo = new URAlgorithm(dataset)
+        drawInfo("Generic UR Engine", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
@@ -61,14 +62,14 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): ScaffoldEngine = {
+  override def initAndGet(json: String): UREngine = {
     val response = init(json)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
     } else {
       logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[ScaffoldEngine] // todo: ugly, replace
+      null.asInstanceOf[UREngine] // todo: ugly, replace
     }
   }
 
@@ -113,15 +114,8 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   }
 
   override def train(): Validated[ValidateError, String] = {
-    logger.info("got to Scaffold.train")
-    Valid(
-      """
-        |{
-        |  "comment": "Training requested of the ScaffoldEngine"
-        |  "jobId": "A fake job id"
-        |}
-      """.stripMargin
-    )
+    logger.info("got to UR.train")
+    algo.train()
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
@@ -136,12 +130,14 @@ class ScaffoldEngine() extends Engine() with JsonParser {
 
 }
 
-object ScaffoldEngine {
-  def apply(json: String): ScaffoldEngine = {
-    val engine = new ScaffoldEngine()
+object UREngine {
+  def apply(json: String): UREngine = {
+    val engine = new UREngine()
     engine.initAndGet(json)
   }
 
   // in case we don't want to use "apply", which is magically connected to the class's constructor
   def createEngine(json: String) = apply(json)
 }
+
+

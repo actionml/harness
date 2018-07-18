@@ -19,17 +19,17 @@ package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core._
+import com.actionml.core.{store, _}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine.Engine
+import com.actionml.core.store.{OrderBy, DaoQuery}
 import com.actionml.core.validate._
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString
 
 
 class MongoAdministrator extends Administrator with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
 
   private lazy val enginesCollection = storage.createDao[Document]("engines")
@@ -37,14 +37,7 @@ class MongoAdministrator extends Administrator with JsonParser {
 
   drawActionML
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
-    //Class.forName(engineFactory).newInstance().asInstanceOf[Engine]
-    Class.forName(engineFactory).getDeclaredConstructor(classOf[String]).newInstance(json).asInstanceOf[Engine]
-    /* The following is a dead end because it requires the constructed object to invoke a method on
-    but we are using the Java equivalent of a static class, a companion object. So the Java method seems insufficient
-    val json: String = "" // we can get the real json later, just a stub for now
-    Class.forName(engineFactory).getDeclaredMethod("createEngine", json.getClass).invoke("damn, we need the constructed obj here", json).asInstanceOf[Engine]
-    */
-
+    Class.forName(engineFactory).getMethod("apply", classOf[String]).invoke(null, json).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state
@@ -63,7 +56,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
         enginesCollection.remove("engineId" -> engineId)
-        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a compan ion object with a cleanup function?
+        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
     }.filter(_._2 != null).toMap
@@ -90,7 +83,7 @@ class MongoAdministrator extends Administrator with JsonParser {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.list("engineId" -> params.engineId).size == 1) {
+      if (newEngine != null && enginesCollection.list(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
@@ -139,6 +132,20 @@ class MongoAdministrator extends Administrator with JsonParser {
           |}
         """.stripMargin))
     }.getOrElse(Invalid(WrongParams(s"Unable to import to Engine: $engineId}, the engine does not exist")))
+  }
+
+  override def updateEngineWithTrain(engineId: String): Validated[ValidateError, String] = {
+    engines.get(engineId).map { existingEngine =>
+      logger.trace(s"Requesting engine: ${engineId} train on available data.")
+      existingEngine.train()
+        /*
+        .andThen(_ => Valid(
+        """{
+          |  "comment": "New train job requested, will add the job status or id here for supporting engines"
+          |}
+        """.stripMargin))
+        */
+    }.getOrElse(Invalid(WrongParams(s"Unable to train Engine: $engineId}, the engine does not exist")))
   }
 
   override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.scaffold
+package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.Valid
@@ -31,8 +31,8 @@ import com.actionml.core.validate.{JsonParser, ValidateError}
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldAlgorithm(dataset: ScaffoldDataset)
-  extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser {
+class URAlgorithm(dataset: URDataset)
+  extends Algorithm[GenericQuery, GenericQueryResult] with LambdaAlgorithm[GenericEvent] with JsonParser {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
@@ -48,10 +48,22 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   }
 
   override def input(datum: GenericEvent): Validated[ValidateError, Boolean] = {
-    // For Kappa the model update happens or it triggered with each input
+    logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
+      " This is where that will be done")
     Valid(true)
   }
 
+  override def train(): Validated[ValidateError, String] = {
+    Valid(
+      """
+        |{
+        |  "Comment": "Made it to URAlgorithm.train"
+        |  "jobId": "replace with actual Spark + YARN job-id"
+        |  "other": "other useful info"
+        |}
+      """.stripMargin
+    )
+  }
 
   def query(query: GenericQuery): GenericQueryResult = {
     GenericQueryResult()
