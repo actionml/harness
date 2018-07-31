@@ -54,8 +54,8 @@ class CBEngine() extends Engine() with JsonParser {
         createResources(p).andThen{ _ =>
           dataset.init(json, deepInit).andThen { _ =>
             if (deepInit) {
-              algo = new CBAlgorithm(p.engineId, dataset)
-              algo.init(json, this)
+              algo = new CBAlgorithm(json ,p.engineId, dataset)
+              algo.init(this)
             } else Valid(true)
           }
         }

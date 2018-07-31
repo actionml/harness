@@ -19,12 +19,14 @@ package com.actionml.core.spark
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate._
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
 
 
-trait SparkContextSupport extends JsonParser {
-  import com.actionml.core.spark.SparkContextSupport.SparkConfig
+trait SparkContextSupport extends LazyLogging {
+  this: JsonParser =>
+  import com.actionml.core.spark.SparkContextSupport._
 
   def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
     parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf").andThen { configMap =>

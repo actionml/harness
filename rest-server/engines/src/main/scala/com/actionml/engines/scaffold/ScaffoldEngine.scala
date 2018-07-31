@@ -41,7 +41,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         params = p
         engineId = params.engineId
         dataset = new ScaffoldDataset(engineId)
-        algo = new ScaffoldAlgorithm(dataset)
+        algo = new ScaffoldAlgorithm(json, dataset)
         drawInfo("Generic Scaffold Engine", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
@@ -51,7 +51,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          if (deepInit) algo.init(json, this) else Valid(true)
+          if (deepInit) algo.init(this) else Valid(true)
         }
       }
     }

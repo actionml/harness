@@ -54,8 +54,20 @@ lazy val core = (project in file("core")).
 
       "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
 
-      "org.json4s" %% "json4s-jackson" % "3.5.1",
-      "org.json4s" %% "json4s-ext" % "3.5.1"
+      "org.json4s" %% "json4s-jackson" % "3.6.0",
+      "org.json4s" %% "json4s-ext" % "3.6.0",
+
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-generic-extras" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "io.circe" %% "circe-optics" % circeVersion,
+
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
+    ),
+    excludeDependencies := Seq(
+      "org.slf4j" %% "slf4j-log4j12",
+      "log4j" %% "log4j"
     )
   )
 
@@ -63,16 +75,15 @@ lazy val common = (project in file("common")).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-generic-extras" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
 
       "org.scaldi" %% "scaldi-akka" % "0.5.8"
+    ),
+    excludeDependencies := Seq(
+      "org.slf4j" %% "log4j-over-slf4j"
     )
   )
 
@@ -82,9 +93,6 @@ lazy val engines = (project in file("engines")).dependsOn(core).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-
-      "org.json4s" %% "json4s-jackson" % "3.5.1",
-      "org.json4s" %% "json4s-ext" % "3.5.1",
 
       // the dynamic lib must be hand installed for this Java JNI wrapper to find it
       "com.github.johnlangford" % "vw-jni" % "8.4.1"
@@ -102,5 +110,8 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "com.actionml" %% "harness-auth-common" % "0.3.0-SNAPSHOT",
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
+  ),
+  excludeDependencies := Seq(
+    "org.slf4j" %% "log4j-over-slf4j"
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)

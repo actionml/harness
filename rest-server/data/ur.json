@@ -11,13 +11,11 @@
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
     "spark.kryoserializer.buffer": "300m",
-    "comment": "check to see if the following must have spark. prepended",
     "es.index.auto.create": "true",
     "comment": "remove this because it will confuse the ES Spark lib is these nodes do not exist--example only",
     "es.nodes": "es-node-1,es-node-2"
   },
   "algorithm": {
-    "comment": "very simple algo config, many more options",
     "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
     "esMaster": "es-node-1",
     "indexName": "urindex",

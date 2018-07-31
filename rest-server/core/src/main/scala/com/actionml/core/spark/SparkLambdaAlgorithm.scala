@@ -20,12 +20,12 @@ package com.actionml.core.spark
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.LambdaAlgorithm
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import com.mongodb.spark.MongoSpark
 import org.apache.spark.SparkContext
 import org.bson.Document
 
-class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkContextSupport {
+class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkContextSupport with JsonParser {
 
   private lazy val validatedSparkContext: Validated[ValidateError, SparkContext] = createSparkContext(sparkContextConfig)
 

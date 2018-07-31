@@ -69,7 +69,7 @@ case class Train(datum: CBAlgorithmInput)
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-class CBAlgorithm(resourceId: String, dataset: CBDataset)
+class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
   private val actors = ActorSystem(resourceId)
@@ -85,8 +85,8 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
           namespace = engineId)

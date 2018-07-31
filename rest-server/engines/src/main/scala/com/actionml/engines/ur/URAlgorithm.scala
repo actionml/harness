@@ -19,9 +19,9 @@ package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
-import com.actionml.core.store._
 import com.actionml.core.engine._
+import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
+import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.validate.{JsonParser, ValidateError}
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -31,13 +31,16 @@ import com.actionml.core.validate.{JsonParser, ValidateError}
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm(dataset: URDataset)
-  extends Algorithm[GenericQuery, GenericQueryResult] with LambdaAlgorithm[GenericEvent] with JsonParser {
+class URAlgorithm(initParams: String, dataset: URDataset)
+  extends Algorithm[GenericQuery, GenericQueryResult] with LambdaAlgorithm[GenericEvent] with SparkContextSupport with JsonParser {
+  import URAlgorithm._
+
+  private lazy val sparkContext = createSparkContext(initParams)
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
-      parseAndValidate[AllParams](json).andThen { p =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
+      parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
         // p is just the validated algo params from the engine's params json file.
         Valid(true)
       }
@@ -54,21 +57,36 @@ class URAlgorithm(dataset: URDataset)
   }
 
   override def train(): Validated[ValidateError, String] = {
-    Valid(
-      """
-        |{
-        |  "Comment": "Made it to URAlgorithm.train"
-        |  "jobId": "replace with actual Spark + YARN job-id"
-        |  "other": "other useful info"
-        |}
-      """.stripMargin
-    )
+    sparkContext.andThen { sc =>
+      // put spark context (sc) stuff here
+      Valid(
+        """
+          |{
+          |  "Comment": "Made it to URAlgorithm.train"
+          |  "jobId": "replace with actual Spark + YARN job-id"
+          |  "other": "other useful info"
+          |}
+        """.stripMargin
+      )
+    }
   }
 
   def query(query: GenericQuery): GenericQueryResult = {
     GenericQueryResult()
   }
 
+}
+
+object URAlgorithm {
+
+  case class URAlgorithmParams(comment: String,
+                               esMaster: String,
+                               indexName: String,
+                               typeName: String,
+                               availableDateName: String,
+                               expireDateName: String,
+                               dateName: String,
+                               num: String)
 }
 
 case class AllParams(

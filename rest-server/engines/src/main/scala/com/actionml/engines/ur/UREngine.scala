@@ -4,9 +4,10 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.Engine
-import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
-import com.actionml.core.validate.{JsonParser, ValidateError}
-import com.actionml.engines.ur.{URAlgorithm, URDataset}
+import com.actionml.core.model.{EngineParams, GenericEvent, GenericQuery}
+import com.actionml.core.validate.ValidateError
+import com.actionml.engines.ur.UREngine.UREngineParams
+import org.json4s.JValue
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -25,7 +26,7 @@ import com.actionml.engines.ur.{URAlgorithm, URDataset}
  * limitations under the License.
  */
 
-class UREngine extends Engine() with JsonParser {
+class UREngine extends Engine {
   /** This is an empty scaffolding Template for an Engine that does only generic things.
     * This is not the minimal Template because many methods are implemented generically in the
     * base classes but is better used as a starting point for new Engines.
@@ -33,27 +34,23 @@ class UREngine extends Engine() with JsonParser {
 
   var dataset: URDataset = _
   var algo: URAlgorithm = _
-  var params: GenericEngineParams = _
+  var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        params = p
-        engineId = params.engineId
-        dataset = new URDataset(engineId)
-        algo = new URAlgorithm(dataset)
-        drawInfo("Generic UR Engine", Seq(
-          ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId),
-          ("Mirror Type: ", params.mirrorType),
-          ("Mirror Container: ", params.mirrorContainer)))
+    parseAndValidate[UREngineParams](json).andThen { p =>
+      params = p
+      engineId = params.engineId
+      dataset = new URDataset(engineId)
+      algo = new URAlgorithm(json, dataset)
+      drawInfo("Generic UR Engine", Seq(
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
+        ("EngineId: ", engineId)))
 
-        Valid(p)
-      }.andThen { p =>
-        dataset.init(json).andThen { r =>
-          if (deepInit) algo.init(json, this) else Valid(true)
-        }
+      Valid(p)
+    }.andThen { p =>
+      dataset.init(json).andThen { r =>
+        if (deepInit) algo.init(this) else Valid(true)
       }
     }
   }
@@ -138,6 +135,12 @@ object UREngine {
 
   // in case we don't want to use "apply", which is magically connected to the class's constructor
   def createEngine(json: String) = apply(json)
+
+
+  case class UREngineParams(engineId: String,
+                            engineFactory: String,
+                            sparkConf: Map[String, JValue],
+                            algorithm: Map[String, JValue]) extends EngineParams
 }
 
 
