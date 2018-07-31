@@ -81,12 +81,6 @@ class UREngine extends Engine {
     algo.destroy()
   }
 
-  /*
-  override def train(): Unit = {
-    logger.warn(s"Only used for Lambda style training")
-  }
-  */
-
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
@@ -133,7 +127,6 @@ object UREngine {
     engine.initAndGet(json)
   }
 
-  // in case we don't want to use "apply", which is magically connected to the class's constructor
   def createEngine(json: String) = apply(json)
 
 

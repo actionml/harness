@@ -20,41 +20,53 @@ package com.actionml.core.spark
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.validate._
+import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
+import org.bson.Document
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 
 trait SparkContextSupport extends LazyLogging {
-  this: JsonParser =>
   import com.actionml.core.spark.SparkContextSupport._
 
+  def createRdd(sc: SparkContext): MongoRDD[Document] = {
+    MongoSpark.load[Document](sc)
+  }
+
   def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
-    parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf").andThen { configMap =>
-      (for {
-        master <- configMap.get("master")
-        appName <- configMap.get("appName")
-        db <- configMap.get("database")
-        collection <- configMap.get("collection")
-      } yield SparkConfig(master, appName, db, collection, configMap -- Seq("master", "appName", "database", "collection")))
-        .map(Valid(_))
-        .getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
-    }.andThen { sparkConfig =>
-      try {
-        val conf = new SparkConf()
-          .setMaster(sparkConfig.master)
-          .setAppName(sparkConfig.appName)
-        conf.set("deploy-mode", "cluster")
-        conf.set("spark.mongodb.input.uri", "mongodb://localhost/")
-        conf.set("spark.mongodb.input.database", sparkConfig.database)
-        conf.set("spark.mongodb.input.collection", sparkConfig.collection)
-        conf.setAll(sparkConfig.properties)
-        Valid(new SparkContext(conf))
-      } catch {
-        case e: Exception =>
-          logger.error("Can't create spark context", e)
-          Invalid(ValidRequestExecutionError("Can't create spark context"))
-      }
+    val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
+    (for {
+      master <- configMap.get("master")
+      appName <- configMap.get("appName")
+      db <- configMap.get("mongo.database")
+      collection <- configMap.get("mongo.collection")
+    } yield SparkConfig(master, appName, db, collection, configMap -- Seq("master", "appName", "database", "collection")))
+      .map(Valid(_))
+      .getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
+  }.andThen { sparkConfig =>
+    try {
+      val conf = new SparkConf()
+        .setMaster(sparkConfig.master)
+        .setAppName(sparkConfig.appName)
+      conf.set("deploy-mode", "cluster")
+      conf.set("spark.mongodb.input.uri", "mongodb://localhost/")
+      conf.set("spark.mongodb.input.database", sparkConfig.database)
+      conf.set("spark.mongodb.input.collection", sparkConfig.collection)
+      conf.setAll(sparkConfig.properties)
+      Valid(new SparkContext(conf))
+    } catch {
+      case e: Exception =>
+        logger.error("Can't create spark context", e)
+        Invalid(ValidRequestExecutionError("Can't create spark context"))
     }
+  }
+
+  private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
+    implicit val _ = org.json4s.DefaultFormats
+    transform(parse(jsonStr)).extract[T]
   }
 }
 

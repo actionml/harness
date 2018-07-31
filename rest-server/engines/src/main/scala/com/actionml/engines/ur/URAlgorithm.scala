@@ -23,6 +23,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import org.bson.Document
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -57,8 +58,11 @@ class URAlgorithm(initParams: String, dataset: URDataset)
   }
 
   override def train(): Validated[ValidateError, String] = {
+    def myTrainFunction: Iterator[Document] => Unit = _.foreach(println)
+
     sparkContext.andThen { sc =>
-      // put spark context (sc) stuff here
+      val rdd = createRdd(sc)
+      sc.runJob(rdd, myTrainFunction)
       Valid(
         """
           |{

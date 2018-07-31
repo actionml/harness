@@ -50,9 +50,11 @@ lazy val core = (project in file("core")).
 
       "org.apache.spark" % "spark-core_2.11" % "2.3.1",
       "org.apache.spark" %% "spark-sql" % "2.3.1",
+      "org.apache.spark" %% "spark-hive" % "2.3.1",
       "org.apache.spark" %% "spark-yarn" % "2.3.1",
 
       "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
+      "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
       "org.json4s" %% "json4s-jackson" % "3.6.0",
       "org.json4s" %% "json4s-ext" % "3.6.0",
@@ -66,6 +68,7 @@ lazy val core = (project in file("core")).
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies := Seq(
+      "org.slf4j" %% "log4j-over-slf4j",
       "org.slf4j" %% "slf4j-log4j12",
       "log4j" %% "log4j"
     )
@@ -81,9 +84,6 @@ lazy val common = (project in file("common")).
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
 
       "org.scaldi" %% "scaldi-akka" % "0.5.8"
-    ),
-    excludeDependencies := Seq(
-      "org.slf4j" %% "log4j-over-slf4j"
     )
   )
 
@@ -111,7 +111,9 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   ),
-  excludeDependencies := Seq(
-    "org.slf4j" %% "log4j-over-slf4j"
-  )
+    excludeDependencies := Seq(
+      "org.slf4j" %% "log4j-over-slf4j",
+      "org.slf4j" %% "slf4j-log4j12",
+      "log4j" %% "log4j"
+    )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)

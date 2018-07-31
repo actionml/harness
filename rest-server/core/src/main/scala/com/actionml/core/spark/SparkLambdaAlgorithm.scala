@@ -21,7 +21,6 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.LambdaAlgorithm
 import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
-import com.mongodb.spark.MongoSpark
 import org.apache.spark.SparkContext
 import org.bson.Document
 
@@ -31,7 +30,7 @@ class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[S
 
   override def train(): Validated[ValidateError, String] = validatedSparkContext.andThen { sparkContext =>
     try {
-      val rdd = MongoSpark.load[Document](sparkContext)
+      val rdd = createRdd(sparkContext)
       Valid(checkResult(sparkContext.runJob(rdd, processPartition)))
     } catch {
       case e: Exception =>
