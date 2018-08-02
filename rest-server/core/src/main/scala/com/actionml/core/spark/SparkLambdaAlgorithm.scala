@@ -24,7 +24,8 @@ import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, Valid
 import org.apache.spark.SparkContext
 import org.bson.Document
 
-class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkContextSupport with JsonParser {
+class SparkLambdaAlgorithm(sparkContextConfig: String) extends LambdaAlgorithm[String] with SparkContextSupport
+  with SparkMongoSupport with JsonParser {
 
   private lazy val validatedSparkContext: Validated[ValidateError, SparkContext] = createSparkContext(sparkContextConfig)
 

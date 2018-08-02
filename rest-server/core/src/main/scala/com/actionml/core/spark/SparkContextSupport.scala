@@ -20,21 +20,14 @@ package com.actionml.core.spark
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.validate._
-import com.mongodb.spark.MongoSpark
-import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
-import org.bson.Document
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
 
 trait SparkContextSupport extends LazyLogging {
   import com.actionml.core.spark.SparkContextSupport._
-
-  def createRdd(sc: SparkContext): MongoRDD[Document] = {
-    MongoSpark.load[Document](sc)
-  }
 
   def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")

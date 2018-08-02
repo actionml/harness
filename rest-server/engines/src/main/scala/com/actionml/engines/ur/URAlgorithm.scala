@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
-import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import org.bson.Document
 
@@ -32,8 +32,8 @@ import org.bson.Document
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm(initParams: String, dataset: URDataset)
-  extends Algorithm[GenericQuery, GenericQueryResult] with LambdaAlgorithm[GenericEvent] with SparkContextSupport with JsonParser {
+class URAlgorithm(initParams: String, dataset: URDataset) extends Algorithm[GenericQuery, GenericQueryResult]
+  with LambdaAlgorithm[GenericEvent] with SparkContextSupport with SparkMongoSupport with JsonParser {
   import URAlgorithm._
 
   private lazy val sparkContext = createSparkContext(initParams)

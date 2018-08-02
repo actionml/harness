@@ -26,11 +26,11 @@ import scala.reflect.ClassTag
 
 trait JsonParser extends LazyLogging {
 
-  import org.json4s.{DefaultFormats, Formats, MappingException}
-  import org.json4s.jackson.JsonMethods._
-  import org.json4s.{DefaultFormats, MappingException}
   import cats.data.Validated
   import cats.data.Validated.{Invalid, Valid}
+  import org.json4s.jackson.JsonMethods._
+  import org.json4s.{DefaultFormats, Formats, MappingException}
+
   import scala.reflect.runtime.universe._
 
 
@@ -51,8 +51,8 @@ trait JsonParser extends LazyLogging {
             s"Error $args from JSON: $json"
           }
         } else { errorMsg }
-        logger.error(msg + s"${json}", e)
-        Invalid(ParseError(msg + s"${json}"))
+        logger.error(msg + s"$json", e)
+        Invalid(ParseError(msg + s"$json"))
     }
   }
 

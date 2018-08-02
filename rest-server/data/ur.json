@@ -3,9 +3,6 @@
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
     "master": "yarn",
-    "appName": "harness-spark-test-app",
-    "mongo.database": "harness_meta_store",
-    "mongo.collection": "engines",
     "deploy-mode": "cluster",
     "driver-memory": "4g",
     "executor-memory": "4g",
