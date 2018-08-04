@@ -32,11 +32,14 @@ import org.bson.Document
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm(initParams: String, dataset: URDataset) extends Algorithm[GenericQuery, GenericQueryResult]
-  with LambdaAlgorithm[GenericEvent] with SparkContextSupport with SparkMongoSupport with JsonParser {
+class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[GenericQuery, GenericQueryResult]
+  with LambdaAlgorithm[T] with SparkContextSupport with SparkMongoSupport with JsonParser {
   import URAlgorithm._
 
-  private lazy val sparkContext = createSparkContext(initParams)
+  private lazy val sparkContext = createSparkContext(engineId = dataset.engineId,
+                                                     dbName = dataset.dbName,
+                                                     collection = dataset.collection,
+                                                     config = initParams)
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(engine: Engine): Validated[ValidateError, Boolean] = {
@@ -51,7 +54,7 @@ class URAlgorithm(initParams: String, dataset: URDataset) extends Algorithm[Gene
   override def destroy(): Unit = {
   }
 
-  override def input(datum: GenericEvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: T): Validated[ValidateError, Boolean] = {
     logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
       " This is where that will be done")
     Valid(true)

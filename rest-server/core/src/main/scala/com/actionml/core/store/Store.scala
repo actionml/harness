@@ -22,6 +22,7 @@ import scala.reflect.ClassTag
 
 
 trait Store {
+  def dbName: String
   def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
   def removeCollection(name: String): Unit
   def drop(): Unit

@@ -33,7 +33,7 @@ class UREngine extends Engine {
     */
 
   var dataset: URDataset = _
-  var algo: URAlgorithm = _
+  var algo: URAlgorithm[GenericEvent] = _
   var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
@@ -41,7 +41,7 @@ class UREngine extends Engine {
     parseAndValidate[UREngineParams](json).andThen { p =>
       params = p
       engineId = params.engineId
-      dataset = new URDataset(engineId)
+      dataset = new URDataset(engineId = engineId)
       algo = new URAlgorithm(json, dataset)
       drawInfo("Generic UR Engine", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),

@@ -64,22 +64,20 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-generic-extras" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "io.circe" %% "circe-optics" % circeVersion,
+      "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies := Seq(
-      "org.slf4j" %% "log4j-over-slf4j",
       "org.slf4j" %% "slf4j-log4j12",
       "log4j" %% "log4j"
     )
   )
 
-lazy val common = (project in file("common")).
+lazy val common = (project in file("common")).dependsOn(core).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
-
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
 
@@ -111,9 +109,8 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   ),
-    excludeDependencies := Seq(
-      "org.slf4j" %% "log4j-over-slf4j",
-      "org.slf4j" %% "slf4j-log4j12",
-      "log4j" %% "log4j"
-    )
+  excludeDependencies := Seq(
+    "org.slf4j" %% "slf4j-log4j12",
+    "log4j" %% "log4j"
+  )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)

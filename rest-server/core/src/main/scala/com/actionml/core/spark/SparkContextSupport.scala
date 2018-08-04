@@ -19,6 +19,7 @@ package com.actionml.core.spark
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
@@ -29,23 +30,20 @@ import org.json4s.jackson.JsonMethods._
 trait SparkContextSupport extends LazyLogging {
   import com.actionml.core.spark.SparkContextSupport._
 
-  def createSparkContext(config: String): Validated[ValidateError, SparkContext] = {
+  def createSparkContext(engineId: String, dbName: String, collection: String, config: String): Validated[ValidateError, SparkContext] = {
+    val appName = engineId
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
-    (for {
-      master <- configMap.get("master")
-      appName <- configMap.get("appName")
-      db <- configMap.get("mongo.database")
-      collection <- configMap.get("mongo.collection")
-    } yield SparkConfig(master, appName, db, collection, configMap -- Seq("master", "appName", "database", "collection")))
-      .map(Valid(_))
-      .getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
+    configMap.get("master").map { master =>
+      SparkConfig(master, appName, dbName, collection, configMap - "master")
+    }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
   }.andThen { sparkConfig =>
     try {
+      val dbUri = MongoStorage.uri
       val conf = new SparkConf()
         .setMaster(sparkConfig.master)
         .setAppName(sparkConfig.appName)
       conf.set("deploy-mode", "cluster")
-      conf.set("spark.mongodb.input.uri", "mongodb://localhost/")
+      conf.set("spark.mongodb.input.uri", dbUri)
       conf.set("spark.mongodb.input.database", sparkConfig.database)
       conf.set("spark.mongodb.input.collection", sparkConfig.collection)
       conf.setAll(sparkConfig.properties)

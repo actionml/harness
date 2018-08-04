@@ -1,0 +1,43 @@
+{
+  "engineId": "ur",
+  "engineFactory": "com.actionml.engines.ur.UrNavHintingEngine",
+  "sparkConf": {
+    "master": "yarn",
+    "deploy-mode": "cluster",
+    "driver-memory": "4g",
+    "executor-memory": "4g",
+    "executor-cores": "1",
+    "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
+    "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
+    "spark.kryo.referenceTracking": "false",
+    "spark.kryoserializer.buffer": "300m",
+    "es.index.auto.create": "true",
+    "comment": "remove this because it will confuse the ES Spark lib is these nodes do not exist--example only",
+    "es.nodes": "es-node-1,es-node-2"
+  },
+  "algorithm": {
+    "numQueueEvents": 50,
+    "decayFunction": "click-order",
+    "halfLifeDecayLambda": 1.0,
+    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
+    "esMaster": "es-node-1",
+    "indexName": "urindex",
+    "typeName": "items",
+    "indicators": [
+      {
+        "name": "purchase"
+      },{
+        "name": "view",
+        "maxCorrelatorsPerItem": 50
+      },{
+        "name": "category-pref",
+        "maxCorrelatorsPerItem": 50,
+        "minLLR": 5.0
+      }
+    ],
+    "availableDateName": "available",
+    "expireDateName": "expires",
+    "dateName": "date",
+    "num": 4
+  }
+}

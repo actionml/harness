@@ -39,11 +39,13 @@ import scala.util.Try
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
+class NavHintingDataset(override val engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
 
+  override val dbName = store.dbName
+  override val collection = "nav_models"
   val activeJourneysDAO = store.createDao[Journey]("active_journeys")
   // val navHintsDAO = store.createDao[NavHint]("nav_hints")
-  val navHintsModels = store.createDao[NavModels]("nav_models")
+  val navHintsModels = store.createDao[NavModels](collection)
 
   private var trailLength: Int = _
 
