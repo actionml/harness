@@ -27,7 +27,6 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
-    "org.slf4j" % "log4j-over-slf4j" % "1.7.25",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
 
     "org.typelevel" %% "cats" % "0.9.0",
@@ -49,21 +48,36 @@ lazy val core = (project in file("core")).
       "org.mongodb" % "mongodb-driver-core" % mongoVersion,
       "org.mongodb" % "mongodb-driver-async" % mongoVersion,
 
-      "org.json4s" %% "json4s-jackson" % "3.5.1",
-      "org.json4s" %% "json4s-ext" % "3.5.1"
-    )
-  )
+      "org.apache.spark" % "spark-core_2.11" % "2.3.1",
+      "org.apache.spark" %% "spark-sql" % "2.3.1",
+      "org.apache.spark" %% "spark-hive" % "2.3.1",
+      "org.apache.spark" %% "spark-yarn" % "2.3.1",
 
-lazy val common = (project in file("common")).
-  settings(
-    commonSettings,
-    libraryDependencies ++= Seq(
+      "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
+      "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
+
+      "org.json4s" %% "json4s-jackson" % "3.6.0",
+      "org.json4s" %% "json4s-ext" % "3.6.0",
+
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-generic-extras" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
+      "io.circe" %% "circe-optics" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
+    ),
+    excludeDependencies := Seq(
+      "org.slf4j" %% "slf4j-log4j12",
+      "log4j" %% "log4j"
+    )
+  )
+
+lazy val common = (project in file("common")).dependsOn(core).
+  settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
 
@@ -77,9 +91,6 @@ lazy val engines = (project in file("engines")).dependsOn(core).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-
-      "org.json4s" %% "json4s-jackson" % "3.5.1",
-      "org.json4s" %% "json4s-ext" % "3.5.1",
 
       // the dynamic lib must be hand installed for this Java JNI wrapper to find it
       "com.github.johnlangford" % "vw-jni" % "8.4.1"
@@ -97,5 +108,9 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "com.actionml" %% "harness-auth-common" % "0.3.0-SNAPSHOT",
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
+  ),
+  excludeDependencies := Seq(
+    "org.slf4j" %% "slf4j-log4j12",
+    "log4j" %% "log4j"
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)

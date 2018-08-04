@@ -43,7 +43,7 @@ import scala.concurrent.duration._
   * power. All input is persisted before the model is calculated to guarantee the model can be recreated. We may
   * be able to train and persist in parallel when we switch to the new async DB client.
   */
-class NavHintingAlgorithm(dataset: NavHintingDataset)
+class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
   extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonParser {
 
   private var activeJourneys = Map[String, Seq[JourneyStep]]() // kept as key - user-id, sequence of nav-ids and timestamps
@@ -51,8 +51,8 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   var params: NHAlgoParams = _ // todo achtung! public var
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[NHAllParams](json).andThen { p =>
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
           params = p.algorithm.copy()

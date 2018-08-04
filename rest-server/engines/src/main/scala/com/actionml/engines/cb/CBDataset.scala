@@ -50,9 +50,12 @@ import scala.language.reflectiveCalls
   */
 class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](usersStorage) with JsonParser {
 
+  override def engineId: String = resourceId
+  override def dbName: String = storage.dbName
+  override def collection: String = "groups"
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 
-  val groupsDao = storage.createDao[GroupParams]("groups")
+  val groupsDao = storage.createDao[GroupParams](collection)
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {

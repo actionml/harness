@@ -50,8 +50,8 @@ class NavHintingEngine() extends Engine() with JsonParser {
       }.andThen { _ =>
         dataset.init(json).andThen { _ =>
           if (deepInit) {
-            algo = new NavHintingAlgorithm(dataset)
-            algo.init(json, this)
+            algo = new NavHintingAlgorithm(json, dataset)
+            algo.init(this)
           } else Valid(true)
         }
       }

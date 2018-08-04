@@ -1,6 +1,6 @@
 {
   "engineId": "ur",
-  "engineFactory": "com.actionml.engines.ur.UREngine",
+  "engineFactory": "com.actionml.engines.ur.UrNavHintingEngine",
   "sparkConf": {
     "master": "yarn",
     "deploy-mode": "cluster",
@@ -16,6 +16,9 @@
     "es.nodes": "es-node-1,es-node-2"
   },
   "algorithm": {
+    "numQueueEvents": 50,
+    "decayFunction": "click-order",
+    "halfLifeDecayLambda": 1.0,
     "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
     "esMaster": "es-node-1",
     "indexName": "urindex",

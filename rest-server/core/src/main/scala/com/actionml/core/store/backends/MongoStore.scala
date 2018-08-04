@@ -81,6 +81,8 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   private val timeout = 5 seconds
   private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
+
+  override def dbName: String = db.name
 }
 
 object MongoStorage extends LazyLogging {

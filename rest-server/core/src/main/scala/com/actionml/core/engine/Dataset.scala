@@ -26,6 +26,10 @@ import com.typesafe.scalalogging.LazyLogging
 
 abstract class Dataset[T] extends LazyLogging {
 
+  def engineId: String
+  def dbName: String
+  def collection: String
+
   // methods that must be implemented in the Engine
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
