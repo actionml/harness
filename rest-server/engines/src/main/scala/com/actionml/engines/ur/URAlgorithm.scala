@@ -23,6 +23,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, ValidateError}
+import org.apache.spark.SparkContext
 import org.bson.Document
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -36,17 +37,21 @@ class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[
   with LambdaAlgorithm[T] with SparkContextSupport with SparkMongoSupport with JsonParser {
   import URAlgorithm._
 
-  private lazy val sparkContext = createSparkContext(engineId = dataset.engineId,
-                                                     dbName = dataset.dbName,
-                                                     collection = dataset.collection,
-                                                     config = initParams)
+  private var sparkContext: Validated[ValidateError, SparkContext] = _
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(engine: Engine): Validated[ValidateError, Boolean] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
         // p is just the validated algo params from the engine's params json file.
-        Valid(true)
+        sparkContext.map { sc =>
+          sc.stop
+        }
+        sparkContext = createSparkContext(appName = dataset.engineId,
+                                          dbName = dataset.dbName,
+                                          collection = dataset.collection,
+                                          config = initParams)
+        sparkContext.map(_ => true)
       }
     }
   }

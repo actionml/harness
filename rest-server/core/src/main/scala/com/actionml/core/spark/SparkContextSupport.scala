@@ -30,8 +30,7 @@ import org.json4s.jackson.JsonMethods._
 trait SparkContextSupport extends LazyLogging {
   import com.actionml.core.spark.SparkContextSupport._
 
-  def createSparkContext(engineId: String, dbName: String, collection: String, config: String): Validated[ValidateError, SparkContext] = {
-    val appName = engineId
+  def createSparkContext(appName: String, dbName: String, collection: String, config: String): Validated[ValidateError, SparkContext] = {
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
     configMap.get("master").map { master =>
       SparkConfig(master, appName, dbName, collection, configMap - "master")
