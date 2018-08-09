@@ -30,7 +30,7 @@ class UrNavHintingEngine extends NavHintingEngine {
 
   override def initAndGet(json: String): UrNavHintingEngine = {
     if (super.init(json).isValid) {
-      urAlgo = new URAlgorithm[NHEvent](json, this.dataset)
+      urAlgo = URAlgorithm[NHEvent](this, json, this.dataset)
       this
     } else {
       logger.error(s"Parse error with Engine's JSON: $json")
@@ -39,6 +39,7 @@ class UrNavHintingEngine extends NavHintingEngine {
   }
 
   override def train(): Validated[ValidateError, String] = {
+    logger.debug(s"train algo $urAlgo from $this")
     urAlgo.train()
   }
 }

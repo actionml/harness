@@ -33,7 +33,7 @@ import org.bson.Document
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[GenericQuery, GenericQueryResult]
+class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends Algorithm[GenericQuery, GenericQueryResult]
   with LambdaAlgorithm[T] with SparkContextSupport with SparkMongoSupport with JsonParser {
   import URAlgorithm._
 
@@ -44,7 +44,7 @@ class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[
     super.init(engine).andThen { _ =>
       parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
         // p is just the validated algo params from the engine's params json file.
-        sparkContext.map { sc =>
+        if (sparkContext != null) sparkContext.foreach { sc =>
           sc.stop
         }
         sparkContext = createSparkContext(appName = dataset.engineId,
@@ -66,11 +66,15 @@ class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[
   }
 
   override def train(): Validated[ValidateError, String] = {
-    def myTrainFunction: Iterator[Document] => Unit = _.foreach(println)
+    def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
 
+    logger.debug(s"Starting train $this with spark $sparkContext")
     sparkContext.andThen { sc =>
       val rdd = createRdd(sc)
-      sc.runJob(rdd, myTrainFunction)
+      val result = sc.runJob(rdd, myTrainFunction)
+      println("********************************")
+      println(result)
+      println("********************************")
       Valid(
         """
           |{
@@ -90,6 +94,12 @@ class URAlgorithm[T](initParams: String, dataset: Dataset[T]) extends Algorithm[
 }
 
 object URAlgorithm {
+
+  def apply[T](engine: Engine, initParams: String, dataset: Dataset[T]): URAlgorithm[T] = {
+    val algo = new URAlgorithm[T](initParams, dataset)
+    algo.init(engine)
+    algo
+  }
 
   case class URAlgorithmParams(comment: String,
                                esMaster: String,

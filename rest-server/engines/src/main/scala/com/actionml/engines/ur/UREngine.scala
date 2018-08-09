@@ -42,7 +42,7 @@ class UREngine extends Engine {
       params = p
       engineId = params.engineId
       dataset = new URDataset(engineId = engineId)
-      algo = new URAlgorithm(json, dataset)
+      algo = URAlgorithm(this, json, dataset)
       drawInfo("Generic UR Engine", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("EngineId: ", engineId)))

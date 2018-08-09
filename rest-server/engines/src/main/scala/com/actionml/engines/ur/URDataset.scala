@@ -35,7 +35,7 @@ import scala.language.reflectiveCalls
   */
 class URDataset(val engineId: String) extends Dataset[GenericEvent] with JsonParser {
   override lazy val dbName: String = engineId
-  override lazy val collection: String = ???
+  override lazy val collection: String = "ur"
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     parseAndValidate[UREngineParams](json).andThen { p =>
