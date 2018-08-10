@@ -83,15 +83,9 @@ class UREngine extends Engine {
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String): Validated[ValidateError, Boolean] = {
-    super.init(json).andThen { _ =>
-      logger.trace("Got JSON body: " + json)
-      // validation happens as the input goes to the dataset
-      if (super.input(json).isValid)
-        dataset.input(json).andThen(process).map(_ => true)
-      else
-        Valid(true) // Some error like an ExecutionError in super.input happened
-      // todo: pass back indication of deeper error
-    }
+    logger.trace("Got JSON body: " + json)
+    // validation happens as the input goes to the dataset
+    super.input(json).andThen(_ => dataset.input(json)).andThen(process).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated and transformed into
@@ -130,10 +124,12 @@ object UREngine {
   def createEngine(json: String) = apply(json)
 
 
-  case class UREngineParams(engineId: String,
-                            engineFactory: String,
-                            sparkConf: Map[String, JValue],
-                            algorithm: Map[String, JValue]) extends EngineParams
+  case class UREngineParams(
+      engineId: String,
+      engineFactory: String,
+      sparkConf: Map[String, JValue],
+      algorithm: Map[String, JValue])
+    extends EngineParams
 }
 
 

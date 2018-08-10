@@ -47,10 +47,11 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
         if (sparkContext != null) sparkContext.foreach { sc =>
           sc.stop
         }
-        sparkContext = createSparkContext(appName = dataset.engineId,
-                                          dbName = dataset.dbName,
-                                          collection = dataset.collection,
-                                          config = initParams)
+        sparkContext = createSparkContext(
+          appName = dataset.engineId,
+          dbName = dataset.dbName,
+          collection = dataset.collection,
+          config = initParams)
         sparkContext.map(_ => true)
       }
     }
