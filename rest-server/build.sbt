@@ -65,7 +65,7 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-generic-extras" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion exclude ("org.slf4j", "log4j-over-slf4j"),
       "io.circe" %% "circe-optics" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
