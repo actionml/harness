@@ -34,7 +34,7 @@ trait SparkContextSupport extends LazyLogging {
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
     configMap.get("master").map { master =>
       SparkConfig(master, appName, dbName, collection, configMap - "master")
-    }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConfg field")))
+    }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConf field")))
   }.andThen { sparkConfig =>
     try {
       val dbUri = MongoStorage.uri

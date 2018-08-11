@@ -55,12 +55,13 @@ class ElasticSearchClient private (hosts: Seq[String]) extends SearchClient[JVal
 
   override def close: Unit = client.close()
 
-  override def createIndex(indexName: String,
-                           indexType: String,
-                           fieldNames: List[String],
-                           typeMappings: Map[String, (String, Boolean)],
-                           refresh: Boolean): Boolean = {
-    client.performRequest(
+  override def createIndex(
+    indexName: String,
+    indexType: String,
+    fieldNames: List[String],
+    typeMappings: Map[String, (String, Boolean)],
+    refresh: Boolean): Boolean = {
+      client.performRequest(
       "HEAD",
       s"/$indexName",
       Map.empty[String, String].asJava).getStatusLine.getStatusCode match {

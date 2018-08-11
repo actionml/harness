@@ -128,8 +128,20 @@ object UREngine {
       engineId: String,
       engineFactory: String,
       sparkConf: Map[String, JValue],
-      algorithm: Map[String, JValue])
+      algorithm: URAlgorithmParams)
     extends EngineParams
+
+  case class URAlgorithmParams(
+      // this can be ignored in JSON, it is just a way to do JSON comments
+      // comment: String,
+      esMaster: String,
+      indexName: String,
+      typeName: String,
+      availableDateName: String,
+      expireDateName: String,
+      dateName: String,
+      num: String)
+
 }
 
 

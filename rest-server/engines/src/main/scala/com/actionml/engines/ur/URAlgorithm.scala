@@ -42,17 +42,13 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(engine: Engine): Validated[ValidateError, Boolean] = {
     super.init(engine).andThen { _ =>
-      parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
+      parseAndValidate[UREngine.URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
         // p is just the validated algo params from the engine's params json file.
         if (sparkContext != null) sparkContext.foreach { sc =>
           sc.stop
         }
-        sparkContext = createSparkContext(
-          appName = dataset.engineId,
-          dbName = dataset.dbName,
-          collection = dataset.collection,
-          config = initParams)
-        sparkContext.map(_ => true)
+        // @alexey, we can only "create" the context just before we run the job so this goes in algo.train
+        Valid(true)
       }
     }
   }
@@ -68,6 +64,12 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
 
   override def train(): Validated[ValidateError, String] = {
     def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
+
+    sparkContext = createSparkContext(
+      appName = dataset.engineId,
+      dbName = dataset.dbName,
+      collection = dataset.collection,
+      config = initParams)
 
     logger.debug(s"Starting train $this with spark $sparkContext")
     sparkContext.andThen { sc =>
@@ -102,25 +104,5 @@ object URAlgorithm {
     algo
   }
 
-  case class URAlgorithmParams(comment: String,
-                               esMaster: String,
-                               indexName: String,
-                               typeName: String,
-                               availableDateName: String,
-                               expireDateName: String,
-                               dateName: String,
-                               num: String)
 }
-
-case class AllParams(
-  algorithm: ScaffoldAlgoParams)
-
-
-case class ScaffoldAlgoParams(
-    dummy: String) // since not an Option, this is required for this Engine
-  extends AlgorithmParams
-
-case class ScaffoldAlgorithmInput(
-  engineId: String )
-  extends AlgorithmInput
 

@@ -2,11 +2,11 @@
   "engineId": "ur",
   "engineFactory": "com.actionml.engines.ur.UrNavHintingEngine",
   "sparkConf": {
-    "master": "localhost",
+    "master": "spark://Maclaurin.local:7077",
     "deploy-mode": "cluster",
     "driver-memory": "4g",
     "executor-memory": "4g",
-    "executor-cores": "4",
+    "executor-cores": "1",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
