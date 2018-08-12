@@ -26,9 +26,22 @@ import com.typesafe.scalalogging.LazyLogging
   */
 trait LambdaAlgorithm[T] extends LazyLogging {
 
-  def input(datum: T): Validated[ValidateError, Boolean] = Valid(true) // Lambda algos may ignore input as it comes in
-  // if it expects to batch process persisted input during train.
-  def train(): Validated[ValidateError, String]
+  /** May be ignored by Lambda Algorithms if they do not update portions of the model in real-time.
+    * @param datum The input Event type defined by the parmeterized type
+    * @return
+    */
+  def input(datum: T): Validated[ValidateError, Boolean] = Valid(true)
+
+  /** May train or queue up to execute the process method, such as when using a Spark compute engine
+    * Override to use the queuing method to create the model
+    * @return
+    */
+  def train(): Validated[ValidateError, String] = {
+    process()
+  }
+
+  /** Does the model creation, may do the calculation or start a job on a compute engine like Spark */
+  def process(): Validated[ValidateError, String]
 
 }
 

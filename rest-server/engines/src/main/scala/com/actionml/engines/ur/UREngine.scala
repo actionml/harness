@@ -27,14 +27,10 @@ import org.json4s.JValue
  */
 
 class UREngine extends Engine {
-  /** This is an empty scaffolding Template for an Engine that does only generic things.
-    * This is not the minimal Template because many methods are implemented generically in the
-    * base classes but is better used as a starting point for new Engines.
-    */
 
-  var dataset: URDataset = _
-  var algo: URAlgorithm[GenericEvent] = _
-  var params: UREngineParams = _
+  private var dataset: URDataset = _
+  private var algo: URAlgorithm[GenericEvent] = _
+  private var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
@@ -70,11 +66,13 @@ class UREngine extends Engine {
     }
   }
 
+  // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, String] = {
-    logger.trace(s"Status of base Engine with engineId:$engineId")
+    logger.trace(s"Status of UREngine with engineId:$engineId")
     Valid(this.params.toString)
   }
 
+  // todo: should kill any pending Spark jobs
   override def destroy(): Unit = {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
@@ -121,9 +119,6 @@ object UREngine {
     engine.initAndGet(json)
   }
 
-  def createEngine(json: String) = apply(json)
-
-
   case class UREngineParams(
       engineId: String,
       engineFactory: String,
@@ -143,5 +138,4 @@ object UREngine {
       num: String)
 
 }
-
 

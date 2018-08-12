@@ -23,7 +23,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, ValidateError}
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkContext, rdd}
 import org.bson.Document
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -47,7 +47,7 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
         if (sparkContext != null) sparkContext.foreach { sc =>
           sc.stop
         }
-        // @alexey, we can only "create" the context just before we run the job so this goes in algo.train
+
         Valid(true)
       }
     }
@@ -63,6 +63,10 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   }
 
   override def train(): Validated[ValidateError, String] = {
+    process()
+  }
+
+  override def process(): Validated[ValidateError, String] = {
     def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
 
     sparkContext = createSparkContext(
@@ -72,6 +76,17 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
       config = initParams)
 
     logger.debug(s"Starting train $this with spark $sparkContext")
+
+    /*
+    sparkContext.andThen { sc =>
+
+      val rdd = sc.makeRDD((1 to 10000).toSeq))
+      val result = rdd.ma
+
+      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
+    }
+    */
+
     sparkContext.andThen { sc =>
       val rdd = createRdd(sc)
       val result = sc.runJob(rdd, myTrainFunction)
@@ -88,6 +103,8 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
         """.stripMargin
       )
     }
+
+
   }
 
   def query(query: GenericQuery): GenericQueryResult = {
