@@ -15,7 +15,6 @@ lazy val mongoScalaDriverVersion = "2.4.0"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
-resolvers +=  "Novus Release Repository" at "http://repo.novus.com/releases/"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
@@ -37,7 +36,8 @@ lazy val commonSettings = Seq(
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   ),
   excludeDependencies ++= Seq(
-    SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
+    SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
+    SbtExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 )
 
@@ -77,7 +77,8 @@ lazy val core = (project in file("core")).
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
@@ -91,7 +92,8 @@ lazy val common = (project in file("common")).dependsOn(core).
       "org.scaldi" %% "scaldi-akka" % "0.5.8"
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
@@ -106,7 +108,8 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       "com.github.johnlangford" % "vw-jni" % "8.4.1"
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
@@ -123,6 +126,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "org.ehcache" % "ehcache" % "3.4.0"
   ),
   excludeDependencies ++= Seq(
-    SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
+    SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
+    SbtExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
