@@ -37,7 +37,7 @@ lazy val commonSettings = Seq(
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   ),
   excludeDependencies ++= Seq(
-    ExclusionRule("org.slf4j", "log4j-over-slf4j")
+    SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
   )
 )
 
@@ -45,8 +45,8 @@ lazy val core = (project in file("core")).
   settings(
     commonSettings,
     libraryDependencies ++= Seq(
-      "org.mongodb.scala" %% "mongo-scala-driver" % "2.3.0",
-      "org.mongodb.scala" %% "mongo-scala-bson" % "2.3.0",
+      "org.mongodb.scala" %% "mongo-scala-driver" % mongoScalaDriverVersion,
+      "org.mongodb.scala" %% "mongo-scala-bson" % mongoScalaDriverVersion,
       "org.mongodb" % "bson" % mongoVersion,
       "org.mongodb" % "mongodb-driver-core" % mongoVersion,
       "org.mongodb" % "mongodb-driver-async" % mongoVersion,
@@ -77,7 +77,7 @@ lazy val core = (project in file("core")).
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies ++= Seq(
-      ExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
     )
   )
 
@@ -91,7 +91,7 @@ lazy val common = (project in file("common")).dependsOn(core).
       "org.scaldi" %% "scaldi-akka" % "0.5.8"
     ),
     excludeDependencies ++= Seq(
-      ExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
     )
   )
 
@@ -106,7 +106,7 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       "com.github.johnlangford" % "vw-jni" % "8.4.1"
     ),
     excludeDependencies ++= Seq(
-      ExclusionRule("org.slf4j", "log4j-over-slf4j")
+      SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
     )
   )
 
@@ -123,6 +123,6 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "org.ehcache" % "ehcache" % "3.4.0"
   ),
   excludeDependencies ++= Seq(
-    ExclusionRule("org.slf4j", "log4j-over-slf4j")
+    SbtExclusionRule("org.slf4j", "log4j-over-slf4j")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
