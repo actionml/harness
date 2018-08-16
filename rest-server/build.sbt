@@ -12,6 +12,10 @@ lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.8.0"
 lazy val mongoScalaDriverVersion = "2.4.0"
+//lazy val sparkVersion = "2.3.1"
+lazy val sparkVersion = "2.1.3"
+//lazy val json4sVersion = "3.6.0"
+lazy val json4sVersion = "3.5.1"
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -51,19 +55,19 @@ lazy val core = (project in file("core")).
       "org.mongodb" % "mongodb-driver-core" % mongoVersion,
       "org.mongodb" % "mongodb-driver-async" % mongoVersion,
 
-      "org.apache.spark" % "spark-core_2.11" % "2.3.1",
-      "org.apache.spark" %% "spark-sql" % "2.3.1",
-      "org.apache.spark" %% "spark-hive" % "2.3.1",
-      "org.apache.spark" %% "spark-yarn" % "2.3.1",
-      "org.apache.hbase" % "hbase" % "2.1.0",
-      "org.apache.hbase" % "hbase-common" % "2.1.0",
-      "org.apache.hbase" % "hbase-client" % "2.1.0",
+      "org.apache.spark" % "spark-core_2.11" %sparkVersion,
+      "org.apache.spark" %% "spark-sql" % sparkVersion,
+      "org.apache.spark" %% "spark-hive" % sparkVersion,
+      "org.apache.spark" %% "spark-yarn" % sparkVersion,
+      //"org.apache.hbase" % "hbase" % "2.1.0",
+      //"org.apache.hbase" % "hbase-common" % "2.1.0",
+      //"org.apache.hbase" % "hbase-client" % "2.1.0",
 
       "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
-      "org.json4s" %% "json4s-jackson" % "3.6.0",
-      "org.json4s" %% "json4s-ext" % "3.6.0",
+      "org.json4s" %% "json4s-jackson" % json4sVersion,
+      "org.json4s" %% "json4s-ext" % json4sVersion,
 
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,

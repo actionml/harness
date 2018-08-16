@@ -23,7 +23,8 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, ValidateError}
-import org.apache.spark.{SparkContext, rdd}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -67,13 +68,9 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   }
 
   override def process(): Validated[ValidateError, String] = {
-    def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
+    //def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
 
-    sparkContext = createSparkContext(
-      appName = dataset.engineId,
-      dbName = dataset.dbName,
-      collection = dataset.collection,
-      config = initParams)
+    //sparkContext = createSparkContext(dataset.engineId, config = initParams)
 
     logger.debug(s"Starting train $this with spark $sparkContext")
 
@@ -87,12 +84,27 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
     }
     */
 
-    sparkContext.andThen { sc =>
-      val rdd = createRdd(sc)
-      val result = sc.runJob(rdd, myTrainFunction)
+    //sparkContext.andThen { sc =>
+    val conf = new SparkConf()
+      //.setMaster("spark://Maclaurin.local:7077")
+      .setMaster("local[6]")
+      .setAppName("CountingSheep")
+    val sc = new SparkContext(conf)
+
+    val s = 1 to 10000
+      val rdd = sc.parallelize(s)
+      val seq = rdd.collect()
+      // val rdd = createRdd(sc)
+      // val result = sc.runJob(rdd, myTrainFunction)
+      val result = rdd.fold(0) { (last, current) => last + current}
       println("********************************")
       println(result)
       println("********************************")
+
+      val r2 = rdd.collect()
+      Thread.sleep(20000)
+      sc.stop() // always stop or it will be active forever
+
       Valid(
         """
           |{
@@ -102,7 +114,7 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
           |}
         """.stripMargin
       )
-    }
+    //}
 
 
   }

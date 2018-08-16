@@ -20,7 +20,38 @@ The CCO algorithm is multimodal, watching virtually any user behavior or indicat
 
 This Engine provides application or web site owners a way to nudge a user along a proven successful path to conversion. It adapts to changes in navigation on app or site automatically given time. If the app has a major redesign the Engine can be reset to start fresh.
 
-# Configuration of Navigation Hinting
+# Special Harness and Services Config for this Engine
+
+Harness does not require any specific "compute engine" like Spark, TensorFlow, or other. This means each Engine is free to choose what Compute-Engine to use&mdash;picking the best for the algorithm. The Universal Recommender is written to use Spark and Elasticsearch, with an extra requirement of Apache Mahout. These will need special setup most of which is confined to the engine's JSON config file. But some things should be considered when starting up the Services:
+
+## Spark
+
+Spark uses the Hadoop Distributed File System (HDFS) and can store logs in it for failed Jobs, which is quite useful in debugging an Engine's config. Spark is somewhat unique in that a Job may fail based on the data it sees, not only based on whether the cluster fits the config. This means that some Spark conf will need to be tuned to the data seen in an Engine instance. 
+
+We suggest setting Spark up to inherit the client config from the HDFS client installation and to log to HDFS.
+
+**Inherit Hadoop Client Config**: After installing Spark copy `spark/conf/spark-env.sh.template` to `spark/conf/spark-env.sh` and editing it to add:
+
+```
+# Replace with the local path to hadoop's config files, usually 
+# in <hadoop's root directory>/hadoop/etc/hadoop/
+# Example
+HADOOP_CONF_DIR=/usr/local/hadoop/etc/hadoop/
+
+```
+
+**Setup Spark Logging to HDFS**: This assumes HDFS is setup and running in cluster or psuedo-cluster (single machine) mode. Create a directory in HDFS where the user that has started Harness has permission to write files. For example `/user/your-user-name/spark-logs` would write to this directory if Harness was started by the user= "your-user-name". Set the following in the `sparkConf` section of the engine's config file
+
+```
+"spark.eventLog.enabled": "true",
+"spark.eventLog.dir": "hdfs://<namenode IP address>/user/<your-user-name>/spark-logs:9000"
+```
+
+The `eventLog.dir` is the fully qualified URI for the directory and so should contain the namenode address (DNS or IP), the hdfs path, and port number (9000 unless expressly changed during HDFS setup).
+
+If this is not setup the traces of Job execution will disappear as soon as the Job completes, even if it is a failure, so you may loose important debugging information. If it is setup the logs will accumulate forever and may fill up HDFS so periodic cleanup is important.
+
+# Configuration of NavHintingUREngine
 
 Configuration is especially important because it defines the type of events by name that will be gathered and used to predict a user's preferences.
 

@@ -33,7 +33,7 @@ trait SparkContextSupport extends LazyLogging {
   def createSparkContext(appName: String, dbName: String, collection: String, config: String): Validated[ValidateError, SparkContext] = {
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
     configMap.get("master").map { master =>
-      SparkConfig(master, appName, dbName, collection, configMap - "master")
+      SparkMongoConfig(master, appName, dbName, collection, configMap - "master")
     }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConf field")))
   }.andThen { sparkConfig =>
     try {
@@ -54,6 +54,26 @@ trait SparkContextSupport extends LazyLogging {
     }
   }
 
+  def createSparkContext(appName: String, config: String): Validated[ValidateError, SparkContext] = {
+    val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
+    configMap.get("master").map { master =>
+      SparkSimpleConfig(master, appName, configMap - "master")
+    }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConf field")))
+  }.andThen { sparkConfig =>
+    try {
+      val conf = new SparkConf()
+        .setMaster(sparkConfig.master)
+        .setAppName(sparkConfig.appName)
+      //conf.set("deploy-mode", "cluster")
+      conf.setAll(sparkConfig.properties)
+      Valid(new SparkContext(conf))
+    } catch {
+      case e: Exception =>
+        logger.error("Can't create spark context", e)
+        Invalid(ValidRequestExecutionError("Can't create spark context"))
+    }
+  }
+
   private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
     implicit val _ = org.json4s.DefaultFormats
     transform(parse(jsonStr)).extract[T]
@@ -61,5 +81,7 @@ trait SparkContextSupport extends LazyLogging {
 }
 
 object SparkContextSupport {
-  private case class SparkConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
+  private case class SparkMongoConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
+
+  private case class SparkSimpleConfig(master: String, appName: String, properties: Map[String, String])
 }
