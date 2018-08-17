@@ -2,7 +2,7 @@
   "engineId": "ur",
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
-    "master": "spark://Maclaurin.local:7077",
+    "master": "local",
     "spark.driver-memory": "4g",
     "spark.executor-memory": "4g"
   },

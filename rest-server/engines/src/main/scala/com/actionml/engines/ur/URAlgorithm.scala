@@ -26,6 +26,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
+import org.joda.time.DateTime
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -68,54 +69,32 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   }
 
   override def process(): Validated[ValidateError, String] = {
-    //def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
-
-    //sparkContext = createSparkContext(dataset.engineId, config = initParams)
+    sparkContext = createSparkContext(dataset.engineId, config = initParams)
 
     logger.debug(s"Starting train $this with spark $sparkContext")
 
-    /*
     sparkContext.andThen { sc =>
 
-      val rdd = sc.makeRDD((1 to 10000).toSeq))
-      val result = rdd.ma
-
-      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
-    }
-    */
-
-    //sparkContext.andThen { sc =>
-    val conf = new SparkConf()
-      //.setMaster("spark://Maclaurin.local:7077")
-      .setMaster("local[6]")
-      .setAppName("CountingSheep")
-    val sc = new SparkContext(conf)
-
-    val s = 1 to 10000
+      val s = 1 to 10000
       val rdd = sc.parallelize(s)
       val seq = rdd.collect()
       // val rdd = createRdd(sc)
       // val result = sc.runJob(rdd, myTrainFunction)
-      val result = rdd.fold(0) { (last, current) => last + current}
-      println("********************************")
-      println(result)
-      println("********************************")
-
-      val r2 = rdd.collect()
-      Thread.sleep(20000)
+      val result = rdd.fold(0) { (last, current) => last + current }
+      val r2 = rdd.collect() // forces job to complete
       sc.stop() // always stop or it will be active forever
 
       Valid(
-        """
+        s"""
           |{
-          |  "Comment": "Made it to URAlgorithm.train"
-          |  "jobId": "replace with actual Spark + YARN job-id"
-          |  "other": "other useful info"
+          |  "Status for appname": ${sc.appName}
+          |  "Run on master": ${sc.master}
+          |  "Result:": $result
+          |  "Completed synchronously"
           |}
         """.stripMargin
       )
-    //}
-
+    }
 
   }
 

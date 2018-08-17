@@ -23,6 +23,7 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
+import org.joda.time.DateTime
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
@@ -57,15 +58,19 @@ trait SparkContextSupport extends LazyLogging {
   def createSparkContext(appName: String, config: String): Validated[ValidateError, SparkContext] = {
     val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
     configMap.get("master").map { master =>
-      SparkSimpleConfig(master, appName, configMap - "master")
+      import org.joda.time.format.DateTimeFormat
+      import org.joda.time.format.DateTimeFormatter
+      val fmt = DateTimeFormat.forPattern("YYYY/MM/dd-HH:mm:ss")
+      val now = fmt.print(DateTime.now)
+
+      SparkSimpleConfig(master, appName + " " + now, configMap - "master")
     }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConf field")))
   }.andThen { sparkConfig =>
     try {
       val conf = new SparkConf()
         .setMaster(sparkConfig.master)
         .setAppName(sparkConfig.appName)
-      //conf.set("deploy-mode", "cluster")
-      conf.setAll(sparkConfig.properties)
+        .setAll(sparkConfig.properties)
       Valid(new SparkContext(conf))
     } catch {
       case e: Exception =>
