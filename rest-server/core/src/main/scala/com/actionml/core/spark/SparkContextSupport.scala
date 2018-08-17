@@ -17,6 +17,8 @@
 
 package com.actionml.core.spark
 
+import java.io.File
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.store.backends.MongoStorage
@@ -70,7 +72,11 @@ trait SparkContextSupport extends LazyLogging {
       val conf = new SparkConf()
         .setMaster(sparkConfig.master)
         .setAppName(sparkConfig.appName)
-        .setAll(sparkConfig.properties)
+        .setAll(sparkConfig.properties.filterNot(_._1 == Settings.jarsDir))
+
+      sparkConfig.properties.get(Settings.jarsDir).foreach { dir =>
+        conf.setJars(new File(dir).listFiles().filter(f => f.isFile && f.getName.endsWith(".jar")).map("file://" + _.getAbsolutePath))
+      }
       Valid(new SparkContext(conf))
     } catch {
       case e: Exception =>
@@ -86,7 +92,10 @@ trait SparkContextSupport extends LazyLogging {
 }
 
 object SparkContextSupport {
-  private case class SparkMongoConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
+  object Settings {
+    val jarsDir = "jars.dir"
+  }
 
+  private case class SparkMongoConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
   private case class SparkSimpleConfig(master: String, appName: String, properties: Map[String, String])
 }

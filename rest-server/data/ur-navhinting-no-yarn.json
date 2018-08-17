@@ -1,17 +1,14 @@
 {
-  "engineId": "ur",
+  "engineId": "urnoyarn",
   "engineFactory": "com.actionml.engines.ur.UrNavHintingEngine",
   "sparkConf": {
-    "master": "spark://Maclaurin.local:7077",
+    "master": "spark://127.0.0.1:7077",
     "deploy-mode": "cluster",
     "driver-memory": "4g",
     "executor-memory": "4g",
     "executor-cores": "1",
-    "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
-    "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
-    "spark.kryo.referenceTracking": "false",
-    "spark.kryoserializer.buffer": "300m",
     "es.index.auto.create": "true",
+    "jars.dir": "/tmp/harness-libs"
   },
   "algorithm": {
     "numQueueEvents": 50,
