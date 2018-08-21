@@ -17,49 +17,74 @@
 
 package com.actionml.core.spark
 
-import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate._
+import java.util.concurrent.atomic.AtomicReference
+
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Future, Promise}
+import scala.reflect.ClassTag
+import scala.util.Try
 
-trait SparkContextSupport extends LazyLogging {
-  import com.actionml.core.spark.SparkContextSupport._
 
-  def createSparkContext(appName: String, dbName: String, collection: String, config: String): Validated[ValidateError, SparkContext] = {
-    val configMap = parseAndValidate[Map[String, String]](config, transform = _ \ "sparkConf")
-    configMap.get("master").map { master =>
-      SparkConfig(master, appName, dbName, collection, configMap - "master")
-    }.map(Valid(_)).getOrElse(Invalid(ParseError("Wrong format at sparkConf field")))
-  }.andThen { sparkConfig =>
-    try {
-      val dbUri = MongoStorage.uri
-      val conf = new SparkConf()
-        .setMaster(sparkConfig.master)
-        .setAppName(sparkConfig.appName)
-      conf.set("deploy-mode", "cluster")
-      conf.set("spark.mongodb.input.uri", dbUri)
-      conf.set("spark.mongodb.input.database", sparkConfig.database)
-      conf.set("spark.mongodb.input.collection", sparkConfig.collection)
-      conf.setAll(sparkConfig.properties)
-      Valid(new SparkContext(conf))
-    } catch {
-      case e: Exception =>
-        logger.error("Can't create spark context", e)
-        Invalid(ValidRequestExecutionError("Can't create spark context"))
+trait SparkContextSupport[A] {
+  this: SparkStorageSupport[A] with LazyLogging =>
+  import SparkContextSupport._
+
+  def execute[B](fn: Iterator[A] => B, config: String, defaults: Map[String, String])(implicit ca: ClassTag[A], cb: ClassTag[B]): Future[Array[B]] = {
+    getSparkContext(config, defaults)
+      .map(sc => (sc, sc.runJob(createRdd(sc), fn)))
+      .map { case (sc, value) =>
+        sc.stop()
+        value
+      }
+  }
+}
+
+object SparkContextSupport {
+
+  private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
+
+  private def getSparkContext(config: String, defaults: Map[String, String]): Future[SparkContext] = {
+    val params = SparkContextParams(config, defaults: Map[String, String])
+    state.get match {
+      case Idle =>
+        Future.fromTry(createSparkContext(params))
+      case Running(currentParams, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
+        p.future
+      case s@Running(_, p, promises) if p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
+        promises.getOrElse(params, {
+          val p = Promise[SparkContext]()
+          state.compareAndSet(s, s.copy(otherPromises = promises + (params -> p)))
+          p
+        }).future
     }
+  }
+
+  private def createSparkContext(params: SparkContextParams): Try[SparkContext] = Try {
+    val configMap = params.defaults ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+    val conf = new SparkConf()
+    for {
+      master <- configMap.get("master")
+      appName <- configMap.get("appName")
+    } conf.setMaster(master).setAppName(appName)
+    conf.setAll(configMap -- Seq("master", "appName", "dbName", "collection"))
+    new SparkContext(conf)
   }
 
   private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
     implicit val _ = org.json4s.DefaultFormats
     transform(parse(jsonStr)).extract[T]
   }
-}
 
-object SparkContextSupport {
-  private case class SparkConfig(master: String, appName: String, database: String, collection: String, properties: Map[String, String])
+  private case class SparkContextParams(config: String, defaults: Map[String, String])
+
+  private sealed trait SparkContextState
+  private case class Running(currentParams: SparkContextParams,
+                             currentPromise: Promise[SparkContext],
+                             otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
+  private case object Idle extends SparkContextState
 }

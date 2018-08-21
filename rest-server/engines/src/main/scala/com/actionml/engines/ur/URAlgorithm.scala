@@ -20,11 +20,16 @@ package com.actionml.engines.ur
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
+import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonParser, ValidateError}
-import org.apache.spark.{SparkContext, rdd}
+import com.typesafe.scalalogging.LazyLogging
 import org.bson.Document
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.reflect.ClassTag
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -34,20 +39,13 @@ import org.bson.Document
   * base classes but is better used as a starting point for new Engines.
   */
 class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends Algorithm[GenericQuery, GenericQueryResult]
-  with LambdaAlgorithm[T] with SparkContextSupport with SparkMongoSupport with JsonParser {
-  import URAlgorithm._
-
-  private var sparkContext: Validated[ValidateError, SparkContext] = _
+  with LambdaAlgorithm[T] with SparkContextSupport[Document] with SparkMongoSupport with JsonParser with LazyLogging {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(engine: Engine): Validated[ValidateError, Boolean] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[UREngine.URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { p =>
         // p is just the validated algo params from the engine's params json file.
-        if (sparkContext != null) sparkContext.foreach { sc =>
-          sc.stop
-        }
-
         Valid(true)
       }
     }
@@ -69,42 +67,25 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   override def process(): Validated[ValidateError, String] = {
     def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
 
-    sparkContext = createSparkContext(
-      appName = dataset.engineId,
-      dbName = dataset.dbName,
-      collection = dataset.collection,
-      config = initParams)
+    val defaults = Map(
+      "appName" -> dataset.engineId,
+      "deploy-mode" -> "cluster",
+      "spark.mongodb.input.uri" -> MongoStorage.uri,
+      "spark.mongodb.input.database" -> dataset.dbName,
+      "spark.mongodb.input.collection" -> dataset.collection
+    )
+    val result = Await.result(execute(myTrainFunction, initParams, defaults), Duration("5 minutes"))
 
-    logger.debug(s"Starting train $this with spark $sparkContext")
-
-    /*
-    sparkContext.andThen { sc =>
-
-      val rdd = sc.makeRDD((1 to 10000).toSeq))
-      val result = rdd.ma
-
-      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
-    }
-    */
-
-    sparkContext.andThen { sc =>
-      val rdd = createRdd(sc)
-      val result = sc.runJob(rdd, myTrainFunction)
-      println("********************************")
-      println(result)
-      println("********************************")
-      Valid(
-        """
-          |{
-          |  "Comment": "Made it to URAlgorithm.train"
-          |  "jobId": "replace with actual Spark + YARN job-id"
-          |  "other": "other useful info"
-          |}
-        """.stripMargin
-      )
-    }
-
-
+    logger.debug(s"Trained $this on Spark, result is $result")
+    Valid(
+      """
+        |{
+        |  "Comment": "Made it to URAlgorithm.train"
+        |  "jobId": "replace with actual Spark + YARN job-id"
+        |  "other": "other useful info"
+        |}
+      """.stripMargin
+    )
   }
 
   def query(query: GenericQuery): GenericQueryResult = {

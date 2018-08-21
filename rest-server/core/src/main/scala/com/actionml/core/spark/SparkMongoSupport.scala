@@ -18,15 +18,17 @@
 package com.actionml.core.spark
 
 import com.mongodb.spark.MongoSpark
-import com.mongodb.spark.rdd.MongoRDD
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.bson.Document
 
 
-trait SparkMongoSupport {
+trait SparkStorageSupport[T] {
+  def createRdd(sc: SparkContext): RDD[T]
+}
 
-  def createRdd(sc: SparkContext): MongoRDD[Document] = {
-    MongoSpark.load[Document](sc)
-  }
+trait SparkMongoSupport extends SparkStorageSupport[Document] {
+
+  override def createRdd(sc: SparkContext): RDD[Document] = MongoSpark.load[Document](sc)
 }
 

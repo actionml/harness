@@ -18,11 +18,9 @@
 package com.actionml.engines.ur
 
 import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.engine.{Engine, LambdaAlgorithm}
-import com.actionml.core.model.GenericEvent
+import com.actionml.core.engine.LambdaAlgorithm
 import com.actionml.core.validate.ValidateError
-import com.actionml.engines.navhinting.{NHEvent, NavHintingAlgorithm, NavHintingEngine}
+import com.actionml.engines.navhinting.{NHEvent, NavHintingEngine}
 
 class UrNavHintingEngine extends NavHintingEngine {
 
