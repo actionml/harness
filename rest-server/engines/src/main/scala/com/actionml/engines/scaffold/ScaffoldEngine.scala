@@ -28,7 +28,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldEngine() extends Engine() with JsonParser {
+class ScaffoldEngine extends Engine with JsonParser {
 
   var dataset: ScaffoldDataset = _
   var algo: ScaffoldAlgorithm = _

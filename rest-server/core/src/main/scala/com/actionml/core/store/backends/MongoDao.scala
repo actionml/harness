@@ -17,9 +17,10 @@
 
 package com.actionml.core.store.backends
 
-import com.actionml.core.store.{DAO, OrderBy, DaoQuery}
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.ObjectId
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.{Filters, Sorts}
@@ -76,8 +77,21 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
-             case e => logger.error(s"Can't replace object $o", e)
-           } else insertAsync(o)
+        case e => logger.error(s"Can't replace object $o", e)
+      } else insertAsync(o)
+    } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
+      .recover { case e => logger.error(s"Can't save object $o with id $id (filter $filter) into $name", e)}
+  }
+
+  // todo: Andrey, isn't this just an alias for insertAsync ???
+  override def saveAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    val id = new ObjectId()
+    val filter = mkFilter(Seq("_id" -> id))
+    (for {
+      opt <- collection.find(filter).headOption
+      _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
+        case e => logger.error(s"Can't replace object $o", e)
+      } else insertAsync(o)
     } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
       .recover { case e => logger.error(s"Can't save object $o with id $id (filter $filter) into $name", e)}
   }

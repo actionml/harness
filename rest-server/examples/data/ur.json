@@ -11,6 +11,7 @@
     "esMaster": "es-node-1",
     "indexName": "urindex",
     "typeName": "items",
+    "blacklist": [],
     "indicators": [
       {
         "name": "purchase"

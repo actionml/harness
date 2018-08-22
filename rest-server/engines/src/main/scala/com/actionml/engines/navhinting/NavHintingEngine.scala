@@ -26,7 +26,7 @@ import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
-class NavHintingEngine() extends Engine() with JsonParser {
+class NavHintingEngine extends Engine with JsonParser {
 
   var dataset: NavHintingDataset = _
   var algo: NavHintingAlgorithm = _

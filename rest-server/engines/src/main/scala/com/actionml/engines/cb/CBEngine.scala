@@ -27,7 +27,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
+class CBEngine extends Engine with JsonParser {
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
