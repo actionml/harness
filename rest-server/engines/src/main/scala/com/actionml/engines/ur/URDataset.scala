@@ -19,6 +19,7 @@ package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.core.BadParamsException
 import com.actionml.core.model.{Event, GenericEngineParams, GenericEvent}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.store.Store
@@ -26,6 +27,7 @@ import com.actionml.core.validate._
 import com.actionml.engines.navhinting.Journey
 import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.engines.ur.UREngine.{ItemProperties, UREngineParams, UREvent}
+import org.apache.zookeeper.KeeperException.BadArgumentsException
 
 import scala.language.reflectiveCalls
 
@@ -43,24 +45,35 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREngine.URE
 
   // This holds a place for any properties that should go into the model at training time
   private val esIndex = store.dbName // index and db name should be the same
-  private var esType = DefaultURAlgoParams.ModelType
-  private var itemsDAO = store.createDao[ItemProperties](esType)
+  private val esType = DefaultURAlgoParams.ModelType
+  private val itemsDAO = store.createDao[ItemProperties](esType)
 
   private var params: URAlgorithmParams = _
 
   // we assume the list of event names is in the params if not the config is rejected by some earlier stage since
   // this is not calculated until an engine is created with the config and taking input
-  private var indicatorNames: Seq[String] = params.eventNames.getOrElse {
-    params.indicators.get.map { indicatorParams =>
-      indicatorParams.name
-    }
-  }
-
+  private var indicatorNames: Seq[String] = _
 
   // These should only be called from trusted source like the CLI!
   override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    parseAndValidate[URAlgorithmParams](jsonConfig).andThen { p =>
+    parseAndValidate[URAlgorithmParams](
+      jsonConfig,
+      errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
+        s"$jsonConfig",
+      transform = _ \ "algorithm").andThen { p =>
       params = p
+
+      indicatorNames = if(params.indicators.isEmpty) {
+        if(params.eventNames.isEmpty) {
+          // yikes both empty so error so bad we can't init!
+          throw BadParamsException("No indicator or eventNames in the config JSON file")
+        } else {
+          params.eventNames.get
+        }
+      } else {
+        params.indicators.get.map(_.name)
+      }
+
       Valid(p)
     }
     Valid(true)
