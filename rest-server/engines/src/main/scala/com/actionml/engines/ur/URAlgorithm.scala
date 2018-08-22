@@ -25,11 +25,8 @@ import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.bson.Document
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.reflect.ClassTag
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -39,7 +36,7 @@ import scala.reflect.ClassTag
   * base classes but is better used as a starting point for new Engines.
   */
 class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends Algorithm[GenericQuery, GenericQueryResult]
-  with LambdaAlgorithm[T] with SparkContextSupport[Document] with SparkMongoSupport with JsonParser with LazyLogging {
+  with LambdaAlgorithm[T] with SparkMongoSupport with JsonParser with LazyLogging {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
   override def init(engine: Engine): Validated[ValidateError, Boolean] = {
@@ -65,8 +62,6 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
   }
 
   override def process(): Validated[ValidateError, String] = {
-    def myTrainFunction: Iterator[Document] => String = _.mkString(" -- ")
-
     val defaults = Map(
       "appName" -> dataset.engineId,
       "deploy-mode" -> "cluster",
@@ -74,9 +69,11 @@ class URAlgorithm[T] private (initParams: String, dataset: Dataset[T]) extends A
       "spark.mongodb.input.database" -> dataset.dbName,
       "spark.mongodb.input.collection" -> dataset.collection
     )
-    val result = Await.result(execute(myTrainFunction, initParams, defaults), Duration("5 minutes"))
+    SparkContextSupport.getSparkContext(initParams, defaults).map { sc => // or implicit sc =>
+      ??? // put code here
+    }
 
-    logger.debug(s"Trained $this on Spark, result is $result")
+    logger.debug(s"Started to train $this on Spark")
     Valid(
       """
         |{

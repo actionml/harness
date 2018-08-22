@@ -23,12 +23,12 @@ import org.apache.spark.rdd.RDD
 import org.bson.Document
 
 
-trait SparkStorageSupport[T] {
-  def createRdd(sc: SparkContext): RDD[T]
+trait SparkStoreSupport[T] {
+  def readRdd(sc: SparkContext): RDD[T]
 }
 
-trait SparkMongoSupport extends SparkStorageSupport[Document] {
+trait SparkMongoSupport extends SparkStoreSupport[Document] {
 
-  override def createRdd(sc: SparkContext): RDD[Document] = MongoSpark.load[Document](sc)
+  override def readRdd(sc: SparkContext): RDD[Document] = MongoSpark.load[Document](sc)
 }
 

@@ -30,29 +30,19 @@ import scala.reflect.ClassTag
 import scala.util.Try
 
 
-trait SparkContextSupport[A] {
-  this: SparkStorageSupport[A] with LazyLogging =>
-  import SparkContextSupport._
-
-  def execute[B](fn: Iterator[A] => B, config: String, defaults: Map[String, String])(implicit ca: ClassTag[A], cb: ClassTag[B]): Future[Array[B]] = {
-    getSparkContext(config, defaults)
-      .map(sc => (sc, sc.runJob(createRdd(sc), fn)))
-      .map { case (sc, value) =>
-        sc.stop()
-        value
-      }
-  }
-}
-
 object SparkContextSupport {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
-  private def getSparkContext(config: String, defaults: Map[String, String]): Future[SparkContext] = {
+  def getSparkContext(config: String, defaults: Map[String, String]): Future[SparkContext] = {
     val params = SparkContextParams(config, defaults: Map[String, String])
     state.get match {
       case Idle =>
-        Future.fromTry(createSparkContext(params))
+        val p = Promise[SparkContext]()
+        if (state.compareAndSet(Idle, Running(params, p, Map.empty))) {
+          p.completeWith(Future.fromTry(createSparkContext(params)))
+          p.future
+        } else getSparkContext(config, defaults)
       case Running(currentParams, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
       case s@Running(_, p, promises) if p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
@@ -63,6 +53,7 @@ object SparkContextSupport {
         }).future
     }
   }
+
 
   private def createSparkContext(params: SparkContextParams): Try[SparkContext] = Try {
     val configMap = params.defaults ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
