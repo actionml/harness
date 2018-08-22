@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
+import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -30,6 +30,11 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
 import org.joda.time.DateTime
+import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.typesafe.scalalogging.LazyLogging
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -41,7 +46,6 @@ import org.joda.time.DateTime
 class URAlgorithm private (engine: UREngine, initParams: String, dataset: URDataset, params: URAlgorithmParams)
   extends Algorithm[GenericQuery, GenericQueryResult]
     with LambdaAlgorithm[UREvent]
-    with SparkContextSupport
     with SparkMongoSupport
     with JsonParser {
 
@@ -77,8 +81,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   private var dateNames: Seq[String] = _
 
   // setting that cannot change with config
-  val esIndex = dataset.store.dbName
-  val esType = DefaultURAlgoParams.ModelType
+  val esIndex = dataset.getItemsDbName
+  val esType = dataset.getItemsCollectionName
 
   def initSettings(params: URAlgorithmParams): Validated[ValidateError, Boolean] = {
     var err: Validated[ValidateError, Boolean] = Valid(true)
@@ -229,11 +233,37 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   }
 
   override def process(): Validated[ValidateError, String] = {
-    sparkContext = createSparkContext(engineId, config = initParams)
+
+    /*
+    sparkContext = createSparkContext(
+      appName = dataset.engineId,
+      dbName = dataset.dbName,
+      collection = dataset.collection,
+      config = initParams)
+    */
+
+
+    val defaults = Map(
+      "appName" -> engineId,
+      "spark.mongodb.input.uri" -> MongoStorage.uri,
+      "spark.mongodb.input.database" -> dataset.getItemsDbName,
+      "spark.mongodb.input.collection" -> dataset.getItemsCollectionName)
+
 
     logger.debug(s"Starting train $this with spark $sparkContext")
 
-    sparkContext.andThen { implicit sc =>
+    /*
+    sparkContext.andThen { sc =>
+
+      val rdd = sc.makeRDD((1 to 10000).toSeq))
+      val result = rdd.ma
+
+      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
+    }
+    */
+
+    SparkContextSupport.getSparkContext(initParams, defaults).map { sc => // or implicit sc =>
+    //sparkContext.andThen { implicit sc =>
 
       val s = 1 to 10000
       val rdd = sc.parallelize(s)
@@ -241,21 +271,22 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
       // val rdd = createRdd(sc)
       // val result = sc.runJob(rdd, myTrainFunction)
       val result = rdd.fold(0) { (last, current) => last + current }
-      val r2 = rdd.collect() // forces job to complete
-      sc.stop() // always stop or it will be active forever
+      //val r2 = rdd.collect() // forces job to complete
+      //sc.stop() // always stop or it will be active forever
 
-      Valid(
+      logger.info(
         s"""
-          |{
-          |  "Status for appname": ${sc.appName}
-          |  "Run on master": ${sc.master}
-          |  "Result:": $result
-          |  "Completed synchronously"
-          |}
+           |URAlgorithm.train
+           |  Status for appname: ${sc.appName}
+           |  Run on master: ${sc.master}
+           |  Result: $result
+           |  Completed asynchronously
         """.stripMargin
       )
+
     }
 
+    Valid("Started train Job on Spark")
   }
 
   def query(query: GenericQuery): GenericQueryResult = {
