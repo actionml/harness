@@ -45,17 +45,14 @@ import scala.language.reflectiveCalls
   * users and groups are mutable in Mongo, the events are kept as a stream that is truncated after the model is
   * updated so not unnecessary old data is stored.
   *
-  * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo DB for all but shared User
+  * @param engineId REST resource-id from POST /datasets/<resource-id> also ids the mongo DB for all but shared User
   *                   data.
   */
-class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](usersStorage) with JsonParser {
+class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](engineId, usersStorage) with JsonParser {
 
-  override def engineId: String = resourceId
-  override def dbName: String = storage.dbName
-  override def collection: String = "groups"
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 
-  val groupsDao = storage.createDao[GroupParams](collection)
+  val groupsDao = storage.createDao[GroupParams]("groups")
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
@@ -85,7 +82,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
       event match {
         case event: CBUsageEvent => // usage data, kept as a stream
           if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
-            logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
+            logger.debug(s"Dataset: $engineId persisting a usage event: $event")
             // input to usageEvents collection
             // Todo: validate fields first
 /*            val eventObj = MongoDBObject(
@@ -122,7 +119,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
 
 
         case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
-          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
+          logger.debug(s"Dataset: $engineId persisting a User Profile Update Event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty)
@@ -145,7 +142,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
-          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
+          logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty).keySet
@@ -163,7 +160,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
         case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
-              logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
+              logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
               usersDAO.remove("_id" -> event.entityId)
               Valid(event)
@@ -205,14 +202,14 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
             case "user" => // got a user profile update event
               parseAndValidate[CBUserUpdateEvent](json)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
-              logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing a group init event: ${event.event}")
               parseAndValidate[CBGroupInitEvent](json).map(_.toGroupParams)
           }
 
         case "$unset" => // remove properties
           event.entityType match {
             case "user" => // got a user profile update event
-              logger.trace(s"Dataset: ${resourceId} parsing a user $$unset event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing a user $$unset event: ${event.event}")
               parseAndValidate[CBUserUnsetEvent](json).andThen { uue =>
                 if (!uue.properties.isDefined) {
                   Invalid(MissingParams("No parameters specified, event ignored"))
@@ -221,7 +218,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
                 }
               }
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
-              logger.warn(s"Dataset: ${resourceId} parsed a group $$unset event: ${event.event} this is undefined " +
+              logger.warn(s"Dataset: ${engineId} parsed a group $$unset event: ${event.event} this is undefined " +
                 s"and ignored.")
               Invalid(WrongParams("Group $unset is not allowed and ignored."))
           }
@@ -229,12 +226,12 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
         case "$delete" => // remove an object
           event.entityType match {
             case "user" | "group" | "testGroup" => // got a user profile update event
-              logger.trace(s"Dataset: ${resourceId} parsing an $$delete event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
               parseAndValidate[CBDeleteEvent](json)
           }
 
         case _ => // default is a self describing usage event, kept as a stream
-          logger.trace(s"Dataset: ${resourceId} parsing a usage event: ${event.event}")
+          logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[CBUsageEvent](json)
       }
     }

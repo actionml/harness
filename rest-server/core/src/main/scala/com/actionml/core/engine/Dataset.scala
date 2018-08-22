@@ -24,17 +24,16 @@ import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-abstract class Dataset[T] extends LazyLogging {
+import scala.reflect.ClassTag
 
-  def engineId: String
-  def dbName: String
-  def collection: String
+abstract class Dataset[T](engineId: String) extends LazyLogging with JsonParser {
 
   // methods that must be implemented in the Engine
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
   def input(datum: String): Validated[ValidateError, Event]
-  def parseAndValidateInput(s: String): Validated[ValidateError, T]
+  /** Required method to parserAndValidate the input event */
+  def parseAndValidateInput(jsonEvent: String): Validated[ValidateError, T]
 
   // start and stop may be ignored by Engines if not applicable
   def start(): Dataset[T] = {logger.trace(s"Starting base Dataset"); this}
@@ -42,7 +41,7 @@ abstract class Dataset[T] extends LazyLogging {
 
 }
 
-abstract class SharedUserDataset[T](storage: Store) extends Dataset[T]
+abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Dataset[T](engineId)
   with JsonParser with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")

@@ -34,6 +34,7 @@ trait AsyncDao[T] {
   def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
   def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
   def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
+  def saveAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
   def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
   def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
 }
@@ -55,6 +56,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   def insert(o: T): Unit = sync(insertAsync(o))
   def update(filter: (String, Any)*)(o: T): T = sync(updateAsync(filter: _*)(o))
   def save(id: String, o: T): Unit = sync(saveAsync(id, o))
+  def save(o: T): Unit = sync(saveAsync(o)) // save but create the primary key
   def remove(filter: (String, Any)*): T = sync(removeAsync(filter: _*))
   def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
 }

@@ -1,14 +1,3 @@
-package com.actionml.engines.ur
-
-import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.core.drawInfo
-import com.actionml.core.engine.Engine
-import com.actionml.core.model.{EngineParams, GenericEvent, GenericQuery}
-import com.actionml.core.validate.ValidateError
-import com.actionml.engines.ur.UREngine.UREngineParams
-import org.json4s.JValue
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -26,27 +15,41 @@ import org.json4s.JValue
  * limitations under the License.
  */
 
+package com.actionml.engines.ur
+
+import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.core.drawInfo
+import com.actionml.core.engine.Engine
+import com.actionml.core.model.{EngineParams, Event, GenericEvent, GenericQuery}
+import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.validate.ValidateError
+import com.actionml.engines.cb.MongoStorageHelper
+import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent}
+import org.json4s.JValue
+
 class UREngine extends Engine {
 
   private var dataset: URDataset = _
-  private var algo: URAlgorithm[GenericEvent] = _
+  private var algo: URAlgorithm = _
   private var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    parseAndValidate[UREngineParams](json).andThen { p =>
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+    parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
       params = p
       engineId = params.engineId
-      dataset = new URDataset(engineId = engineId)
-      algo = URAlgorithm(this, json, dataset)
+      val dbName = p.sharedDBName.getOrElse(engineId)
+      dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
+      algo = URAlgorithm(this, jsonConfig, dataset)
       drawInfo("Generic UR Engine", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("EngineId: ", engineId)))
 
       Valid(p)
     }.andThen { p =>
-      dataset.init(json).andThen { r =>
-        if (deepInit) algo.init(this) else Valid(true)
+      dataset.init(jsonConfig).andThen { r =>
+        algo.init(this)
       }
     }
   }
@@ -55,13 +58,13 @@ class UREngine extends Engine {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): UREngine = {
-    val response = init(json)
+  override def initAndGet(jsonConfig: String): UREngine = {
+    val response =init(jsonConfig)
     if (response.isValid) {
-      logger.trace(s"Initialized with JSON: $json")
+      logger.trace(s"Initialized with JSON: $jsonConfig")
       this
     } else {
-      logger.error(s"Parse error with JSON: $json")
+      logger.error(s"Parse error with JSON: $jsonConfig")
       null.asInstanceOf[UREngine] // todo: ugly, replace
     }
   }
@@ -79,21 +82,11 @@ class UREngine extends Engine {
     algo.destroy()
   }
 
-  /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, Boolean] = {
-    logger.trace("Got JSON body: " + json)
+  /** Triggers parse, validation, and persistence of event encoded in the jsonEvent */
+  override def input(jsonEvent: String): Validated[ValidateError, Boolean] = {
+    logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json)).andThen(process).map(_ => true)
-  }
-
-  /** Triggers Algorithm processes. We can assume the event is fully validated and transformed into
-    * whatever specific event the json represented. Now we can process it by it's type */
-  def process(event: GenericEvent): Validated[ValidateError, GenericEvent] = {
-    event match {
-      // Here is where you process by derivative type
-      case _ =>
-    }
-    Valid(event)
+    super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen(algo.input).map(_ => true)
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -102,9 +95,9 @@ class UREngine extends Engine {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
-    logger.trace(s"Got a query JSON string: $json")
-    parseAndValidate[GenericQuery](json).andThen { query =>
+  def query(jsonQuery: String): Validated[ValidateError, String] = {
+    logger.trace(s"Got a query JSON string: $jsonQuery")
+    parseAndValidate[GenericQuery](jsonQuery).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
       Valid(result.toJson)
@@ -114,28 +107,34 @@ class UREngine extends Engine {
 }
 
 object UREngine {
-  def apply(json: String): UREngine = {
+  def apply(jsonConfig: String): UREngine = {
     val engine = new UREngine()
-    engine.initAndGet(json)
+    engine.initAndGet(jsonConfig)
   }
 
   case class UREngineParams(
-      engineId: String,
+      engineId: String, // required, resourceId for engine
       engineFactory: String,
-      sparkConf: Map[String, JValue],
-      algorithm: URAlgorithmParams)
+      mirrorType: Option[String] = None,
+      mirrorContainer: Option[String] = None,
+      sharedDBName: Option[String] = None,
+      sparkConf: Map[String, JValue])
     extends EngineParams
 
-  case class URAlgorithmParams(
-      // this can be ignored in JSON, it is just a way to do JSON comments
-      // comment: String,
-      esMaster: String,
-      indexName: String,
-      typeName: String,
-      availableDateName: String,
-      expireDateName: String,
-      dateName: String,
-      num: String)
+  case class UREvent (
+      //eventId: String, // not used in Harness, but allowed for PIO compatibility
+      event: String,
+      entityType: String,
+      entityId: String,
+      targetEntityId: Option[String] = None,
+      properties: Option[Map[String, Any]] = None,
+      eventTime: String) // ISO8601 date
+    extends Event
+
+  case class ItemProperties (
+      name: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+      properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
+  )
 
 }
 

@@ -19,10 +19,13 @@ package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericEngineParams, GenericEvent}
+import com.actionml.core.model.{Event, GenericEngineParams, GenericEvent}
 import com.actionml.core.engine.Dataset
+import com.actionml.core.store.Store
 import com.actionml.core.validate._
-import com.actionml.engines.ur.UREngine.UREngineParams
+import com.actionml.engines.navhinting.Journey
+import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, URAlgorithmParams}
+import com.actionml.engines.ur.UREngine.{ItemProperties, UREngineParams, UREvent}
 
 import scala.language.reflectiveCalls
 
@@ -33,38 +36,67 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class URDataset(val engineId: String) extends Dataset[GenericEvent] with JsonParser {
-  override lazy val dbName: String = engineId
-  override lazy val collection: String = "ur"
+class URDataset(engineId: String, val store: Store) extends Dataset[UREngine.UREvent](engineId) with JsonParser {
+
+  // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
+  private var activeJourneysDAO = store.createDao[UREvent]("indicator_events")
+
+  // This holds a place for any properties that should go into the model at training time
+  private val esIndex = store.dbName // index and db name should be the same
+  private var esType = DefaultURAlgoParams.ModelType
+  private var itemsDAO = store.createDao[ItemProperties](esType)
+
+  private var params: URAlgorithmParams = _
+
+  // we assume the list of event names is in the params if not the config is rejected by some earlier stage since
+  // this is not calculated until an engine is created with the config and taking input
+  private var indicatorNames: Seq[String] = params.eventNames.getOrElse {
+    params.indicators.get.map { indicatorParams =>
+      indicatorParams.name
+    }
+  }
+
+
   // These should only be called from trusted source like the CLI!
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    parseAndValidate[UREngineParams](json).andThen { p =>
-      // Do something with parameters--do not re-initialize the algo if deepInit == false
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+    parseAndValidate[URAlgorithmParams](jsonConfig).andThen { p =>
+      params = p
       Valid(p)
     }
     Valid(true)
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */
-  override def destroy() = {
+  override def destroy(): Unit = {
   }
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
-  override def input(json: String): Validated[ValidateError, GenericEvent] = {
-    // good place to persist in whatever way the specific event type requires
-    parseAndValidateInput(json).andThen(Valid(_))
-  }
+  override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
+    parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
+      if (indicatorNames.contains(event.event)) { // only store the indicator events here
+        // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
+        activeJourneysDAO.save(event)
 
-  /** Required method to parserAndValidate the input event */
-  override def parseAndValidateInput(json: String): Validated[ValidateError, GenericEvent] = {
-    parseAndValidate[GenericEvent](json).andThen { event =>
-      event.event match {
-        case _ => // Based on attributes in the event one can parseAndVaidate more specific types here
-          logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
-          parseAndValidate[GenericEvent](json)
+        Valid(event)
+      } else {
+        event.event match {
+          case "$set" =>
+            // change properties of the targetEntity, parse them out first
+            // todo: get the item from the model, set the new values of fields in the document. this allows
+            // real-time changes to the model
+            // todo: do the same for every item in the dataset so that train will not change the model
+            // this allows real-time changes to the model and batch training will not wipe out the changes
+
+        }
+
+        Valid(event)
       }
     }
   }
 
+  // This is not needed, deprecate from Engine API
+  override def parseAndValidateInput(jsonEvent: String): Validated[ValidateError, UREvent] = {
+    parseAndValidate[UREvent](jsonEvent)
+  }
 }
 
