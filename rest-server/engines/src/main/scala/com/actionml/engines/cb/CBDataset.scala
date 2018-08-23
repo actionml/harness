@@ -17,18 +17,16 @@
 
 package com.actionml.engines.cb
 
-import java.time.{Instant, LocalDateTime, OffsetDateTime}
+import java.time.OffsetDateTime
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.engine.SharedUserDataset
+import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.{DAO, Store}
-import com.actionml.core.engine.{Dataset, Event, SharedUserDataset}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
 /** Reacts to persisted input data for the Contextual Bandit.
@@ -51,11 +49,13 @@ import scala.language.reflectiveCalls
   *                   data.
   */
 class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](usersStorage) with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
+  override def engineId: String = resourceId
+  override def dbName: String = storage.dbName
+  override def collection: String = "groups"
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 
-  val groupsDao = storage.createDao[GroupParams]("groups")
+  val groupsDao = storage.createDao[GroupParams](collection)
 
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
@@ -71,7 +71,6 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
   }
 
   override def destroy() = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     storage.drop()
   }
 
@@ -82,7 +81,6 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
 
 
   def persist(event: CBEvent): Validated[ValidateError, CBEvent] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     try {
       event match {
         case event: CBUsageEvent => // usage data, kept as a stream
@@ -128,7 +126,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty)
-          val user = usersDAO.find("_id" -> event.entityId).getOrElse(User(event.entityId, Map.empty))
+          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq ++ updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
           usersDAO.save(event.entityId, newUser)
@@ -151,7 +149,6 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty).keySet
-          import scala.concurrent.ExecutionContext.Implicits.global
           val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq -- updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))

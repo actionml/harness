@@ -19,7 +19,6 @@ package com.actionml.oauth2.entities
 
 import com.actionml.oauth2.entities.AccessTokenRequest.GrantTypes
 import com.actionml.oauth2.entities.AccessTokenRequest.GrantTypes.GrantType
-import io.circe.generic.auto._
 
 trait AccessTokenRequest {
   def grantType: GrantType

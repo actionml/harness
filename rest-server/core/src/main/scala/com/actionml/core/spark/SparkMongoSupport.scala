@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package com.actionml.core.store
+package com.actionml.core.spark
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
+import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.rdd.MongoRDD
+import org.apache.spark.SparkContext
+import org.bson.Document
 
 
-trait Store {
-  def dbName: String
-  def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
-  def removeCollection(name: String): Unit
-  def drop(): Unit
-  def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit]
-  def dropAsync()(implicit ec: ExecutionContext): Future[Unit]
+trait SparkMongoSupport {
+
+  def createRdd(sc: SparkContext): MongoRDD[Document] = {
+    MongoSpark.load[Document](sc)
+  }
 }
 

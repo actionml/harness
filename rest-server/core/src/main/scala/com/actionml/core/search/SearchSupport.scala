@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package com.actionml.core.store
+package com.actionml.core.search
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
+import org.json4s.JValue
 
+import scala.concurrent.Future
 
-trait Store {
-  def dbName: String
-  def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
-  def removeCollection(name: String): Unit
-  def drop(): Unit
-  def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit]
-  def dropAsync()(implicit ec: ExecutionContext): Future[Unit]
+trait SearchSupport[T] {
+  def createSearchClient(hosts: String*): SearchClient[T]
 }
 
+trait SearchClient[T] {
+  def close: Unit
+  def createIndex(indexName: String,
+                  indexType: String,
+                  fieldNames: List[String],
+                  typeMappings: Map[String, (String, Boolean)] = Map.empty,
+                  refresh: Boolean = false): Boolean
+  def deleteIndex(indexName: String, refresh: Boolean = false): Boolean
+  def refreshIndex(indexName: String): Unit
+  def search(query: String, indexName: String): Option[T]
+}

@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.scaffold
+package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEngineParams, GenericEvent}
-import com.actionml.core.engine.{Dataset}
+import com.actionml.core.engine.Dataset
 import com.actionml.core.validate._
+import com.actionml.engines.ur.UREngine.UREngineParams
 
 import scala.language.reflectiveCalls
 
@@ -32,13 +33,12 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class ScaffoldDataset(val engineId: String) extends Dataset[GenericEvent] with JsonParser {
-  override lazy val dbName: String = ???
-  override lazy val collection: String = ???
-
+class URDataset(val engineId: String) extends Dataset[GenericEvent] with JsonParser {
+  override lazy val dbName: String = engineId
+  override lazy val collection: String = "ur"
   // These should only be called from trusted source like the CLI!
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
-    parseAndValidate[GenericEngineParams](json).andThen { p =>
+    parseAndValidate[UREngineParams](json).andThen { p =>
       // Do something with parameters--do not re-initialize the algo if deepInit == false
       Valid(p)
     }

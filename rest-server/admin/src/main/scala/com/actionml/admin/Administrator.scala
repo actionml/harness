@@ -27,21 +27,16 @@ import com.typesafe.scalalogging.LazyLogging
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 abstract class Administrator extends LazyLogging {
 
-  type EngineId = String
-
   lazy val config: Config = ConfigFactory.load()
 
   // engine management
-  def getEngine(engineId: EngineId): Option[Engine]
-  def addEngine(json: String): Validated[ValidateError, EngineId]
-  def removeEngine(engineId: EngineId): Validated[ValidateError, Boolean]
+  def getEngine(engineId: String): Option[Engine]
+  def addEngine(json: String): Validated[ValidateError, String]
+  def removeEngine(engineId: String): Validated[ValidateError, Boolean]
   def updateEngine(json: String): Validated[ValidateError, String]
+  def updateEngineWithTrain(engineId: String): Validated[ValidateError, String]
   def updateEngineWithImport(engineId: String, inputPath: String): Validated[ValidateError, String]
   def status(resourceId: Option[String] = None): Validated[ValidateError, String]
-
-  // startup and shutdown
   def init(): Administrator = this
-  def start(): Administrator = this
-  def stop(): Unit = {}
 
 }

@@ -69,7 +69,7 @@ case class Train(datum: CBAlgorithmInput)
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-class CBAlgorithm(resourceId: String, dataset: CBDataset)
+class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
   private val actors = ActorSystem(resourceId)
@@ -85,8 +85,8 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
           namespace = engineId)
@@ -119,7 +119,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def predict(query: CBQuery): CBQueryResult = {
+  override def query(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
     if (dataset.usageEventGroups isDefinedAt query.groupId) {
       logger.info(s"Making query for group: ${query.groupId}")
@@ -219,11 +219,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def stop(): Unit = {
-    actors.terminate().wait()
-  }
-
-  def getVariant(query: CBQuery): CBQueryResult = {
+ def getVariant(query: CBQuery): CBQueryResult = {
     //val vw = new VW(" -i " + modelContainer)
 
     val group = dataset.groupsDao.findOneById(query.groupId).get
@@ -302,50 +298,21 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
-  /*
-  def destroy(): Unit = {
-    val f = Future {
-      logger.info(s"Closing vw $vw")
-      if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      logger.info(s"VW is closed ($vw)")
-      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
-        logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
-        while (!Files.deleteIfExists(Paths.get(modelPath))) {
-          logger.info(s"trying to delete ${modelPath}")
-        }
-      } else logger.info(s"$vw of engine $engineId has no file to delete")
-    }.flatMap(_ => actors.terminate)
-    f.onComplete {
-      case Success(r) => logger.info(s"Algorithm for $engineId was destroyed with result: $r")
-      case Failure(e) => logger.error(s"Can't destroy $this", e)
-    }
-    Await.result(f, 4.seconds)
-  }
-  */
-
-
   override def destroy(): Unit = {
-    try {
+
+    try{ Await.result(
       actors.terminate().andThen { case _ =>
-        // todo if we are deleting we may not want to close, which may have side-effects
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) {
-          /*logger.info("Closing the VW instance now that Actors are terminated.")
-          vw.close()
-          logger.info("VW instance is closed.")
-          */
-          logger.info("Making the VW instance NULL now it is closed, just to be safe.")
-          vw = null.asInstanceOf[VWMulticlassLearner]
-        } else {
-          logger.warn("CBAlgo Destroy found NULL VW instance.")
-        }
+        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
       }.map { _ =>
-        logger.info(s"CBAlgorithm has terminated Actors. Now deleting the model here: $modelPath")
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) { logger.info("tried to delete model, will try again")}
-      }
-    }catch {
+        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
+          while (!Files.deleteIfExists(Paths.get(modelPath))) {
+            logger.info(s"Could not delete the model: $modelPath, trying again.")
+          }
+          logger.info(s"Success deleting model: $modelPath")
+        }
+      }, 3 seconds) } catch {
       case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
+        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
     }
   }
 

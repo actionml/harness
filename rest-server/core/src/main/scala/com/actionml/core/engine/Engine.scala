@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirroring, Mirroring}
 import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
@@ -30,17 +30,38 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Engine extends LazyLogging with JsonParser {
 
-  // Todo: not sure how to require a val dataset: Dataset, which takes a type of Event parameter Dataset[CBEvent]
-  // for instance. Because each Dataset may have a different parameter type
   var engineId: String = _
   private var mirroring: Mirroring = _
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
 
+  // Methods that must be overridden in extending Engines
+
   /** This is the Engine factory method called only when creating a new Engine, and named in the engine-config.json file
-    * the contents of which are passed in as a string. Overridden, not inherited. */
+    * the contents of which are passed in as a string.
+    * @param json the Engine's config JSON for initializing all objects
+    * @return The extending Engine instance, initialized and ready for input and/or queries etc.
+    */
   def initAndGet(json: String): Engine
 
+  /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
+  def destroy(): Unit
+
+  /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
+    *
+    * @param json Format defined by the Engine
+    * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
+    */
+  def query(json: String): Validated[ValidateError, String]
+
+
+  // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes
+
+  /** Initialize resources common to all engines
+    *
+    * @param params parsed for common params like mirroring location
+    * @return may return a ValidateError if the parameters are n
+    */
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Boolean] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
@@ -74,17 +95,15 @@ abstract class Engine extends LazyLogging with JsonParser {
     }
   }
 
-  /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit
-
-  /** Optional, generally not meeded */
-  def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
-  def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
+  // todo: do we need these? seems like destroy is the only use and it doesn't need an abstract class method
+  /** Optional, used to stop Actors when destroying an Engine or other shutdown code */
+  // def start(): Engine = { logger.trace(s"Starting base Engine with engineId:$engineId"); this }
+  // def stop(): Unit = { logger.trace(s"Stopping base Engine with engineId:$engineId") }
 
   /** This returns information about a running Engine, any useful stats can be displayed in the CLI with
     * `harness status engine-id`. Typically overridden in child and not inherited.
     * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
-    * manages and the child Engine adds json to give stats about the data it manages?
+    * manages and the extending Engine adds json to give stats about the data it manages?
     */
   def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
@@ -99,10 +118,9 @@ abstract class Engine extends LazyLogging with JsonParser {
   /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
     * processing. Must be inherited and extended.
     * @param json Input defined by each engine
-    * @param trainNow Flag to trigger training, used for batch or micro-batch style training, not used in Kappa Engines
     * @return Validated status with error message
     */
-  def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  def input(json: String): Validated[ValidateError, Boolean] = {
     // flatten the event into one string per line as per Spark json collection spec
     mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
     Valid( true )
@@ -113,10 +131,10 @@ abstract class Engine extends LazyLogging with JsonParser {
     Valid( true )
   }
 
-  /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
-    *
-    * @param json Format defined by the Engine
-    * @return json format defined by the Engine
-    */
-  def query(json: String): Validated[ValidateError, String]
+  /** train is only used in Lambda offline learners */
+  def train(): Validated[ValidateError, String] = {
+    logger.warn(s"Train is not a valid operation for engineId: ${engineId}")
+    Invalid(NotImplemented(s"Train is not a valid operation for engineId: ${engineId}"))
+  }
+
 }
