@@ -22,7 +22,8 @@ import cats.data.Validated.Valid
 import com.actionml.core.BadParamsException
 import com.actionml.core.model.{Event, GenericEngineParams, GenericEvent}
 import com.actionml.core.engine.Dataset
-import com.actionml.core.store.Store
+import com.actionml.core.store.{DAO, Store}
+import com.actionml.core.store.backends.MongoDao
 import com.actionml.core.validate._
 import com.actionml.engines.navhinting.Journey
 import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, URAlgorithmParams}
@@ -41,14 +42,15 @@ import scala.language.reflectiveCalls
 class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent](engineId) with JsonParser {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-  private var activeJourneysDAO = store.createDao[UREvent]("indicator_events")
+  private val indicatorsDao = store.createDao[UREvent]("indicator_events")
 
   // This holds a place for any properties that should go into the model at training time
   private val esIndex = store.dbName // index and db name should be the same
   private val esType = DefaultURAlgoParams.ModelType
-  private val itemsDAO = store.createDao[ItemProperties](esType)
+  private val itemsDao = store.createDao[ItemProperties](esType) // the _id can be the name, it should be unique and indexed
   def getItemsDbName = esIndex
   def getItemsCollectionName = esType
+  def getItemsDao = itemsDao
 
   private var params: URAlgorithmParams = _
 
@@ -90,18 +92,17 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        activeJourneysDAO.save(event)
+        indicatorsDao.save(event)
 
         Valid(event)
       } else {
         event.event match {
-          case "$set" =>
-            // change properties of the targetEntity, parse them out first
-            // todo: get the item from the model, set the new values of fields in the document. this allows
-            // real-time changes to the model
-            // todo: do the same for every item in the dataset so that train will not change the model
-            // this allows real-time changes to the model and batch training will not wipe out the changes
-
+          case "$delete" =>
+            if(event.entityType == "user") {
+              // this will only delete a user's data
+              itemsDao.remove(filter=("entityId", event.entityId)) // remove all events by a user
+            } // ignore any other $delete, they will be caught by the Algorithm if at all
+          case _ =>
         }
 
         Valid(event)

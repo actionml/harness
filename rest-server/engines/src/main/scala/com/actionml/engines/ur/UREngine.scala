@@ -132,7 +132,7 @@ object UREngine {
     extends Event
 
   case class ItemProperties (
-      name: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+      _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
       properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
   )
 

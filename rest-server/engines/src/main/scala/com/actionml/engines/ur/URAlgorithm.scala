@@ -23,15 +23,14 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError}
+import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.UREvent
+import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
 import org.joda.time.DateTime
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -165,23 +164,23 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
         params.availableDateName,
         params.expireDateName).collect { case Some(date) => date } distinct
 
-      drawInfo("URAlgorithm initialization parameters", Seq(
-        ("══════════════════════════════", "════════════════════════════"),
-        ("ES index name", esIndex),
-        ("ES type name", esType),
-        ("RecsModel", recsModel),
-        ("Event names", modelEventNames),
-        ("══════════════════════════════", "════════════════════════════"),
-        ("Random seed", randomSeed),
-        ("MaxCorrelatorsPerEventType", maxCorrelatorsPerEventType),
-        ("MaxEventsPerEventType", maxEventsPerEventType),
-        ("BlacklistEvents", blacklistEvents),
-        ("══════════════════════════════", "════════════════════════════"),
-        ("User bias", userBias),
-        ("Item bias", itemBias),
-        ("Max query events", maxQueryEvents),
-        ("Limit", limit),
-        ("══════════════════════════════", "════════════════════════════"),
+      drawInfo("URAlgorithm initialization parameters including \"defaults\"", Seq(
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
+        ("ES index name:", esIndex),
+        ("ES type name:", esType),
+        ("RecsModel:", recsModel),
+        ("Event names:", modelEventNames),
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
+        ("Random seed:", randomSeed),
+        ("MaxCorrelatorsPerEventType:", maxCorrelatorsPerEventType),
+        ("MaxEventsPerEventType:", maxEventsPerEventType),
+        ("BlacklistEvents:", blacklistEvents),
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
+        ("User bias:", userBias),
+        ("Item bias:", itemBias),
+        ("Max query events:", maxQueryEvents),
+        ("Limit:", limit),
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.get, x.name)))
 
       Valid(isOK)
@@ -217,10 +216,24 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
         // set the property of an item in the model using the ESClient
         logger.info("Set the property of an item in the model")
         logger.warn("Not implemented!")
+        if (datum.entityType == "item") {
+          // set the new properties in the input DAO and in the Model item
+          val event = dataset.getItemsDao.findOneById(datum.entityId).getOrElse(ItemProperties(datum.event, Map.empty
+          ))
+          val newProps = event.properties ++ datum.properties.getOrElse(Map.empty)
+          dataset.getItemsDao.save(event._id, event.copy(properties = newProps))
+
+          // todo: now save to the ES model also
+          // dataset.itemsDAO.save(event._id, event.copy(properties = newProps))
+          Valid(true)
+        } else Invalid(WrongParams("Using $set on anything but \"targetEntityType\": \"item\" is not supported"))
       case "$delete" =>
         // set the property of an item in the model using the ESClient
         logger.info("Delete an item in the model, or Delete a model")
         logger.warn("Not implemented!")
+        if (datum.entityType == "model") {
+          Invalid(WrongParams("Using $delele on \"targetEntityType\": \"model\" is not supported yet"))
+        }  else Invalid(WrongParams("Using $delete on anything but \"targetEntityType\": \"user\" or \"model\" is not supported"))
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
@@ -346,7 +359,7 @@ object URAlgorithm extends JsonParser {
       duration: Option[String] = None) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
-         |name: $name,
+         |_id: $name,
          |type: ${`type`},
          |eventNames: $eventNames,
          |offsetDate: $offsetDate,
