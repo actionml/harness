@@ -17,18 +17,43 @@
 
 package com.actionml.core.spark
 
-import com.mongodb.spark.MongoSpark
+import com.actionml.core.store.backends.MongoStorage
+import com.mongodb.MongoClient
+import com.mongodb.client.MongoDatabase
+import com.mongodb.spark.{MongoClientFactory, MongoConnector, MongoSpark}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.bson.Document
+import org.bson.codecs.configuration.CodecProvider
+
+import scala.reflect.ClassTag
 
 
-trait SparkStoreSupport[T] {
-  def readRdd(sc: SparkContext): RDD[T]
+trait SparkStoreSupport {
+  def readRdd[T](sc: SparkContext, codecs: List[CodecProvider])(implicit ct: ClassTag[T]): RDD[T]
 }
 
-trait SparkMongoSupport extends SparkStoreSupport[Document] {
+trait SparkMongoSupport extends SparkStoreSupport {
 
-  override def readRdd(sc: SparkContext): RDD[Document] = MongoSpark.load[Document](sc)
+  override def readRdd[T](sc: SparkContext, codecs: List[CodecProvider] = List.empty)(implicit ct: ClassTag[T]): RDD[T] = {
+    MongoSpark
+      .builder()
+      .sparkContext(sc)
+      .connector(new GenericMongoConnector(codecs, ct))
+      .build
+      .toRDD()
+  }
 }
 
+class GenericMongoConnector[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T])
+  extends MongoConnector(new GenericMongoClientFactory(codecs, ct))
+    with Serializable {}
+
+class GenericMongoClientFactory[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T]) extends MongoClientFactory {
+  override def create(): MongoClient = new GenericMongoClient[T](codecs, ct)
+}
+
+class GenericMongoClient[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T]) extends MongoClient {
+
+  override def getDatabase(databaseName: String): MongoDatabase =
+    super.getDatabase(databaseName).withCodecRegistry(MongoStorage.codecRegistry(codecs)(ct))
+}

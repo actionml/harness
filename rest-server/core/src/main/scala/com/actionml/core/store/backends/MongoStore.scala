@@ -33,21 +33,10 @@ import scala.reflect.ClassTag
 
 class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
   import scala.concurrent.ExecutionContext.Implicits.global
+  import MongoStorage.codecRegistry
 
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
-    import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
-    import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-
-    import scala.collection.JavaConversions._
-    val codecRegistry = if (codecs.nonEmpty) fromRegistries(
-      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      fromProviders(codecs),
-      DEFAULT_CODEC_REGISTRY
-    ) else fromRegistries(
-      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      DEFAULT_CODEC_REGISTRY
-    )
-    new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry))
+    new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct)))
   }
 
   override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))
@@ -96,6 +85,21 @@ object MongoStorage extends LazyLogging {
   }
 
   def getStorage(dbName: String, codecs: List[CodecProvider]) = new MongoStorage(mongoClient.getDatabase(dbName), codecs)
+
+  def codecRegistry(codecs: List[CodecProvider])(implicit ct: ClassTag[_]) = {
+    import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
+    import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+
+    import scala.collection.JavaConversions._
+    if (codecs.nonEmpty) fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
+      fromProviders(codecs),
+      DEFAULT_CODEC_REGISTRY
+    ) else fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
+      DEFAULT_CODEC_REGISTRY
+    )
+  }
 }
 
 
