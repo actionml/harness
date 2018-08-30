@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.ur
+package com.actionml.engines.urnavhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -24,13 +24,13 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
-import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, Field, RankingParams, URAlgorithmParams}
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
 import org.joda.time.DateTime
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
+import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, UrNavHintingQueryResult}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -42,12 +42,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm private (engine: UREngine, initParams: String, dataset: URDataset, params: URAlgorithmParams)
-  extends Algorithm[GenericQuery, GenericQueryResult]
-    with LambdaAlgorithm[UREvent]
+class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, params: URAlgorithmParams)
+  extends Algorithm[URNavHintingQuery, UrNavHintingQueryResult]
+    with LambdaAlgorithm[URNavHintingEvent]
     with SparkMongoSupport
     with JsonParser {
 
+  import URNavHintingAlgorithm._
 
   private var sparkContext: Validated[ValidateError, SparkContext] = _
 
@@ -79,8 +80,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   private var dateNames: Seq[String] = _
 
   // setting that cannot change with config
-  val esIndex = dataset.getItemsDbName
-  val esType = dataset.getItemsCollectionName
+  val esIndex = engineId
+  val esType = "items"
 
   def initSettings(params: URAlgorithmParams): Validated[ValidateError, Boolean] = {
     var err: Validated[ValidateError, Boolean] = Valid(true)
@@ -163,7 +164,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
         params.availableDateName,
         params.expireDateName).collect { case Some(date) => date } distinct
 
-      drawInfo("URAlgorithm initialization parameters including \"defaults\"", Seq(
+      drawInfo("URNavHintingAlgorithm initialization parameters including \"defaults\"", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("ES index name:", esIndex),
         ("ES type name:", esType),
@@ -205,34 +206,24 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   override def destroy(): Unit = {
   }
 
-  override def input(datum: UREvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: URNavHintingEvent): Validated[ValidateError, Boolean] = {
     logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
       " This is where that will be done")
     // This deals with real-time model changes.
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
       case "$set" =>
-        // set the property of an item in the model using the ESClient
-        logger.info("Set the property of an item in the model")
-        logger.warn("Not implemented!")
-        if (datum.entityType == "item") {
-          // set the new properties in the input DAO and in the Model item
-          val event = dataset.getItemsDao.findOneById(datum.entityId).getOrElse(ItemProperties(datum.event, Map.empty
-          ))
-          val newProps = event.properties ++ datum.properties.getOrElse(Map.empty)
-          dataset.getItemsDao.save(event._id, event.copy(properties = newProps))
-
-          // todo: now save to the ES model also
-          // dataset.itemsDAO.save(event._id, event.copy(properties = newProps))
-          Valid(true)
-        } else Invalid(WrongParams("Using $set on anything but \"targetEntityType\": \"item\" is not supported"))
+        Invalid(WrongParams("Using $set not supported"))
       case "$delete" =>
-        // set the property of an item in the model using the ESClient
-        logger.info("Delete an item in the model, or Delete a model")
-        logger.warn("Not implemented!")
-        if (datum.entityType == "model") {
-          Invalid(WrongParams("Using $delele on \"targetEntityType\": \"model\" is not supported yet"))
-        }  else Invalid(WrongParams("Using $delete on anything but \"targetEntityType\": \"user\" or \"model\" is not supported"))
+        datum.entityType match {
+          case "user" =>
+            logger.warn("Delete a \"user\" not supported")
+            Invalid(WrongParams("Using $delele on \"entityType\": \"user\" is not supported yet"))
+          case "model" =>
+            logger.warn("Delete a \"model\" not supported")
+            Invalid(WrongParams("Using $delele on \"entityType\": \"model\" is not supported yet"))
+
+        }
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
@@ -259,7 +250,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
     val defaults = Map(
       "appName" -> engineId,
       "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> dataset.getItemsDbName,
+      "spark.mongodb.input.database" -> engineId,
       "spark.mongodb.input.collection" -> dataset.getItemsCollectionName)
 
 
@@ -271,7 +262,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
       val rdd = sc.makeRDD((1 to 10000).toSeq))
       val result = rdd.ma
 
-      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
+      Valid("URNavHintingAlgorithm model creation queued for processing on the Spark cluster")
     }
     */
 
@@ -289,7 +280,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
       logger.info(
         s"""
-           |URAlgorithm.train
+           |URNavHintingAlgorithm.train
            |  Status for appname: ${sc.appName}
            |  Run on master: ${sc.master}
            |  Result: $result
@@ -302,20 +293,20 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
     Valid("Started train Job on Spark")
   }
 
-  def query(query: GenericQuery): GenericQueryResult = {
-    GenericQueryResult()
+  def query(query: URNavHintingQuery): UrNavHintingQueryResult = {
+    UrNavHintingQueryResult()
   }
 
 }
 
-object URAlgorithm extends JsonParser {
+object URNavHintingAlgorithm extends JsonParser {
 
-  def apply(engine: UREngine, initParams: String, dataset: URDataset): URAlgorithm = {
+  def apply(engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset): URNavHintingAlgorithm = {
 
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URAlgorithm(engine, initParams, dataset, params)
+    new URNavHintingAlgorithm(engine, initParams, dataset, params)
   }
 
   /** Available value for algorithm param "RecsModel" */
@@ -419,25 +410,6 @@ object URAlgorithm extends JsonParser {
   /** The Query spec with optional values. The only hard rule is that there must be either a user or
     *  an item id. All other values are optional.
     */
-  case class Query(
-      user: Option[String] = None, // must be a user or item id
-      userBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      item: Option[String] = None, // must be a user or item id
-      itemBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      itemSet: Option[List[String]] = None, // item-set query, shpping cart for instance.
-      itemSetBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      fields: Option[List[Field]] = None, // default: whatever is in algorithm params or None
-      currentDate: Option[String] = None, // if used will override dateRange filter, currentDate must lie between the item's
-      // expireDateName value and availableDateName value, all are ISO 8601 dates
-      dateRange: Option[DateRange] = None, // optional before and after filter applied to a date field
-      blacklistItems: Option[List[String]] = None, // default: whatever is in algorithm params or None
-      returnSelf: Option[Boolean] = None, // means for an item query should the item itself be returned, defaults
-      // to what is in the algorithm params or false
-      num: Option[Int] = None, // default: whatever is in algorithm params, which itself has a default--probably 20
-      from: Option[Int] = None, // paginate from this position return "num"
-      eventNames: Option[List[String]], // names used to ID all user actions
-      withRanks: Option[Boolean] = None) // Add to ItemScore rank fields values, default false
-    extends Serializable
 
   /** Used to specify how Fields are represented in engine.json */
   case class Field( // no optional values for fields, whne specified
@@ -454,15 +426,5 @@ object URAlgorithm extends JsonParser {
       after: Option[String]) // both empty should be ignored
     extends Serializable
 
-  /** results of a URAlgoritm.predict */
-  case class PredictedResult(
-      itemScores: Array[ItemScore])
-    extends Serializable
-
-  case class ItemScore(
-      item: String, // item id
-      score: Double, // used to rank only, score returned from the search engine
-      ranks: Option[Map[String, Double]] = None)
-    extends Serializable
 }
 

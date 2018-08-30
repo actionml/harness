@@ -1,0 +1,30 @@
+{
+  "engineId": "ur_nav_hinting",
+  "engineFactory": "com.actionml.engines.urnavhinting.URNavHintingEngine",
+  "sparkConf": {
+    "master": "local",
+    "spark.driver-memory": "4g",
+    "spark.executor-memory": "4g"
+  },
+  "algorithm": {
+    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
+    "esMaster": "es-node-1",
+    "blacklist": [],
+    "indicators": [
+      {
+        "name": "nav-event"
+      },{
+        "name": "search-terms",
+        "maxCorrelatorsPerItem": 50
+      },{
+        "name": "content-pref",
+        "maxCorrelatorsPerItem": 50,
+        "minLLR": 5.0
+      }
+    ],
+    "availableDateName": "available",
+    "expireDateName": "expires",
+    "dateName": "date",
+    "num": 4
+  }
+}

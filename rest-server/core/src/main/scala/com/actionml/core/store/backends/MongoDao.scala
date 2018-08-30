@@ -61,6 +61,17 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
     }
   }
 
+  override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {
+    collection.insertMany(c).headOption.flatMap {
+      case Some(t) =>
+        logger.debug(s"Successfully inserted many into $name with result $t")
+        Future.successful(t)
+      case None =>
+        logger.error(s"Can't insert many into collection ${collection.namespace}")
+        Future.failed(new RuntimeException(s"Can't insert many to collection ${collection.namespace}"))
+    }
+  }
+
   override def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
       case Some(t) =>

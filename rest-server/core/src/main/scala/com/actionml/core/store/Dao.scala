@@ -32,6 +32,7 @@ trait AsyncDao[T] {
   def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]]
   def listAsync(query: DaoQuery = DaoQuery())(implicit ec: ExecutionContext): Future[Iterable[T]]
   def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
+  def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit]
   def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
   def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
   def saveAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
@@ -54,6 +55,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   def find(filter: (String, Any)*): Option[T] = sync(findAsync(filter: _*))
   def list(query: DaoQuery = DaoQuery()): Iterable[T] = sync(listAsync(query))
   def insert(o: T): Unit = sync(insertAsync(o))
+  def insertMany(c: Seq[T]): Unit = sync(insertManyAsync(c))
   def update(filter: (String, Any)*)(o: T): T = sync(updateAsync(filter: _*)(o))
   def save(id: String, o: T): Unit = sync(saveAsync(id, o))
   def save(o: T): Unit = sync(saveAsync(o)) // save but create the primary key

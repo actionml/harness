@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package com.actionml.core.spark
+package com.actionml.engines.ur
 
-import com.mongodb.spark.MongoSpark
-import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-import org.bson.Document
+import com.actionml.core.model.User
+import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
+import org.bson.codecs.configuration.CodecProvider
 
+object MongoStorageHelper {
 
-trait SparkStoreSupport[T] {
-  def readRdd(sc: SparkContext): RDD[T]
-}
-
-trait SparkMongoSupport extends SparkStoreSupport[Document] {
-
-  override def readRdd(sc: SparkContext): RDD[Document] = {
-    MongoSpark.load[Document](sc)
+  val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[ItemProperties], classOf[UREvent])
   }
 }
-
