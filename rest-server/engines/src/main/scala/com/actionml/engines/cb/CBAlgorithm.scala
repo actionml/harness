@@ -110,7 +110,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
-      checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to save model
+      checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to saveOneById model
       Valid(true)
     } catch {
       case e: NoSuchElementException =>
@@ -237,7 +237,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     logger.info(s"Query string to VW: \n$queryText")
     val pred = vw.predict(queryText)
     logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
-    //vw.close() // not need to save the model for a query
+    //vw.close() // not need to saveOneById the model for a query
 
     //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
     //we use testPeriods as epsilon0
@@ -366,13 +366,13 @@ class SingleGroupTrainer(
       log.info(s"Sending the VW formatted string: \n$vwString")
       val result = cbAlgo.vw.learn(vwString)
       log.info(s"Saving model for path: $modelPath")
-      cbAlgo.vw.learn(s" save_${modelPath}")// save after every event
+      cbAlgo.vw.learn(s" save_${modelPath}")// saveOneById after every event
 /*      examples += 1
-      if (examples % 20 == 0) { // save every 20 events
+      if (examples % 20 == 0) { // saveOneById every 20 events
         log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
-        log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
+        log.info(s"Sending the pseudo example to saveOneById the model: save_${params.modelName}")
         result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
-        log.info(s"Got result to save of: ${result.toString}")
+        log.info(s"Got result to saveOneById of: ${result.toString}")
       }
 */
     } else {
@@ -465,7 +465,7 @@ object SingleGroupTrainer {
     @transient implicit lazy val formats = org.json4s.DefaultFormats
 
     // class-id|namespace user_ user testGroupId_ testGroupId
-    // (${user properties list} -- List("converted", "testGroupId")).fields.map { entry =>
+    // (${user properties findMany} -- List("converted", "testGroupId")).fields.map { entry =>
     //   entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId
     // }.mkString(" ")
 

@@ -18,7 +18,6 @@
 package com.actionml.engines.urnavhinting
 
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent}
-import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import org.bson.codecs.configuration.CodecProvider
 
 object MongoStorageHelper {

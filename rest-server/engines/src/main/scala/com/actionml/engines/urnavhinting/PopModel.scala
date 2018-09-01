@@ -185,7 +185,7 @@ class PopModel(fieldsRDD: RDD[(String, Map[String, Seq[String]])])(implicit sc: 
 
     logger.info(s"PopModel getting eventsRDD for startTime: ${interval.getStart} and endTime ${interval.getEnd}")
     /* PIO version of the query for events
-    PEventStore.find(
+    PEventStore.findOne(
       appName = appName,
       startTime = Some(interval.getStart),
       untilTime = Some(interval.getEnd),

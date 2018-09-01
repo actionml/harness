@@ -128,7 +128,7 @@ object URNavHintingEngine {
       entityType: String,
       entityId: String,
       targetEntityId: Option[String] = None,
-      properties: Option[Map[String, Any]] = None,
+      properties: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
       eventTime: String) // ISO8601 date
     extends Event

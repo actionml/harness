@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.BadParamsException
 import com.actionml.core.engine.Dataset
-import com.actionml.core.store.{DAO, Store}
+import com.actionml.core.store.{DAO, DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URDataset
 import com.actionml.engines.ur.UREngine.UREvent
@@ -54,7 +54,7 @@ class URNavHintingDataset(engineId: String, store: Store) extends Dataset[URNavH
 
   private var params: URAlgorithmParams = _
 
-  // we assume the list of event names is in the params if not the config is rejected by some earlier stage since
+  // we assume the findMany of event names is in the params if not the config is rejected by some earlier stage since
   // this is not calculated until an engine is created with the config and taking input
   private var indicatorNames: Seq[String] = _
 
@@ -95,25 +95,25 @@ class URNavHintingDataset(engineId: String, store: Store) extends Dataset[URNavH
     parseAndValidate[URNavHintingEvent](jsonEvent, errorMsg = s"Invalid URNavHintingEvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        if (indicatorNames.head == event.event && event.properties.isDefined && event.properties.get.get("converted").isDefined) {
+        if (indicatorNames.head == event.event && event.properties.get("converted").isDefined) {
           // this handles a conversion
           //if (event.properties.get.get("converted").contains(true)) {
           //if (event.properties.get.getOrElse("converted", false) == true) {
-          if(event.properties.get.getOrElse("converted", false).asInstanceOf[Boolean]) {
+          if(event.properties.getOrElse("converted", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
-            val conversionJourney = activeJourneysDao.find(("entityId", event.entityId)).toSeq
-            val taggedConvertedJourneys = conversionJourney.map(event => event.copy(conversionId = event.targetEntityId))
+            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq(("entityId", event.entityId)))).toSeq
+            val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
             // todo: need to tag these so they can be removed when the model is $deleted
             // todo: not sure this will work, we can only get one collection with Mongo + Spark and so we may
             // want to have them all in one, treating converted and unconverted nav-events differently
             indicatorsDao.insertMany(taggedConvertedJourneys)
-            activeJourneysDao.remove(("entityId", event.entityId)) // should only have nav-events so no type check needed
+            activeJourneysDao.removeMany(("entityId", event.entityId)) // should only have nav-events so no type check needed
           } else {
-            // save in journeys until a conversion happens
-            activeJourneysDao.save(event)
+            // saveOneById in journeys until a conversion happens
+            activeJourneysDao.saveOne(event)
           }
         } else { // must be secondary indicator
-          indicatorsDao.save(event)
+          indicatorsDao.saveOne(event)
         }
         Valid(event)
       } else { // not an indicator so check for reserved events the dataset cares about
@@ -121,7 +121,7 @@ class URNavHintingDataset(engineId: String, store: Store) extends Dataset[URNavH
           case "$delete" =>
             if (event.entityType == "user") {
               // this will only delete a user's data
-              itemsDao.remove(filter = ("entityId", event.entityId)) // remove all events by a user
+              itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
             } // ignore any other reserved event types, they will be caught by the Algorithm if at all
           case _ =>
         }

@@ -36,12 +36,7 @@ trait LambdaAlgorithm[T] extends LazyLogging {
     * Override to use the queuing method to create the model
     * @return
     */
-  def train(): Validated[ValidateError, String] = {
-    process()
-  }
-
-  /** Does the model creation, may do the calculation or start a job on a compute engine like Spark */
-  def process(): Validated[ValidateError, String]
+  def train(): Validated[ValidateError, String]
 
 }
 

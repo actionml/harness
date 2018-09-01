@@ -220,10 +220,10 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
           val event = dataset.getItemsDao.findOneById(datum.entityId).getOrElse(ItemProperties(datum.event, Map.empty
           ))
           val newProps = event.properties ++ datum.properties.getOrElse(Map.empty)
-          dataset.getItemsDao.save(event._id, event.copy(properties = newProps))
+          dataset.getItemsDao.saveOneById(event._id, event.copy(properties = newProps))
 
-          // todo: now save to the ES model also
-          // dataset.itemsDAO.save(event._id, event.copy(properties = newProps))
+          // todo: now saveOneById to the ES model also
+          // dataset.itemsDAO.saveOneById(event._id, event.copy(properties = newProps))
           Valid(true)
         } else Invalid(WrongParams("Using $set on anything but \"targetEntityType\": \"item\" is not supported"))
       case "$delete" =>
@@ -242,12 +242,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   }
 
   override def train(): Validated[ValidateError, String] = {
-    process
-  }
-
-  override def process(): Validated[ValidateError, String] = {
-
-    /*
+     /*
     sparkContext = createSparkContext(
       appName = dataset.engineId,
       dbName = dataset.dbName,
@@ -352,7 +347,7 @@ object URAlgorithm extends JsonParser {
   case class RankingParams(
       name: Option[String] = None,
       `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo eventNames list, otherwise a list of events
+      eventNames: Option[Seq[String]] = None, // None means use the algo eventNames findMany, otherwise a findMany of events
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,

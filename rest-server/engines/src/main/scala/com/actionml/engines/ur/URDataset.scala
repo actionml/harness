@@ -50,7 +50,7 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
 
   private var params: URAlgorithmParams = _
 
-  // we assume the list of event names is in the params if not the config is rejected by some earlier stage since
+  // we assume the findMany of event names is in the params if not the config is rejected by some earlier stage since
   // this is not calculated until an engine is created with the config and taking input
   protected var indicatorNames: Seq[String] = _
 
@@ -88,7 +88,7 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        indicatorsDao.save(event)
+        indicatorsDao.saveOne(event)
 
         Valid(event)
       } else {
@@ -96,7 +96,7 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
           case "$delete" =>
             if(event.entityType == "user") {
               // this will only delete a user's data
-              itemsDao.remove(filter=("entityId", event.entityId)) // remove all events by a user
+              itemsDao.removeOne(filter=("entityId", event.entityId)) // removeOne all events by a user
             } // ignore any other $delete, they will be caught by the Algorithm if at all
           case _ =>
         }

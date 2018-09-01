@@ -34,14 +34,14 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
   override def name = collection.namespace.getFullName
 
   override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = {
-    findAsync("_id" -> id)
+    findOneAsync("_id" -> id)
   }
 
-  override def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] = {
+  override def findOneAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] = {
     collection.find(mkFilter(filter)).headOption
   }
 
-  override def listAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
+  override def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
     val find = collection.find(mkFilter(query.filter))
     query.orderBy.fold(find) { order =>
       find.sort(mkOrder(order))
@@ -83,7 +83,7 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
     }
   }
 
-  override def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+  override def saveOneByIdAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     val filter = mkFilter(Seq("_id" -> id))
     (for {
       opt <- collection.find(filter).headOption
@@ -91,11 +91,11 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
     } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't save object $o with id $id (filter $filter) into $name", e)}
+      .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
   // todo: Andrey, isn't this just an alias for insertAsync ???
-  override def saveAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+  override def saveOneAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     val id = new ObjectId()
     val filter = mkFilter(Seq("_id" -> id))
     (for {
@@ -104,22 +104,33 @@ class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) exte
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
     } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't save object $o with id $id (filter $filter) into $name", e)}
+      .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
-  override def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] = {
+  override def removeOneAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndDelete(mkFilter(filter)).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
         Future.successful(t)
       case None =>
-        logger.error(s"Can't remove from collection ${collection.namespace} with filter $filter")
-        Future.failed(new RuntimeException(s"Can't remove from collection ${collection.namespace} with filter $filter"))
+        logger.error(s"Can't removeOne from collection ${collection.namespace} with filter $filter")
+        Future.failed(new RuntimeException(s"Can't removeOne from collection ${collection.namespace} with filter $filter"))
     }
   }
 
   override def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = {
-    removeAsync("_id" -> id)
+    removeOneAsync("_id" -> id)
+  }
+
+  override def removeManyAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit] = {
+    collection.deleteMany(mkFilter(filter)).headOption().flatMap {
+      case Some(t) =>
+        logger.debug(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
+        Future.successful[Unit]()
+      case None =>
+        logger.error(s"Can't removeMany from collection ${collection.namespace} with filter $filter")
+        Future.failed(new RuntimeException(s"Can't removeMany from collection ${collection.namespace} with filter $filter"))
+    }
   }
 
 

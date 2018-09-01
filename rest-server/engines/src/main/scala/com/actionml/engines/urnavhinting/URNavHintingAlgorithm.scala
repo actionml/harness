@@ -233,10 +233,6 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def train(): Validated[ValidateError, String] = {
-    process
-  }
-
-  override def process(): Validated[ValidateError, String] = {
 
     /*
     sparkContext = createSparkContext(
@@ -343,7 +339,7 @@ object URNavHintingAlgorithm extends JsonParser {
   case class RankingParams(
       name: Option[String] = None,
       `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo eventNames list, otherwise a list of events
+      eventNames: Option[Seq[String]] = None, // None means use the algo eventNames findMany, otherwise a findMany of events
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
