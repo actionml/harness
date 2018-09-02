@@ -11,7 +11,7 @@ lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.6.4"
-lazy val mongoScalaDriverVersion = "2.4.0"
+lazy val mongoScalaDriverVersion = "2.2.1"
 //lazy val sparkVersion = "2.3.1"
 lazy val sparkVersion = "2.2.1"
 //lazy val json4sVersion = "3.6.0"
@@ -63,7 +63,7 @@ lazy val core = (project in file("core")).
       //"org.apache.hbase" % "hbase-common" % "2.1.0",
       //"org.apache.hbase" % "hbase-client" % "2.1.0",
 
-      "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.3",
+      "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.4",
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
