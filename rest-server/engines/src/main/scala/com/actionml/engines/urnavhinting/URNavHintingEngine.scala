@@ -88,6 +88,10 @@ class URNavHintingEngine extends Engine {
     Valid(this.params.toString)
   }
 
+  override def train(): Validated[ValidateError, String] = {
+    algo.train()
+  }
+
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(jsonQuery: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: $jsonQuery")

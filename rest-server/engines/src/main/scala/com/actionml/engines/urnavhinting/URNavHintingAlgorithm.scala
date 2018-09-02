@@ -30,7 +30,7 @@ import org.bson.Document
 import org.joda.time.DateTime
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
-import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, UrNavHintingQueryResult}
+import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent, URNavHintingQuery, UrNavHintingQueryResult}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -262,7 +262,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     }
     */
 
-    SparkContextSupport.getSparkContext(initParams, defaults).map { sc => // or implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc => // or implicit sc =>
     //sparkContext.andThen { implicit sc =>
 
       val s = 1 to 10000
@@ -283,6 +283,9 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
            |  Completed asynchronously
         """.stripMargin
       )
+
+      val mongoRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs)
+      mongoRdd.collect().foreach(println)
 
     }
 
