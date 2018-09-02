@@ -59,7 +59,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
     // super.init will handle the users collection, allowing sharing of user data between Engines
     super.init(json, deepInit).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
-        groupsDao.find().foreach { p =>
+        groupsDao.findOne().foreach { p =>
           usageEventGroups = usageEventGroups + (p._id -> storage.createDao[UsageEvent](p._id))
         }
         Valid(true)
@@ -93,7 +93,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
               "converted" -> event.properties.converted,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
 */
-            usageEventGroups(event.properties.testGroupId).save(event.entityId, event.toUsageEvent)
+            usageEventGroups(event.properties.testGroupId).saveOneById(event.entityId, event.toUsageEvent)
 
             if (event.properties.converted) { // store the preference with the user
               val user = usersDAO.findOneById(event.entityId).getOrElse(User("", Map.empty))
@@ -107,7 +107,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
                 val newTags = event.properties.contextualTags.takeRight(100).mkString("%")
                 User(user._id, user.properties + ("contextualTags" -> newTags))
               }
-              usersDAO.save(user._id, updatedUser)
+              usersDAO.saveOneById(user._id, updatedUser)
             }
             Valid(event)
 
@@ -126,7 +126,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
           val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq ++ updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
-          usersDAO.save(event.entityId, newUser)
+          usersDAO.saveOneById(event.entityId, newUser)
           Valid(event)
 
         case event: GroupParams => // group init event, modifies group definition
@@ -138,7 +138,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
           }
           usageEventGroups = usageEventGroups + (event._id -> storage.createDao[UsageEvent](event._id))
 
-          groupsDao.save(event._id, event)
+          groupsDao.saveOneById(event._id, event)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
@@ -149,7 +149,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
           val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq -- updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
-          usersDAO.save(user._id, newUser) // overwrite the User
+          usersDAO.saveOneById(user._id, newUser) // overwrite the User
 
           Valid(event)
 /*          val unsetPropNames = event.properties.get.keys.toArray
@@ -157,21 +157,21 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
           usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
           Valid(event)
 */
-        case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
+        case event: CBDeleteEvent => // removeOne an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.remove("_id" -> event.entityId)
+              usersDAO.removeOne("_id" -> event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
                 logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
                 Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
               } else {
-                groupsDao.remove("_id" -> event.entityId)
+                groupsDao.removeOne("_id" -> event.entityId)
                 storage.removeCollection(event.entityId)
-                usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
+                usageEventGroups = usageEventGroups - event.entityId // removeOne from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
                 Valid(event)
               }
@@ -206,7 +206,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
               parseAndValidate[CBGroupInitEvent](json).map(_.toGroupParams)
           }
 
-        case "$unset" => // remove properties
+        case "$unset" => // removeOne properties
           event.entityType match {
             case "user" => // got a user profile update event
               logger.trace(s"Dataset: ${engineId} parsing a user $$unset event: ${event.event}")
@@ -223,7 +223,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
               Invalid(WrongParams("Group $unset is not allowed and ignored."))
           }
 
-        case "$delete" => // remove an object
+        case "$delete" => // removeOne an object
           event.entityType match {
             case "user" | "group" | "testGroup" => // got a user profile update event
               logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
@@ -243,7 +243,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
 
 /* CBEvent partially parsed from the Json:
 {
-  "event" : "$set", //"$unset means to remove some properties (not values) from the object
+  "event" : "$set", //"$unset means to removeOne some properties (not values) from the object
   "entityType" : "user"
   "entityId" : "amerritt",
   "properties" : {

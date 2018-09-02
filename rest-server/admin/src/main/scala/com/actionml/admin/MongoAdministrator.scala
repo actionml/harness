@@ -43,7 +43,7 @@ class MongoAdministrator extends Administrator with JsonParser {
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
-    engines = enginesCollection.list().map { engine =>
+    engines = enginesCollection.findMany().map { engine =>
       val engineId = engine.get("engineId").get.asString.getValue
       val engineFactory = engine.get("engineFactory").get.asString.getValue
       val params = engine.get("params").get.asString.getValue
@@ -55,7 +55,7 @@ class MongoAdministrator extends Administrator with JsonParser {
           s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
-        enginesCollection.remove("engineId" -> engineId)
+        enginesCollection.removeOne("engineId" -> engineId)
         // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
@@ -83,7 +83,7 @@ class MongoAdministrator extends Administrator with JsonParser {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.list(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
+      if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
@@ -153,12 +153,12 @@ class MongoAdministrator extends Administrator with JsonParser {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
-      enginesCollection.remove("engineId" -> engineId)
+      enginesCollection.removeOne("engineId" -> engineId)
       deadEngine.destroy()
       Valid(true)
     } else {
-      logger.warn(s"Cannot remove non-existent engine for id: $engineId")
-      Invalid(WrongParams(s"Cannot remove non-existent engine for id: $engineId"))
+      logger.warn(s"Cannot removeOne non-existent engine for id: $engineId")
+      Invalid(WrongParams(s"Cannot removeOne non-existent engine for id: $engineId"))
     }
   }
 

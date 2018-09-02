@@ -19,7 +19,7 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
   override val route: Route = rejectEmptyResponse {
     pathPrefix("commands") {
-/*      pathPrefix("list") { // this is should be done with GET /commands/ or GET /engines/
+/*      pathPrefix("findMany") { // this is should be done with GET /commands/ or GET /engines/
         pathPrefix(Segment) { segment ⇒
           pathEndOrSingleSlash {
             segment match {
@@ -59,12 +59,12 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
 
 /* this is done via GET /engines/ and GET /commands/
   private def getCommandList = (get & extractLog) { log ⇒
-    log.info("Get commands list")
+    log.info("Get commands findMany")
     complete(StatusCodes.OK, Seq.empty[String].asJson)
   }
 
   private def getEngineList = (get & extractLog) { log ⇒
-    log.info("Get engines list")
+    log.info("Get engines findMany")
     completeByValidated(StatusCodes.OK) {
       (engineService ? GetEngines("???")).mapTo[Response]
     }

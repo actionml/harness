@@ -44,14 +44,14 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   override def drop(): Unit = sync(dropAsync)
 
   override def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.debug(s"Trying to remove collection $name from database ${db.name}")
+    logger.debug(s"Trying to removeOne collection $name from database ${db.name}")
     db.getCollection(name).drop.headOption().flatMap {
         case Some(_) =>
           logger.debug(s"Collection $name successfully removed from database ${db.name}")
           Future.successful(())
         case None =>
           logger.debug(s"Failure. Collection $name can't be removed from database ${db.name}")
-          Future.failed(new RuntimeException(s"Can't remove collection $name"))
+          Future.failed(new RuntimeException(s"Can't removeOne collection $name"))
       }
   }
 

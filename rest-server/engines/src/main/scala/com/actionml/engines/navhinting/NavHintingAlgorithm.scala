@@ -57,7 +57,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
           params = p.algorithm.copy()
           // init nav hints DAOs for existing models
-          dataset.navHintsModels.list().foreach { navModel =>
+          dataset.navHintsModels.findMany().foreach { navModel =>
             navHintsModels += navModel._id -> MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
               .createDao[NavHint](navModel._id)
           }
@@ -74,25 +74,25 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)
     val converted = datum.event.properties.flatMap(_.conversion).getOrElse(false)
-    if (converted) { // update the model with the active journeys and remove it from active
+    if (converted) { // update the model with the active journeys and removeOne it from active
       if (activeJourney.nonEmpty) { // have an active journey
         // create and empty model if this is a new cconversion-id or find the right navHintModel
         val navHintsModel = if(navHintsModels.contains(datum.event.targetEntityId)) {
           navHintsModels(datum.event.targetEntityId)
         } else {
-          // no model yet so create one and add it to the list
+          // no model yet so create one and add it to the findMany
           // always persist the new model's id after creating it!
           logger.debug(s"Creating DAO for engine $engineId ...")
           val model = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
             .createDao[NavHint](datum.event.targetEntityId)
           logger.debug(s"Saving $datum")
-          dataset.navHintsModels.save(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
+          dataset.navHintsModels.saveOneById(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
           navHintsModels += datum.event.targetEntityId -> model
           navHintsModels(datum.event.targetEntityId)
         }
         updateModel(navHintsModel, Journey(datum.event.targetEntityId, activeJourney.get),
           DateTimeUtil.parseOffsetDateTime(datum.event.eventTime))
-        activeJourneys -= datum.event.entityId // remove once converted
+        activeJourneys -= datum.event.entityId // removeOne once converted
       } else { // new event from this user, start a journey
         activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
           DateTimeUtil.parseOffsetDateTime(datum.event.eventTime)))
@@ -123,7 +123,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     applyDecayFunction(convertedJourney, now).map { weightedVectors =>
       weightedVectors.foreach { case (_id, weight) =>
         val existingModelHint = navHintsModel.findOneById(_id).getOrElse(NavHint(_id, 0d))
-        val status = navHintsModel.save(_id, NavHint(_id, weight + existingModelHint.weight))
+        val status = navHintsModel.saveOneById(_id, NavHint(_id, weight + existingModelHint.weight))
         val updatedWeight = weight + existingModelHint.weight
         logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight} status: ${status} ")
       }
@@ -173,7 +173,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     val results = query.eligibleNavIds.map((_,0d)).flatMap { case (eligibleNavId, w) =>
       navHintsModels.map(_._2.findOneById(eligibleNavId))
       //dataset.navHintsDAO.findOneById(eligibleNavId).getOrElse(NavHint(eligibleNavId, 0))
-    }.flatten // remove undefined Options
+    }.flatten // removeOne undefined Options
       .groupBy(_._id).map { case (id, navHints) => // get nav-hints with matching ids
         var sum = 0d
         navHints.foreach(sum += _.weight)
@@ -186,7 +186,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
   }
 
   override def destroy(): Unit = {
-    // remove old model since it is recreated with each new NavHintingEngine
+    // removeOne old model since it is recreated with each new NavHintingEngine
   }
 
 }

@@ -49,7 +49,7 @@ abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Da
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
       // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
-      // to find old users that will be orphaned.
+      // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
       Valid(true)
     }

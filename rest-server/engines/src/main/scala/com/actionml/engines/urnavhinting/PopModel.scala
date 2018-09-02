@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.ur
+package com.actionml.engines.urnavhinting
 
 import com.actionml.core.model.GenericEvent
 import com.actionml.core.validate.JsonParser

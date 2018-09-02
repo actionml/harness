@@ -39,7 +39,7 @@ abstract class Algorithm[Q, R] extends LazyLogging {
 
   def destroy(): Unit
 
-  // todo: remove these is not needed
+  // todo: removeOne these is not needed
   // def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Algorithm"); this}
   // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
 
