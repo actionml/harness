@@ -17,16 +17,23 @@
 
 package com.actionml.core.search
 
-import org.json4s.JValue
-
-import scala.concurrent.Future
-
 trait SearchSupport[T] {
   def createSearchClient(hosts: String*): SearchClient[T]
 }
 
+case class SearchQuery(
+  sortBy: String,
+  should: Map[String, Seq[String]] = Map.empty,
+  must: Map[String, Seq[String]] = Map.empty,
+  mustNot: Map[String, Map[String, Seq[String]]] = Map.empty,
+  size: Int = 20,
+  from: Int = 0
+)
+
+case class Hit(id: String, score: Float)
+
 trait SearchClient[T] {
-  def close: Unit
+  def close(): Unit
   def createIndex(indexName: String,
                   indexType: String,
                   fieldNames: List[String],
@@ -34,5 +41,5 @@ trait SearchClient[T] {
                   refresh: Boolean = false): Boolean
   def deleteIndex(indexName: String, refresh: Boolean = false): Boolean
   def refreshIndex(indexName: String): Unit
-  def search(query: String, indexName: String): Option[T]
+  def search(query: SearchQuery, indexName: String): Seq[T]
 }

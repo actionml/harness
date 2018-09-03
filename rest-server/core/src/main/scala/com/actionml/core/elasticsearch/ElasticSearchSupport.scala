@@ -17,9 +17,10 @@
 
 package com.actionml.core.elasticsearch
 
-import com.actionml.core.search.{SearchClient, SearchSupport}
+import com.actionml.core.search.{Hit, SearchClient, SearchQuery, SearchSupport}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
 import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.http.impl.client.BasicCredentialsProvider
@@ -28,28 +29,51 @@ import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
-import org.json4s.{DefaultFormats, JValue}
+import org.json4s.DefaultReaders._
 import org.json4s.jackson.JsonMethods._
+import org.json4s.{DefaultFormats, JValue, _}
 
 import scala.collection.JavaConverters._
+import scala.reflect.ManifestFactory
 
-trait ElasticSearchSupport extends SearchSupport[JValue] {
-  override def createSearchClient(hosts: String*): SearchClient[JValue] = ElasticSearchClient(hosts:_*)
+trait ElasticSearchSupport extends SearchSupport[Hit] {
+  override def createSearchClient(hosts: String*): SearchClient[Hit] = ElasticSearchClient(hosts:_*)
 }
 
-class ElasticSearchClient private (hosts: Seq[String]) extends SearchClient[JValue] with LazyLogging {
+trait SearchResultTransformation[T] {
+  implicit def reader: Reader[T]
+  implicit def manifest: Manifest[T]
+  def transform(j: JValue): Seq[T]
+}
+
+trait ElasticSearchResultTransformation extends SearchResultTransformation[Hit] {
+  override implicit val manifest: Manifest[Hit] = ManifestFactory.classType(classOf[Hit])
+  override implicit val reader: Reader[Hit] =  new Reader[Hit] {
+    def read(value: JValue): Hit = value match {
+      case JObject(fields) if fields.exists(_._1 == "_id") && fields.exists(_._1 == "_score") =>
+        Hit(fields.find(_._1 == "_id").get._2.as[String], fields.find(_._1 == "_score").get._2.as[Float])
+      case x =>
+        throw new MappingException("Can't convert %s to Hit." format x)
+    }
+  }
+  override def transform(j: JValue): Seq[Hit] = {
+    (j \ "hits" \ "hits").as[Seq[Hit]]
+  }
+}
+
+class ElasticSearchClient[T] private (hosts: Seq[String]) extends SearchClient[T] with LazyLogging {
+  this: SearchResultTransformation[T] =>
+  import ElasticSearchClient._
 
   private val config = ConfigFactory.load()
   private val client: RestClient = {
     import ElasticSearchClient._
-    val builder = RestClient.builder()
-    val authConfig = config.atKey("elasticsearch.auth")
-    if (!authConfig.isEmpty) {
-      builder.setHttpClientConfigCallback(new BasicAuthProvider(
-        authConfig.getString("username"),
-        authConfig.getString("password")
-      ))
-    }
+    val esConfig = config.atKey("elasticsearch")
+    val builder = RestClient.builder(HttpHost.create(esConfig.getString("uri")))
+    builder.setHttpClientConfigCallback(new BasicAuthProvider(
+      esConfig.getString("auth.username"),
+      esConfig.getString("auth.password")
+    ))
     builder.build
   }
 
@@ -164,21 +188,21 @@ class ElasticSearchClient private (hosts: Seq[String]) extends SearchClient[JVal
       s"/$indexName/_refresh",
       Map.empty[String, String].asJava)
 
-  override def search(query: String, indexName: String): Option[JValue] = {
+  override def search(query: SearchQuery, indexName: String): Seq[T] = {
     implicit val _ = DefaultFormats
     logger.info(s"Query:\n$query")
     val response = client.performRequest(
       "POST",
       s"/$indexName/_search",
       Map.empty[String, String].asJava,
-      new StringEntity(query, ContentType.APPLICATION_JSON))
+      new StringEntity(mkElasticQueryString(query), ContentType.APPLICATION_JSON))
     response.getStatusLine.getStatusCode match {
       case 200 =>
         logger.info(s"Got source from query: $query")
-        Some(parse(EntityUtils.toString(response.getEntity)))
+        transform(parse(EntityUtils.toString(response.getEntity)))
       case _ =>
         logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-        None
+        Seq.empty
     }
   }
 }
@@ -186,8 +210,24 @@ class ElasticSearchClient private (hosts: Seq[String]) extends SearchClient[JVal
 
 object ElasticSearchClient {
 
-  def apply(hosts: String*): ElasticSearchClient = new ElasticSearchClient(hosts)
+  def apply(hosts: String*): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](hosts) with ElasticSearchResultTransformation
 
+
+  private def mkElasticQueryString(query: SearchQuery): String = {
+    import org.json4s.JsonDSL._
+    import org.json4s.jackson.JsonMethods._
+    val json =
+      ("size" -> query.size) ~
+      ("from" -> query.from) ~
+      ("query" ->
+        ("bool" -> (
+          ("should" -> query.should.toSeq.map("terms" -> _)) ~
+          ("must" -> query.must.toSeq) ~
+          ("must_not" -> query.mustNot.toList.map(a => a._1 -> a._2.map(b => (b._1 -> b._2) ~ ("boost" -> 0))))
+        ))
+      )
+    compact(render(json))
+  }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
     private val credentialsProvider = new BasicCredentialsProvider()

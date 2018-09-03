@@ -76,7 +76,7 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-optics" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
-      "org.elasticsearch.client" % "rest" % "5.5.3",
+      "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.4.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
