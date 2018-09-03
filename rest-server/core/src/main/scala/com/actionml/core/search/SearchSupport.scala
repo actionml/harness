@@ -21,11 +21,12 @@ trait SearchSupport[T] {
   def createSearchClient(hosts: String*): SearchClient[T]
 }
 
+case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
 case class SearchQuery(
-  sortBy: String,
-  should: Map[String, Seq[String]] = Map.empty,
-  must: Map[String, Seq[String]] = Map.empty,
-  mustNot: Map[String, Map[String, Seq[String]]] = Map.empty,
+  sortBy: String = "popRank", // todo: make it optional
+  should: Map[String, Seq[Matcher]] = Map.empty,
+  must: Map[String, Seq[Matcher]] = Map.empty,
+  mustNot: Map[String, Seq[Matcher]] = Map.empty,
   size: Int = 20,
   from: Int = 0
 )

@@ -17,7 +17,7 @@
 
 package com.actionml.core.elasticsearch
 
-import com.actionml.core.search.{Hit, SearchClient, SearchQuery, SearchSupport}
+import com.actionml.core.search._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
@@ -208,7 +208,7 @@ class ElasticSearchClient[T] private (hosts: Seq[String]) extends SearchClient[T
 }
 
 
-object ElasticSearchClient {
+object ElasticSearchClient extends App {
 
   def apply(hosts: String*): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](hosts) with ElasticSearchResultTransformation
 
@@ -216,16 +216,31 @@ object ElasticSearchClient {
   private def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.JsonDSL._
     import org.json4s.jackson.JsonMethods._
+    def matcherToJson(clauses: Map[String, Seq[Matcher]]) = clauses.map { case (clause, matchers) =>
+      matchers.map { m =>
+        clause ->
+          (m.name -> m.values) ~
+          m.boost.fold(JObject())("boost" -> _)
+      }
+    }.flatten
     val json =
-      ("size" -> query.size) ~
-      ("from" -> query.from) ~
-      ("query" ->
-        ("bool" -> (
-          ("should" -> query.should.toSeq.map("terms" -> _)) ~
-          ("must" -> query.must.toSeq) ~
-          ("must_not" -> query.mustNot.toList.map(a => a._1 -> a._2.map(b => (b._1 -> b._2) ~ ("boost" -> 0))))
-        ))
-      )
+      if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
+        JObject()
+      else {
+        ("size" -> query.size) ~
+          ("from" -> query.from) ~
+          ("query" ->
+            ("bool" ->
+              ("should" -> matcherToJson(query.should)) ~
+              ("must" -> matcherToJson(query.must)) ~
+              ("must_not" -> matcherToJson(query.mustNot))
+            )
+          ) ~
+          ("sort" -> Seq(
+            "_score" -> JObject("order" -> JString("desc")),
+            query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
+          ))
+      }
     compact(render(json))
   }
 
