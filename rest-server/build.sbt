@@ -16,8 +16,16 @@ lazy val mongoScalaDriverVersion = "2.2.1"
 lazy val sparkVersion = "2.2.1"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
+lazy val mahoutVersion = "0.13.0"
+
+//resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
+
+resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo/"
+
+resolvers += Resolver.mavenLocal
 
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
+
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 lazy val commonSettings = Seq(
@@ -101,6 +109,7 @@ lazy val common = (project in file("common")).dependsOn(core).
     )
   )
 
+
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
@@ -109,7 +118,18 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
 
       // the dynamic lib must be hand installed for this Java JNI wrapper to find it
-      "com.github.johnlangford" % "vw-jni" % "8.4.1"
+      "com.github.johnlangford" % "vw-jni" % "8.4.1",
+
+      // libs for URNavHinting and UR
+      // Mahout's Spark libs. They're custom compiled for Scala 2.11
+      // and included in the local Maven repo in the .custom-scala-m2/repo resolver below
+      "org.apache.mahout" %% "mahout-math-scala" % mahoutVersion,
+      "org.apache.mahout" %% "mahout-spark" % mahoutVersion
+        exclude("org.apache.spark", "spark-core_2.11"),
+      "org.apache.mahout"  % "mahout-math" % mahoutVersion,
+      "org.apache.mahout"  % "mahout-hdfs" % mahoutVersion
+        exclude("com.thoughtworks.xstream", "xstream")
+        exclude("org.apache.hadoop", "hadoop-client")
     ),
     excludeDependencies ++= Seq(
       SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),

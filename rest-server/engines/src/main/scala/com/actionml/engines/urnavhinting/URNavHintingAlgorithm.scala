@@ -30,10 +30,14 @@ import org.bson.Document
 import org.joda.time.DateTime
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
-import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent, URNavHintingQuery, UrNavHintingQueryResult}
+import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
+import org.apache.mahout.math.indexeddataset.IndexedDataset
+import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -43,7 +47,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * base classes but is better used as a starting point for new Engines.
   */
 class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, params: URAlgorithmParams)
-  extends Algorithm[URNavHintingQuery, UrNavHintingQueryResult]
+  extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
     with LambdaAlgorithm[URNavHintingEvent]
     with SparkMongoSupport
     with JsonParser {
@@ -233,67 +237,106 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def train(): Validated[ValidateError, String] = {
-
-    /*
-    sparkContext = createSparkContext(
-      appName = dataset.engineId,
-      dbName = dataset.dbName,
-      collection = dataset.collection,
-      config = initParams)
-    */
-
-
     val defaults = Map(
       "appName" -> engineId,
       "spark.mongodb.input.uri" -> MongoStorage.uri,
       "spark.mongodb.input.database" -> engineId,
-      "spark.mongodb.input.collection" -> dataset.getItemsCollectionName)
+      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName)
 
+    SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
+
+      //val data = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
+      val data = getIndicators
+
+      recsModel match {
+        case RecsModels.All => calcAll(data)
+        case RecsModels.CF => calcAll(data, calcPopular = false)(sc)
+        //case RecsModels.BF => calcPop(data)(sc)
+        // error, throw an exception
+        case unknownRecsModel =>
+          throw new IllegalArgumentException(
+            s"""
+             |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
+             |Use one of the available parameter values ($recsModel).""".stripMargin)
+      }
+    }
+    // todo: EsClient.close()
 
     logger.debug(s"Starting train $this with spark $sparkContext")
-
-    /*
-    sparkContext.andThen { sc =>
-
-      val rdd = sc.makeRDD((1 to 10000).toSeq))
-      val result = rdd.ma
-
-      Valid("URNavHintingAlgorithm model creation queued for processing on the Spark cluster")
-    }
-    */
-
-    SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc => // or implicit sc =>
-    //sparkContext.andThen { implicit sc =>
-
-      val s = 1 to 10000
-      val rdd = sc.parallelize(s)
-      val seq = rdd.collect()
-      // val rdd = createRdd(sc)
-      // val result = sc.runJob(rdd, myTrainFunction)
-      val result = rdd.fold(0) { (last, current) => last + current }
-      //val r2 = rdd.collect() // forces job to complete
-      //sc.stop() // always stop or it will be active forever
-
-      logger.info(
-        s"""
-           |URNavHintingAlgorithm.train
-           |  Status for appname: ${sc.appName}
-           |  Run on master: ${sc.master}
-           |  Result: $result
-           |  Completed asynchronously
-        """.stripMargin
-      )
-
-      val mongoRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs)
-      mongoRdd.collect().foreach(println)
-
-    }
-
     Valid("Started train Job on Spark")
   }
 
-  def query(query: URNavHintingQuery): UrNavHintingQueryResult = {
-    UrNavHintingQueryResult()
+  def getIndicators(implicit sc: SparkContext): PreparedData = {
+    URNavHintingPreparator.getPreparedData
+  }
+
+  /** Calculates recs model as well as popularity model */
+  def calcAll(
+      data: PreparedData,
+      calcPopular: Boolean = true)(implicit sc: SparkContext): Unit = {
+
+    /*logger.info("Indicators read now creating correlators")
+    val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
+      data.actions.map(_._2).toArray,
+      ap.seed.getOrElse(System.currentTimeMillis()).toInt)
+      .map(_.asInstanceOf[IndexedDatasetSpark])
+    */
+
+    logger.info("Actions read now creating correlators")
+    val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
+      SimilarityAnalysis.cooccurrencesIDSs(
+        data.actions.map(_._2).toArray,
+        randomSeed,
+        maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
+        maxNumInteractions = maxEventsPerEventType)
+    } else { // using params per matrix pair, these take the place of eventNames, maxCorrelatorsPerEventType,
+      // and maxEventsPerEventType!
+      val indicators = params.indicators.get
+      val iDs = data.actions.map(_._2)
+      val datasets = iDs.zipWithIndex.map {
+        case (iD, i) =>
+          new DownsamplableCrossOccurrenceDataset(
+            iD,
+            indicators(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
+            indicators(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
+            indicators(i).minLLR)
+      }.toList
+
+      SimilarityAnalysis.crossOccurrenceDownsampled(
+        datasets,
+        randomSeed)
+        .map(_.asInstanceOf[IndexedDatasetSpark])
+    }
+
+    val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
+
+    /* todo: this may disable the popularity model
+    val propertiesRDD: RDD[(String, ItemProps)] = if (calcPopular) {
+      val ranksRdd = getRanksRDD(data.fieldsRDD)
+      data.fieldsRDD.fullOuterJoin(ranksRdd).map {
+        case (item, (Some(fieldsPropMap), Some(rankPropMap))) => item -> (fieldsPropMap ++ rankPropMap)
+        case (item, (Some(fieldsPropMap), None))              => item -> fieldsPropMap
+        case (item, (None, Some(rankPropMap)))                => item -> rankPropMap
+        case (item, _)                                        => item -> Map.empty
+      }
+    } else {
+      sc.emptyRDD
+    }
+    */
+
+    logger.info("Correlators created now putting into URModel")
+    /* write the model to ES from cooccurrenceCorrelators and typeMappings
+    new URModel(
+      coocurrenceMatrices = cooccurrenceCorrelators,
+      propertiesRDDs = Seq(propertiesRDD),
+      typeMappings = getMappings).save(dateNames, esIndex, esType, numESWriteConnections)
+    new NullModel
+    */
+  }
+
+
+  def query(query: URNavHintingQuery): URNavHintingQueryResult = {
+    URNavHintingQueryResult()
   }
 
 }
@@ -355,7 +398,7 @@ object URNavHintingAlgorithm extends JsonParser {
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
-         |""".stripMargin
+      """.stripMargin
     }
   }
 
@@ -424,6 +467,10 @@ object URNavHintingAlgorithm extends JsonParser {
       before: Option[String], // empty strings means no filter
       after: Option[String]) // both empty should be ignored
     extends Serializable
+
+  case class PreparedData(
+      actions: Seq[(String, IndexedDataset)]) extends Serializable
+
 
 }
 

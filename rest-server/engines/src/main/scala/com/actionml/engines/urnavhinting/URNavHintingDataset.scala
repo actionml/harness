@@ -50,6 +50,7 @@ class URNavHintingDataset(engineId: String, store: Store) extends Dataset[URNavH
   private val itemsDao = store.createDao[ItemProperties](esType) // the _id can be the name, it should be unique and indexed
   def getItemsDbName = esIndex
   def getItemsCollectionName = esType
+  def getIndicatorEventsCollectionName = "indicator_events"
   def getItemsDao = itemsDao
 
   private var params: URAlgorithmParams = _
