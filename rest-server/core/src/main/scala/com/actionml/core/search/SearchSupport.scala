@@ -27,11 +27,12 @@ trait SearchSupport[T] {
 
 trait SearchClient[T] {
   def close: Unit
-  def createIndex(indexName: String,
-                  indexType: String,
-                  fieldNames: List[String],
-                  typeMappings: Map[String, (String, Boolean)] = Map.empty,
-                  refresh: Boolean = false): Boolean
+  def createIndex(
+    indexName: String,
+    indexType: String,
+    fieldNames: List[String],
+    typeMappings: Map[String, (String, Boolean)] = Map.empty,
+    refresh: Boolean = false): Boolean
   def deleteIndex(indexName: String, refresh: Boolean = false): Boolean
   def refreshIndex(indexName: String): Unit
   def search(query: String, indexName: String): Option[T]

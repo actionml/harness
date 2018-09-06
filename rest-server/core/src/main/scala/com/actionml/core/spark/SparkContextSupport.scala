@@ -67,6 +67,10 @@ object SparkContextSupport {
       appName <- configMap.get("appName")
     } conf.setMaster(master).setAppName(appName)
     conf.setAll(configMap -- Seq("master", "appName", "dbName", "collection"))
+    // todo: not sure we should make these keys special, if we do then we should report and error if things like
+    // master or appname are required but not provided. We need a better way to report engine.json errors,
+    // especially in the sparkConf, which is only partially known. We can check for required things and let the
+    // rest through on the hope they are correct
     new SparkContext(conf)
   }
 

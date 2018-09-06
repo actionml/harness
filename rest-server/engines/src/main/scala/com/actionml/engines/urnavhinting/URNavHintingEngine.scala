@@ -24,7 +24,7 @@ import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.model.{EngineParams, Event, GenericQuery, Query}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.ValidateError
-import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEngineParams
+import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import com.actionml.engines.urnavhinting._
 //import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 //import com.actionml.engines.urnavhinting.URNavHintingAlgorithm

@@ -48,9 +48,9 @@ import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
   */
 class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, params: URAlgorithmParams)
   extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
-    with LambdaAlgorithm[URNavHintingEvent]
-    with SparkMongoSupport
-    with JsonParser {
+  with LambdaAlgorithm[URNavHintingEvent]
+  with SparkMongoSupport
+  with JsonParser {
 
   import URNavHintingAlgorithm._
 
@@ -133,7 +133,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
         params.eventNames.get
       } else {
         params.indicators.get.map(_.name)
-      }
+      }.toSeq
 
       blacklistEvents = params.blacklistEvents.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
@@ -240,13 +240,13 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     val defaults = Map(
       "appName" -> engineId,
       "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> engineId,
+      "spark.mongodb.input.database" -> dataset.getItemsDbName,
       "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName)
 
     SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
 
       //val data = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
-      val data = getIndicators
+      val data = getIndicators(modelEventNames)
 
       recsModel match {
         case RecsModels.All => calcAll(data)
@@ -266,23 +266,17 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     Valid("Started train Job on Spark")
   }
 
-  def getIndicators(implicit sc: SparkContext): PreparedData = {
-    URNavHintingPreparator.getPreparedData
+  def getIndicators(modelEventNames: Seq[String])(implicit sc: SparkContext): PreparedData = {
+    URNavHintingPreparator.getPreparedData(modelEventNames)
   }
 
   /** Calculates recs model as well as popularity model */
   def calcAll(
-      data: PreparedData,
-      calcPopular: Boolean = true)(implicit sc: SparkContext): Unit = {
+    data: PreparedData,
+    calcPopular: Boolean = true)
+    (implicit sc: SparkContext): Unit = {
 
-    /*logger.info("Indicators read now creating correlators")
-    val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
-      data.actions.map(_._2).toArray,
-      ap.seed.getOrElse(System.currentTimeMillis()).toInt)
-      .map(_.asInstanceOf[IndexedDatasetSpark])
-    */
-
-    logger.info("Actions read now creating correlators")
+   logger.info("Actions read now creating correlators")
     val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
       SimilarityAnalysis.cooccurrencesIDSs(
         data.actions.map(_._2).toArray,
@@ -310,6 +304,16 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
     val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
 
+    dataset.getItemsDao.saveOne(ItemProperties("item-1", Map[String, Any](("prop-1" -> 1), ("prop-2" -> Seq("str1", "str2", "str3")))))
+
+    val propsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getItemsCollectionName))
+
+    logger.info(s"Got and Rdd for collection: ${dataset.getItemsCollectionName}, which is where the populatiry rank will be")
+    propsRdd.collect().foreach { ip =>
+      logger.info(s"Item: ${ip._id} properties: ${ip.properties}")
+    }
+    logger.info(s"Item Properties has ${propsRdd.count()} items")
+
     /* todo: this may disable the popularity model
     val propertiesRDD: RDD[(String, ItemProps)] = if (calcPopular) {
       val ranksRdd = getRanksRDD(data.fieldsRDD)
@@ -325,14 +329,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     */
 
     logger.info("Correlators created now putting into URModel")
-    /* write the model to ES from cooccurrenceCorrelators and typeMappings
-    new URModel(
-      coocurrenceMatrices = cooccurrenceCorrelators,
-      propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings).save(dateNames, esIndex, esType, numESWriteConnections)
-    new NullModel
-    */
-  }
+    //
+   }
 
 
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {

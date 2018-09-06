@@ -1,6 +1,8 @@
 package com.actionml.engines.urnavhinting
 
+import com.actionml.core.spark.SparkMongoSupport
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.PreparedData
+import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
@@ -26,12 +28,22 @@ import org.apache.spark.rdd.RDD
  * limitations under the License.
  */
 
-object URNavHintingPreparator extends LazyLogging {
+/** Partitions off creation of Mahout data structures from stored data in a DB */
+object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
 
-  def getPreparedData(implicit sc: SparkContext): PreparedData = {
-    val navEvents = Seq(("u1","nav1"),("u2","nav1"),("u3","nav2"))
-    val searchTerms = Seq(("u1","term1"),("u2","term1"),("u3","term2"))
-    val contentPrefs = Seq(("u1","tag1"),("u2","tag1"),("u3","tag2"))
+  /** Prepares Mahout IndexedDatasetSpark from the URNavHintingEvent collection in Mongo
+    * by first converting in to separate RDD[(String, String)] from each eventName passed in
+    * then we supply a companion object that constructs the IndexedDatasetSpark from the
+    * String Pair RDD. The pairs are (user-id, item-id) for a given event, see the CCO
+    * algorithm to understand how this is used: todo: create a refernce for the algo
+    * @param eventNames From eventNames or indicators in the engine's JSON config
+    * @param sc an active SparkContext
+    * @return Seq of (eventName, IndexedDatasetSpark) todo: should be a Map, legacy from PIO
+    */
+  def getPreparedData(eventNames: Seq[String])(implicit sc: SparkContext): PreparedData = {
+    val navEvents = Seq(("u1","nav1"),("u2","nav1"),("u3","nav1"),("u1","nav2"),("u2","nav2"),("u3","nav2"))
+    val searchTerms = Seq(("u1","term1"),("u2","term1"),("u3","term2"),("u1","term1"),("u2","term1"),("u3","term2"))
+    val contentPrefs = Seq(("u1","tag1"),("u2","tag1"),("u3","tag2"),("u1","tag1"),("u2","tag1"),("u3","tag2"))
     val navEventIndicators: RDD[(String, String)] = sc.parallelize(navEvents)
     val searchTermIndicators = sc.parallelize(navEvents)
     val contentPrefIndicators = sc.parallelize(navEvents)
@@ -41,10 +53,25 @@ object URNavHintingPreparator extends LazyLogging {
       ("search-terms", searchTermIndicators),
       ("content-pref", contentPrefIndicators))
 
+    val allData = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
+    val namedRdds = eventNames.map { eventName =>
+      (eventName, allData.filter( e => e.event == eventName).map(e => (e.entityId, e.targetEntityId.getOrElse(""))))
+    }
+
     object trainingData {
-      val actions = allEvents
+      val actions = namedRdds
       val minEventsPerUser = Some(1)
     }
+
+    /*
+    namedRdds.foreach { case(name, rdd) =>
+      val events = rdd.collect()
+      logger.info(s"Data for eventName: $name")
+      events.foreach { case (user, item) =>
+        logger.info(s"User: $user, Item: $item")
+      }
+    }
+    */
 
     var userDictionary: Option[BiDictionary] = None
 
@@ -80,6 +107,8 @@ object URNavHintingPreparator extends LazyLogging {
 
         (eventName, ids)
       case _ =>
+        logger.error("Unknown value in trainingData.actions, returning NULL IndexedDataset")
+        // todo: an IndexedDataset should alloy a .empty like other collections, Null is baaaad
         ("", null.asInstanceOf[IndexedDatasetSpark])
 
     }
@@ -88,8 +117,10 @@ object URNavHintingPreparator extends LazyLogging {
 
 }
 
+/** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */
 object IndexedDatasetSpark {
 
+  /** Constructor for primary indicator where the userDictionary is built */
   def apply(
     elements: RDD[(String, String)],
     minEventsPerUser: Int)(implicit sc: SparkContext): IndexedDatasetSpark = {
@@ -148,6 +179,7 @@ object IndexedDatasetSpark {
     new IndexedDatasetSpark(drmInteractions.newRowCardinality(rowIDDictionary.size), downsampledUserIDDictionary, itemIDDictionary)
   }
 
+  /** Another constructor for secondary indicators where the userDictionary is already known */
   def apply(
     elements: RDD[(String, String)],
     existingRowIDs: Option[BiDictionary])(implicit sc: SparkContext): IndexedDatasetSpark = {

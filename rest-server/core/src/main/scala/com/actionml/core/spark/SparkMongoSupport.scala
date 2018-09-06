@@ -20,6 +20,7 @@ package com.actionml.core.spark
 import com.actionml.core.store.backends.MongoStorage
 import com.mongodb.MongoClient
 import com.mongodb.client.MongoDatabase
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.{MongoClientFactory, MongoConnector, MongoSpark}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -27,20 +28,43 @@ import org.bson.codecs.configuration.CodecProvider
 
 import scala.reflect.ClassTag
 
-
+// todo: these should be put in the DAO as a mixin trait for Spark, in which case the params are all known or can be found
+// leaving only the sc to be passed in perhaps implicitly
 trait SparkStoreSupport {
-  def readRdd[T](sc: SparkContext, codecs: List[CodecProvider])(implicit ct: ClassTag[T]): RDD[T]
+  def readRdd[T](
+    sc: SparkContext,
+    codecs: List[CodecProvider],
+    dbName: Option[String] = None,
+    collectionName: Option[String] = None)
+    (implicit ct: ClassTag[T]): RDD[T]
 }
 
 trait SparkMongoSupport extends SparkStoreSupport {
 
-  override def readRdd[T](sc: SparkContext, codecs: List[CodecProvider] = List.empty)(implicit ct: ClassTag[T]): RDD[T] = {
-    MongoSpark
-      .builder()
-      .sparkContext(sc)
-      .connector(new GenericMongoConnector(codecs, ct))
-      .build
-      .toRDD()
+  override def readRdd[T](
+    sc: SparkContext,
+    codecs: List[CodecProvider] = List.empty,
+    dbName: Option[String] = None,
+    colName: Option[String] = None)
+    (implicit ct: ClassTag[T]): RDD[T] = {
+    if(dbName.isDefined && colName.isDefined) {
+      // not sure if the codecs are understood here--I bet not
+      val rc = ReadConfig(databaseName = dbName.get, collectionName = colName.get)
+      MongoSpark
+        .builder()
+        .sparkContext(sc)
+        .readConfig(rc)
+        .connector(new GenericMongoConnector(codecs, ct))
+        .build
+        .toRDD()
+    } else {
+      MongoSpark
+        .builder()
+        .sparkContext(sc)
+        .connector(new GenericMongoConnector(codecs, ct))
+        .build
+        .toRDD()
+    }
   }
 }
 

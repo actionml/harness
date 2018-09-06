@@ -13,14 +13,12 @@ lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.6.4"
 lazy val mongoScalaDriverVersion = "2.2.1"
 //lazy val sparkVersion = "2.3.1"
-lazy val sparkVersion = "2.2.1"
+lazy val sparkVersion = "2.1.2"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
-
-resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo/"
 
 resolvers += Resolver.mavenLocal
 
@@ -67,6 +65,8 @@ lazy val core = (project in file("core")).
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.apache.spark" %% "spark-hive" % sparkVersion,
       "org.apache.spark" %% "spark-yarn" % sparkVersion,
+      "org.apache.spark" %% "spark-mllib" % sparkVersion,
+      "org.xerial.snappy" % "snappy-java" % "1.1.1.7",
       //"org.apache.hbase" % "hbase" % "2.1.0",
       //"org.apache.hbase" % "hbase-common" % "2.1.0",
       //"org.apache.hbase" % "hbase-client" % "2.1.0",
@@ -113,6 +113,7 @@ lazy val common = (project in file("common")).dependsOn(core).
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
+    resolvers += "Temp Scala 2.11 build of Mahout" at "https://raw.githubusercontent.com/actionml/mahout_2.11/mvn-repo/",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
