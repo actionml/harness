@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.elasticsearch
+package com.actionml.core.search.elasticsearch
 
 import com.actionml.core.search._
 import com.typesafe.config.ConfigFactory
@@ -37,16 +37,16 @@ import scala.collection.JavaConverters._
 import scala.reflect.ManifestFactory
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
-  override def createSearchClient(hosts: String*): SearchClient[Hit] = ElasticSearchClient(hosts:_*)
+  override def createSearchClient(hosts: String*): SearchClient[Hit] = ElasticSearchClient()
 }
 
-trait SearchResultTransformation[T] {
+trait JsonSearchResultTransformation[T] {
   implicit def reader: Reader[T]
   implicit def manifest: Manifest[T]
   def transform(j: JValue): Seq[T]
 }
 
-trait ElasticSearchResultTransformation extends SearchResultTransformation[Hit] {
+trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[Hit] {
   override implicit val manifest: Manifest[Hit] = ManifestFactory.classType(classOf[Hit])
   override implicit val reader: Reader[Hit] =  new Reader[Hit] {
     def read(value: JValue): Hit = value match {
@@ -61,21 +61,9 @@ trait ElasticSearchResultTransformation extends SearchResultTransformation[Hit] 
   }
 }
 
-class ElasticSearchClient[T] private (hosts: Seq[String]) extends SearchClient[T] with LazyLogging {
-  this: SearchResultTransformation[T] =>
+class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
+  this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
-
-  private val config = ConfigFactory.load()
-  private val client: RestClient = {
-    import ElasticSearchClient._
-    val esConfig = config.atKey("elasticsearch")
-    val builder = RestClient.builder(HttpHost.create(esConfig.getString("uri")))
-    builder.setHttpClientConfigCallback(new BasicAuthProvider(
-      esConfig.getString("auth.username"),
-      esConfig.getString("auth.password")
-    ))
-    builder.build
-  }
 
   override def close: Unit = client.close()
 
@@ -210,8 +198,23 @@ class ElasticSearchClient[T] private (hosts: Seq[String]) extends SearchClient[T
 
 object ElasticSearchClient extends App {
 
-  def apply(hosts: String*): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](hosts) with ElasticSearchResultTransformation
+  def apply(): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit] with ElasticSearchResultTransformation
 
+
+  private val config = ConfigFactory.load() // todo: use ficus or something
+
+  private val client: RestClient = {
+    val esConfig = config.atKey("elasticsearch")
+    val builder = RestClient.builder(HttpHost.create(esConfig.getString("uri")))
+    val authConfig = esConfig.getConfig("auth")
+    if (!authConfig.isEmpty) {
+      builder.setHttpClientConfigCallback(new BasicAuthProvider(
+        authConfig.getString("username"),
+        authConfig.getString("password")
+      ))
+    }
+    builder.build
+  }
 
   private def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.JsonDSL._
