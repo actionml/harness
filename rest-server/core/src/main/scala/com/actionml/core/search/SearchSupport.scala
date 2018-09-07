@@ -18,7 +18,7 @@
 package com.actionml.core.search
 
 trait SearchSupport[T] {
-  def createSearchClient: SearchClient[T]
+  def createSearchClient(engineId: String): SearchClient[T]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
@@ -35,11 +35,10 @@ case class Hit(id: String, score: Float)
 
 trait SearchClient[T] {
   def close(): Unit
-  def createIndex(alias: String,
-                  indexType: String,
+  def createIndex(indexType: String,
                   fieldNames: List[String],
                   typeMappings: Map[String, (String, Boolean)] = Map.empty,
                   refresh: Boolean = false): Boolean
-  def deleteIndex(alias: String, refresh: Boolean = false): Boolean
-  def search(query: SearchQuery, alias: String): Seq[T]
+  def deleteIndex(refresh: Boolean = false): Boolean
+  def search(query: SearchQuery): Seq[T]
 }

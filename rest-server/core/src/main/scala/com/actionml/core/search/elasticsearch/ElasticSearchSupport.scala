@@ -40,7 +40,7 @@ import scala.collection.JavaConverters._
 import scala.reflect.ManifestFactory
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
-  override def createSearchClient: SearchClient[Hit] = ElasticSearchClient()
+  override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
 }
 
 trait JsonSearchResultTransformation[T] {
@@ -64,7 +64,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with WriteToEsSupport {
+class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
@@ -72,85 +72,15 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
   override def close: Unit = client.close()
 
   override def createIndex(
-    alias: String,
     indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean): Boolean = {
-      val indexName = createIndexName(alias)
-      client.performRequest(
-        "HEAD",
-        s"/$indexName",
-        Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
-        case 404 => { // should always be a unique index name so fail unless we get a 404
-          var mappings =
-            s"""
-               |{ "mappings": {
-               |    "$indexType": {
-               |      "properties": {
-            """.stripMargin.replace("\n", "")
-
-          def mappingsField(`type`: String) = {
-            s"""
-               |    : {
-               |      "type": "${`type`}"
-               |    },
-            """.stripMargin.replace("\n", "")
-          }
-
-        val mappingsTail =
-        // unused mapping forces the last element to have no comma, fuck JSON
-          s"""
-             |    "last": {
-             |      "type": "keyword"
-             |    }
-             |}}}}
-            """.stripMargin.replace("\n", "")
-
-        fieldNames.foreach { fieldName =>
-          if (typeMappings.contains(fieldName))
-            mappings +=
-              (s""""$fieldName"""" + mappingsField(typeMappings(
-                fieldName)._1))
-          else // unspecified fields are treated as not_analyzed strings
-            mappings += (s""""$fieldName"""" + mappingsField(
-              "keyword"))
-        }
-
-        mappings += mappingsTail
-        val aliases = s""""aliases":{"$alias":{}}"""
-        // "id" string is not_analyzed and does not use norms
-        // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
-        //logger.info(s"Create index with:\n$indexName\n$mappings\n")
-        val entity = new NStringEntity(s"$mappings,$aliases", ContentType.APPLICATION_JSON)
-
-        client.
-          performRequest(
-            "PUT",
-            s"/$indexName",
-            Map.empty[String, String].asJava,
-            entity).getStatusLine.
-          getStatusCode match {
-            case 200 =>
-              // now refresh to get it 'committed'
-              // todo: should do this after the new index is created so no index downtime
-              if (refresh) refreshIndexByName(indexName)
-            case _ =>
-              logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
-          }
-        true
-      }
-      case 200 =>
-        logger.warn(s"Elasticsearch index: $indexName wasn't created because it already exists. " +
-          s"This may be an error. Leaving the old index active.")
-        false
-      case _ =>
-        throw new IllegalStateException(s"/$indexName is invalid.")
-        false
-    }
+    val indexName = createIndexName(alias)
+    createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
-  override def deleteIndex(alias: String, refresh: Boolean): Boolean = {
+  override def deleteIndex(refresh: Boolean): Boolean = {
     client.performRequest(
       // Does the alias exist?
       "HEAD",
@@ -170,7 +100,7 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
         }
   }
 
-  override def search(query: SearchQuery, alias: String): Seq[T] = {
+  override def search(query: SearchQuery): Seq[T] = {
     var actualIndexName: String = createIndexName(alias)
     client.performRequest(
       // Does the alias exist?
@@ -206,7 +136,6 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
   }
 
   override def hotSwap(
-    alias: String,
     typeName: String,
     indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
@@ -218,7 +147,7 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
     logger.info(s"Create new index: $newIndex, $typeName, $fieldNames, $typeMappings")
     // todo: this should have a typeMappings that is Map[String, (String, Boolean)] with the Boolean saying to use norms
     // taken out for now since there is no client.admin in the REST client. Have to construct REST call directly
-    createIndex(newIndex, typeName, fieldNames, typeMappings, true)
+    createIndexByName(newIndex, typeName, fieldNames, typeMappings, refresh = false, doNotLinkAlias = true)
 
     // throttle writing to the max bulk-write connections, which is one per ES core.
     // todo: can we find this from the cluster itself?
@@ -284,6 +213,85 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
   }
 
 
+  private def createIndexByName(
+    indexName: String,
+    indexType: String,
+    fieldNames: List[String],
+    typeMappings: Map[String, (String, Boolean)],
+    refresh: Boolean,
+    doNotLinkAlias: Boolean = false): Boolean = {
+      client.performRequest(
+        "HEAD",
+        s"/$indexName",
+        Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+        case 404 => { // should always be a unique index name so fail unless we get a 404
+          var mappings =
+            s"""
+               |"mappings": {
+               |  "$indexType": {
+               |    "properties": {
+            """.stripMargin.replace("\n", "")
+
+          def mappingsField(`type`: String) = {
+            s"""
+               |    : {
+               |      "type": "${`type`}"
+               |    },
+            """.stripMargin.replace("\n", "")
+          }
+
+        val mappingsTail =
+        // unused mapping forces the last element to have no comma, fuck JSON
+          s"""
+             |    "last": {
+             |      "type": "keyword"
+             |    }
+             |}}}
+            """.stripMargin.replace("\n", "")
+
+        fieldNames.foreach { fieldName =>
+          if (typeMappings.contains(fieldName))
+            mappings +=
+              (s""""$fieldName"""" + mappingsField(typeMappings(
+                fieldName)._1))
+          else // unspecified fields are treated as not_analyzed strings
+            mappings += (s""""$fieldName"""" + mappingsField(
+              "keyword"))
+        }
+
+        mappings += mappingsTail
+        val aliases = if (doNotLinkAlias) "" else s""","aliases":{"$alias":{}}"""
+        // "id" string is not_analyzed and does not use norms
+        // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
+        //logger.info(s"Create index with:\n$indexName\n$mappings\n")
+        val entity = new NStringEntity(s"{$mappings$aliases}", ContentType.APPLICATION_JSON)
+
+        client.
+          performRequest(
+            "PUT",
+            s"/$indexName",
+            Map.empty[String, String].asJava,
+            entity).getStatusLine.
+          getStatusCode match {
+            case 200 =>
+              // now refresh to get it 'committed'
+              // todo: should do this after the new index is created so no index downtime
+              if (refresh) refreshIndexByName(indexName)
+            case _ =>
+              logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
+          }
+        true
+      }
+      case 200 =>
+        logger.warn(s"Elasticsearch index: $indexName wasn't created because it already exists. " +
+          s"This may be an error. Leaving the old index active.")
+        false
+      case _ =>
+        throw new IllegalStateException(s"/$indexName is invalid.")
+        false
+    }
+  }
+
   private def deleteIndexByName(indexName: String, refresh: Boolean): Boolean = {
     client.performRequest(
       "HEAD",
@@ -318,7 +326,7 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with Write
 
 object ElasticSearchClient {
 
-  def apply(): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit] with ElasticSearchResultTransformation
+  def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
@@ -326,8 +334,8 @@ object ElasticSearchClient {
 
   private val client: RestClient = {
     val builder = RestClient.builder(HttpHost.create(config.getString("elasticsearch.uri")))
-    val authConfig = config.getConfig("elasticsearch.auth")
-    if (!authConfig.isEmpty) {
+    if (config.hasPath("elasticsearch.auth")) {
+      val authConfig = config.getConfig("elasticsearch.auth")
       builder.setHttpClientConfigCallback(new BasicAuthProvider(
         authConfig.getString("username"),
         authConfig.getString("password")
