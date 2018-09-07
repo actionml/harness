@@ -18,7 +18,7 @@
 package com.actionml.core.search
 
 trait SearchSupport[T] {
-  def createSearchClient(hosts: String*): SearchClient[T]
+  def createSearchClient: SearchClient[T]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)

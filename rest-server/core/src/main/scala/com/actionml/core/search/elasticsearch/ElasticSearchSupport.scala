@@ -37,7 +37,7 @@ import scala.collection.JavaConverters._
 import scala.reflect.ManifestFactory
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
-  override def createSearchClient(hosts: String*): SearchClient[Hit] = ElasticSearchClient()
+  override def createSearchClient: SearchClient[Hit] = ElasticSearchClient()
 }
 
 trait JsonSearchResultTransformation[T] {
@@ -196,7 +196,7 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
 }
 
 
-object ElasticSearchClient extends App {
+object ElasticSearchClient {
 
   def apply(): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit] with ElasticSearchResultTransformation
 
@@ -204,9 +204,8 @@ object ElasticSearchClient extends App {
   private val config = ConfigFactory.load() // todo: use ficus or something
 
   private val client: RestClient = {
-    val esConfig = config.atKey("elasticsearch")
-    val builder = RestClient.builder(HttpHost.create(esConfig.getString("uri")))
-    val authConfig = esConfig.getConfig("auth")
+    val builder = RestClient.builder(HttpHost.create(config.getString("elasticsearch.uri")))
+    val authConfig = config.getConfig("elasticsearch.auth")
     if (!authConfig.isEmpty) {
       builder.setHttpClientConfigCallback(new BasicAuthProvider(
         authConfig.getString("username"),
