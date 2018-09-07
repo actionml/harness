@@ -23,7 +23,6 @@ import org.apache.spark.rdd.RDD
 trait WriteToEsSupport {
 
   def hotSwap(
-    indexName: String,
     typeName: String,
     indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
