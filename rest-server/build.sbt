@@ -13,7 +13,7 @@ lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.6.4"
 lazy val mongoScalaDriverVersion = "2.4.0"
 //lazy val sparkVersion = "2.3.1"
-lazy val sparkVersion = "2.2.1"
+lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 
@@ -77,6 +77,7 @@ lazy val core = (project in file("core")).
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
       "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.4.0",
+      "org.elasticsearch" %% "elasticsearch-spark-20" % "6.4.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),

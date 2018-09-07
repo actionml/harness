@@ -17,6 +17,8 @@
 
 package com.actionml.core.search.elasticsearch
 
+import java.time.Instant
+
 import com.actionml.core.search._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
@@ -27,6 +29,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
+import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.json4s.DefaultReaders._
@@ -61,37 +64,39 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
+class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging with WriteToEsSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
+  implicit val _ = DefaultFormats
 
   override def close: Unit = client.close()
 
   override def createIndex(
-    indexName: String,
+    alias: String,
     indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean): Boolean = {
+      val indexName = createIndexName(alias)
       client.performRequest(
-      "HEAD",
-      s"/$indexName",
-      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
-      case 404 => { // should always be a unique index name so fail unless we get a 404
-        var mappings =
-          s"""
-             |{ "mappings": {
-             |    "$indexType": {
-             |      "properties": {
+        "HEAD",
+        s"/$indexName",
+        Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+        case 404 => { // should always be a unique index name so fail unless we get a 404
+          var mappings =
+            s"""
+               |{ "mappings": {
+               |    "$indexType": {
+               |      "properties": {
             """.stripMargin.replace("\n", "")
 
-        def mappingsField(`type`: String) = {
-          s"""
-             |    : {
-             |      "type": "${`type`}"
-             |    },
+          def mappingsField(`type`: String) = {
+            s"""
+               |    : {
+               |      "type": "${`type`}"
+               |    },
             """.stripMargin.replace("\n", "")
-        }
+          }
 
         val mappingsTail =
         // unused mapping forces the last element to have no comma, fuck JSON
@@ -113,13 +118,11 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
         }
 
         mappings += mappingsTail
+        val aliases = s""""aliases":{"$alias":{}}"""
         // "id" string is not_analyzed and does not use norms
         // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
         //logger.info(s"Create index with:\n$indexName\n$mappings\n")
-        val entity = new NStringEntity(
-          mappings,
-          ContentType.
-            APPLICATION_JSON)
+        val entity = new NStringEntity(s"$mappings,$aliases", ContentType.APPLICATION_JSON)
 
         client.
           performRequest(
@@ -128,13 +131,13 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
             Map.empty[String, String].asJava,
             entity).getStatusLine.
           getStatusCode match {
-          case 200 =>
-            // now refresh to get it 'committed'
-            // todo: should do this after the new index is created so no index downtime
-            if (refresh) refreshIndex(indexName)
-          case _ =>
-            logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
-        }
+            case 200 =>
+              // now refresh to get it 'committed'
+              // todo: should do this after the new index is created so no index downtime
+              if (refresh) refreshIndexByName(indexName)
+            case _ =>
+              logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
+          }
         true
       }
       case 200 =>
@@ -147,41 +150,49 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
     }
   }
 
-  override def deleteIndex(indexName: String, refresh: Boolean): Boolean = {
+  override def deleteIndex(alias: String, refresh: Boolean): Boolean = {
     client.performRequest(
+      // Does the alias exist?
       "HEAD",
-      s"/$indexName",
-      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
-      case 404 => false
-      case 200 =>
-        client.performRequest(
-          "DELETE",
-          s"/$indexName",
-          Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+      s"/_alias/$alias",
+      Map.empty[String, String].asJava)
+      .getStatusLine
+      .getStatusCode match {
           case 200 =>
-            if (refresh) refreshIndex(indexName)
-          case _ =>
-            logger.info(s"Index $indexName wasn't deleted, but may have quietly failed.")
+            val aliasResponse = client.performRequest(
+              "GET",
+              s"/_alias/$alias",
+              Map.empty[String, String].asJava)
+            val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+            val indexSet = responseJValue.extract[Map[String, JValue]].keys
+            indexSet.forall(deleteIndexByName(_, refresh))
+          case _ => false
         }
-        true
-      case _ =>
-        throw new IllegalStateException()
-        false
-    }
   }
 
-  override def refreshIndex(indexName: String): Unit =
+  override def search(query: SearchQuery, alias: String): Seq[T] = {
+    var actualIndexName: String = createIndexName(alias)
     client.performRequest(
-      "POST",
-      s"/$indexName/_refresh",
+      // Does the alias exist?
+      "HEAD",
+      s"/_alias/$alias",
       Map.empty[String, String].asJava)
-
-  override def search(query: SearchQuery, indexName: String): Seq[T] = {
-    implicit val _ = DefaultFormats
+      .getStatusLine
+      .getStatusCode match {
+          case 200 =>
+            val aliasResponse = client.performRequest(
+              "GET",
+              s"/_alias/$alias",
+              Map.empty[String, String].asJava)
+            val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+            val indexSet = responseJValue.extract[Map[String, JValue]].keys
+            actualIndexName = indexSet.headOption.getOrElse(createIndexName(alias))
+          case _ =>
+        }
     logger.info(s"Query:\n$query")
     val response = client.performRequest(
       "POST",
-      s"/$indexName/_search",
+      s"/$actualIndexName/_search",
       Map.empty[String, String].asJava,
       new StringEntity(mkElasticQueryString(query), ContentType.APPLICATION_JSON))
     response.getStatusLine.getStatusCode match {
@@ -193,6 +204,115 @@ class ElasticSearchClient[T] extends SearchClient[T] with LazyLogging {
         Seq.empty
     }
   }
+
+  override def hotSwap(
+    alias: String,
+    typeName: String,
+    indexRDD: RDD[Map[String, Any]],
+    fieldNames: List[String],
+    typeMappings: Map[String, (String, Boolean)],
+    numESWriteConnections: Option[Int] = None): Unit = {
+    import org.elasticsearch.spark._
+    val newIndex = createIndexName(alias)
+
+    logger.info(s"Create new index: $newIndex, $typeName, $fieldNames, $typeMappings")
+    // todo: this should have a typeMappings that is Map[String, (String, Boolean)] with the Boolean saying to use norms
+    // taken out for now since there is no client.admin in the REST client. Have to construct REST call directly
+    createIndex(newIndex, typeName, fieldNames, typeMappings, true)
+
+    // throttle writing to the max bulk-write connections, which is one per ES core.
+    // todo: can we find this from the cluster itself?
+    val repartitionedIndexRDD = if (numESWriteConnections.nonEmpty && indexRDD.context.defaultParallelism >
+      numESWriteConnections.get) {
+      logger.info(s"defaultParallelism: ${indexRDD.context.defaultParallelism}")
+      logger.info(s"Coalesce to: ${numESWriteConnections.get} to reduce number of ES connections for saveToEs")
+      indexRDD.coalesce(numESWriteConnections.get)
+    } else {
+      logger.info(s"Number of ES connections for saveToEs: ${indexRDD.context.defaultParallelism}")
+      indexRDD
+    }
+
+    val newIndexURI = "/" + newIndex + "/" + typeName
+    val esConfig = Map("es.mapping.id" -> "id")
+    repartitionedIndexRDD.saveToEs(newIndexURI, esConfig)
+
+    val (oldIndexSet, deleteOldIndexQuery) = client.performRequest(
+      // Does the alias exist?
+      "HEAD",
+      s"/_alias/$alias",
+      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+        case 200 => {
+          val response = client.performRequest(
+            "GET",
+            s"/_alias/$alias",
+            Map.empty[String, String].asJava)
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
+          val oldIndexSet = responseJValue.extract[Map[String, JValue]].keys
+          val oldIndexName = oldIndexSet.head
+          client.performRequest(
+            // Does the old index exist?
+            "HEAD",
+            s"/$oldIndexName",
+            Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+              case 200 => {
+                val deleteOldIndexQuery = s""",{ "remove_index": { "index": "${oldIndexName}"}}"""
+                (oldIndexSet, deleteOldIndexQuery)
+              }
+              case _ => (Set(), "")
+            }
+        }
+        case _ => (Set(), "")
+      }
+
+    val aliasQuery =
+      s"""
+        |{
+        |    "actions" : [
+        |        { "add":  { "index": "${newIndex}", "alias": "${alias}" } }
+        |        ${deleteOldIndexQuery}
+        |    ]
+        |}
+      """.stripMargin.replace("\n", "")
+
+    val entity = new NStringEntity(aliasQuery, ContentType.APPLICATION_JSON)
+    client.performRequest(
+      "POST",
+      "/_aliases",
+      Map.empty[String, String].asJava,
+      entity)
+    oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
+  }
+
+
+  private def deleteIndexByName(indexName: String, refresh: Boolean): Boolean = {
+    client.performRequest(
+      "HEAD",
+      s"/$indexName",
+      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+      case 404 => false
+      case 200 =>
+        client.performRequest(
+          "DELETE",
+          s"/$indexName",
+          Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+          case 200 =>
+            if (refresh) refreshIndexByName(indexName)
+          case _ =>
+            logger.info(s"Index $indexName wasn't deleted, but may have quietly failed.")
+        }
+        true
+      case _ =>
+        throw new IllegalStateException()
+        false
+    }
+  }
+
+  private def refreshIndexByName(indexName: String): Unit = {
+    client.performRequest(
+      "POST",
+      s"/$indexName/_refresh",
+      Map.empty[String, String].asJava)
+  }
 }
 
 
@@ -200,6 +320,7 @@ object ElasticSearchClient {
 
   def apply(): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit] with ElasticSearchResultTransformation
 
+  private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
   private val config = ConfigFactory.load() // todo: use ficus or something
 
