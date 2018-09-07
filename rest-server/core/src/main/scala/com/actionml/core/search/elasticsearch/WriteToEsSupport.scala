@@ -15,32 +15,18 @@
  * limitations under the License.
  */
 
-package com.actionml.core.search
+package com.actionml.core.search.elasticsearch
 
-trait SearchSupport[T] {
-  def createSearchClient: SearchClient[T]
-}
+import org.apache.spark.rdd.RDD
 
-case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
-case class SearchQuery(
-  sortBy: String = "popRank", // todo: make it optional
-  should: Map[String, Seq[Matcher]] = Map.empty,
-  must: Map[String, Seq[Matcher]] = Map.empty,
-  mustNot: Map[String, Seq[Matcher]] = Map.empty,
-  size: Int = 20,
-  from: Int = 0
-)
 
-case class Hit(id: String, score: Float)
+trait WriteToEsSupport {
 
-trait SearchClient[T] {
-  def close(): Unit
-  def createIndex(
-    alias: String,
-    indexType: String,
+  def hotSwap(
+    indexName: String,
+    typeName: String,
+    indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
-    refresh: Boolean = false): Boolean
-  def deleteIndex(alias: String, refresh: Boolean = false): Boolean
-  def search(query: SearchQuery, alias: String): Seq[T]
+    numESWriteConnections: Option[Int] = None): Unit
 }

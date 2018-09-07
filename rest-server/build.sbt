@@ -11,9 +11,9 @@ lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.6.4"
-lazy val mongoScalaDriverVersion = "2.2.1"
+lazy val mongoScalaDriverVersion = "2.4.0"
 //lazy val sparkVersion = "2.3.1"
-lazy val sparkVersion = "2.1.2"
+lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
@@ -84,7 +84,8 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-optics" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
 
-      "org.elasticsearch.client" % "rest" % "5.5.3",
+      "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.4.0",
+      "org.elasticsearch" %% "elasticsearch-spark-20" % "6.4.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
@@ -108,7 +109,6 @@ lazy val common = (project in file("common")).dependsOn(core).
       SbtExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
-
 
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(

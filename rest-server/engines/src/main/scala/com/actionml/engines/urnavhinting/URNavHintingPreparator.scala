@@ -65,7 +65,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
       val minEventsPerUser = Some(1)
     }
 
-    /*
+
     namedRdds.foreach { case(name, rdd) =>
       val events = rdd.collect()
       logger.info(s"Data for eventName: $name")
@@ -73,7 +73,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
         logger.info(s"User: $user, Item: $item")
       }
     }
-    */
+
 
     var userDictionary: Option[BiDictionary] = None
 
