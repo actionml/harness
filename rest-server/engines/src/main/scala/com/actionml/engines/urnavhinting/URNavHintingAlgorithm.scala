@@ -276,7 +276,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     calcPopular: Boolean = true)
     (implicit sc: SparkContext): Unit = {
 
-   logger.info("Actions read now creating correlators")
+    logger.info("Events read now creating correlators")
     val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
       SimilarityAnalysis.cooccurrencesIDSs(
         data.actions.map(_._2).toArray,

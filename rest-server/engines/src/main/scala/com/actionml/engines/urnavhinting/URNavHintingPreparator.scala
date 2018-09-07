@@ -41,6 +41,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
     * @return Seq of (eventName, IndexedDatasetSpark) todo: should be a Map, legacy from PIO
     */
   def getPreparedData(eventNames: Seq[String])(implicit sc: SparkContext): PreparedData = {
+    /*
     val navEvents = Seq(("u1","nav1"),("u2","nav1"),("u3","nav1"),("u1","nav2"),("u2","nav2"),("u3","nav2"))
     val searchTerms = Seq(("u1","term1"),("u2","term1"),("u3","term2"),("u1","term1"),("u2","term1"),("u3","term2"))
     val contentPrefs = Seq(("u1","tag1"),("u2","tag1"),("u3","tag2"),("u1","tag1"),("u2","tag1"),("u3","tag2"))
@@ -52,6 +53,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
       ("nav-events", navEventIndicators),
       ("search-terms", searchTermIndicators),
       ("content-pref", contentPrefIndicators))
+    */
 
     val allData = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
     val namedRdds = eventNames.map { eventName =>
@@ -112,6 +114,15 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
         ("", null.asInstanceOf[IndexedDatasetSpark])
 
     }
+
+    logger.info("Done creating the IndexedDatasets, will now collect the original RDDs, which should force the mongo read")
+    trainingData.actions.foreach { case (name, rdd) =>
+      logger.info(s"Got and RDD from mongo for Event: $name with ${rdd.count()} events")
+      rdd.collect().foreach { case (userId, itemId) =>
+        logger.info(s"User: $userId Item: $itemId")
+      }
+    }
+
     PreparedData(indexedDatasets)
   }
 
