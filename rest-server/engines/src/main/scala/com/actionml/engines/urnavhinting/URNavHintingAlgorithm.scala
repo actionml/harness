@@ -247,7 +247,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       "appName" -> engineId,
       "spark.mongodb.input.uri" -> MongoStorage.uri,
       "spark.mongodb.input.database" -> dataset.getItemsDbName,
-      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName)
+      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName
+    )
 
     SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
 
@@ -255,11 +256,24 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       val eventsRdd = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
 
       // todo: this should work but not tested and not used in any case
+      /*
       val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
         (itemProps._id, itemProps.properties)
       }
+      */
 
       val data = getIndicators(modelEventNames, eventsRdd)
+
+      logger.info("======================================== Contents of Indicators ========================================")
+      data.actions.foreach { case(name, id) =>
+        val ids = id.asInstanceOf[IndexedDatasetSpark]
+        logger.info(s"Event name: $name")
+        logger.info(s"Num users/rows = ${ids.matrix.nrow}")
+        logger.info(s"Num items/columns = ${ids.matrix.ncol}")
+        logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
+        logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+      }
+      logger.info("======================================== done ========================================")
 
       // todo: for now ignore properties and only calc popularity, then save to ES
       calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
@@ -277,7 +291,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       }
       */
     }
-    // todo: EsClient.close() can't be done because the Spark driver might be using it?????
+    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
+    // with access to `sc`
 
 
     logger.debug(s"Starting train $this with spark $sparkContext")
@@ -301,12 +316,24 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     (implicit sc: SparkContext): URNavHintingModel = {
 
     logger.info("Events read now creating correlators")
-    val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
-      SimilarityAnalysis.cooccurrencesIDSs(
+    // todo: disabling downsampling !!! this ignores indicator params, like minLLR !!!
+    // val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
+    val cooccurrenceIDSs = if (true) { // using one global set of algo params
+      val tmpModel = SimilarityAnalysis.cooccurrencesIDSs(
         data.actions.map(_._2).toArray,
         randomSeed,
         maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
         maxNumInteractions = maxEventsPerEventType)
+      logger.info("======================================== Model data ========================================")
+      tmpModel.foreach { id =>
+        val ids = id.asInstanceOf[IndexedDatasetSpark]
+        logger.info(s"Num conversion items/rows = ${ids.matrix.ncol}")
+        logger.info(s"Num columns for this segment= ${ids.matrix.nrow}")
+        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
+        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
+      }
+      logger.info("======================================== done ========================================")
+      tmpModel
     } else { // using params per matrix pair, these take the place of eventNames, maxCorrelatorsPerEventType,
       // and maxEventsPerEventType!
       val indicators = params.indicators.get
@@ -320,10 +347,36 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
             indicators(i).minLLR)
       }.toList
 
-      SimilarityAnalysis.crossOccurrenceDownsampled(
+      logger.info("======================================== Downsampling data ========================================")
+      datasets.foreach { id =>
+        val ids = id.asInstanceOf[IndexedDatasetSpark]
+        logger.info(s"Num users/rows = ${ids.matrix.ncol}")
+        logger.info(s"Num items/columns = ${ids.matrix.nrow}")
+        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
+        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
+      }
+      logger.info("======================================== done ========================================")
+
+
+
+      val tmpModel = SimilarityAnalysis.crossOccurrenceDownsampled(
         datasets,
         randomSeed)
         .map(_.asInstanceOf[IndexedDatasetSpark])
+
+      logger.info("======================================== Model data ========================================")
+      tmpModel.foreach { id =>
+        val ids = id.asInstanceOf[IndexedDatasetSpark]
+        logger.info(s"Num conversion items/rows = ${ids.matrix.ncol}")
+        logger.info(s"Num columns for this segment= ${ids.matrix.nrow}")
+        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
+        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
+      }
+      logger.info("======================================== done ========================================")
+
+
+
+      tmpModel
     }
 
     val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
