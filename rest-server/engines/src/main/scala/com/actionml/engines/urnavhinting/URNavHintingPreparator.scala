@@ -40,7 +40,11 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
     * @param sc an active SparkContext
     * @return Seq of (eventName, IndexedDatasetSpark) todo: should be a Map, legacy from PIO
     */
-  def getPreparedData(eventNames: Seq[String])(implicit sc: SparkContext): PreparedData = {
+  def prepareData(
+    eventNames: Seq[String],
+    eventsRdd: RDD[URNavHintingEvent])
+    (implicit sc: SparkContext): PreparedData = {
+
     /*
     val navEvents = Seq(("u1","nav1"),("u2","nav1"),("u3","nav1"),("u1","nav2"),("u2","nav2"),("u3","nav2"))
     val searchTerms = Seq(("u1","term1"),("u2","term1"),("u3","term2"),("u1","term1"),("u2","term1"),("u3","term2"))

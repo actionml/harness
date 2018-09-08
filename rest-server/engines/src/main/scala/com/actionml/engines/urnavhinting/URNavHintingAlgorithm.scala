@@ -37,6 +37,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+import org.json4s.JsonAST.{JDouble, JValue}
+
+import scala.concurrent.duration.Duration
 
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -208,12 +211,14 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def destroy(): Unit = {
+    // todo: delete the model, only the algorithm knows where it is
   }
 
   override def input(datum: URNavHintingEvent): Validated[ValidateError, Boolean] = {
     logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
       " This is where that will be done")
     // This deals with real-time model changes.
+    // todo: none do anything for the PoC so all return errors
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
       case "$set" =>
@@ -226,14 +231,15 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
           case "model" =>
             logger.warn("Delete a \"model\" not supported")
             Invalid(WrongParams("Using $delele on \"entityType\": \"model\" is not supported yet"))
-
+          case _ =>
+            logger.warn(s"Deleting unknown entityType is not supported.")
+            Invalid(WrongParams(s"Deleting unknown entityType is not supported."))
         }
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
-
+        Valid(true)
     }
-    Valid(true)
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -245,9 +251,19 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
     SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
 
-      //val data = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
-      val data = getIndicators(modelEventNames)
+      // todo: we should be able to pass in the dbName and collectionName to any readRdd call now, not tested
+      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
 
+      // todo: this should work but not tested and not used in any case
+      val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
+        (itemProps._id, itemProps.properties)
+      }
+
+      val data = getIndicators(modelEventNames, eventsRdd)
+
+      // todo: for now ignore properties and only calc popularity, then save to ES
+      calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
+      /* not needed for PoC
       recsModel match {
         case RecsModels.All => calcAll(data)
         case RecsModels.CF => calcAll(data, calcPopular = false)(sc)
@@ -259,22 +275,30 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
              |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
              |Use one of the available parameter values ($recsModel).""".stripMargin)
       }
+      */
     }
-    // todo: EsClient.close()
+    // todo: EsClient.close() can't be done because the Spark driver might be using it?????
+
 
     logger.debug(s"Starting train $this with spark $sparkContext")
     Valid("Started train Job on Spark")
   }
 
-  def getIndicators(modelEventNames: Seq[String])(implicit sc: SparkContext): PreparedData = {
-    URNavHintingPreparator.getPreparedData(modelEventNames)
+  def getIndicators(
+    modelEventNames: Seq[String],
+    eventsRdd: RDD[URNavHintingEvent])
+    (implicit sc: SparkContext): PreparedData = {
+    URNavHintingPreparator.prepareData(modelEventNames, eventsRdd)
   }
 
   /** Calculates recs model as well as popularity model */
   def calcAll(
     data: PreparedData,
+    eventsRdd: RDD[URNavHintingEvent],
+    // todo: ignore properties for now
+    // fieldsRdd: RDD[(String, Map[String, Any])],
     calcPopular: Boolean = true)
-    (implicit sc: SparkContext): Unit = {
+    (implicit sc: SparkContext): URNavHintingModel = {
 
     logger.info("Events read now creating correlators")
     val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
@@ -304,37 +328,103 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
     val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
 
+    /*
     dataset.getItemsDao.saveOne(ItemProperties("item-1", Map[String, Any](("prop-1" -> 1), ("prop-2" -> Seq("str1", "str2", "str3")))))
 
     val propsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getItemsCollectionName))
 
+    logger.info("========================================== Just testing Spark reading another collection ========================================")
     logger.info(s"Got and Rdd for collection: ${dataset.getItemsCollectionName}, which is where the populatiry rank will be")
     propsRdd.collect().foreach { ip =>
       logger.info(s"Item: ${ip._id} properties: ${ip.properties}")
     }
     logger.info(s"Item Properties has ${propsRdd.count()} items")
+    */
 
-    /* todo: this may disable the popularity model
-    val propertiesRDD: RDD[(String, ItemProps)] = if (calcPopular) {
-      val ranksRdd = getRanksRDD(data.fieldsRDD)
+    val propertiesRDD: RDD[(String, Map[String, Any])] = if (calcPopular) {
+      getRanksRDD(eventsRdd)
+      /*
+      val ranksRdd = getRanksRDD(eventsRdd)
       data.fieldsRDD.fullOuterJoin(ranksRdd).map {
         case (item, (Some(fieldsPropMap), Some(rankPropMap))) => item -> (fieldsPropMap ++ rankPropMap)
         case (item, (Some(fieldsPropMap), None))              => item -> fieldsPropMap
         case (item, (None, Some(rankPropMap)))                => item -> rankPropMap
         case (item, _)                                        => item -> Map.empty
       }
+      */
     } else {
       sc.emptyRDD
     }
-    */
 
-    logger.info("Correlators created now putting into URModel")
+    logger.info("Correlators created now putting into URNavHintingModel")
     //
-   }
+    new URNavHintingModel(
+      coocurrenceMatrices = cooccurrenceCorrelators,
+      propertiesRDDs = Seq(propertiesRDD),
+      typeMappings = getMappings)
+
+  }
 
 
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {
     URNavHintingQueryResult()
+  }
+
+  /** Calculate all fields and items needed for ranking.
+    *
+    *  @param fieldsRDD all items with their fields
+    *  @param sc the current Spark context
+    *  @return
+    */
+  def getRanksRDD(
+    // todo: ignore properties for now, just do popularity
+    // fieldsRDD: RDD[(String, Map[String, JValue])],
+    eventsRdd: RDD[URNavHintingEvent])
+    (implicit sc: SparkContext): RDD[(String, Map[String, Any])] = {
+
+    val popModel = new PopModel()
+    val rankRDDs: Seq[(String, RDD[(String, Double)])] = rankingsParams map { rankingParams =>
+      val rankingType = rankingParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
+      val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
+      val durationAsString = rankingParams.duration.getOrElse(DefaultURAlgoParams.BackfillDuration)
+      val duration = Duration(durationAsString).toSeconds.toInt
+      val backfillEvents = rankingParams.eventNames.getOrElse(modelEventNames.take(1))
+      val offsetDate = rankingParams.offsetDate
+      val rankRdd = popModel.calc(
+        modelName = rankingType,
+        eventNames = backfillEvents,
+        eventsRdd = eventsRdd,
+        duration,
+        offsetDate)
+
+      rankingFieldName -> rankRdd
+    }
+
+    //    logger.debug(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
+    rankRDDs.foldLeft[RDD[(String, Map[String, Any])]](sc.emptyRDD) {
+      case (leftRdd, (fieldName, rightRdd)) =>
+        leftRdd.fullOuterJoin(rightRdd).map {
+          case (itemId, (Some(propMap), Some(rank))) => itemId -> (propMap + (fieldName -> JDouble(rank)))
+          case (itemId, (Some(propMap), None))       => itemId -> propMap
+          case (itemId, (None, Some(rank)))          => itemId -> Map(fieldName -> JDouble(rank))
+          case (itemId, _)                           => itemId -> Map.empty
+        }
+    }
+  }
+
+
+  def getMappings: Map[String, (String, Boolean)] = {
+    val mappings = rankingFieldNames.map { fieldName =>
+      fieldName -> ("float", false)
+    }.toMap ++ // create mappings for correlators, where the Boolean says to not use norms
+      modelEventNames.map { correlator =>
+        correlator -> ("keyword", true) // use norms with correlators to get closer to cosine similarity.
+      }.toMap ++
+      dateNames.map { dateName =>
+        dateName -> ("date", false) // map dates to be interpreted as dates
+      }
+    logger.info(s"Index mappings for the Elasticsearch URNavHintingModel: $mappings")
+    mappings
   }
 
 }
