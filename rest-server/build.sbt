@@ -19,6 +19,7 @@ lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
+//lazy val mahoutVersion = "0.14.0-SNAPSHOT"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
 
@@ -115,7 +116,8 @@ lazy val common = (project in file("common")).dependsOn(core).
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
-    resolvers += "Temp Scala 2.11 build of Mahout" at "https://raw.githubusercontent.com/actionml/mahout_2.11/mvn-repo/",
+    // resolvers += "Temp Scala 2.11 build of Mahout" at "https://raw.githubusercontent.com/actionml/mahout_2.11/mvn-repo/",
+    resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo/",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -126,10 +128,18 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       // libs for URNavHinting and UR
       // Mahout's Spark libs. They're custom compiled for Scala 2.11
       // and included in the local Maven repo in the .custom-scala-m2/repo resolver below
+      /* for 0.13.0
       "org.apache.mahout" %% "mahout-math-scala" % mahoutVersion,
       "org.apache.mahout" %% "mahout-spark" % mahoutVersion
         exclude("org.apache.spark", "spark-core_2.11"),
       "org.apache.mahout"  % "mahout-math" % mahoutVersion,
+      "org.apache.mahout"  % "mahout-hdfs" % mahoutVersion
+        exclude("com.thoughtworks.xstream", "xstream")
+        exclude("org.apache.hadoop", "hadoop-client")
+      */
+      "org.apache.mahout" %% "core" % mahoutVersion,
+      "org.apache.mahout" %% "spark" % mahoutVersion
+        exclude("org.apache.spark", "spark-core_2.11"),
       "org.apache.mahout"  % "mahout-hdfs" % mahoutVersion
         exclude("com.thoughtworks.xstream", "xstream")
         exclude("org.apache.hadoop", "hadoop-client")
