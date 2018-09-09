@@ -15,7 +15,7 @@ lazy val mongoVersion = "3.6.4"
 lazy val mongoScalaDriverVersion = "2.2.1"
 lazy val mongoSparkConnecterVersion = "2.2.4"
 //lazy val sparkVersion = "2.3.1"
-lazy val sparkVersion = "2.1.3"
+lazy val sparkVersion = "2.2.1"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
@@ -115,7 +115,8 @@ lazy val common = (project in file("common")).dependsOn(core).
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
-    resolvers += "Temp Scala 2.11 build of Mahout" at "https://raw.githubusercontent.com/actionml/mahout_2.11/mvn-repo/",
+    resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo/",
+    externalResolvers := Resolver.withDefaultResolvers(resolvers.value, mavenCentral = true),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
