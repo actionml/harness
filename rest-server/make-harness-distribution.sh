@@ -56,7 +56,7 @@ mkdir -p ${DISTDIR}/sbt
 
 cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
 cp ${FWDIR}/conf/* ${DISTDIR}/conf
-cp ${FWDIR}/data/* ${DISTDIR}/data
+cp ${FWDIR}/examples/data/* ${DISTDIR}/data
 # cp ${FWDIR}/conf/harness.jks ${DISTDIR}/conf
 # cp ${FWDIR}/conf/harness.pem ${DISTDIR}/conf
 # cp ${FWDIR}/server/src/main/resources/*.conf ${DISTDIR}/conf
@@ -65,7 +65,7 @@ cp ${FWDIR}/data/* ${DISTDIR}/data
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
 cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
 cp ${FWDIR}/server/target/universal/stage/lib/* ${DISTDIR}/lib
-cp ${FWDIR}/server/target/universal/stage/bin/server ${DISTDIR}/bin/main
+cp ${FWDIR}/server/target/universal/stage/bin/harness-server ${DISTDIR}/bin/main
 
 touch ${DISTDIR}/RELEASE
 
