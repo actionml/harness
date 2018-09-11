@@ -43,9 +43,8 @@ if [ -z ${HARNESS_HOME} ] ; then
     fi
 fi
 
-#echo "HARNESS_HOME=${HARNESS_HOME}"
-
-. "${HARNESS_HOME}/bin/harness-env"
+HARNESS_ENVFILE=${HARNESS_ENVFILE:-${HARNESS_HOME}/bin/harness-env}
+. "${HARNESS_ENVFILE}"
 
 if [ $HARNESS_AUTH_ENABLED != "true" ]; then
     USER_ARGS=""

@@ -1,0 +1,72 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: actionml/harness-sdk:0.1
+        entrypoint: /entrypoint.sh
+
+    environment:
+      SDK_VERBOSE: yes
+      AUTH_SERVER_GITURL: https://github.com/actionml/harness-auth-server.git
+      AUTH_SERVER_GITREV: ci
+      JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
+
+    steps:
+      - checkout
+      -
+        restore_cache:
+          keys:
+            - rest-api-{{ checksum "rest-server/build.sbt" }}
+      -
+        run:
+          name: Build environment details
+          command: /details.sh
+      -
+        run:
+          name: Build auth-server
+          command: |
+            authdir=/tmp/harness-auth-server
+            git clone $AUTH_SERVER_GITURL ${authdir} && cd ${authdir}
+            git checkout $AUTH_SERVER_GITREV
+            # build auth server and populate local ~/.ivy2 cache
+            make publish-local
+      -
+        run:
+          name: Build harness rest-server dist
+          command: make dist
+      -
+        save_cache:
+          key: rest-api-{{ checksum "rest-server/build.sbt" }}
+          paths:
+            - /root/.sbt
+            - /root/.ivy2
+      -
+        persist_to_workspace:
+          root: /root/project/dist
+          paths:
+            - ./
+
+  container:
+    docker:
+      - image: stackfeed/alpine
+    steps:
+      -
+        attach_workspace:
+          at: /tmp/dist
+      - run: find /tmp
+
+  # test:
+  #   docker:
+  #     - image: alpine
+  #   steps:
+  #     - run: echo "unit or other tests"
+
+workflows:
+  version: 2
+  default:
+    jobs:
+      - build
+      - container:
+          requires:
+            - build
+      # - test
