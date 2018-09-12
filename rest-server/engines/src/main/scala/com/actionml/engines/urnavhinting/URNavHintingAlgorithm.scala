@@ -52,7 +52,7 @@ import scala.concurrent.duration.Duration
 class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, params: URAlgorithmParams)
   extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
   with LambdaAlgorithm[URNavHintingEvent]
-  with SparkMongoSupport
+  with SparkMongoSupport[URNavHintingEvent]
   with JsonParser {
 
   import URNavHintingAlgorithm._
@@ -243,25 +243,17 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def train(): Validated[ValidateError, String] = {
-    val defaults = Map(
+    val sparkParams = Map(
       "appName" -> engineId,
-      "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> dataset.getItemsDbName,
-      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName
+      "spark.mongodb.input.uri" -> MongoStorage.uri
     )
 
-    SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, sparkParams).map { implicit sc =>
 
-      // todo: we should be able to pass in the dbName and collectionName to any readRdd call now, not tested
-      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
+      implicit val codecs = MongoStorageHelper.codecs
+      val eventsRdd = readRdd(dbName = Some(dataset.getItemsDbName), collectionName = Some(dataset.getIndicatorEventsCollectionName))
 
       // todo: this should work but not tested and not used in any case
-      /*
-      val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
-        (itemProps._id, itemProps.properties)
-      }
-      */
-
       val data = getIndicators(modelEventNames, eventsRdd)
 
       logger.info("======================================== Contents of Indicators ========================================")
