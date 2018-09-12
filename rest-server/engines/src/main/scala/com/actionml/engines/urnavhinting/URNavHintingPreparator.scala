@@ -29,7 +29,7 @@ import org.apache.spark.rdd.RDD
  */
 
 /** Partitions off creation of Mahout data structures from stored data in a DB */
-object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
+object URNavHintingPreparator extends LazyLogging with SparkMongoSupport[URNavHintingEvent] {
 
   /** Prepares Mahout IndexedDatasetSpark from the URNavHintingEvent collection in Mongo
     * by first converting in to separate RDD[(String, String)] from each eventName passed in
@@ -59,7 +59,10 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
       ("content-pref", contentPrefIndicators))
     */
 
-    val allData = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
+    implicit val _ = MongoStorageHelper.codecs
+    val dbName = ???
+    val collectionName = ???
+    val allData = readRdd(dbName, collectionName)
     val namedRdds = eventNames.map { eventName =>
       (eventName, allData.filter( e => e.event == eventName).map(e => (e.entityId, e.targetEntityId.getOrElse(""))))
     }

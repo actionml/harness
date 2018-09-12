@@ -23,15 +23,11 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, Field, RankingParams, URAlgorithmParams}
 import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext, rdd}
-import org.bson.Document
-import org.joda.time.DateTime
-import com.actionml.core.store.backends.MongoStorage
-import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.SparkContext
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -45,7 +41,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class URAlgorithm private (engine: UREngine, initParams: String, dataset: URDataset, params: URAlgorithmParams)
   extends Algorithm[GenericQuery, GenericQueryResult]
     with LambdaAlgorithm[UREvent]
-    with SparkMongoSupport
     with JsonParser {
 
 

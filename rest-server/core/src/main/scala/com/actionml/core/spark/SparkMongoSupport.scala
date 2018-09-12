@@ -30,26 +30,16 @@ import scala.reflect.ClassTag
 
 // todo: these should be put in the DAO as a mixin trait for Spark, in which case the params are all known or can be found
 // leaving only the sc to be passed in perhaps implicitly
-trait SparkStoreSupport {
-  def readRdd[T](
-    sc: SparkContext,
-    codecs: List[CodecProvider],
-    dbName: Option[String] = None,
-    collectionName: Option[String] = None)
-    (implicit ct: ClassTag[T]): RDD[T]
+trait SparkStoreSupport[T] {
+  def readRdd(dbName: Option[String], collectionName: Option[String])(implicit sc: SparkContext, codecs: List[CodecProvider], ct: ClassTag[T]): RDD[T]
 }
 
-trait SparkMongoSupport extends SparkStoreSupport {
+trait SparkMongoSupport[T] extends SparkStoreSupport[T] {
 
-  override def readRdd[T](
-    sc: SparkContext,
-    codecs: List[CodecProvider] = List.empty,
-    dbName: Option[String] = None,
-    colName: Option[String] = None)
-    (implicit ct: ClassTag[T]): RDD[T] = {
-    if(dbName.isDefined && colName.isDefined) {
+  override def readRdd(dbName: Option[String], collectionName: Option[String])(implicit sc: SparkContext, codecs: List[CodecProvider], ct: ClassTag[T]): RDD[T] = {
+    if(dbName.isDefined && collectionName.isDefined) {
       // not sure if the codecs are understood here--I bet not
-      val rc = ReadConfig(databaseName = dbName.get, collectionName = colName.get)
+      val rc = ReadConfig(databaseName = dbName.get, collectionName = collectionName.get)
       MongoSpark
         .builder()
         .sparkContext(sc)
