@@ -19,12 +19,9 @@
       {
         "name": "nav-event"
       },{
-        "name": "search-terms",
-        "maxCorrelatorsPerItem": 50
+        "name": "search-terms"
       },{
-        "name": "content-pref",
-        "maxCorrelatorsPerItem": 50,
-        "minLLR": 5.0
+        "name": "content-pref"
       }
     ],
     "availableDateName": "available",

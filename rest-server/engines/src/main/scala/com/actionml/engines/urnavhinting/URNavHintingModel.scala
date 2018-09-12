@@ -1,5 +1,7 @@
 package com.actionml.engines.urnavhinting
 
+import com.actionml.core.search.Hit
+import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -31,7 +33,7 @@ class URNavHintingModel(
     coocurrenceMatrices: Seq[(String, IndexedDataset)] = Seq.empty,
     propertiesRDDs: Seq[RDD[(String, Map[String, Any])]] = Seq.empty,
     typeMappings: Map[String, (String, Boolean)] = Map.empty) // maps fieldname that need type mapping in Elasticsearch
-    (implicit sc: SparkContext)
+    (implicit sc: SparkContext, es: ElasticSearchClient[Hit])
   extends LazyLogging {
 
 
@@ -42,7 +44,11 @@ class URNavHintingModel(
     *  Elasticsearch's support. One exception is the Data scalar, which is also supported
     *  @return always returns true since most other reasons to not save cause exceptions
     */
-  def save(dateNames: Seq[String], esIndex: String, esType: String, numESWriteConnections: Option[Int] = None): Boolean = {
+  def save(
+    dateNames: Seq[String],
+    esIndex: String,
+    esType: String,
+    numESWriteConnections: Option[Int] = None): Boolean = {
 
     logger.debug(s"Start saving the model to Elasticsearch")
 
@@ -56,6 +62,8 @@ class URNavHintingModel(
     }
 
     logger.info("Group all properties RDD")
+    //val collectedCorrelators = correlatorRDDs.map(_.collect())
+
     val groupedRDD: RDD[(String, Map[String, Any])] = groupAll(correlatorRDDs ++ propertiesRDDs)
     //    logger.debug(s"Grouped RDD\n${groupedRDD.take(25).mkString("\n")}")
 
@@ -77,14 +85,16 @@ class URNavHintingModel(
 
     // todo:
     //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
+    es.hotSwap(esType, esRDD, esFields)
     true
   }
 
-  // Something in the second def of this function hangs on some data, reverting so this ***disables ranking***
+  // Something in the second def of this function hangs on some data, reverting so this
   def groupAll(fields: Seq[RDD[(String, Map[String, Any])]]): RDD[(String, Map[String, Any])] = {
+   //val retval = fields.head.fullOuterJoin()[Map[String, Any]](groupAll(fields.drop(1)))
     //def groupAll( fields: Seq[RDD[(String, (Map[String, Any]))]]): RDD[(String, (Map[String, Any]))] = {
     //if (fields.size > 1 && !fields.head.isEmpty() && !fields(1).isEmpty()) {
-    if (fields.size > 1) {
+    val retval = if (fields.size > 1) {
       fields.head.cogroup[Map[String, Any]](groupAll(fields.drop(1))).map {
         case (key, pairMapSeqs) =>
           // to be safe merge all maps but should only be one per rdd element
@@ -96,6 +106,9 @@ class URNavHintingModel(
     } else {
       fields.head
     }
+    //val m = retval.collect()
+    logger.info(s"m")
+    retval
   }
 
 }

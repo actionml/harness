@@ -1,10 +1,5 @@
 package com.actionml.engines
 
-import org.apache.mahout.sparkbindings.SparkDistributedContext
-import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
-import org.apache.spark.rdd.RDD
-import org.json4s.JsonAST.{JArray, JString, JValue}
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,13 +22,21 @@ import org.apache.mahout.sparkbindings.SparkDistributedContext
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.mahout.sparkbindings._
 import org.apache.spark.rdd.RDD
-import org.json4s._
+//import org.json4s._
 
 
 package object urnavhinting {
 
+  type ActionID = String
+  type UserID = String
+  type ItemID = String
+  type PropertyMap = Map[String, Any]
+
   implicit class IndexedDatasetConversions(val indexedDataset: IndexedDatasetSpark) {
+
     def toStringMapRDD(actionName: String): RDD[(String, Map[String, Any])] = {
+
+      //val collectedRdd = indexedDataset.matrix.rdd.collect()
 
       //val matrix = indexedDataset.matrix.checkpoint()
       val rowIDReverseDictionary = indexedDataset.rowIDs.inverse // precalc the inverse
@@ -45,20 +48,24 @@ package object urnavhinting {
 
       // may want to mapPartition and create bulk updates as a slight optimization
       // creates an RDD of (itemID, Map[correlatorName, list-of-correlator-values])
-      indexedDataset.matrix.rdd.map[(String, Map[String, Any])] {
+      val retval = indexedDataset.matrix.rdd.map[(String, Map[String, Any])] {
         case (rowNum, itemVector) =>
 
           // turn non-zeros into list for sorting
           val vector = itemVector.nonZeroes.map { element =>
             (element.index(), element.get())
           }.toList.sortBy(element => -element._2) map { item =>
-            JString(columnIDReverseDictionary_bcast.value.getOrElse(item._1, "")) // should always be in the dictionary
+            columnIDReverseDictionary_bcast.value.getOrElse(item._1, "") // should always be in the dictionary
           }
 
           val itemID = rowIDReverseDictionary_bcast.value.getOrElse(rowNum, "INVALID_ITEM_ID")
 
-          (itemID, Map(actionName -> JArray(vector)))
+          (itemID, Map(actionName -> vector))
       }
+
+      //val collectedI = retval.collect()
+      //val size = collectedI.size
+      retval
     }
   }
 

@@ -17,12 +17,17 @@
 
 package com.actionml.engines.urnavhinting
 
+import java.io.Serializable
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
+import com.actionml.core.search.{Hit, Matcher, SearchQuery}
+import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
+import com.actionml.core.store.DaoQuery
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
@@ -38,6 +43,9 @@ import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, Similarit
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.json4s.JsonAST.{JDouble, JValue}
+
+import scala.util.matching.Regex.Match
+//import com.actionml.engines.urnavhinting.{ItemID, UserID, PropertyMap}
 
 import scala.concurrent.duration.Duration
 
@@ -85,6 +93,9 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
   private var dateNames: Seq[String] = _
+  private var es: ElasticSearchClient[Hit] = _
+  private var indicators: Option[List[IndicatorParams]] = None
+  private var seed: Option[Long] = None
 
   // setting that cannot change with config
   val esIndex = engineId
@@ -110,6 +121,9 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       // not ideal but avoids one query to the event store per event type
     }
 
+    indicators = params.indicators
+    seed = params.seed
+
     if (params.eventNames.nonEmpty) { // using eventNames shortcut
       indicatorParams = params.eventNames.get.map { eventName =>
         eventName -> DefaultIndicatorParams()
@@ -127,6 +141,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       err = Invalid(MissingParams("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
         s"$params"))
     }
+
 
     // continue validating if all is ok so far
     err.andThen { isOK =>
@@ -170,6 +185,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
         params.dateName,
         params.availableDateName,
         params.expireDateName).collect { case Some(date) => date } distinct
+
+      es = ElasticSearchClient(engineId)
 
       drawInfo("URNavHintingAlgorithm initialization parameters including \"defaults\"", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
@@ -262,7 +279,27 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       }
       */
 
-      val data = getIndicators(modelEventNames, eventsRdd)
+      val trainingData = URNavHintingPreparator.mkTraining(modelEventNames, eventsRdd)
+
+      //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
+      //val collectedFields = trainingData.fieldsRDD.collect()
+      val data = URNavHintingPreparator.prepareData(trainingData)
+
+      val model = recsModel match {
+        case RecsModels.All => calcAll(data, eventsRdd)
+        case RecsModels.CF  => calcAll(data, eventsRdd, calcPopular = false)
+        // todo: no support for pure popular model
+        // case RecsModels.BF  => calcPop(data)(sc)
+        // error, throw an exception
+        case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
+          // from Spark or any part fo the UR. These were allowed in PIO--not here!
+          throw new IllegalArgumentException(
+            s"""
+               |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
+               |Use one of the available parameter values ($recsModel).""".stripMargin)
+      }
+
+      //val data = getIndicators(modelEventNames, eventsRdd)
 
       logger.info("======================================== Contents of Indicators ========================================")
       data.actions.foreach { case(name, id) =>
@@ -277,150 +314,114 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
       // todo: for now ignore properties and only calc popularity, then save to ES
       calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-      /* not needed for PoC
-      recsModel match {
-        case RecsModels.All => calcAll(data)
-        case RecsModels.CF => calcAll(data, calcPopular = false)(sc)
-        //case RecsModels.BF => calcPop(data)(sc)
-        // error, throw an exception
-        case unknownRecsModel =>
-          throw new IllegalArgumentException(
-            s"""
-             |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
-             |Use one of the available parameter values ($recsModel).""".stripMargin)
-      }
-      */
+
+      sc.stop() // no more use of sc will be tolerated ;-)
     }
+
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
-    // with access to `sc`
-
-
     logger.debug(s"Starting train $this with spark $sparkContext")
     Valid("Started train Job on Spark")
   }
 
+  /*
   def getIndicators(
     modelEventNames: Seq[String],
     eventsRdd: RDD[URNavHintingEvent])
     (implicit sc: SparkContext): PreparedData = {
     URNavHintingPreparator.prepareData(modelEventNames, eventsRdd)
   }
+  */
 
   /** Calculates recs model as well as popularity model */
   def calcAll(
     data: PreparedData,
     eventsRdd: RDD[URNavHintingEvent],
-    // todo: ignore properties for now
-    // fieldsRdd: RDD[(String, Map[String, Any])],
-    calcPopular: Boolean = true)
-    (implicit sc: SparkContext): URNavHintingModel = {
+    calcPopular: Boolean = true)(implicit sc: SparkContext): URNavHintingModel = {
 
-    logger.info("Events read now creating correlators")
-    // todo: disabling downsampling !!! this ignores indicator params, like minLLR !!!
-    // val cooccurrenceIDSs = if (modelEventNames.isEmpty) { // using one global set of algo params
-    val cooccurrenceIDSs = if (true) { // using one global set of algo params
-      val tmpModel = SimilarityAnalysis.cooccurrencesIDSs(
+    /*logger.info("Indicators read now creating correlators")
+    val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
+      data.actions.map(_._2).toArray,
+      ap.seed.getOrElse(System.currentTimeMillis()).toInt)
+      .map(_.asInstanceOf[IndexedDatasetSpark])
+    */
+
+    //val in = data.actions.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
+
+    val convertedItems = data.actions.filter { case (en, ids) => en == modelEventNames.head}
+      .head._2.columnIDs.toMap.keySet.toSeq
+
+    logger.info("Actions read now creating correlators")
+    val cooccurrenceIDSs = if (indicators.isEmpty) { // using one global set of algo params
+      SimilarityAnalysis.cooccurrencesIDSs(
         data.actions.map(_._2).toArray,
-        randomSeed,
+        randomSeed = seed.getOrElse(System.currentTimeMillis()).toInt,
         maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
         maxNumInteractions = maxEventsPerEventType)
-      logger.info("======================================== Model data ========================================")
-      tmpModel.foreach { id =>
-        val ids = id.asInstanceOf[IndexedDatasetSpark]
-        logger.info(s"Num conversion items/rows = ${ids.matrix.ncol}")
-        logger.info(s"Num columns for this segment= ${ids.matrix.nrow}")
-        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
-        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
-      }
-      logger.info("======================================== done ========================================")
-      tmpModel
+        .map(_.asInstanceOf[IndexedDatasetSpark])
     } else { // using params per matrix pair, these take the place of eventNames, maxCorrelatorsPerEventType,
       // and maxEventsPerEventType!
-      val indicators = params.indicators.get
-      val iDs = data.actions.map(_._2)
+      val iDs = data.actions.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
           new DownsamplableCrossOccurrenceDataset(
             iD,
-            indicators(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
-            indicators(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
-            indicators(i).minLLR)
+            indicators.get(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
+            indicators.get(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
+            indicators.get(i).minLLR)
       }.toList
 
-      logger.info("======================================== Downsampling data ========================================")
-      datasets.foreach { id =>
-        val ids = id.asInstanceOf[IndexedDatasetSpark]
-        logger.info(s"Num users/rows = ${ids.matrix.ncol}")
-        logger.info(s"Num items/columns = ${ids.matrix.nrow}")
-        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
-        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
-      }
-      logger.info("======================================== done ========================================")
-
-
-
-      val tmpModel = SimilarityAnalysis.crossOccurrenceDownsampled(
+      SimilarityAnalysis.crossOccurrenceDownsampled(
         datasets,
-        randomSeed)
+        seed.getOrElse(System.currentTimeMillis()).toInt)
         .map(_.asInstanceOf[IndexedDatasetSpark])
-
-      logger.info("======================================== Model data ========================================")
-      tmpModel.foreach { id =>
-        val ids = id.asInstanceOf[IndexedDatasetSpark]
-        logger.info(s"Num conversion items/rows = ${ids.matrix.ncol}")
-        logger.info(s"Num columns for this segment= ${ids.matrix.nrow}")
-        logger.info(s"Row dictionary: ${ids.rowIDs.toMap.keySet}")
-        logger.info(s"Column dictionary: ${ids.columnIDs.toMap.keySet}")
-      }
-      logger.info("======================================== done ========================================")
-
-
-
-      tmpModel
     }
+
+    //val collectedIdss = cooccurrenceIDSs.map(_.toStringMapRDD("anon").collect())
 
     val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
 
-    /*
-    dataset.getItemsDao.saveOne(ItemProperties("item-1", Map[String, Any](("prop-1" -> 1), ("prop-2" -> Seq("str1", "str2", "str3")))))
-
-    val propsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getItemsCollectionName))
-
-    logger.info("========================================== Just testing Spark reading another collection ========================================")
-    logger.info(s"Got and Rdd for collection: ${dataset.getItemsCollectionName}, which is where the populatiry rank will be")
-    propsRdd.collect().foreach { ip =>
-      logger.info(s"Item: ${ip._id} properties: ${ip.properties}")
-    }
-    logger.info(s"Item Properties has ${propsRdd.count()} items")
-    */
-
-    val propertiesRDD: RDD[(String, Map[String, Any])] = if (calcPopular) {
-      getRanksRDD(eventsRdd)
-      /*
-      val ranksRdd = getRanksRDD(eventsRdd)
-      data.fieldsRDD.fullOuterJoin(ranksRdd).map {
+    val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
+      val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
+      data.fieldsRdd.fullOuterJoin(ranksRdd).map {
         case (item, (Some(fieldsPropMap), Some(rankPropMap))) => item -> (fieldsPropMap ++ rankPropMap)
         case (item, (Some(fieldsPropMap), None))              => item -> fieldsPropMap
         case (item, (None, Some(rankPropMap)))                => item -> rankPropMap
         case (item, _)                                        => item -> Map.empty
       }
-      */
     } else {
       sc.emptyRDD
     }
 
-    logger.info("Correlators created now putting into URNavHintingModel")
-    //
+    //val collectedProps = propertiesRDD.collect()
+
+    logger.info("Correlators created now putting into URModel")
     new URNavHintingModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings)
-
+      typeMappings = getMappings)(sc, es)
   }
 
 
+
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {
-    URNavHintingQueryResult()
+    // todo: limit and order by date
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(filter = Seq(("entityId", query.user))))
+    val convertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(filter = Seq(("entityId", query.user))))
+    val userEvents = modelEventNames.map { name =>
+      (name,
+        unconvertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq ++
+        convertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq
+      )
+    }
+    val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }.toSeq
+    val mustMatcher = Matcher("values", query.eligibleNavIds)
+    val esQuery = SearchQuery(
+      should = Map("terms" -> shouldMatchers),
+      must = Map("ids" -> Seq(mustMatcher))
+    )
+    logger.info(s"Sending query: $esQuery")
+    val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
+    URNavHintingQueryResult(esResult)
   }
 
   /** Calculate all fields and items needed for ranking.
@@ -430,41 +431,35 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     *  @return
     */
   def getRanksRDD(
-    // todo: ignore properties for now, just do popularity
-    // fieldsRDD: RDD[(String, Map[String, JValue])],
-    eventsRdd: RDD[URNavHintingEvent])
-    (implicit sc: SparkContext): RDD[(String, Map[String, Any])] = {
+    fieldsRDD: RDD[(ItemID, PropertyMap)],
+    eventsRdd: RDD[URNavHintingEvent],
+    convertedItems: Seq[String])
+    (implicit sc: SparkContext): RDD[(ItemID, PropertyMap)] = {
 
-    val popModel = new PopModel()
-    val rankRDDs: Seq[(String, RDD[(String, Double)])] = rankingsParams map { rankingParams =>
+    val popModel = PopModel(fieldsRDD)
+    val rankRDDs: Seq[(String, RDD[(ItemID, Double)])] = rankingsParams map { rankingParams =>
       val rankingType = rankingParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
       val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
       val durationAsString = rankingParams.duration.getOrElse(DefaultURAlgoParams.BackfillDuration)
       val duration = Duration(durationAsString).toSeconds.toInt
       val backfillEvents = rankingParams.eventNames.getOrElse(modelEventNames.take(1))
       val offsetDate = rankingParams.offsetDate
-      val rankRdd = popModel.calc(
-        modelName = rankingType,
-        eventNames = backfillEvents,
-        eventsRdd = eventsRdd,
-        duration,
-        offsetDate)
-
+      val rankRdd = popModel.calc(eventsRdd, backfillEvents, duration, offsetDate)
       rankingFieldName -> rankRdd
     }
-
     //    logger.debug(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
-    rankRDDs.foldLeft[RDD[(String, Map[String, Any])]](sc.emptyRDD) {
+    rankRDDs
+      .filter(p => convertedItems.contains(p._1))
+      .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
       case (leftRdd, (fieldName, rightRdd)) =>
         leftRdd.fullOuterJoin(rightRdd).map {
-          case (itemId, (Some(propMap), Some(rank))) => itemId -> (propMap + (fieldName -> JDouble(rank)))
+          case (itemId, (Some(propMap), Some(rank))) => itemId -> (propMap + (fieldName -> rank))
           case (itemId, (Some(propMap), None))       => itemId -> propMap
-          case (itemId, (None, Some(rank)))          => itemId -> Map(fieldName -> JDouble(rank))
+          case (itemId, (None, Some(rank)))          => itemId -> Map(fieldName -> rank)
           case (itemId, _)                           => itemId -> Map.empty
         }
     }
   }
-
 
   def getMappings: Map[String, (String, Boolean)] = {
     val mappings = rankingFieldNames.map { fieldName =>
@@ -610,7 +605,13 @@ object URNavHintingAlgorithm extends JsonParser {
     extends Serializable
 
   case class PreparedData(
-      actions: Seq[(String, IndexedDataset)]) extends Serializable
+      actions: Seq[(String, IndexedDataset)],
+      fieldsRdd: RDD[(String, Map[String, Any])]) extends Serializable
+
+  case class TrainingData(
+    actions: Seq[(String, RDD[(String, String)])],// indicator name, RDD[user-id, item-id]
+    fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
+    minEventsPerUser: Option[Int] = Some(1)) extends Serializable
 
 
 }

@@ -1,7 +1,7 @@
 package com.actionml.engines.urnavhinting
 
 import com.actionml.core.spark.SparkMongoSupport
-import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.PreparedData
+import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
@@ -31,6 +31,51 @@ import org.apache.spark.rdd.RDD
 /** Partitions off creation of Mahout data structures from stored data in a DB */
 object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
 
+  /** Reads events from PEventStore and create and RDD for each */
+  def mkTraining(eventNames: Seq[String], eventsRDD: RDD[URNavHintingEvent])(implicit sc: SparkContext): TrainingData = {
+
+    //val eventNames = dsp.eventNames
+
+    // beware! the following call most likely will alter the event stream in the DB!
+    //cleanPersistedPEvents(sc) // broken in apache-pio v0.10.0-incubating it erases all data!!!!!!
+
+    /*
+    val eventsRDD = PEventStore.find(
+      appName = dsp.appName,
+      entityType = Some("user"),
+      eventNames = Some(eventNames),
+      targetEntityType = Some(Some("item")))(sc).repartition(sc.defaultParallelism)
+    */
+
+    // now separate the events by event name
+    val eventRDDs: Seq[(ActionID, RDD[(UserID, ItemID)])] = eventNames.map { eventName =>
+      val singleEventRDD = eventsRDD
+        .filter( e => e.event == eventName )
+        .map { e =>
+        (e.entityId, e.targetEntityId.getOrElse(""))
+      }
+
+      (eventName, singleEventRDD)
+    } filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
+
+    //val collectedRdds = eventRDDs.map(_._2.collect())
+    logger.info(s"Received events ${eventRDDs.map(_._1)}")
+
+    /*
+    // aggregating all $set/$unsets for metadata fields, which are attached to items
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = PEventStore.aggregateProperties(
+      appName = dsp.appName,
+      entityType = "item")(sc).repartition(sc.defaultParallelism)
+    //    logger.debug(s"FieldsRDD\n${fieldsRDD.take(25).mkString("\n")}")
+    */
+
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
+
+    // Have a list of (actionName, RDD), for each action
+    // todo: some day allow data to be content, which requires rethinking how to use EventStore
+    TrainingData(eventRDDs, fieldsRDD, Some(1))
+  }
+
   /** Prepares Mahout IndexedDatasetSpark from the URNavHintingEvent collection in Mongo
     * by first converting in to separate RDD[(String, String)] from each eventName passed in
     * then we supply a companion object that constructs the IndexedDatasetSpark from the
@@ -41,44 +86,10 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
     * @return Seq of (eventName, IndexedDatasetSpark) todo: should be a Map, legacy from PIO
     */
   def prepareData(
-    eventNames: Seq[String],
-    eventsRdd: RDD[URNavHintingEvent])
+    trainingData: TrainingData)
     (implicit sc: SparkContext): PreparedData = {
-
-    /*
-    val navEvents = Seq(("u1","nav1"),("u2","nav1"),("u3","nav1"),("u1","nav2"),("u2","nav2"),("u3","nav2"))
-    val searchTerms = Seq(("u1","term1"),("u2","term1"),("u3","term2"),("u1","term1"),("u2","term1"),("u3","term2"))
-    val contentPrefs = Seq(("u1","tag1"),("u2","tag1"),("u3","tag2"),("u1","tag1"),("u2","tag1"),("u3","tag2"))
-    val navEventIndicators: RDD[(String, String)] = sc.parallelize(navEvents)
-    val searchTermIndicators = sc.parallelize(navEvents)
-    val contentPrefIndicators = sc.parallelize(navEvents)
-
-    val allEvents = Seq(
-      ("nav-events", navEventIndicators),
-      ("search-terms", searchTermIndicators),
-      ("content-pref", contentPrefIndicators))
-    */
-
-    val allData = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
-    val namedRdds = eventNames.map { eventName =>
-      (eventName, allData.filter( e => e.event == eventName).map(e => (e.entityId, e.targetEntityId.getOrElse(""))))
-    }
-
-    object trainingData {
-      val actions = namedRdds
-      val minEventsPerUser = Some(1)
-    }
-
-
-    namedRdds.foreach { case(name, rdd) =>
-      val events = rdd.collect()
-      logger.info(s"Data for eventName: $name")
-      events.foreach { case (user, item) =>
-        logger.info(s"User: $user, Item: $item")
-      }
-    }
-
-
+    // now that we have all actions in separate RDDs we must merge any user dictionaries and
+    // make sure the same user ids map to the correct events
     var userDictionary: Option[BiDictionary] = None
 
     val indexedDatasets = trainingData.actions.map {
@@ -95,7 +106,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           // we have removed underactive users now remove the items they were the only to interact with
           val ddIDS = IndexedDatasetSpark(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
-          val userDictionary = Some(ddIDS.rowIDs)
+          userDictionary = Some(ddIDS.rowIDs)
           logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
             s"eventName: $eventName number of user-ids: ${userDictionary.get.size}")
           logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
@@ -112,24 +123,17 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
         }
 
         (eventName, ids)
-      case _ =>
-        logger.error("Unknown value in trainingData.actions, returning NULL IndexedDataset")
-        // todo: an IndexedDataset should alloy a .empty like other collections, Null is baaaad
-        ("", null.asInstanceOf[IndexedDatasetSpark])
 
     }
 
-    logger.info("Done creating the IndexedDatasets, will now collect the original RDDs, which should force the mongo read")
-    trainingData.actions.foreach { case (name, rdd) =>
-      logger.info(s"Got and RDD from mongo for Event: $name with ${rdd.count()} events")
-      rdd.collect().foreach { case (userId, itemId) =>
-        logger.info(s"User: $userId Item: $itemId")
-      }
+    /*
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = trainingData.fieldsRDD.map {
+      case (itemId, propMap) => itemId -> propMap.fields
     }
+    */
 
-    PreparedData(indexedDatasets)
+    PreparedData(indexedDatasets, trainingData.fieldsRDD)
   }
-
 }
 
 /** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */

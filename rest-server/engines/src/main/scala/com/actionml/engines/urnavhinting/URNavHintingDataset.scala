@@ -52,6 +52,8 @@ class URNavHintingDataset(engineId: String, store: Store) extends Dataset[URNavH
   def getItemsCollectionName = esType
   def getIndicatorEventsCollectionName = "indicator_events"
   def getItemsDao = itemsDao
+  def getActiveJourneysDao = activeJourneysDao
+  def getIndicatorsDao = indicatorsDao
 
   private var params: URAlgorithmParams = _
 

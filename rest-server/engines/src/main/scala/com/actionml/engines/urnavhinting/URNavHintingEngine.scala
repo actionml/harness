@@ -145,7 +145,7 @@ object URNavHintingEngine {
   )
 
   case class URNavHintingQuery(
-      userId: Option[String], // ignored for non-personalized
+      user: String, // ignored for non-personalized
       eligibleNavIds: Array[String])
     extends Query
 

@@ -19,7 +19,9 @@ package com.actionml.engines.urnavhinting
 
 import com.actionml.core.model.GenericEvent
 import com.actionml.core.validate.JsonParser
+import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.PreparedData
 import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.joda.time.format.ISODateTimeFormat
@@ -49,15 +51,14 @@ object RankingType {
   override def toString: String = s"$Popular, $Trending, $Hot, $UserDefined, $Random"
 }
 
-class PopModel(implicit sc: SparkContext)
-  extends JsonParser {
+class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext) extends LazyLogging {
+//class PopModel(data: PreparedData)(implicit sc: SparkContext) extends LazyLogging {
 
   def calc(
-    modelName: String,
-    eventNames: Seq[String],
     eventsRdd: RDD[URNavHintingEvent],
+    eventNames: Seq[String],
     duration: Int = 0,
-    offsetDate: Option[String] = None): RDD[(String, Double)] = {
+    offsetDate: Option[String] = None): RDD[(ItemID, Double)] = {
 
     // todo: make end manditory and fill it with "now" upstream if not specified, will simplify logic here
     // end should always be 'now' except in unusual conditions like for testing
@@ -74,11 +75,17 @@ class PopModel(implicit sc: SparkContext)
     val interval = new Interval(end.minusSeconds(duration), end)
 
     // based on type of popularity model return a set of (item-id, ranking-number) for all items
-    logger.info(s"PopModel $modelName using end: $end, and duration: $duration, interval: $interval")
+    logger.info(s"PopModel using end: $end, and duration: $duration, interval: $interval")
 
     // if None? debatable, this is either an error or may need to default to popular, why call popModel otherwise
+    /*
     modelName match {
       case RankingType.Popular     => calcPopular(eventsRdd, eventNames, interval)
+      //case RankingType.Trending    => calcTrending(appName, eventNames, interval)
+      //case RankingType.Hot         => calcHot(appName, eventNames, interval)
+      // todo: no support for [ure random ranking for everything
+      // case RankingType.Random      => calcRandom(appName, interval)
+      case RankingType.UserDefined => sc.emptyRDD
       case unknownRankingType =>
         logger.warn(
           s"""
@@ -86,23 +93,135 @@ class PopModel(implicit sc: SparkContext)
              |Use one of the available parameter values ($RankingType).""".stripMargin)
         sc.emptyRDD
     }
+    */
+    calcPopular(eventsRdd, eventNames, interval)
 
   }
+
+  /** Create random rank for all items */
+  /* todo: no need for PoC
+  def calcRandom(
+    appName: String,
+    interval: Interval): RDD[(ItemID, Double)] = {
+
+    val events = eventsRDD(appName = appName, interval = interval)
+    val actionsRDD = events.map(_.targetEntityId).filter(_.isDefined).map(_.get).distinct()
+    val itemsRDD = fieldsRDD.map { case (itemID, _) => itemID }
+
+    //    logger.debug(s"ActionsRDD: ${actionsRDD.take(25).mkString(", ")}")
+    //    logger.debug(s"ItemsRDD: ${itemsRDD.take(25).mkString(", ")}")
+    actionsRDD.union(itemsRDD).distinct().map { itemID => itemID -> Random.nextDouble() }
+  }
+  */
 
   /** Creates a rank from the number of named events per item for the duration */
   def calcPopular(
     eventsRdd: RDD[URNavHintingEvent],
     eventNames: Seq[String],
-    interval: Interval): RDD[(String, Double)] = {
-    eventsRdd.map { e => (e.targetEntityId, e.event) }
+    interval: Interval): RDD[(ItemID, Double)] = {
+
+    /* PIO version
+    val events = eventsRDD(appName, eventNames, interval)
+    events.map { e => (e.targetEntityId, e.event) }
       .groupByKey()
       .map { case (itemID, itEvents) => (itemID.get, itEvents.size.toDouble) }
-      .reduceByKey(_ + _) // make this a double in Elaseticsearch)
+      .reduceByKey(_ + _) // make this a double in Elasticsearch)
+    */
+
+    // todo: ignores interval, need query for this
+    eventsRdd.map { e => (e.targetEntityId.getOrElse(""), e.event) }
+      .groupByKey()
+      .map { case (itemId, itEvents) => (itemId, itEvents.size.toDouble) }
+      .reduceByKey(_ + _)
   }
+
+  /** Creates a rank for each item by dividing the duration in two and counting named events in both buckets
+    *  then dividing most recent by less recent. This ranks by change in popularity or velocity of populatiy change.
+    *  Interval(start, end) end instant is always greater than or equal to the start instant.
+    */
+  /* todo: no need for PoC
+  def calcTrending(
+    appName: String,
+    eventNames: Seq[String],
+    interval: Interval): RDD[(ItemID, Double)] = {
+
+    logger.info(s"Current Interval: $interval, ${interval.toDurationMillis}")
+    val halfInterval = interval.toDurationMillis / 2
+    val olderInterval = new Interval(interval.getStart, interval.getStart.plus(halfInterval))
+    logger.info(s"Older Interval: $olderInterval")
+    val newerInterval = new Interval(interval.getStart.plus(halfInterval), interval.getEnd)
+    logger.info(s"Newer Interval: $newerInterval")
+
+    val olderPopRDD = calcPopular(appName, eventNames, olderInterval)
+    if (!olderPopRDD.isEmpty()) {
+      val newerPopRDD = calcPopular(appName, eventNames, newerInterval)
+      newerPopRDD.join(olderPopRDD).map {
+        case (item, (newerScore, olderScore)) => item -> (newerScore - olderScore)
+      }
+    } else sc.emptyRDD
+
+  }
+  */
+
+  /** Creates a rank for each item by divding all events per item into three buckets and calculating the change in
+    *  velocity over time, in other words the acceleration of popularity change.
+    */
+  /* todo: no need for PoC
+  def calcHot(
+    appName: String,
+    eventNames: Seq[String] = List.empty,
+    interval: Interval): RDD[(ItemID, Double)] = {
+
+    logger.info(s"Current Interval: $interval, ${interval.toDurationMillis}")
+    val olderInterval = new Interval(interval.getStart, interval.getStart.plus(interval.toDurationMillis / 3))
+    logger.info(s"Older Interval: $olderInterval")
+    val middleInterval = new Interval(olderInterval.getEnd, olderInterval.getEnd.plus(olderInterval.toDurationMillis))
+    logger.info(s"Middle Interval: $middleInterval")
+    val newerInterval = new Interval(middleInterval.getEnd, interval.getEnd)
+    logger.info(s"Newer Interval: $newerInterval")
+
+    val olderPopRDD = calcPopular(appName, eventNames, olderInterval)
+    if (!olderPopRDD.isEmpty()) { // todo: may want to allow an interval with no events, give them 0 counts
+      val middlePopRDD = calcPopular(appName, eventNames, middleInterval)
+      if (!middlePopRDD.isEmpty()) {
+        val newerPopRDD = calcPopular(appName, eventNames, newerInterval)
+        val newVelocityRDD = newerPopRDD.join(middlePopRDD).map {
+          case (item, (newerScore, middleScore)) => item -> (newerScore - middleScore)
+        }
+        val oldVelocityRDD = middlePopRDD.join(olderPopRDD).map {
+          case (item, (middleScore, olderScore)) => item -> (middleScore - olderScore)
+        }
+        newVelocityRDD.join(oldVelocityRDD).map {
+          case (item, (newVelocity, oldVelocity)) => item -> (newVelocity - oldVelocity)
+        }
+      } else sc.emptyRDD
+    } else sc.emptyRDD
+  }
+  */
+
+  // todo eventsRDD is passed in for Harness
+  /*
+  def eventsRDD(
+    appName: String,
+    eventNames: Seq[String] = Seq.empty,
+    interval: Interval): RDD[Event] = {
+
+    logger.info(s"PopModel getting eventsRDD for startTime: ${interval.getStart} and endTime ${interval.getEnd}")
+    PEventStore.find(
+      appName = appName,
+      startTime = Some(interval.getStart),
+      untilTime = Some(interval.getEnd),
+      eventNames = if (eventNames.nonEmpty) Some(eventNames) else None)(sc).repartition(sc.defaultParallelism)
+  }
+  */
 
 }
 
 object PopModel {
+
+  def apply(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext): PopModel = {
+    new PopModel(fieldsRDD)
+  }
 
   val nameByType: Map[String, String] = Map(
     RankingType.Popular -> RankingFieldName.PopRank,

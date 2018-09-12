@@ -23,12 +23,12 @@ trait SearchSupport[T] {
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
 case class SearchQuery(
-  sortBy: String = "popRank", // todo: make it optional
+  sortBy: String = "popRank", // todo: make it optional and changeable
   should: Map[String, Seq[Matcher]] = Map.empty,
   must: Map[String, Seq[Matcher]] = Map.empty,
   mustNot: Map[String, Seq[Matcher]] = Map.empty,
   size: Int = 20,
-  from: Int = 0
+  from: Int = 0 // todo: technically should be optional and changeable, but no sure sending 0 is bad in any way
 )
 
 case class Hit(id: String, score: Float)

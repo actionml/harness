@@ -324,7 +324,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object ElasticSearchClient {
+object ElasticSearchClient extends LazyLogging {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
@@ -372,6 +372,7 @@ object ElasticSearchClient {
             query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
           ))
       }
+    logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
   }
 
