@@ -382,6 +382,11 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
     val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
       val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
+      //val colledtedFileds = data.fieldsRdd.collect()
+      //colledtedFileds.foreach { f => logger.info(s"$f") }
+      //val collectedRanks = ranksRdd.collect()
+      //collectedRanks.foreach { f => logger.info(s"$f") }
+      //logger.info("About to add properties and ranking")
       data.fieldsRdd.fullOuterJoin(ranksRdd).map {
         case (item, (Some(fieldsPropMap), Some(rankPropMap))) => item -> (fieldsPropMap ++ rankPropMap)
         case (item, (Some(fieldsPropMap), None))              => item -> fieldsPropMap
@@ -405,19 +410,20 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {
     // todo: limit and order by date
-    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(filter = Seq(("entityId", query.user))))
-    val convertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(filter = Seq(("entityId", query.user))))
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents,filter = Seq(("entityId", query.user))))
+    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents, filter = Seq(("entityId", query.user))))
     val userEvents = modelEventNames.map { name =>
       (name,
         unconvertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq ++
         convertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq
       )
     }
-    val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }.toSeq
+    val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
     val mustMatcher = Matcher("values", query.eligibleNavIds)
     val esQuery = SearchQuery(
       should = Map("terms" -> shouldMatchers),
-      must = Map("ids" -> Seq(mustMatcher))
+      must = Map("ids" -> Seq(mustMatcher)),
+      sortBy = "popRank"
     )
     logger.info(s"Sending query: $esQuery")
     val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
@@ -449,7 +455,6 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     }
     //    logger.debug(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
     rankRDDs
-      .filter(p => convertedItems.contains(p._1))
       .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
       case (leftRdd, (fieldName, rightRdd)) =>
         leftRdd.fullOuterJoin(rightRdd).map {
@@ -458,7 +463,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
           case (itemId, (None, Some(rank)))          => itemId -> Map(fieldName -> rank)
           case (itemId, _)                           => itemId -> Map.empty
         }
-    }
+    }.filter { case (itemId, props) => convertedItems.contains(itemId) }
   }
 
   def getMappings: Map[String, (String, Boolean)] = {

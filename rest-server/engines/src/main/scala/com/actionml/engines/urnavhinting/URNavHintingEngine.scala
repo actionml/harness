@@ -157,7 +157,7 @@ object URNavHintingEngine {
       val jsonStart =
         s"""
            |{
-           |  "results": [
+           |  "result": [
         """.stripMargin
       val jsonMiddle = navHints.map{ case (k, v) =>
         s"""
