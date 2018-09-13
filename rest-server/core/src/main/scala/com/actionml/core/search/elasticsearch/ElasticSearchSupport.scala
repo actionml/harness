@@ -20,7 +20,7 @@ package com.actionml.core.search.elasticsearch
 import java.time.Instant
 
 import com.actionml.core.search._
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
@@ -324,15 +324,15 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object ElasticSearchClient {
+object ElasticSearchClient extends App {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
-  private val config = ConfigFactory.load() // todo: use ficus or something
+  private lazy val config: Config = ??? //ConfigFactory.load() // todo: use ficus or something
 
-  private val client: RestClient = {
+  private lazy val client: RestClient = {
     val builder = RestClient.builder(HttpHost.create(config.getString("elasticsearch.uri")))
     if (config.hasPath("elasticsearch.auth")) {
       val authConfig = config.getConfig("elasticsearch.auth")
@@ -347,13 +347,15 @@ object ElasticSearchClient {
   private def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.JsonDSL._
     import org.json4s.jackson.JsonMethods._
-    def matcherToJson(clauses: Map[String, Seq[Matcher]]) = clauses.map { case (clause, matchers) =>
-      matchers.map { m =>
-        clause ->
-          (m.name -> m.values) ~
-          m.boost.fold(JObject())("boost" -> _)
-      }
-    }.flatten
+    def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
+      clauses.map { case (clause, matchers) =>
+        matchers.map { m =>
+          clause ->
+            (m.name -> m.values) ~
+            m.boost.fold(JObject())("boost" -> _)
+        }
+      }.flatten.toList ++ others.toList
+    }
     val json =
       if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
         JObject()
@@ -362,9 +364,10 @@ object ElasticSearchClient {
           ("from" -> query.from) ~
           ("query" ->
             ("bool" ->
-              ("should" -> matcherToJson(query.should)) ~
+              ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
               ("must" -> matcherToJson(query.must)) ~
-              ("must_not" -> matcherToJson(query.mustNot))
+              ("must_not" -> matcherToJson(query.mustNot)) ~
+              ("minimum_should_match" -> 1)
             )
           ) ~
           ("sort" -> Seq(
@@ -372,7 +375,7 @@ object ElasticSearchClient {
             query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
           ))
       }
-    compact(render(json))
+    pretty(render(json))
   }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
