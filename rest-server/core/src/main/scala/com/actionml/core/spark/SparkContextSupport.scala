@@ -17,44 +17,79 @@
 
 package com.actionml.core.spark
 
-import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.validate.ValidRequestExecutionError
-import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerEvent}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.joda.time.DateTime
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.reflect.ClassTag
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 
 object SparkContextSupport {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
+  /*
+  Stops context and failures all promises
+   */
+  def reset: Unit = state.get match {
+    case Idle =>
+    case s@Running(_, _, currentPromise, otherPromises) =>
+      if (currentPromise.isCompleted) {
+        currentPromise.future.value.foreach {
+          case Success(sc) => if (!sc.isStopped) sc.stop()
+          case _ =>
+        }
+      } else currentPromise.failure(new InterruptedException)
+      otherPromises.foreach(_._2.failure(new InterruptedException))
+      state.compareAndSet(s, Idle)
+  }
+
+  def stopAndClean(sc: SparkContext): Unit = {
+    state.get match {
+      case s@Running(_, optSc, _, promises) if promises.nonEmpty =>
+        val (p, others) = (promises.head, promises.tail)
+        optSc.foreach(_.stop())
+        val newSc = createSparkContext(p._1)
+        p._2.complete(newSc)
+        state.compareAndSet(s, Running(p._1, newSc.toOption, p._2, others))
+      case s =>
+        state.compareAndSet(s, Idle)
+    }
+  }
+
+  /*
+  Creates one context per jvm and one parameters set and gives promises for future contexts.
+   */
   def getSparkContext(config: String, defaults: Map[String, String]): Future[SparkContext] = {
     val params = SparkContextParams(config, defaults: Map[String, String])
     state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
-        if (state.compareAndSet(Idle, Running(params, p, Map.empty))) {
-          p.completeWith(Future.fromTry(createSparkContext(params)))
+        val futureContext = createSparkContext(params)
+        if (state.compareAndSet(Idle, Running(params, futureContext.toOption, p, Map.empty))) {
+          p.complete(futureContext)
           p.future
         } else getSparkContext(config, defaults)
-      case Running(currentParams, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
+      case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
-      case s@Running(_, p, promises) if p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
+      case s@Running(_, sc, p, promises) if !sc.forall(_.isStopped) =>
         promises.getOrElse(params, {
           val p = Promise[SparkContext]()
           state.compareAndSet(s, s.copy(otherPromises = promises + (params -> p)))
           p
         }).future
+      case s@Running(_, sc, p, promises) if sc.forall(_.isStopped) =>
+        p.complete(Failure(new IllegalStateException()))
+        promises.foreach(_._2.complete(Failure(new IllegalStateException())))
+        Future.fromTry(createSparkContext(params)).map { sc =>
+          state.compareAndSet(s, Running(params, Some(sc), Promise.successful(sc), Map.empty))
+          sc
+        }
     }
   }
 
@@ -83,6 +118,7 @@ object SparkContextSupport {
 
   private sealed trait SparkContextState
   private case class Running(currentParams: SparkContextParams,
+                             sparkContext: Option[SparkContext],
                              currentPromise: Promise[SparkContext],
                              otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
   private case object Idle extends SparkContextState
