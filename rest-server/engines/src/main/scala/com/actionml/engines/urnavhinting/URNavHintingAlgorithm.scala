@@ -229,6 +229,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
   override def destroy(): Unit = {
     // todo: delete the model, only the algorithm knows where it is
+    es.deleteIndex()
   }
 
   override def input(datum: URNavHintingEvent): Validated[ValidateError, Boolean] = {
@@ -410,7 +411,9 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
 
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {
-    // todo: limit and order by date
+    // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
+    // like "you forgot to train"
+    // todo: order by date
     val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq(("entityId", query.user))))
     val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq(("entityId", query.user))))
     val userEvents = modelEventNames.map { n =>

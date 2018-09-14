@@ -21,4 +21,4 @@ This will be merged with the single integration test but is currently run from a
 After running the PVR integration test with Harness running:
 
  - `cd harness/rest-server/examples`
- - `./
+ - `./urnh-integration-test.sh`
