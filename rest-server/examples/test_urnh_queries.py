@@ -68,7 +68,7 @@ def send_queries(client, file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Import sample data for recommendation engine")
-    parser.add_argument('--engine_id', default='ur_nav_hinting')
+    parser.add_argument('--engine_id', default='test_ur_nav_hinting')
     parser.add_argument('--url', default="http://localhost:9090")
     parser.add_argument('--input_file', default="./data/ur_nav_hinting_handmade_queries.csv")
     parser.add_argument('--secret', default=None)

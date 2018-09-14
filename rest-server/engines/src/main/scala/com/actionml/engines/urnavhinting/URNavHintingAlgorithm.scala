@@ -315,7 +315,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       // todo: for now ignore properties and only calc popularity, then save to ES
       calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
 
-      sc.stop() // no more use of sc will be tolerated ;-)
+      //sc.stop() // no more use of sc will be tolerated ;-)
+      SparkContextSupport.stopAndClean(sc)
     }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute

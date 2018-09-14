@@ -15,7 +15,7 @@ echo
 # export "HARNESS_CLIENT_USER_SECRET"=abc
 host=localhost
 # for real CLI test: engine=test_ur_nav_hinting
-engine=ur_nav_hinting
+engine=test_ur_nav_hinting
 test_queries=data/nh-queries-urls.json
 user_events=data/ur_nav_hinting_handmade_data.csv
 
@@ -24,7 +24,7 @@ training_sleep_seconds=30
 # initialize these in case not running from integrated test script
 skip_restarts=${skip_restarts:-false}
 clean_test_artifacts=${clean_test_artifacts:-false}
-test_results=urnh_results.txt
+test_results=data/expected-urnh-results.txt
 
 
 
@@ -48,7 +48,7 @@ echo
 python3 ur_nav_hinting_import_handmade.py
 
 echo
-echo "Training a new model"
+echo "Training a new model--THIS WILL TAKE SOME TIME (30 SECONDS?)"
 echo
 harness train $engine
 sleep $training_sleep_seconds # wait for training to complete
@@ -60,6 +60,6 @@ python3 test_urnh_queries.py > test-urnh.out
 
 
 echo "---------------------- There should be no important differences ----------------------------"
-diff test-urnh.out data/expected-urnh-results.txt | grep result
+diff test-urnh.out ${test_results} | grep result
 echo
 

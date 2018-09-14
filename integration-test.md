@@ -1,5 +1,7 @@
 # Running the Harness Integration Test
 
+## PVR and Non-personlized Nav-Hinting
+
 The test on a completely clean source install. Get to the point where you can run the Python commands, especially `harness start`. Note that building Harness requires you build the Auth server on the same machine with `sbt publishlocal` to populate the `~/.ivy2` cache with jars used to build Harness.
 
 If harness is running with no TLS and no Authentication required there is a minimal "smoke test". Follow these steps:
@@ -12,3 +14,11 @@ If harness is running with no TLS and no Authentication required there is a mini
  - `cd harness-java-sdk`
  - `./integration-test.sh`
  
+## URNavHinting
+
+This will be merged with the single integration test but is currently run from a different place and uses the Python SDK instead of the Java SDK.
+
+After running the PVR integration test with Harness running:
+
+ - `cd harness/rest-server/examples`
+ - `./
