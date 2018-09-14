@@ -410,12 +410,12 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
   def query(query: URNavHintingQuery): URNavHintingQueryResult = {
     // todo: limit and order by date
-    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents,filter = Seq(("entityId", query.user))))
-    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents, filter = Seq(("entityId", query.user))))
-    val userEvents = modelEventNames.map { name =>
-      (name,
-        unconvertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq ++
-        convertedHist.filter(_.event == name).map(_.targetEntityId.get).toSeq
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq(("entityId", query.user))))
+    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq(("entityId", query.user))))
+    val userEvents = modelEventNames.map { n =>
+      (n,
+        (unconvertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq ++
+        convertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq).distinct
       )
     }
     val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
@@ -423,7 +423,8 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     val esQuery = SearchQuery(
       should = Map("terms" -> shouldMatchers),
       must = Map("ids" -> Seq(mustMatcher)),
-      sortBy = "popRank"
+      sortBy = "popRank",
+      size = limit
     )
     logger.info(s"Sending query: $esQuery")
     val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}

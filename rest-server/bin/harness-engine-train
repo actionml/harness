@@ -10,7 +10,7 @@ shift
 
 if [ -z "$RESOURCE_ID" ]; then
     echo -e "${RED}Engine resource id not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness train <engine-id]${NC}"
+    echo -e "Expected command: ${CYAN}harness train <engine-id>${NC}"
     exit 1
 fi
 
