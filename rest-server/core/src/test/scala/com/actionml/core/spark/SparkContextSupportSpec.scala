@@ -35,6 +35,16 @@ class SparkContextSupportSpec extends FlatSpec with Matchers with BeforeAndAfter
     Await.result(futureContext, Duration.Inf) shouldBe a [SparkContext]
   }
 
+  it should "sequentially get+release 2 contexts in a row" in {
+    val config = """{"sparkConf":{"master":"local","appName":"test_app"}}"""
+    val futureContext1 = SparkContextSupport.getSparkContext(config, Map.empty)
+    val sc1 = Await.result(futureContext1, Duration.Inf)
+    SparkContextSupport.stopAndClean(sc1)
+    val futureContext2 = SparkContextSupport.getSparkContext(config, Map.empty)
+    val sc2 = Await.result(futureContext2, Duration.Inf)
+    assert(sc2 != sc1)
+  }
+
   it should "return same spark context for same params" in {
     val config = """{"sparkConf":{"master":"local","appName":"test_app"}}"""
     val future1 = SparkContextSupport.getSparkContext(config, Map.empty)

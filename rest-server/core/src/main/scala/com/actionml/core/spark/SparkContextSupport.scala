@@ -57,7 +57,8 @@ object SparkContextSupport {
         val newSc = createSparkContext(p._1)
         p._2.complete(newSc)
         state.compareAndSet(s, Running(p._1, newSc.toOption, p._2, others))
-      case s =>
+      case s@Running(_, optSc, _, _)  =>
+        optSc.foreach(_.stop())
         state.compareAndSet(s, Idle)
     }
   }
