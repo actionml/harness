@@ -3,12 +3,12 @@
 *.class
 *.log
 
-# sbt specific
-**/sbt/sbt
+# sbt build specific
+sbt/sbt
+**/dist/
 .cache
 .history
 .lib/
-dist/*
 target/
 lib_managed/
 src_managed/
