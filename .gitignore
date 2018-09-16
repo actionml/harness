@@ -4,6 +4,7 @@
 *.log
 
 # sbt specific
+**/sbt/sbt
 .cache
 .history
 .lib/
