@@ -116,8 +116,6 @@ lazy val common = (project in file("common")).dependsOn(core).
 lazy val engines = (project in file("engines")).dependsOn(core).
   settings(
     commonSettings,
-    resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo/",
-    externalResolvers := Resolver.withDefaultResolvers(resolvers.value, mavenCentral = true),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -129,13 +127,14 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       // Mahout's Spark libs. They're custom compiled for Scala 2.11
       // and included in the local Maven repo in the .custom-scala-m2/repo resolver below
       /* for 0.13.0 */
-      "org.apache.mahout" %% "mahout-math-scala" % mahoutVersion,
-      "org.apache.mahout" %% "mahout-spark" % mahoutVersion
+      "org.apache.mahout" %% "mahout-math-scala" % mahoutVersion from "https://github.com/actionml/mahout_2.11/raw/mvn-repo/org/apache/mahout/mahout-math-scala_2.11/0.13.0/mahout-math-scala_2.11-0.13.0.jar",
+      "org.apache.mahout" %% "mahout-spark" % mahoutVersion from "https://github.com/actionml/mahout_2.11/raw/mvn-repo/org/apache/mahout/mahout-spark_2.11/0.13.0/mahout-spark_2.11-0.13.0.jar"
         exclude("org.apache.spark", "spark-core_2.11"),
-      "org.apache.mahout"  % "mahout-math" % mahoutVersion,
-      "org.apache.mahout"  % "mahout-hdfs" % mahoutVersion
+      "org.apache.mahout"  % "mahout-math" % mahoutVersion from "https://github.com/actionml/mahout_2.11/raw/mvn-repo/org/apache/mahout/mahout-math/0.13.0/mahout-math-0.13.0.jar",
+      "org.apache.mahout"  % "mahout-hdfs" % mahoutVersion from "https://github.com/actionml/mahout_2.11/raw/mvn-repo/org/apache/mahout/mahout-hdfs/0.13.0/mahout-hdfs-0.13.0.jar"
         exclude("com.thoughtworks.xstream", "xstream")
-        exclude("org.apache.hadoop", "hadoop-client")
+        exclude("org.apache.hadoop", "hadoop-client"),
+      "it.unimi.dsi" % "fastutil" % "8.2.2"
       /*for mahout-0.14.0-SNAPSHOT
       "org.apache.mahout" %% "core" % mahoutVersion,
       "org.apache.mahout" %% "spark" % mahoutVersion
