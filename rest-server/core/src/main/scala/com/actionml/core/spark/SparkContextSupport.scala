@@ -60,6 +60,7 @@ object SparkContextSupport {
       case s@Running(_, optSc, _, _)  =>
         optSc.foreach(_.stop())
         state.compareAndSet(s, Idle)
+      case Idle =>
     }
   }
 
