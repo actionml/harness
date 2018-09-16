@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "Harness-0.3.0-feature-ur-1"
+version := "Harness-0.3.0-rc1"
 
 scalaVersion := "2.11.12"
 
