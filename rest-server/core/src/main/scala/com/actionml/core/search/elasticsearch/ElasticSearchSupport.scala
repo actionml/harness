@@ -30,7 +30,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
-import org.elasticsearch.client.RestClient
+import org.elasticsearch.client.{Request, RestClient}
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.json4s.DefaultReaders._
 import org.json4s.jackson.JsonMethods._
@@ -212,6 +212,11 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
     oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
   }
 
+  override def isIndexExists: Boolean = {
+    val request = new Request("HEAD", s"/$alias")
+    client.performRequest(request).getStatusLine.getStatusCode == 200
+  }
+
 
   private def createIndexByName(
     indexName: String,
@@ -324,7 +329,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object ElasticSearchClient extends App with LazyLogging {
+object ElasticSearchClient extends LazyLogging {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
