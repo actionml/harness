@@ -150,6 +150,25 @@ python3 setup.py install
 
 You are now ready to launch and run Harness with the included Engines
 
+# Elasticsearch 5.x or 6.x
+
+Some newer engines require Elasticsearch. Anything based on the Universal Recommender, for instance, uses Elasticsearch to store the model and to run special queries not allowed in other DBS. These special "similarity" queries are actually part of the algorithm so Elasticsearch is a requirement (although any engine based on Lucene could be used, if you write your own client to perform the same operations).
+
+Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 5.x or newer.
+
+## macOS High Sierra
+
+    $ brew update
+    $ brew install elasticsearch
+
+## Ubuntu
+
+The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
+
+## Docker Elasticsearch
+
+If you wish to use Docker containers for ES, just be sure to supply the host a port in any Engine's JSON config (not supported for 0.3.0-RC1)
+
 # Launching Harness  
 
 To configure Harness for localhost connections you should not need to change the configuration in `harness/Harness-0.3.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing port numbers and if you want to connect to Harness from other hosts have it listen to `0.0.0.0` instead of `localhost`, which is default.
