@@ -2,6 +2,8 @@
 
 This describes the process for deploying Harness from some dev branch, not yet released. This is necessary sometimes for staging the server in order to write integration code for the client application before a release can be tested or finalized.
 
+This describes extra steps not covered in the [install](install.md) doc.
+
 # Prepare the WIP branch
 
  1. Build and test (see test section) Harness pre-0.3.0 release on a dev machine from whatever branch is the work in progress. **Make sure the version number of harness uniquely describes the WIP version being deployed.** The new version should be `Harness-0.3.0-feature-ur-1` to include the WIP branch and the deployment number. This will cause `harness status` to report the number and give the `tar.gz` a unique name. 
