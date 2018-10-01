@@ -33,7 +33,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, rdd}
 import org.bson.Document
 import org.joda.time.DateTime
-import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import com.typesafe.scalalogging.LazyLogging
@@ -268,10 +268,10 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
       "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName
     )
 
-    SparkContextSupport.getSparkContext(initParams, defaults).map { implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, defaults, Array(classOf[URNavHintingEvent])).map { implicit sc =>
 
       // todo: we should be able to pass in the dbName and collectionName to any readRdd call now, not tested
-      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoStorageHelper.codecs)
+      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoConfig.mongo.host, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getIndicatorEventsCollectionName))
 
       // todo: this should work but not tested and not used in any case
       /*

@@ -137,12 +137,12 @@ object URNavHintingEngine {
       properties: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
       eventTime: String) // ISO8601 date
-    extends Event
+    extends Event with Serializable
 
   case class ItemProperties (
       _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
       properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
-  )
+  ) extends Serializable
 
   case class URNavHintingQuery(
       user: String, // ignored for non-personalized

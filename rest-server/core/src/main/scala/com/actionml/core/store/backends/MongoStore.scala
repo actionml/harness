@@ -75,7 +75,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 }
 
 object MongoStorage extends LazyLogging {
-  val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
+  lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
   private lazy val mongoClient = MongoClient(uri)
 
 

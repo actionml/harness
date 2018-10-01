@@ -6,8 +6,8 @@ import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
-import org.apache.mahout.sparkbindings.{DrmRdd, drmWrap}
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+import org.apache.mahout.sparkbindings.{DrmRdd, drmWrap}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
@@ -52,8 +52,8 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
       val singleEventRDD = eventsRDD
         .filter( e => e.event == eventName )
         .map { e =>
-        (e.entityId, e.targetEntityId.getOrElse(""))
-      }
+          (e.entityId, e.targetEntityId.getOrElse(""))
+        }
 
       (eventName, singleEventRDD)
     } filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
@@ -100,7 +100,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
         logger.info("EventName: " + eventName)
         // logger.info(s"first eventName is ${trainingData.actions.head._1.toString}")
         val ids = if (eventName == trainingData.actions.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
-          val dIDS = IndexedDatasetSpark(eventRDD, trainingData.minEventsPerUser.get)(sc)
+          val dIDS = IndexedDatasetSparkHelper(eventRDD, trainingData.minEventsPerUser.get)(sc)
           logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, eventName: $eventName" +
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
@@ -137,7 +137,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
 }
 
 /** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */
-object IndexedDatasetSpark {
+object IndexedDatasetSparkHelper {
 
   /** Constructor for primary indicator where the userDictionary is built */
   def apply(
