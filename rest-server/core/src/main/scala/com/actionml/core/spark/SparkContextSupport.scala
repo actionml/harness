@@ -17,19 +17,20 @@
 
 package com.actionml.core.spark
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerEvent}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 
-object SparkContextSupport {
+object SparkContextSupport extends LazyLogging {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
@@ -67,8 +68,8 @@ object SparkContextSupport {
   /*
   Creates one context per jvm and one parameters set and gives promises for future contexts.
    */
-  def getSparkContext(config: String, defaults: Map[String, String]): Future[SparkContext] = {
-    val params = SparkContextParams(config, defaults: Map[String, String])
+  def getSparkContext(config: String, defaults: Map[String, String], kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
+    val params = SparkContextParams(config, defaults: Map[String, String], kryoClasses)
     state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
@@ -76,18 +77,18 @@ object SparkContextSupport {
         if (state.compareAndSet(Idle, Running(params, futureContext.toOption, p, Map.empty))) {
           p.complete(futureContext)
           p.future
-        } else getSparkContext(config, defaults)
+        } else getSparkContext(config, defaults, kryoClasses)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
-      case s@Running(_, sc, p, promises) if !sc.forall(_.isStopped) =>
+      case s@Running(_, sc, p, promises) if !sc.exists(_.isStopped) =>
         promises.getOrElse(params, {
           val p = Promise[SparkContext]()
           state.compareAndSet(s, s.copy(otherPromises = promises + (params -> p)))
           p
         }).future
       case s@Running(_, sc, p, promises) if sc.forall(_.isStopped) =>
-        p.complete(Failure(new IllegalStateException()))
-        promises.foreach(_._2.complete(Failure(new IllegalStateException())))
+        p.tryFailure(new IllegalStateException())
+        promises.foreach(_._2.tryFailure(new IllegalStateException()))
         Future.fromTry(createSparkContext(params)).map { sc =>
           state.compareAndSet(s, Running(params, Some(sc), Promise.successful(sc), Map.empty))
           sc
@@ -104,11 +105,24 @@ object SparkContextSupport {
       appName <- configMap.get("appName")
     } conf.setMaster(master).setAppName(appName)
     conf.setAll(configMap -- Seq("master", "appName", "dbName", "collection"))
+    val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
+    conf.setJars(jars)
     // todo: not sure we should make these keys special, if we do then we should report and error if things like
     // master or appname are required but not provided. We need a better way to report engine.json errors,
     // especially in the sparkConf, which is only partially known. We can check for required things and let the
     // rest through on the hope they are correct
+    if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
     new SparkContext(conf)
+  }
+
+  private def listJars(path: String): Seq[String] = {
+    val dir = new File(path)
+    if (dir.exists() && dir.isDirectory) {
+      dir.listFiles.collect {
+        case f if f.isFile && f.getName.endsWith(".jar") =>
+          f.getAbsolutePath
+      }
+    } else Seq.empty
   }
 
   private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
@@ -116,7 +130,7 @@ object SparkContextSupport {
     transform(parse(jsonStr)).extract[T]
   }
 
-  private case class SparkContextParams(config: String, defaults: Map[String, String])
+  private case class SparkContextParams(config: String, defaults: Map[String, String], kryoClasses: Array[Class[_]])
 
   private sealed trait SparkContextState
   private case class Running(currentParams: SparkContextParams,

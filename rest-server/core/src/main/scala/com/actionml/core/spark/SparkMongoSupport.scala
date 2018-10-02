@@ -22,6 +22,7 @@ import com.mongodb.MongoClient
 import com.mongodb.client.MongoDatabase
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.{MongoClientFactory, MongoConnector, MongoSpark}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
@@ -31,52 +32,53 @@ import scala.reflect.ClassTag
 // todo: these should be put in the DAO as a mixin trait for Spark, in which case the params are all known or can be found
 // leaving only the sc to be passed in perhaps implicitly
 trait SparkStoreSupport {
-  def readRdd[T](
+  def readRdd[T: ClassTag](
     sc: SparkContext,
+    dbHost: String,
     codecs: List[CodecProvider],
     dbName: Option[String] = None,
-    collectionName: Option[String] = None)
-    (implicit ct: ClassTag[T]): RDD[T]
+    collectionName: Option[String] = None): RDD[T]
 }
 
 trait SparkMongoSupport extends SparkStoreSupport {
 
-  override def readRdd[T](
+  override def readRdd[T: ClassTag](
     sc: SparkContext,
+    dbHost: String = "localhost",
     codecs: List[CodecProvider] = List.empty,
     dbName: Option[String] = None,
-    colName: Option[String] = None)
-    (implicit ct: ClassTag[T]): RDD[T] = {
-    if(dbName.isDefined && colName.isDefined) {
+    colName: Option[String] = None): RDD[T] = {
+    val ct = implicitly[ClassTag[T]]
+    if (dbName.isDefined && colName.isDefined) {
       // not sure if the codecs are understood here--I bet not
       val rc = ReadConfig(databaseName = dbName.get, collectionName = colName.get)
       MongoSpark
         .builder()
         .sparkContext(sc)
         .readConfig(rc)
-        .connector(new GenericMongoConnector(codecs, ct))
+        .connector(new GenericMongoConnector(dbHost, codecs, ct))
         .build
         .toRDD()
     } else {
       MongoSpark
         .builder()
         .sparkContext(sc)
-        .connector(new GenericMongoConnector(codecs, ct))
+        .connector(new GenericMongoConnector(dbHost, codecs, ct))
         .build
         .toRDD()
     }
   }
 }
 
-class GenericMongoConnector[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T])
-  extends MongoConnector(new GenericMongoClientFactory(codecs, ct))
+class GenericMongoConnector[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T])
+  extends MongoConnector(new GenericMongoClientFactory(host, codecs, ct))
     with Serializable {}
 
-class GenericMongoClientFactory[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T]) extends MongoClientFactory {
-  override def create(): MongoClient = new GenericMongoClient[T](codecs, ct)
+class GenericMongoClientFactory[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClientFactory {
+  override def create(): MongoClient = new GenericMongoClient[T](host, codecs, ct)
 }
 
-class GenericMongoClient[T](@transient codecs: List[CodecProvider], @transient ct: ClassTag[T]) extends MongoClient {
+class GenericMongoClient[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClient(host) with LazyLogging {
 
   override def getDatabase(databaseName: String): MongoDatabase =
     super.getDatabase(databaseName).withCodecRegistry(MongoStorage.codecRegistry(codecs)(ct))
