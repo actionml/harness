@@ -64,8 +64,9 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   with JsonParser {
 
   import URNavHintingAlgorithm._
+  import com.actionml.core.spark.SparkMongoSupport.syntax._
 
-  private var sparkContext: Validated[ValidateError, SparkContext] = _
+  private lazy val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
 
   case class BoostableCorrelators(actionName: String, itemIDs: Seq[String], boost: Option[Float] = None) {
     def toFilterCorrelators: FilterCorrelators = {
@@ -261,17 +262,10 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def train(): Validated[ValidateError, String] = {
-    val defaults = Map(
-      "appName" -> engineId,
-      "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> dataset.getItemsDbName,
-      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName
-    )
 
-    SparkContextSupport.getSparkContext(initParams, defaults, Array(classOf[URNavHintingEvent])).map { implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, engineId, Array(classOf[URNavHintingEvent])).map { implicit sc =>
 
-      // todo: we should be able to pass in the dbName and collectionName to any readRdd call now, not tested
-      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoConfig.mongo.host, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getIndicatorEventsCollectionName))
+      val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
       // todo: this should work but not tested and not used in any case
       /*
@@ -321,7 +315,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
-    logger.debug(s"Starting train $this with spark $sparkContext")
+    logger.debug(s"Starting train $this with spark")
     Valid("Started train Job on Spark")
   }
 

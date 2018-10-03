@@ -250,14 +250,6 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
       config = initParams)
     */
 
-
-    val defaults = Map(
-      "appName" -> engineId,
-      "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> dataset.getItemsDbName,
-      "spark.mongodb.input.collection" -> dataset.getItemsCollectionName)
-
-
     logger.debug(s"Starting train $this with spark $sparkContext")
 
     /*
@@ -270,7 +262,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
     }
     */
 
-    SparkContextSupport.getSparkContext(initParams, defaults).map { sc => // or implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, engineId).map { sc => // or implicit sc =>
     //sparkContext.andThen { implicit sc =>
 
       val s = 1 to 10000
