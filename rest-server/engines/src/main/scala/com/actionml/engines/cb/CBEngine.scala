@@ -17,20 +17,17 @@
 
 package com.actionml.engines.cb
 
-import cats.data
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
+import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
-import com.typesafe.scalalogging.Logger
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine() extends Engine() with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
+class CBEngine extends Engine with JsonParser {
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
@@ -57,8 +54,8 @@ class CBEngine() extends Engine() with JsonParser {
         createResources(p).andThen{ _ =>
           dataset.init(json, deepInit).andThen { _ =>
             if (deepInit) {
-              algo = new CBAlgorithm(p.engineId, dataset)
-              algo.init(json, this)
+              algo = new CBAlgorithm(json ,p.engineId, dataset)
+              algo.init(this)
             } else Valid(true)
           }
         }
@@ -80,11 +77,6 @@ class CBEngine() extends Engine() with JsonParser {
     }
   }
 
-  override def stop(): Unit = {
-    logger.info(s"Waiting for CBAlgorithm for engineId: $engineId to terminate")
-    algo.stop()
-  }
-
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(CBStatus(
@@ -99,17 +91,13 @@ class CBEngine() extends Engine() with JsonParser {
     algo.destroy()
   }
 
-  def train(): Unit = {
-    logger.warn(s"Only used for Lambda style training")
-  }
-
   /** Triggers parse, validation, and processing of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, Boolean] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json, trainNow).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -143,7 +131,7 @@ class CBEngine() extends Engine() with JsonParser {
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.groupsDao.findOneById(query.groupId).nonEmpty) {
-        val result = algo.predict(query)
+        val result = algo.query(query)
         Valid(result.toJson)
       } else {
         Invalid(WrongParams(s"Query for non-existent group: $json"))
@@ -209,4 +197,14 @@ case class CBStatus(
       |}
     """.stripMargin
   }
+}
+
+object CBEngine {
+  def apply(json: String): CBEngine = {
+    val engine = new CBEngine()
+    engine.initAndGet(json)
+  }
+
+  // in case we don't want to use "apply", which is magically connected to the class's constructor
+  def createEngine(json: String) = apply(json)
 }

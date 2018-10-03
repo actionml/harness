@@ -2,20 +2,18 @@
 
 . "${HARNESS_HOME}/bin/harness-env"
 
-ENGINE_CONFIG=$1
+case "$1" in
+    *) RESOURCE_ID=$1 ;;
+esac
+
 shift
 
-if [ -z "$ENGINE_CONFIG" ]; then
-    echo -e "${RED}Engine config file not specified!${NC}"
-    echo -e "Expected command: ${CYAN}harness train <some-engine.json>${NC}"
+if [ -z "$RESOURCE_ID" ]; then
+    echo -e "${RED}Engine resource id not specified!${NC}"
+    echo -e "Expected command: ${CYAN}harness train <engine-id>${NC}"
     exit 1
 fi
 
-if [ ! -f ${ENGINE_CONFIG} ]; then
-    echo -e "${RED}Engine config file [${ENGINE_CONFIG}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness train <some-engine.json>${NC}"
-    echo -e "Verify that the correct path is specified."
-    exit 1
-fi
+PYTHON_ARGS="train $RESOURCE_ID  ${USER_ARGS}"
 
-${HARNESS_HOME}/bin/commands.py train ${ENGINE_CONFIG}
+${HARNESS_HOME}/bin/engines.py $PYTHON_ARGS

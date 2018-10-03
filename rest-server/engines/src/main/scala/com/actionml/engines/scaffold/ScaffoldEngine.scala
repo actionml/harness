@@ -20,7 +20,7 @@ package com.actionml.engines.scaffold
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, GenericQuery}
+import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
 
@@ -28,7 +28,7 @@ import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldEngine() extends Engine() with JsonParser {
+class ScaffoldEngine extends Engine with JsonParser {
 
   var dataset: ScaffoldDataset = _
   var algo: ScaffoldAlgorithm = _
@@ -41,7 +41,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         params = p
         engineId = params.engineId
         dataset = new ScaffoldDataset(engineId)
-        algo = new ScaffoldAlgorithm(dataset)
+        algo = new ScaffoldAlgorithm(json, dataset)
         drawInfo("Generic Scaffold Engine", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
@@ -51,7 +51,7 @@ class ScaffoldEngine() extends Engine() with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          if (deepInit) algo.init(json, this) else Valid(true)
+          if (deepInit) algo.init(this) else Valid(true)
         }
       }
     }
@@ -72,11 +72,6 @@ class ScaffoldEngine() extends Engine() with JsonParser {
     }
   }
 
-  override def stop(): Unit = {
-    logger.info(s"Waiting for ScaffoldAlgorithm for id: $engineId to terminate")
-    algo.stop() // Todo: should have a timeout and do something on timeout here
-  }
-
   override def status(): Validated[ValidateError, String] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(this.params.toString)
@@ -95,11 +90,11 @@ class ScaffoldEngine() extends Engine() with JsonParser {
   */
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String, trainNow: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, Boolean] = {
     super.init(json).andThen { _ =>
       logger.trace("Got JSON body: " + json)
       // validation happens as the input goes to the dataset
-      if (super.input(json, trainNow).isValid)
+      if (super.input(json).isValid)
         dataset.input(json).andThen(process).map(_ => true)
       else
         Valid(true) // Some error like an ExecutionError in super.input happened
@@ -117,15 +112,36 @@ class ScaffoldEngine() extends Engine() with JsonParser {
     Valid(event)
   }
 
+  override def train(): Validated[ValidateError, String] = {
+    logger.info("got to Scaffold.train")
+    Valid(
+      """
+        |{
+        |  "comment": "Training requested of the ScaffoldEngine"
+        |  "jobId": "A fake job id"
+        |}
+      """.stripMargin
+    )
+  }
+
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
   def query(json: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      val result = algo.predict(query)
+      val result = algo.query(query)
       Valid(result.toJson)
     }
   }
 
 }
 
+object ScaffoldEngine {
+  def apply(json: String): ScaffoldEngine = {
+    val engine = new ScaffoldEngine()
+    engine.initAndGet(json)
+  }
+
+  // in case we don't want to use "apply", which is magically connected to the class's constructor
+  def createEngine(json: String) = apply(json)
+}

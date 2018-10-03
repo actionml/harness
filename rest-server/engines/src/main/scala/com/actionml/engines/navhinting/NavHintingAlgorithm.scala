@@ -43,7 +43,7 @@ import scala.concurrent.duration._
   * power. All input is persisted before the model is calculated to guarantee the model can be recreated. We may
   * be able to train and persist in parallel when we switch to the new async DB client.
   */
-class NavHintingAlgorithm(dataset: NavHintingDataset)
+class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
   extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonParser {
 
   private var activeJourneys = Map[String, Seq[JourneyStep]]() // kept as key - user-id, sequence of nav-ids and timestamps
@@ -51,13 +51,13 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
 
   var params: NHAlgoParams = _ // todo achtung! public var
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[NHAllParams](json).andThen { p =>
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
           params = p.algorithm.copy()
           // init nav hints DAOs for existing models
-          dataset.navHintsModels.list().foreach { navModel =>
+          dataset.navHintsModels.findMany().foreach { navModel =>
             navHintsModels += navModel._id -> MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
               .createDao[NavHint](navModel._id)
           }
@@ -74,23 +74,25 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)
     val converted = datum.event.properties.flatMap(_.conversion).getOrElse(false)
-    if (converted) { // update the model with the active journeys and remove it from active
+    if (converted) { // update the model with the active journeys and removeOne it from active
       if (activeJourney.nonEmpty) { // have an active journey
         // create and empty model if this is a new cconversion-id or find the right navHintModel
-        val navHintsModel = if(navHintsModels.contains(datum.event.targetEntityId)) navHintsModels(datum.event.targetEntityId) else {
-          // no model yet so create one and add it to the list
+        val navHintsModel = if(navHintsModels.contains(datum.event.targetEntityId)) {
+          navHintsModels(datum.event.targetEntityId)
+        } else {
+          // no model yet so create one and add it to the findMany
           // always persist the new model's id after creating it!
           logger.debug(s"Creating DAO for engine $engineId ...")
           val model = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
             .createDao[NavHint](datum.event.targetEntityId)
           logger.debug(s"Saving $datum")
-          dataset.navHintsModels.save(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
+          dataset.navHintsModels.saveOneById(datum.event.targetEntityId, NavModels(datum.event.targetEntityId))
           navHintsModels += datum.event.targetEntityId -> model
           navHintsModels(datum.event.targetEntityId)
         }
         updateModel(navHintsModel, Journey(datum.event.targetEntityId, activeJourney.get),
           DateTimeUtil.parseOffsetDateTime(datum.event.eventTime))
-        activeJourneys -= datum.event.entityId // remove once converted
+        activeJourneys -= datum.event.entityId // removeOne once converted
       } else { // new event from this user, start a journey
         activeJourneys += datum.event.entityId -> Seq(JourneyStep(datum.event.targetEntityId,
           DateTimeUtil.parseOffsetDateTime(datum.event.eventTime)))
@@ -110,75 +112,23 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     Valid(true)
   }
 
-  /** add the event to the end of an active journey subject to length limits */
+  /** Add the event to the end of an active journey subject to length limits */
   def updateTrail(navId: String, timeStamp: OffsetDateTime, trail: Seq[JourneyStep]): Seq[JourneyStep] = {
     val newTrail = trail :+ JourneyStep(navId, timeStamp)
     newTrail.takeRight(params.numQueueEvents.getOrElse(50))
   }
 
-  /** update the model with a Future for every input. This may cause Futures to accumulate */
+  /** Update and persist the model with every input. */
   def updateModel(navHintsModel: DAO[NavHint], convertedJourney: Journey,  now: OffsetDateTime): Unit = {
     applyDecayFunction(convertedJourney, now).map { weightedVectors =>
-      //Semigroup[Map[String, Double]].combine(model, weightedVectors.toMap)
       weightedVectors.foreach { case (_id, weight) =>
         val existingModelHint = navHintsModel.findOneById(_id).getOrElse(NavHint(_id, 0d))
-        val status = navHintsModel.save(_id, NavHint(_id, weight + existingModelHint.weight))
+        val status = navHintsModel.saveOneById(_id, NavHint(_id, weight + existingModelHint.weight))
         val updatedWeight = weight + existingModelHint.weight
         logger.trace(s"Updated db model with nav hint _id: ${_id} weight: ${updatedWeight} status: ${status} ")
       }
     }
   }
-
-  /* works if we save to a file, but using a db
-  def persistModel(): Unit = {
-    numUpdates += 1
-    if (numUpdates % params.updatesPerModelWrite.getOrElse(10) == 0 ) { // time to persist, ideally every 10 updates
-      if (canStartWriter) { // its done so start a new write future
-        canStartWriter = false
-        Future[Unit] {
-          // write a temp model file and move to model file when done
-          import java.nio.file.StandardCopyOption.REPLACE_EXISTING
-          import java.nio.file.Files.{copy, move}
-          import java.nio.file.Paths.get
-
-          implicit def toPath (filename: String) = get(filename)
-
-          var outTemp = None: Option[FileOutputStream]
-          var inOldModel = None: Option[FileInputStream]
-          var outBackupModel = None: Option[FileOutputStream]
-
-          try {
-            outTemp = Some(new FileOutputStream(modelPath + ".tmp")) // where to write
-            outTemp.get.write(serialise(model)) // write latest model to tmp file
-            copy(Paths.get(modelPath), Paths.get(modelPath + ".backup"), REPLACE_EXISTING)
-            move(Paths.get(modelPath + ".tmp"), Paths.get(modelPath), REPLACE_EXISTING)
-          } catch {
-            case e: IOException =>
-              logger.error("Error writing the model update, if this persists you are not writing the model " +
-                "and you need to resolve the issue.", e)
-            case e: FileNotFoundException =>
-              logger.error("Error finding a writable location for the model or its backup.", e)
-          } finally {
-            logger.trace("Closing all file streams.")
-            if (outTemp.isDefined) outTemp.get.close // others are closed by the function????
-          }
-        }.onComplete(_ => canStartWriter = true) // attach a callback to release the lock
-      } // Future is still running so ignore this opportunity to write and try again later after more updates
-    } // wait until its time to write
-  }
-  */
-
-  /*
-  def persistModel(): Unit = {
-    numUpdates += 1
-    if (numUpdates % params.updatesPerModelWrite.getOrElse(1) == 0 ) { // save after some number of updates of the in-memory model
-      // write the model to a DB
-      logger.info(s"About to Save MODEL")
-      val status = dataset.navHintsDAO.save(Hints(hints = model))
-      logger.info(s"Saved MODEL")
-    } // wait until its time to write
-  }
-  */
 
   private def applyDecayFunction(journey: Journey, now: OffsetDateTime): Future[Seq[(String, Double)]] = {
     val decayFunctionName = params.decayFunction.getOrElse("click-order")
@@ -217,13 +167,13 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
     }
   }
 
-  override def predict(query: NHQuery): NHQueryResult = {
+  override def query(query: NHQuery): NHQueryResult = {
     // find model elements that match eligible and sort by weight, sort before taking the top k
     // adds the weights of hints with the same id from multiple conversion-id models
     val results = query.eligibleNavIds.map((_,0d)).flatMap { case (eligibleNavId, w) =>
       navHintsModels.map(_._2.findOneById(eligibleNavId))
       //dataset.navHintsDAO.findOneById(eligibleNavId).getOrElse(NavHint(eligibleNavId, 0))
-    }.flatten // remove undefined Options
+    }.flatten // removeOne undefined Options
       .groupBy(_._id).map { case (id, navHints) => // get nav-hints with matching ids
         var sum = 0d
         navHints.foreach(sum += _.weight)
@@ -236,11 +186,7 @@ class NavHintingAlgorithm(dataset: NavHintingDataset)
   }
 
   override def destroy(): Unit = {
-    // remove old model since it is recreated with each new NavHintingEngine
-  }
-
-  override def stop(): Unit = {
-    // actors.terminate().wait()
+    // removeOne old model since it is recreated with each new NavHintingEngine
   }
 
 }

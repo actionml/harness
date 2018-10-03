@@ -1,0 +1,32 @@
+{
+  "engineId": "ur",
+  "engineFactory": "com.actionml.engines.ur.UREngine",
+  "sparkConf": {
+    "master": "local",
+    "spark.driver-memory": "4g",
+    "spark.executor-memory": "4g"
+  },
+  "algorithm": {
+    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
+    "esMaster": "es-node-1",
+    "indexName": "urindex",
+    "typeName": "items",
+    "blacklist": [],
+    "indicators": [
+      {
+        "name": "purchase"
+      },{
+        "name": "view",
+        "maxCorrelatorsPerItem": 50
+      },{
+        "name": "category-pref",
+        "maxCorrelatorsPerItem": 50,
+        "minLLR": 5.0
+      }
+    ],
+    "availableDateName": "available",
+    "expireDateName": "expires",
+    "dateName": "date",
+    "num": 4
+  }
+}

@@ -33,21 +33,10 @@ import scala.reflect.ClassTag
 
 class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
   import scala.concurrent.ExecutionContext.Implicits.global
+  import MongoStorage.codecRegistry
 
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
-    import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
-    import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-
-    import scala.collection.JavaConversions._
-    val codecRegistry = if (codecs.nonEmpty) fromRegistries(
-      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      fromProviders(codecs),
-      DEFAULT_CODEC_REGISTRY
-    ) else fromRegistries(
-      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      DEFAULT_CODEC_REGISTRY
-    )
-    new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry))
+    new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct)))
   }
 
   override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))
@@ -55,14 +44,14 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   override def drop(): Unit = sync(dropAsync)
 
   override def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.debug(s"Trying to remove collection $name from database ${db.name}")
+    logger.debug(s"Trying to removeOne collection $name from database ${db.name}")
     db.getCollection(name).drop.headOption().flatMap {
         case Some(_) =>
           logger.debug(s"Collection $name successfully removed from database ${db.name}")
           Future.successful(())
         case None =>
           logger.debug(s"Failure. Collection $name can't be removed from database ${db.name}")
-          Future.failed(new RuntimeException(s"Can't remove collection $name"))
+          Future.failed(new RuntimeException(s"Can't removeOne collection $name"))
       }
   }
 
@@ -81,10 +70,12 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   private val timeout = 5 seconds
   private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
+
+  override def dbName: String = db.name
 }
 
 object MongoStorage extends LazyLogging {
-  val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
+  lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
   private lazy val mongoClient = MongoClient(uri)
 
 
@@ -94,6 +85,21 @@ object MongoStorage extends LazyLogging {
   }
 
   def getStorage(dbName: String, codecs: List[CodecProvider]) = new MongoStorage(mongoClient.getDatabase(dbName), codecs)
+
+  def codecRegistry(codecs: List[CodecProvider])(implicit ct: ClassTag[_]) = {
+    import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
+    import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+
+    import scala.collection.JavaConversions._
+    if (codecs.nonEmpty) fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
+      fromProviders(codecs),
+      DEFAULT_CODEC_REGISTRY
+    ) else fromRegistries(
+      CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
+      DEFAULT_CODEC_REGISTRY
+    )
+  }
 }
 
 

@@ -19,25 +19,29 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-abstract class Dataset[T] extends LazyLogging {
+import scala.reflect.ClassTag
 
+abstract class Dataset[T](engineId: String) extends LazyLogging with JsonParser {
+
+  // methods that must be implemented in the Engine
   def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
   def destroy(): Unit
-  def start() = {logger.trace(s"Starting base Dataset"); this}
-  def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
-
   def input(datum: String): Validated[ValidateError, Event]
+  /** Required method to parserAndValidate the input event */
+  def parseAndValidateInput(jsonEvent: String): Validated[ValidateError, T]
 
-  def parseAndValidateInput(s: String): Validated[ValidateError, T]
+  // start and stop may be ignored by Engines if not applicable
+  def start(): Dataset[T] = {logger.trace(s"Starting base Dataset"); this}
+  def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
 
 }
 
-abstract class SharedUserDataset[T](storage: Store) extends Dataset[T]
+abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Dataset[T](engineId)
   with JsonParser with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")
@@ -45,25 +49,10 @@ abstract class SharedUserDataset[T](storage: Store) extends Dataset[T]
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
       // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
-      // to find old users that will be orphaned.
-
+      // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-//      object UsersDAO extends SalatDAO[User, String](collection = connection(p.sharedDBName.getOrElse(resourceId))("users"))
       Valid(true)
     }
   }
 
 }
-// allows us to look at what kind of specialized event to create
-case class GenericEvent (
-  //eventId: String, // not used in Harness, but allowed for PIO compatibility
-  event: String,
-  entityType: String,
-  entityId: String,
-  targetEntityId: Option[String] = None,
-  properties: Option[Map[String, Any]] = None,
-  eventTime: String, // ISO8601 date
-  creationTime: String) // ISO8601 date
-  extends Event
-
-trait Event
