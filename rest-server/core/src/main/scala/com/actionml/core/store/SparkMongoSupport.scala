@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package com.actionml.core.spark
+package com.actionml.core.store
 
-import com.actionml.core.store.DAO
-import com.actionml.core.store.backends.{MongoConfig, MongoDao}
+import com.actionml.core.spark.GenericMongoConnector
+import com.actionml.core.store.backends.MongoConfig
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import org.apache.spark.SparkContext
@@ -30,7 +30,7 @@ import scala.reflect.ClassTag
 
 trait SparkMongoSupport extends SparkStoreSupport {
 
-  override def readRdd[T: ClassTag](
+  override private[store] def readRdd[T: ClassTag](
     sc: SparkContext,
     dbHost: String = "localhost",
     codecs: List[CodecProvider] = List.empty,

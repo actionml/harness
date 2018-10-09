@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.spark
+package com.actionml.core.store
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -23,9 +23,8 @@ import org.bson.codecs.configuration.CodecProvider
 
 import scala.reflect.ClassTag
 
-
 trait SparkStoreSupport {
-  def readRdd[T: ClassTag](
+  private[store] def readRdd[T: ClassTag](
     sc: SparkContext,
     dbHost: String,
     codecs: List[CodecProvider],

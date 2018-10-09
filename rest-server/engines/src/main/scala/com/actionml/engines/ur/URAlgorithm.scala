@@ -22,7 +22,8 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
-import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
+import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.store.SparkMongoSupport
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, Field, RankingParams, URAlgorithmParams}
 import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
@@ -262,7 +263,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
     }
     */
 
-    SparkContextSupport.getSparkContext(initParams, engineId).map { sc => // or implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, appName = engineId).map { sc => // or implicit sc =>
     //sparkContext.andThen { implicit sc =>
 
       val s = 1 to 10000
