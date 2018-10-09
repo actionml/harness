@@ -20,6 +20,7 @@ package com.actionml.core.spark
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
@@ -69,7 +70,7 @@ object SparkContextSupport extends LazyLogging {
   Creates one context per jvm and one parameters set and gives promises for future contexts.
    */
   def getSparkContext(config: String, defaults: Map[String, String], kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
-    val params = SparkContextParams(config, defaults: Map[String, String], kryoClasses)
+    val params = SparkContextParams(config, defaults, kryoClasses)
     state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
@@ -98,7 +99,7 @@ object SparkContextSupport extends LazyLogging {
 
 
   private def createSparkContext(params: SparkContextParams): Try[SparkContext] = Try {
-    val configMap = params.defaults ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+    val configMap = configParams ++ params.defaults ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
     val conf = new SparkConf()
     for {
       master <- configMap.get("master")
@@ -113,6 +114,15 @@ object SparkContextSupport extends LazyLogging {
     // rest through on the hope they are correct
     if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
     new SparkContext(conf)
+  }
+
+  private def configParams: Map[String, String] = {
+    import net.ceedubs.ficus.Ficus._
+    import com.typesafe.config.ConfigFactory
+    Try {
+      val config: Config = ConfigFactory.load()
+      Map("spark.eventLog.dir" -> config.as[String]("spark.eventLog.dir"))
+    }.getOrElse(Map.empty)
   }
 
   private def listJars(path: String): Seq[String] = {
