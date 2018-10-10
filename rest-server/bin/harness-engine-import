@@ -24,12 +24,13 @@ if [ -z "$resource_id" ]; then
     exit 1
 fi
 
-if [ ! -f ${import_path} ] && [ ! -d ${import_path} ]; then
-    echo -e "${RED}Engine events JSON file [${import_path}] not found!${NC}"
-    echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
-    echo -e "Verify that the correct directory or file path is specified."
-    exit 1
-fi
+# Now that we allow HDFS we cannot check for existence from the CLI
+#if [ ! -f ${import_path} ] && [ ! -d ${import_path} ]; then
+#    echo -e "${RED}Engine events JSON file [${import_path}] not found!${NC}"
+#    echo -e "Expected command: ${CYAN}harness import <engine-id> [<some-directory> | <some-file>]${NC}"
+#    echo -e "Verify that the correct directory or file path is specified."
+#    exit 1
+#fi
 
 python_args="import ${python_args} ${resource_id} --import_path ${import_path} ${USER_ARGS}"
 

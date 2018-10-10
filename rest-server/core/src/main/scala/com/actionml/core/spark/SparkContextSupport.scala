@@ -119,9 +119,11 @@ object SparkContextSupport {
   private case class SparkContextParams(config: String, defaults: Map[String, String])
 
   private sealed trait SparkContextState
-  private case class Running(currentParams: SparkContextParams,
-                             sparkContext: Option[SparkContext],
-                             currentPromise: Promise[SparkContext],
-                             otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
+  private case class Running(
+      currentParams: SparkContextParams,
+      sparkContext: Option[SparkContext],
+      currentPromise: Promise[SparkContext],
+      otherPromises: Map[SparkContextParams, Promise[SparkContext]])
+    extends SparkContextState
   private case object Idle extends SparkContextState
 }

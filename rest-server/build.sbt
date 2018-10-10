@@ -14,6 +14,7 @@ lazy val mongoVersion = "3.6.4"
 //lazy val mongoScalaDriverVersion = "2.4.0"
 lazy val mongoScalaDriverVersion = "2.2.1"
 lazy val mongoSparkConnecterVersion = "2.2.4"
+lazy val hdfsVersion = "2.8.1"
 //lazy val sparkVersion = "2.3.1"
 lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
@@ -38,6 +39,8 @@ lazy val commonSettings = Seq(
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
   resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-hdfs" % hdfsVersion,
+    "org.apache.hadoop" % "hadoop-common" % hdfsVersion,
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
 
