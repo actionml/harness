@@ -18,14 +18,11 @@
 package com.actionml.core.backup
 
 import java.io._
-import java.net.URI
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 /**
   * Mirroring implementation for HDFS.
@@ -34,7 +31,7 @@ import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 class HDFSMirroring(mirrorContainer: String, engineId: String)
   extends Mirroring(mirrorContainer, engineId) {
 
-  private val hdfs = HDFSFactories.hdfs
+  private val hdfs = HDFSFactory.hdfs
 
   private val rootMirrorDir = if(hdfs.exists(new Path("/mirrors"))) {
     val engineEventMirrorPath = new Path(mirrorContainer, engineId)
@@ -92,7 +89,8 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
     } else mirrorEventError("Problem mirroring input to HDFS. No valid mirror location.")
   }
 
-  // todo: should read in a thread and return at once after setup check
+  // todo: should read in a thread and return at once after checking parameters
+  // todo: decouple importEvents from mirrorEvents
   /** Read json event one per line as a single file or directory of files returning when done */
   override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
@@ -108,18 +106,23 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
       try {
         val filesStatuses = hdfs.listStatus(new Path(location))
         val filePaths = filesStatuses.map(_.getPath())
-        logger.info(s"Number of file in dir: ${filePaths.size} values: ${filePaths.toString}")
-        for (filePath <- filePaths) {
-          val file = hdfs.open(filePath)
-          val lineReader = new BufferedReader(new InputStreamReader(file))
-          var line = lineReader.readLine()
-          while (line != null) {
-            // logger.info(s"Event from HDFS file ${filePath.getName}\n$line")
-            engine.input(line)
-            line = lineReader.readLine()
+        if(filePaths.size > 0) {
+          logger.info(s"Number of files in dir: ${filePaths.size} values include: ${filePaths.head.getName}")
+          for (filePath <- filePaths) {
+            val file = hdfs.open(filePath)
+            val lineReader = new BufferedReader(new InputStreamReader(file))
+            var line = lineReader.readLine()
+            while (line != null) {
+              // logger.info(s"Event from HDFS file ${filePath.getName}\n$line")
+              engine.input(line)
+              line = lineReader.readLine()
+            }
           }
+          Valid(true)
+        } else {
+          logger.warn(s"No event files in location $location. No Events imported")
+          importEventsError(s"No event files in location $location. No Events imported!")
         }
-        Valid(true)
       } catch {
         case ex: IOException =>
           val errMsg = "Problem reading input from HDFS"
@@ -131,19 +134,3 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
 
 }
 
-object HDFSFactories {
-
-  private lazy val hdfsConfDir = sys.env.getOrElse("HDFS_CONF_DIR", "/usr/local/hadoop/etc/hadoop")
-
-  lazy val conf: Configuration = {
-    val config = new Configuration()
-    config.setBoolean("dfs.support.append", true) // used by mirroring
-    // the following are the minimum needed from the hdfs setup files even if hdfs is not setup
-    // on this machine these must be copied from the namenode/master
-    config.addResource(new Path(s"$hdfsConfDir/core-site.xml"))
-    config.addResource(new Path(s"$hdfsConfDir/hdfs-site.xml"))
-    config
-  }
-
-  lazy val hdfs: FileSystem = FileSystem.get(conf)
-}

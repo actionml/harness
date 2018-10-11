@@ -113,7 +113,8 @@ abstract class Engine extends LazyLogging with JsonParser {
     Valid(
       s"""
          |{
-         |  "Engine class": "Status of base Engine with engineId:$engineId"
+         |  "Engine id: ": "$engineId",
+         |  "Comment: ": "This Engine does not implement the status API"
          |}
        """.stripMargin)
   }

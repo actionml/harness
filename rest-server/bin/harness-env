@@ -18,6 +18,9 @@ export MIRROR_TYPE=${MIRROR_TYPE:-HDFS}
 export MIRROR_LOCATION=${MIRROR_LOCATION:-/mirrors} # HDFS absolute path must be writable by Harness
 # export MIRROR_TYPE=${MIRROR_TYPE:-/tmp} # localFS absolute path must be writable by Harness
 
+# This should be set by Hadoop, otherwise set it here
+export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
+
 # To connect to an HDFS instance or cluster, optionally used to mirror events from Engines
 # files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
 # if needed
