@@ -18,9 +18,9 @@
 package com.actionml.core.store
 
 import com.actionml.core.spark.GenericMongoConnector
-import com.actionml.core.store.backends.MongoConfig
+import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
 import com.mongodb.spark.MongoSpark
-import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
@@ -71,6 +71,19 @@ object SparkMongoSupport {
           .connector(new GenericMongoConnector(MongoConfig.mongo.host, codecs, ct))
           .build
           .toRDD()
+      }
+    }
+
+    implicit class RddMongoOps[D <: DAO[_]](dao: D) {
+      def writeToMongo(rdd: RDD[_]): Unit = {
+        val writeConfig = WriteConfig(
+          databaseName = dao.dbName,
+          collectionName = dao.collectionName,
+          connectionString = Some(MongoStorage.uri),
+          replaceDocument = true,
+          forceInsert = true
+        )
+        MongoSpark.save(rdd, writeConfig)
       }
     }
   }
