@@ -17,18 +17,16 @@
 
 package com.actionml.engines.cb
 
-import java.time.{Instant, LocalDateTime, OffsetDateTime}
+import java.time.OffsetDateTime
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.engine.SharedUserDataset
+import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.{DAO, Store}
-import com.actionml.core.engine.{Dataset, Event, SharedUserDataset}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
 /** Reacts to persisted input data for the Contextual Bandit.
@@ -47,11 +45,10 @@ import scala.language.reflectiveCalls
   * users and groups are mutable in Mongo, the events are kept as a stream that is truncated after the model is
   * updated so not unnecessary old data is stored.
   *
-  * @param resourceId REST resource-id from POST /datasets/<resource-id> also ids the mongo DB for all but shared User
+  * @param engineId REST resource-id from POST /datasets/<resource-id> also ids the mongo DB for all but shared User
   *                   data.
   */
-class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](usersStorage) with JsonParser {
-  import scala.concurrent.ExecutionContext.Implicits.global
+class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](engineId, usersStorage) with JsonParser {
 
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 
@@ -62,7 +59,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
     // super.init will handle the users collection, allowing sharing of user data between Engines
     super.init(json, deepInit).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
-        groupsDao.find().foreach { p =>
+        groupsDao.findOne().foreach { p =>
           usageEventGroups = usageEventGroups + (p._id -> storage.createDao[UsageEvent](p._id))
         }
         Valid(true)
@@ -71,7 +68,6 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
   }
 
   override def destroy() = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     storage.drop()
   }
 
@@ -82,12 +78,11 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
 
 
   def persist(event: CBEvent): Validated[ValidateError, CBEvent] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     try {
       event match {
         case event: CBUsageEvent => // usage data, kept as a stream
           if (usageEventGroups.keySet.contains(event.properties.testGroupId)) {
-            logger.debug(s"Dataset: $resourceId persisting a usage event: $event")
+            logger.debug(s"Dataset: $engineId persisting a usage event: $event")
             // input to usageEvents collection
             // Todo: validate fields first
 /*            val eventObj = MongoDBObject(
@@ -98,7 +93,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
               "converted" -> event.properties.converted,
               "eventTime" -> new DateTime(event.eventTime)) //sort by this
 */
-            usageEventGroups(event.properties.testGroupId).save(event.entityId, event.toUsageEvent)
+            usageEventGroups(event.properties.testGroupId).saveOneById(event.entityId, event.toUsageEvent)
 
             if (event.properties.converted) { // store the preference with the user
               val user = usersDAO.findOneById(event.entityId).getOrElse(User("", Map.empty))
@@ -112,7 +107,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
                 val newTags = event.properties.contextualTags.takeRight(100).mkString("%")
                 User(user._id, user.properties + ("contextualTags" -> newTags))
               }
-              usersDAO.save(user._id, updatedUser)
+              usersDAO.saveOneById(user._id, updatedUser)
             }
             Valid(event)
 
@@ -124,14 +119,14 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
 
 
         case event: CBUserUpdateEvent => // user profile update, modifies user object from $set event
-          logger.debug(s"Dataset: $resourceId persisting a User Profile Update Event: $event")
+          logger.debug(s"Dataset: $engineId persisting a User Profile Update Event: $event")
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty)
-          val user = usersDAO.find("_id" -> event.entityId).getOrElse(User(event.entityId, Map.empty))
+          val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq ++ updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
-          usersDAO.save(event.entityId, newUser)
+          usersDAO.saveOneById(event.entityId, newUser)
           Valid(event)
 
         case event: GroupParams => // group init event, modifies group definition
@@ -143,19 +138,18 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
           }
           usageEventGroups = usageEventGroups + (event._id -> storage.createDao[UsageEvent](event._id))
 
-          groupsDao.save(event._id, event)
+          groupsDao.saveOneById(event._id, event)
           Valid(event)
 
         case event: CBUserUnsetEvent => // unset a property in a user profile
-          logger.trace(s"Dataset: ${resourceId} persisting a User Profile Unset Event: ${event}")
+          logger.trace(s"Dataset: ${engineId} persisting a User Profile Unset Event: ${event}")
           // input to usageEvents collection
           // Todo: validate fields first
           val updateProps = event.properties.getOrElse(Map.empty).keySet
-          import scala.concurrent.ExecutionContext.Implicits.global
           val user = usersDAO.findOneById(event.entityId).getOrElse(User(event.entityId, Map.empty))
           val newProps = user.propsToMapOfSeq -- updateProps
           val newUser = User(user._id, User.propsToMapString(newProps))
-          usersDAO.save(user._id, newUser) // overwrite the User
+          usersDAO.saveOneById(user._id, newUser) // overwrite the User
 
           Valid(event)
 /*          val unsetPropNames = event.properties.get.keys.toArray
@@ -163,21 +157,21 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
           usersDAO.collection.update(MongoDBObject("_id" -> event.entityId), $unset(unsetPropNames: _*), true)
           Valid(event)
 */
-        case event: CBDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
+        case event: CBDeleteEvent => // removeOne an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
-              logger.trace(s"Dataset: ${resourceId} persisting a User Delete Event: ${event}")
+              logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.remove("_id" -> event.entityId)
+              usersDAO.removeOne("_id" -> event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
                 logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
                 Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
               } else {
-                groupsDao.remove("_id" -> event.entityId)
+                groupsDao.removeOne("_id" -> event.entityId)
                 storage.removeCollection(event.entityId)
-                usageEventGroups = usageEventGroups - event.entityId // remove from our collection or collections
+                usageEventGroups = usageEventGroups - event.entityId // removeOne from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")
                 Valid(event)
               }
@@ -208,14 +202,14 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
             case "user" => // got a user profile update event
               parseAndValidate[CBUserUpdateEvent](json)
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
-              logger.trace(s"Dataset: ${resourceId} parsing a group init event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing a group init event: ${event.event}")
               parseAndValidate[CBGroupInitEvent](json).map(_.toGroupParams)
           }
 
-        case "$unset" => // remove properties
+        case "$unset" => // removeOne properties
           event.entityType match {
             case "user" => // got a user profile update event
-              logger.trace(s"Dataset: ${resourceId} parsing a user $$unset event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing a user $$unset event: ${event.event}")
               parseAndValidate[CBUserUnsetEvent](json).andThen { uue =>
                 if (!uue.properties.isDefined) {
                   Invalid(MissingParams("No parameters specified, event ignored"))
@@ -224,20 +218,20 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
                 }
               }
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
-              logger.warn(s"Dataset: ${resourceId} parsed a group $$unset event: ${event.event} this is undefined " +
+              logger.warn(s"Dataset: ${engineId} parsed a group $$unset event: ${event.event} this is undefined " +
                 s"and ignored.")
               Invalid(WrongParams("Group $unset is not allowed and ignored."))
           }
 
-        case "$delete" => // remove an object
+        case "$delete" => // removeOne an object
           event.entityType match {
             case "user" | "group" | "testGroup" => // got a user profile update event
-              logger.trace(s"Dataset: ${resourceId} parsing an $$delete event: ${event.event}")
+              logger.trace(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
               parseAndValidate[CBDeleteEvent](json)
           }
 
         case _ => // default is a self describing usage event, kept as a stream
-          logger.trace(s"Dataset: ${resourceId} parsing a usage event: ${event.event}")
+          logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[CBUsageEvent](json)
       }
     }
@@ -249,7 +243,7 @@ class CBDataset(resourceId: String, storage: Store, usersStorage: Store) extends
 
 /* CBEvent partially parsed from the Json:
 {
-  "event" : "$set", //"$unset means to remove some properties (not values) from the object
+  "event" : "$set", //"$unset means to removeOne some properties (not values) from the object
   "entityType" : "user"
   "entityId" : "amerritt",
   "properties" : {

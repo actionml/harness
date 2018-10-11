@@ -3,7 +3,7 @@ Provides easy-to-use functions for integrating
 Python applications with ActionML's REST API for the Harness Server.
 """
 
-__version__ = "0.2.0rc2"
+__version__ = "0.3.0a0"
 
 # import packages
 import re
@@ -318,23 +318,26 @@ class EnginesClient(BaseClient):
     def create(self, data):
         return self.async_create(data).get_response()
 
-    def async_update(self, engine_id, import_path, update_config, data):
+    def async_update(self, engine_id, import_path, update_type, data):
         """
         Asynchronously update engine with either input events OR new config JSON
         :param engine_id: should be same as in data, which is json config string
         :param import_path: if non-empty, defines a path to input json files to import
-        :param update_config: if True means the data = JSON config params for engine
+        :param update_type: if True means the data = JSON config params for engine
         :param data: json config data, as in create, engine_id's passed in and in json MUST match
         :return:
         """
         path = self._add_segment(engine_id)
 
-        if update_config:
+        if update_type == "configs":
             path = path + "/configs"  # endpoint on an engine-id, flagging that data is the new config JSON
-        else:
+        elif update_type == "imports":
             path = path + "/imports"  # endpoint on an engine-id, that tells the engine to import from the import_path
             query = {'import_path': import_path}
             path = self._add_get_params(path, **query)
+        elif update_type == "jobs":
+            path = path + "/jobs"  # endpoint on an engine-id, that tells the engine to train from existing data
+
 
         # print("Fully constructed path: {}".format(path))
         # print("Data supplied: {}".format(data))
@@ -360,8 +363,8 @@ class EnginesClient(BaseClient):
         self._connection.make_request(request)
         return request
 
-    def update(self, engine_id, import_path, update_config, data):
-        req = self.async_update(engine_id, import_path, update_config, data)
+    def update(self, engine_id, import_path, update_type, data):
+        req = self.async_update(engine_id, import_path, update_type, data)
         # print("Made request: {}".format(req))
         ret = req.get_response()
         # print("Got response: {}".format(ret))

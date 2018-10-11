@@ -19,7 +19,7 @@ package com.actionml.engines.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericQuery, GenericQueryResult}
+import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.store._
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonParser, ValidateError}
@@ -31,12 +31,12 @@ import com.actionml.core.validate.{JsonParser, ValidateError}
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldAlgorithm(dataset: ScaffoldDataset)
+class ScaffoldAlgorithm(json: String, dataset: ScaffoldDataset)
   extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonParser {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[AllParams](json).andThen { p =>
         // p is just the validated algo params from the engine's params json file.
         Valid(true)
@@ -53,12 +53,8 @@ class ScaffoldAlgorithm(dataset: ScaffoldDataset)
   }
 
 
-  def predict(query: GenericQuery): GenericQueryResult = {
+  def query(query: GenericQuery): GenericQueryResult = {
     GenericQueryResult()
-  }
-
-  override def stop(): Unit = {
-    // May want to send terminate signal to Actors and wait for completion
   }
 
 }
@@ -68,7 +64,7 @@ case class AllParams(
 
 
 case class ScaffoldAlgoParams(
-    dummyParam: String) // since not an Option, this is required for this Engine
+    dummy: String) // since not an Option, this is required for this Engine
   extends AlgorithmParams
 
 case class ScaffoldAlgorithmInput(

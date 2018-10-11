@@ -80,7 +80,6 @@ fabric.properties
 *.iml
 /rest-server/dist/
 /rest-server/*.tar.gz
-/rest-server/data/
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/

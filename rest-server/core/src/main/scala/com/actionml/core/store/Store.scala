@@ -17,14 +17,12 @@
 
 package com.actionml.core.store
 
-import com.typesafe.scalalogging.LazyLogging
-
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 
 trait Store {
+  def dbName: String
   def createDao[T](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
   def removeCollection(name: String): Unit
   def drop(): Unit
@@ -32,38 +30,3 @@ trait Store {
   def dropAsync()(implicit ec: ExecutionContext): Future[Unit]
 }
 
-trait DAO[T] extends AsyncDao[T] with SyncDao[T] {
-  def name: String
-}
-
-trait AsyncDao[T] {
-  def findAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]]
-  def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]]
-  def listAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Iterable[T]]
-  def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T]
-  def saveAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def removeAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T]
-  def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
-}
-
-trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
-  import scala.concurrent.ExecutionContext.Implicits.global
-  private val timeout = 5 seconds
-  private def sync[A](f: => Future[A]): A = try {
-    Await.result(f, timeout)
-  } catch {
-    case e: Throwable =>
-      logger.error("Sync DAO error", e)
-      throw e
-  }
-
-  def findOneById(id: String): Option[T] = sync(findOneByIdAsync(id))
-  def find(filter: (String, Any)*): Option[T] = sync(findAsync(filter: _*))
-  def list(filter: (String, Any)*): Iterable[T] = sync(listAsync(filter: _*))
-  def insert(o: T): Unit = sync(insertAsync(o))
-  def update(filter: (String, Any)*)(o: T): T = sync(updateAsync(filter: _*)(o))
-  def save(id: String, o: T): Unit = sync(saveAsync(id, o))
-  def remove(filter: (String, Any)*): T = sync(removeAsync(filter: _*))
-  def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
-}

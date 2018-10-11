@@ -69,7 +69,7 @@ case class Train(datum: CBAlgorithmInput)
   * of events when a new one is detected, then updating the model for that group for subsequent queries.
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
-class CBAlgorithm(resourceId: String, dataset: CBDataset)
+class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
 
   private val actors = ActorSystem(resourceId)
@@ -85,8 +85,8 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(json: String, engine: Engine): Validated[ValidateError, Boolean] = {
-    super.init(json, engine).andThen { _ =>
+  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+    super.init(engine).andThen { _ =>
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
           namespace = engineId)
@@ -110,7 +110,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     try {
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
-      checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to save model
+      checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to saveOneById model
       Valid(true)
     } catch {
       case e: NoSuchElementException =>
@@ -119,7 +119,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def predict(query: CBQuery): CBQueryResult = {
+  override def query(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events
     if (dataset.usageEventGroups isDefinedAt query.groupId) {
       logger.info(s"Making query for group: ${query.groupId}")
@@ -219,11 +219,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def stop(): Unit = {
-    actors.terminate().wait()
-  }
-
-  def getVariant(query: CBQuery): CBQueryResult = {
+ def getVariant(query: CBQuery): CBQueryResult = {
     //val vw = new VW(" -i " + modelContainer)
 
     val group = dataset.groupsDao.findOneById(query.groupId).get
@@ -241,7 +237,7 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     logger.info(s"Query string to VW: \n$queryText")
     val pred = vw.predict(queryText)
     logger.info(s"VW: raw results, not yet run through probability distribution: ${pred}\n\n")
-    //vw.close() // not need to save the model for a query
+    //vw.close() // not need to saveOneById the model for a query
 
     //see http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.109.4518&rep=rep1&type=pdf
     //we use testPeriods as epsilon0
@@ -302,28 +298,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
     item
   }
 
-  /*
-  def destroy(): Unit = {
-    val f = Future {
-      logger.info(s"Closing vw $vw")
-      if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      logger.info(s"VW is closed ($vw)")
-      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
-        logger.info(s"Deleting file ${modelPath} for engine $engineId and vw $vw")
-        while (!Files.deleteIfExists(Paths.get(modelPath))) {
-          logger.info(s"trying to delete ${modelPath}")
-        }
-      } else logger.info(s"$vw of engine $engineId has no file to delete")
-    }.flatMap(_ => actors.terminate)
-    f.onComplete {
-      case Success(r) => logger.info(s"Algorithm for $engineId was destroyed with result: $r")
-      case Failure(e) => logger.error(s"Can't destroy $this", e)
-    }
-    Await.result(f, 4.seconds)
-  }
-  */
-
-
   override def destroy(): Unit = {
 
     try{ Await.result(
@@ -340,30 +314,6 @@ class CBAlgorithm(resourceId: String, dataset: CBDataset)
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
     }
-    /*
-    try {
-      actors.terminate().andThen { case _ =>
-        // todo if we are deleting we may not want to close, which may have side-effects
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) {
-          /*logger.info("Closing the VW instance now that Actors are terminated.")
-          vw.close()
-          logger.info("VW instance is closed.")
-          */
-          logger.info("Making the VW instance NULL now it is closed, just to be safe.")
-          vw = null.asInstanceOf[VWMulticlassLearner]
-        } else {
-          logger.warn("CBAlgo Destroy found NULL VW instance.")
-        }
-      }.map { _ =>
-        logger.info(s"CBAlgorithm has terminated Actors. Now deleting the model here: $modelPath")
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath)))
-          while (!Files.deleteIfExists(Paths.get(modelPath))) { logger.info("tried to delete model, will try again")}
-      }
-    }catch {
-      case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $resourceId at $modelPath before the 3 second timeout.")
-    }
-    */
   }
 
 }
@@ -416,13 +366,13 @@ class SingleGroupTrainer(
       log.info(s"Sending the VW formatted string: \n$vwString")
       val result = cbAlgo.vw.learn(vwString)
       log.info(s"Saving model for path: $modelPath")
-      cbAlgo.vw.learn(s" save_${modelPath}")// save after every event
+      cbAlgo.vw.learn(s" save_${modelPath}")// saveOneById after every event
 /*      examples += 1
-      if (examples % 20 == 0) { // save every 20 events
+      if (examples % 20 == 0) { // saveOneById every 20 events
         log.info(s"Got result to vw.learn(usageEvent) of: ${result.toString}")
-        log.info(s"Sending the pseudo example to save the model: save_${params.modelName}")
+        log.info(s"Sending the pseudo example to saveOneById the model: save_${params.modelName}")
         result = cbAlgo.vw.learn(s" save_${result.toString} ") // pseudo example that tells VW to checkpoint the model
-        log.info(s"Got result to save of: ${result.toString}")
+        log.info(s"Got result to saveOneById of: ${result.toString}")
       }
 */
     } else {
@@ -515,7 +465,7 @@ object SingleGroupTrainer {
     @transient implicit lazy val formats = org.json4s.DefaultFormats
 
     // class-id|namespace user_ user testGroupId_ testGroupId
-    // (${user properties list} -- List("converted", "testGroupId")).fields.map { entry =>
+    // (${user properties findMany} -- List("converted", "testGroupId")).fields.map { entry =>
     //   entry._1 + "_" + entry._2.extract[String].replaceAll("\\s+","_") + "_" + testGroupId
     // }.mkString(" ")
 

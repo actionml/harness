@@ -1,0 +1,9 @@
+{
+  "engineId": "scaffold",
+  "engineFactory": "com.actionml.engines.scaffold.ScaffoldEngine",
+  "comment": "modelContainer is output an should be a full directory path on your local fs",
+  "modelContainer": "/tmp/harness/models/",
+  "algorithm":{
+    "dummy": 1
+  }
+}

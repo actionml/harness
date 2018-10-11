@@ -22,9 +22,9 @@ import java.time.format.DateTimeFormatter
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.model.{Event, GenericEngineParams}
 import com.actionml.core.store.Store
-import com.actionml.core.engine.{Dataset, Event}
+import com.actionml.core.engine.Dataset
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection
@@ -39,10 +39,9 @@ import scala.util.Try
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent] with JsonParser {
+class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
 
   val activeJourneysDAO = store.createDao[Journey]("active_journeys")
-  // val navHintsDAO = store.createDao[NavHint]("nav_hints")
   val navHintsModels = store.createDao[NavModels]("nav_models")
 
   private var trailLength: Int = _
@@ -80,7 +79,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
               val updatedJourney = enqueueAndUpdate(event, unconvertedJourney)
               if (updatedJourney.nonEmpty) { // existing Journey so updAte in place
                 val uj = updatedJourney.get
-                activeJourneysDAO.save(uj._id, uj)
+                activeJourneysDAO.saveOneById(uj._id, uj)
                 Valid(true)
               } // else the first event for the journey is a conversion so ignore
             } else { // no persisted journey so create it
@@ -98,7 +97,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
             Valid(event)
           }
 
-        case event: NHDeleteEvent => // remove an object, Todo: for a group, will trigger model removal in the Engine
+        case event: NHDeleteEvent => // removeOne an object, Todo: for a group, will trigger model removal in the Engine
           event.entityType match {
             case "user" =>
               logger.trace(s"Dataset: ${engineId} removing any journey data for user: ${event.entityId}")
@@ -107,8 +106,8 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
             case "model" =>
               logger.trace(s"Dataset: ${engineId} removing model for conversion-id: ${event.entityId}")
               try {
-                navHintsModels.removeOneById(event.entityId) // todo: does this throw an exception if it fails to find?
-                store.removeCollection(event.entityId) // todo: does this throw an exception if it fails to find?
+                navHintsModels.removeOneById(event.entityId) // todo: does this throw an exception if it fails to findOne?
+                store.removeCollection(event.entityId) // todo: does this throw an exception if it fails to findOne?
                 Valid(event)
 
               } catch {
@@ -138,7 +137,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
 
     parseAndValidate[NHRawEvent](json).andThen { event =>
       event.event match {
-        case "$delete" => // remove an object
+        case "$delete" => // removeOne an object
           event.entityType match {
             case "user"  => // got a user profile update event
               logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
@@ -172,7 +171,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
 
 /* NHEvent partially parsed from the Json:
 {
-  "event" : "$set", //"$unset means to remove some properties (not values) from the object
+  "event" : "$set", //"$unset means to removeOne some properties (not values) from the object
   "entityType" : "user"
   "entityId" : "amerritt",
   "properties" : {
