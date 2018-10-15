@@ -38,13 +38,13 @@ class URNavHintingEngine extends Engine {
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
     super.init(jsonConfig).andThen { _ =>
-      val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
 
       parseAndValidate[URNavHintingEngineParams](jsonConfig).andThen { p =>
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URNavHintingDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
+        val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
         algo = URNavHintingAlgorithm(this, jsonConfig, dataset, eventsDao)
         drawInfo("Generic NavHinting Engine", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
