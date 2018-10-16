@@ -233,9 +233,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def input(datum: URNavHintingEvent): Validated[ValidateError, Boolean] = {
-    logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
-      " This is where that will be done")
-    // This deals with real-time model changes.
+    // This deals with real-time model changes, if any are implemented
     // todo: none do anything for the PoC so all return errors
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time

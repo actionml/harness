@@ -19,6 +19,7 @@ This also does not define the CLI commands that can invoke the APIs&mdash;see [C
 | HTTP Verb | Collection or item | CRUD | HTTP Code | Meaning |
 | --- | --- | :-- | :-- | :-- |
 | POST | Collection | Create | 201 | resource created |
+| POST | Collection | Create | 202 | a task is accepted for creation |
 | POST | Collection | Create | 400 | bad request |
 | POST | Item | Create | 201 | resource created |
 | POST | Item | Update | 200 | resource updated, via param |
@@ -46,15 +47,48 @@ For "client" type users, POSTing to `/engines/<engine-id>/events` and `/engines/
 | GET | `/engines/` | none | See Collection responses | Engine descriptions for Engines the user has Read access to | This works like a list command to show all resources the user can read. For the Admin this would show all Engines in the system. **(not implemented)** |
 | POST | `/engines/<engine-id>` | JSON Engine config | See Item responses | hint about how to know what was changed | Modify any params that the Engine allows |
 | DELETE | `/engines/<engine-id>` | none | See Item responses | none | Remove and destroy all sub-resources (data and model) and config for the Engine |
-| GET | `/engines/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status **(not implemented)** |
+| GET | `/engines/<engine-id>` | none | See Item responses | JSON status information about the Engine and sub-resources | Reports Engine status |
 | POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
 | POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
 | POST | `/engines/<engine-id>/events` | none | See Collection responses | JSON event formulated as defined in the Engine docs | Creates an event but may not report its ID since the Event may not be persisted, only used in the algorithm. |
 | POST | `/engines/<engine-id>/queries` | none | See Collection responses | JSON query formulated as defined in the Engine docs | Creates a query and returns the result(s) as defined in the Engine docs |
-| POST | `/engines/<engine-id>/imports?import_path=<some-path>` | none | See Collection responses | none |The parameter tells Harness where to import from, see the `harness import` command for the file format |
+| POST | `/engines/<engine-id>/imports?import_path=<some-path>` | none | 202 "Accepted" or Collection error responses | none |The parameter tells Harness where to import from, see the `harness import` command for the file format |
 | POST | `/engines/<engine-id>/configs` | none | See Collection responses | new config to replace the one the Engine is using | Updates different params per Engine type, see Engine docs for details |
-| GET | `/commands/` | none | See Collection responses | JSON listing of active Commands | Some commands are long lived and those still active will have status reported. **(not implemented)** |
 
+# Harness *Lambda* Admin APIs (Harness-0.3.0)
+
+Lambda style batch or background learners require not only setup but batch training. So some additional commands are needed and planned for a future release of Harness:
+
+| HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
+| --- | --- | :---  | :---  | :---  | :--- |
+| POST | `/engines/<engine-id>/jobs` | JSON params for batch training if defined by the Engine | See Item responses | 202 or collection error responses | Used to start a batch training operation for an engine. Supplies any needed identifiers for input and training defined by the Engine |
+
+# JSON Responses
+
+Several of the APIs return information beyond the Response Code. These will be parsable as JSON in the following forms
+
+ - GET `/engines/<engine-id>`. This corresponds to the CLI `harness engines status <engine-id>` The response is defined by the Engine to contain configuration and other status information. Performing `harness engines status <engine-id>` The CLI will display the JSON format for the Engine type. 
+
+    ```
+    {
+        "comment": "some general human readable informational message",
+        ...
+        "jobId": "id of job",
+        "jobStatus": "inactive" | "executing" | "pending"
+    }
+    ```
+
+ 
+ - POST `/engines/<engine-id>/jobs` and POST `/engines/<engine-id>/imports?<import-path>`. The corresponds to the CLI `harness train <engine-id>` and `harness import <path-to-json-directory>` With a Response Code of 202 expect a report of the form:
+    
+    ```
+    {
+        "comment": "some general human readable informational message",
+        "jobId": "id of job",
+        "jobStatus": "executing" | "pending"
+    }
+    ```
+    
 # Harness User And Permission APIs
 
 These APIs allow the admin user to create new users granting access to certain resource types.
@@ -83,12 +117,3 @@ The Auth-Server is secured with connection level security no TLS or Auth itself 
 | POST | `/auth/token` | `grant_type=password&username=user-id&password=granted-token`, also app server's credentials should be provided by Authorization Basic header (see [https://tools.ietf.org/html/rfc6749#section-4.3] for details) | 200 or 401 | `{"access_token": "string", "token_type": "", "refresh_token": "optional string"}` | authenticates user's access and returns a session token |
 | POST | `/authorize` | `{"accessToken": "string", "roleId": "string", "resourceId": "string"}` | 200 or 403 | `{"success": "true"}` | Given a session/access token authorize the access requested or return an error code |
 
-# Harness *Lambda* Admin APIs (WIP, planned for Harness-0.2.0)
-
-Lambda style batch or background learners require not only setup but batch training. So some additional commands are needed and planned for a future release of Harness:
-
-| HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
-| --- | --- | :---  | :---  | :---  | :--- |
-| POST | `/commands/batch-train` | JSON params for batch training if defined by the Engine | See Item responses | Resource-id for Command | Used to start a batch training operation for an engine. Supplies any needed identifiers for input and training defined by the Engine **(not implemented)** |
-| GET | `/commands/<command-id>` | none | See Item responses | JSON Status of command | Get a report on the progress of an asynchronous long lived command like `batch-train` which may run for hours **(not implemented)** |
-| DELETE | `/commands/<command-id>` | none | See Item responses | Response to Command being stopped and removed | Stop an asynchronous long-lived command **(not implemented)** |
