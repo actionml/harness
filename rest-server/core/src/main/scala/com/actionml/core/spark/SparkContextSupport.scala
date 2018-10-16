@@ -69,16 +69,18 @@ object SparkContextSupport extends LazyLogging {
   /*
   Creates one context per jvm and one parameters set and gives promises for future contexts.
    */
-  def getSparkContext(config: String, defaults: Map[String, String], kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
-    val params = SparkContextParams(config, defaults, kryoClasses)
+  def getSparkContext(config: String, appName: String, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
+    val params = SparkContextParams(config, appName, kryoClasses)
     state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
-        val futureContext = createSparkContext(params)
-        if (state.compareAndSet(Idle, Running(params, futureContext.toOption, p, Map.empty))) {
-          p.complete(futureContext)
+        val tryContext = createSparkContext(params)
+        if (state.compareAndSet(Idle, Running(params, tryContext.toOption, p, Map.empty))) {
+          p.complete(tryContext)
           p.future
-        } else getSparkContext(config, defaults, kryoClasses)
+        } else {
+          getSparkContext(config, appName, kryoClasses)
+        }
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
       case s@Running(_, sc, p, promises) if !sc.exists(_.isStopped) =>
@@ -99,13 +101,11 @@ object SparkContextSupport extends LazyLogging {
 
 
   private def createSparkContext(params: SparkContextParams): Try[SparkContext] = Try {
-    val configMap = configParams ++ params.defaults ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+    val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
     val conf = new SparkConf()
-    for {
-      master <- configMap.get("master")
-      appName <- configMap.get("appName")
-    } conf.setMaster(master).setAppName(appName)
-    conf.setAll(configMap -- Seq("master", "appName", "dbName", "collection"))
+    configMap.get("master").foreach(conf.setMaster)
+    conf.setAppName(params.appName)
+    conf.setAll(configMap - "master")
     val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
     conf.setJars(jars)
     // todo: not sure we should make these keys special, if we do then we should report and error if things like
@@ -140,7 +140,7 @@ object SparkContextSupport extends LazyLogging {
     transform(parse(jsonStr)).extract[T]
   }
 
-  private case class SparkContextParams(config: String, defaults: Map[String, String], kryoClasses: Array[Class[_]])
+  private case class SparkContextParams(config: String, appName: String, kryoClasses: Array[Class[_]])
 
   private sealed trait SparkContextState
   private case class Running(currentParams: SparkContextParams,

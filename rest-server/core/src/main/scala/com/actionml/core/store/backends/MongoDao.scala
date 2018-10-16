@@ -29,9 +29,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 
-class MongoDao[T](collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
+class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
 
   override def name = collection.namespace.getFullName
+  override def dbName = collection.namespace.getDatabaseName
+  override def collectionName: String = collection.namespace.getCollectionName
 
   override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = {
     findOneAsync("_id" -> id)
