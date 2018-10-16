@@ -17,17 +17,28 @@
 
 package com.actionml.core.model
 
+/* todo: we should come up with a better way of composing or mixing case classes so they can be more
+* easily extended in child classes while allowing the child class to parse (json4s) the parent
+* case class from JSON. For instance EngineParams might be used by Engine, but some child of
+* EngineParams would be used in a chile Engine class.
+*
+* See 2 methods to do this here: https://stackoverflow.com/questions/12705309/scala-case-class-inheritance
+*/
+
 case class User(
     _id: String,
     properties: Map[String, String]) {
   //def toSeq = properties.split("%").toSeq // in case users have arrays of values for a property, salat can't handle
+  // Todo: this is an old hack for Salat, should be removed?
   def propsToMapOfSeq = properties.map { case(propId, propString) =>
     propId -> propString.split("%").toSeq
   }
 }
 
 
-object User { // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+object User {
+  // convert the Map[String, Seq[String]] to Map[String, String] by encoding the propery values in a single string
+  // Todo: this is an old hack for Salat, should be removed?
   def propsToMapString(props: Map[String, Seq[String]]): Map[String, String] = {
     props.filter { (t) =>
       t._2.size != 0 && t._2.head != ""

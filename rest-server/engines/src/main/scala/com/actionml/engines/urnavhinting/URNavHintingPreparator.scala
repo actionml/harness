@@ -100,7 +100,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
         logger.info("EventName: " + eventName)
         // logger.info(s"first eventName is ${trainingData.actions.head._1.toString}")
         val ids = if (eventName == trainingData.actions.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
-          val dIDS = IndexedDatasetSparkHelper(eventRDD, trainingData.minEventsPerUser.get)(sc)
+          val dIDS = IndexedDatasetSparkFactory(eventRDD, trainingData.minEventsPerUser.get)(sc)
           logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, eventName: $eventName" +
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
@@ -137,7 +137,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
 }
 
 /** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */
-object IndexedDatasetSparkHelper {
+object IndexedDatasetSparkFactory {
 
   /** Constructor for primary indicator where the userDictionary is built */
   def apply(
