@@ -6,8 +6,7 @@
     "deploy-mode": "cluster",
     "spark.driver.memory": "2g",
     "spark.executor.memory": "2g",
-    "spark.eventLog.enabled": "true",
-    "spark.eventLog.dir": "file:///tmp/spark-logs"
+    "spark.eventLog.enabled": "true"
   },
   "algorithm": {
     "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
