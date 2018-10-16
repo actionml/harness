@@ -30,37 +30,38 @@ import scala.io.Source
   * Mirroring implementation for local FS.
   */
 
-class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
+class FSMirroring(mirrorContainer: String, engineId: String)
+  extends Mirroring(mirrorContainer, engineId) {
 
   private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
   if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, Boolean] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
 
-      if (mirrorContainer != ""){
+    if (mirrorContainer != ""){
+      try {
+        val resourceCollection = new File(containerName)
+        //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
+        if (!resourceCollection.exists()) new File(s"$containerName").mkdir()
+        val fn = batchName
+        val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
         try {
-          val resourceCollection = new File(containerName(engineId))
-          //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-          if (!resourceCollection.exists()) new File(s"${ containerName(engineId) }").mkdir()
-          val fn = batchName
-          val pw = new PrintWriter(new FileWriter(s"${ containerName(engineId) }/$batchName.json", true))
-          try {
-            pw.write(json)
-          } finally {
-            pw.close()
-          }
-        } catch {
-          case ex: Exception =>
-            val errMsg = "Problem mirroring while input"
-            logger.error(errMsg, ex)
-            mirrorEventError(s"$errMsg: ${ex.getMessage}")
+          pw.write(json)
+        } finally {
+          pw.close()
         }
-
+      } catch {
+        case ex: Exception =>
+          val errMsg = "Problem mirroring while input"
+          logger.error(errMsg, ex)
+          mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
+
+    }
 
     Valid(true)
   }
@@ -71,7 +72,7 @@ class FSMirroring(mirrorContainer: String) extends Mirroring(mirrorContainer) {
       s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin))
     try {
-      val mirrorLocation = new File(containerName(engine.engineId))
+      val mirrorLocation = new File(containerName)
       val resourceCollection = new File(location)
       if (mirrorLocation.getCanonicalPath.compare(resourceCollection.getCanonicalPath) != 0) {
         if (resourceCollection.exists() && resourceCollection.isDirectory) { // read all files as json and input

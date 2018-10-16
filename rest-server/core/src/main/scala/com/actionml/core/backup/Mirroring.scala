@@ -30,9 +30,9 @@ import com.typesafe.scalalogging.LazyLogging
   * a trait or object extending this.
   *
   */
-abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
+abstract class Mirroring(mirrorContainer: String, engineId: String) extends LazyLogging {
 
-  def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
+  def mirrorEvent(json: String): Validated[ValidateError, Boolean]
   def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
 
   /**
@@ -52,7 +52,7 @@ abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
     * @param engineId Engine ID
     * @return directory name
     */
-  protected def containerName(engineId: String): String = s"$mirrorContainer/$engineId"
+  protected def containerName: String = s"$mirrorContainer/$engineId"
 
 }
 

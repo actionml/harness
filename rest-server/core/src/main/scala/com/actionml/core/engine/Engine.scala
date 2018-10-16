@@ -19,7 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.backup.{FSMirroring, Mirroring}
+import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
@@ -66,14 +66,17 @@ abstract class Engine extends LazyLogging with JsonParser {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
-      mirroring = new FSMirroring("") // must create because Mirroring is also used for import Todo: decouple these for Lambda
+      mirroring = new FSMirroring("", engineId) // must create because Mirroring is also used for import Todo: decouple these for Lambda
       Valid(true)
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
-        case "localfs" =>
-          mirroring = new FSMirroring(container)
+        case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
+          mirroring = new FSMirroring(container, engineId)
+          Valid(true)
+        case "hdfs" =>
+          mirroring = new HDFSMirroring(container, engineId)
           Valid(true)
         case mt => Invalid(WrongParams(s"mirror type $mt is not implemented"))
       }
@@ -110,7 +113,8 @@ abstract class Engine extends LazyLogging with JsonParser {
     Valid(
       s"""
          |{
-         |  "Engine class": "Status of base Engine with engineId:$engineId"
+         |  "Engine id: ": "$engineId",
+         |  "Comment: ": "This Engine does not implement the status API"
          |}
        """.stripMargin)
   }
@@ -122,7 +126,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     */
   def input(json: String): Validated[ValidateError, Boolean] = {
     // flatten the event into one string per line as per Spark json collection spec
-    mirroring.mirrorEvent(engineId, json.replace("\n", " ") + "\n")
+    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
     Valid( true )
   }
 

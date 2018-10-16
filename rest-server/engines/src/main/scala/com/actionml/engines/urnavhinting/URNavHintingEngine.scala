@@ -46,10 +46,7 @@ class URNavHintingEngine extends Engine {
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URNavHintingDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
         algo = URNavHintingAlgorithm(this, jsonConfig, dataset)
-        drawInfo("Generic NavHinting Engine", Seq(
-          ("════════════════════════════════════════", "══════════════════════════════════════"),
-          ("EngineId: ", engineId)))
-
+        logStatus(p)
         Valid(p)
       }.andThen { p =>
         dataset.init(jsonConfig).andThen { r =>
@@ -57,6 +54,15 @@ class URNavHintingEngine extends Engine {
         }
       }
     }
+  }
+
+  def logStatus(p: URNavHintingEngineParams) = {
+    drawInfo("URNavHinting Engine", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("Engine ID: ", engineId),
+      ("Mirror type: ", p.mirrorType),
+      ("Mirror Container: ", p.mirrorContainer),
+      ("Shared DB name: ", p.sharedDBName)))
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
@@ -84,10 +90,10 @@ class URNavHintingEngine extends Engine {
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
   }
 
-  // todo: should merge base engine status with UREngine's status
+  // todo: should merge base engine status with URNavHintingEngine's status
   override def status(): Validated[ValidateError, String] = {
-    logger.trace(s"Status of URNavHintingEngine with engineId:$engineId")
-    Valid(this.params.toString)
+    logStatus(params)
+    Valid(this.params.toString) // todo: this should be JSON so the client can parse
   }
 
   override def train(): Validated[ValidateError, String] = {
