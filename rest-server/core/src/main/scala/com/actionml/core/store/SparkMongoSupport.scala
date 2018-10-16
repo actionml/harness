@@ -15,34 +15,22 @@
  * limitations under the License.
  */
 
-package com.actionml.core.spark
+package com.actionml.core.store
 
-import com.actionml.core.store.backends.MongoStorage
-import com.mongodb.MongoClient
-import com.mongodb.client.MongoDatabase
-import com.mongodb.spark.config.ReadConfig
-import com.mongodb.spark.{MongoClientFactory, MongoConnector, MongoSpark}
-import com.typesafe.scalalogging.LazyLogging
+import com.actionml.core.spark.GenericMongoConnector
+import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
+import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
 
 import scala.reflect.ClassTag
 
-// todo: these should be put in the DAO as a mixin trait for Spark, in which case the params are all known or can be found
-// leaving only the sc to be passed in perhaps implicitly
-trait SparkStoreSupport {
-  def readRdd[T: ClassTag](
-    sc: SparkContext,
-    dbHost: String,
-    codecs: List[CodecProvider],
-    dbName: Option[String] = None,
-    collectionName: Option[String] = None): RDD[T]
-}
 
 trait SparkMongoSupport extends SparkStoreSupport {
 
-  override def readRdd[T: ClassTag](
+  override private[store] def readRdd[T: ClassTag](
     sc: SparkContext,
     dbHost: String = "localhost",
     codecs: List[CodecProvider] = List.empty,
@@ -70,16 +58,33 @@ trait SparkMongoSupport extends SparkStoreSupport {
   }
 }
 
-class GenericMongoConnector[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T])
-  extends MongoConnector(new GenericMongoClientFactory(host, codecs, ct))
-    with Serializable {}
+object SparkMongoSupport {
+  object syntax {
+    implicit class DaoSparkOps[D <: DAO[_]](dao: D) {
+      def readRdd[T: ClassTag](codecs: List[CodecProvider] = List.empty)(implicit sc: SparkContext): RDD[T] = {
+        val ct = implicitly[ClassTag[T]]
+        val rc = ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName)
+        MongoSpark
+          .builder()
+          .sparkContext(sc)
+          .readConfig(rc)
+          .connector(new GenericMongoConnector(MongoConfig.mongo.host, codecs, ct))
+          .build
+          .toRDD()
+      }
+    }
 
-class GenericMongoClientFactory[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClientFactory {
-  override def create(): MongoClient = new GenericMongoClient[T](host, codecs, ct)
-}
-
-class GenericMongoClient[T](host: String, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClient(host) with LazyLogging {
-
-  override def getDatabase(databaseName: String): MongoDatabase =
-    super.getDatabase(databaseName).withCodecRegistry(MongoStorage.codecRegistry(codecs)(ct))
+    implicit class RddMongoOps[D <: DAO[_]](dao: D) {
+      def writeToMongo(rdd: RDD[_]): Unit = {
+        val writeConfig = WriteConfig(
+          databaseName = dao.dbName,
+          collectionName = dao.collectionName,
+          connectionString = Some(MongoStorage.uri),
+          replaceDocument = true,
+          forceInsert = true
+        )
+        MongoSpark.save(rdd, writeConfig)
+      }
+    }
+  }
 }

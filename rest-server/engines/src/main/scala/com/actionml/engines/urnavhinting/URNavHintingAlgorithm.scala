@@ -23,28 +23,21 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericQuery, GenericQueryResult}
-import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.actionml.core.spark.{SparkContextSupport, SparkMongoSupport}
-import com.actionml.core.store.DaoQuery
+import com.actionml.core.search.{Hit, Matcher, SearchQuery}
+import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.store.SparkMongoSupport.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext, rdd}
-import org.bson.Document
-import org.joda.time.DateTime
-import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
-import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
-import com.typesafe.scalalogging.LazyLogging
-
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
-import org.json4s.JsonAST.{JDouble, JValue}
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
-import scala.util.matching.Regex.Match
+import scala.concurrent.ExecutionContext.Implicits.global
 //import com.actionml.engines.urnavhinting.{ItemID, UserID, PropertyMap}
 
 import scala.concurrent.duration.Duration
@@ -57,15 +50,18 @@ import scala.concurrent.duration.Duration
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, params: URAlgorithmParams)
+class URNavHintingAlgorithm private (
+        engine: URNavHintingEngine,
+        initParams: String,
+        dataset: URNavHintingDataset,
+        params: URAlgorithmParams,
+        eventsDao: DAO[URNavHintingEvent])
   extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
   with LambdaAlgorithm[URNavHintingEvent]
   with SparkMongoSupport
   with JsonParser {
 
   import URNavHintingAlgorithm._
-
-  private var sparkContext: Validated[ValidateError, SparkContext] = _
 
   case class BoostableCorrelators(actionName: String, itemIDs: Seq[String], boost: Option[Float] = None) {
     def toFilterCorrelators: FilterCorrelators = {
@@ -259,17 +255,10 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
   }
 
   override def train(): Validated[ValidateError, String] = {
-    val defaults = Map(
-      "appName" -> engineId,
-      "spark.mongodb.input.uri" -> MongoStorage.uri,
-      "spark.mongodb.input.database" -> dataset.getItemsDbName,
-      "spark.mongodb.input.collection" -> dataset.getIndicatorEventsCollectionName
-    )
 
-    SparkContextSupport.getSparkContext(initParams, defaults, Array(classOf[URNavHintingEvent])).map { implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, appName = engineId, kryoClasses = Array(classOf[URNavHintingEvent])).map { implicit sc =>
 
-      // todo: we should be able to pass in the dbName and collectionName to any readRdd call now, not tested
-      val eventsRdd = readRdd[URNavHintingEvent](sc, MongoConfig.mongo.host, MongoStorageHelper.codecs, dbName = Some(dataset.getItemsDbName), colName = Some(dataset.getIndicatorEventsCollectionName))
+      val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
       // todo: this should work but not tested and not used in any case
       /*
@@ -319,7 +308,7 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
     }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
-    logger.debug(s"Starting train $this with spark $sparkContext")
+    logger.debug(s"Starting train $this with spark")
     Valid("Started train Job on Spark")
   }
 
@@ -487,12 +476,11 @@ class URNavHintingAlgorithm private (engine: URNavHintingEngine, initParams: Str
 
 object URNavHintingAlgorithm extends JsonParser {
 
-  def apply(engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset): URNavHintingAlgorithm = {
-
+  def apply(engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, eventsDao: DAO[URNavHintingEvent]): URNavHintingAlgorithm = {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URNavHintingAlgorithm(engine, initParams, dataset, params)
+    new URNavHintingAlgorithm(engine, initParams, dataset, params, eventsDao)
   }
 
   /** Available value for algorithm param "RecsModel" */
@@ -620,7 +608,6 @@ object URNavHintingAlgorithm extends JsonParser {
     actions: Seq[(String, RDD[(String, String)])],// indicator name, RDD[user-id, item-id]
     fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
     minEventsPerUser: Option[Int] = Some(1)) extends Serializable
-
 
 }
 

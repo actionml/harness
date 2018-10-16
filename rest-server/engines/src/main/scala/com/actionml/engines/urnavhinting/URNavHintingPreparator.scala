@@ -1,6 +1,6 @@
 package com.actionml.engines.urnavhinting
 
-import com.actionml.core.spark.SparkMongoSupport
+import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging

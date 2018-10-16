@@ -21,11 +21,10 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
-import com.actionml.core.model.{EngineParams, Event, GenericQuery, Query}
+import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.ValidateError
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
-import com.actionml.engines.urnavhinting._
 //import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 //import com.actionml.engines.urnavhinting.URNavHintingAlgorithm
 import org.json4s.JValue
@@ -45,7 +44,8 @@ class URNavHintingEngine extends Engine {
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URNavHintingDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
-        algo = URNavHintingAlgorithm(this, jsonConfig, dataset)
+        val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
+        algo = URNavHintingAlgorithm(this, jsonConfig, dataset, eventsDao)
         logStatus(p)
         Valid(p)
       }.andThen { p =>

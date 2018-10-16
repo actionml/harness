@@ -25,6 +25,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 trait DAO[T] extends AsyncDao[T] with SyncDao[T] {
   def name: String
+  def dbName: String
+  def collectionName: String
 }
 
 trait AsyncDao[T] {
