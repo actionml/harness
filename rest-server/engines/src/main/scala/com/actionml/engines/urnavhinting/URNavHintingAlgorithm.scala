@@ -245,8 +245,9 @@ class URNavHintingAlgorithm private (
             future.map{ _ =>
               logger.info(s"Finished executing jobId: $jobId")
               JobManager.removeJob(jobId)
+              logger.info(s"Active jobIds after finishing jobId: $jobId, are ${JobManager.getActiveJobIds(engineId)}")
             }
-            Valid(s"Enqueued jobId: $jobId for background execution.")
+            Valid(s"Added jobId: $jobId for background execution.")
           case "model" =>
             logger.warn("Delete a \"model\" not supported")
             Invalid(WrongParams("Using $delele on \"entityType\": \"model\" is not supported yet"))

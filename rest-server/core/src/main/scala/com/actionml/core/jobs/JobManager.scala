@@ -25,10 +25,10 @@ import scala.util.Try
 /** Mixin if you need to run a Try. One per instance of the trait. Will report the jobId if the try is running */
 object JobManager {
 
-  private var jobIds: Queue[(String, String)] = Queue.empty
+  private var jobIds: Seq[(String, String)] = Seq.empty
 
   def createJob(engineId: String, jobId: String = createUUID): (String, Try[Unit]) = {
-    jobIds = jobIds.enqueue((jobId, engineId))
+    jobIds = jobIds :+ (jobId, engineId)
     (jobId, Try[Unit]{})
   }
 
@@ -39,7 +39,7 @@ object JobManager {
   }
 
   def removeJob(jobId: String): Unit = {
-    jobIds = jobIds.filter(_._2 != jobId)
+    jobIds = jobIds.filter(_._1 != jobId)
   }
 
 }
