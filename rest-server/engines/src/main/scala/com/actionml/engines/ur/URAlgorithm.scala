@@ -206,7 +206,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   override def destroy(): Unit = {
   }
 
-  override def input(datum: UREvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: UREvent): Validated[ValidateError, String] = {
     logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
       " This is where that will be done")
     // This deals with real-time model changes.
@@ -225,7 +225,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
           // todo: now saveOneById to the ES model also
           // dataset.itemsDAO.saveOneById(event._id, event.copy(properties = newProps))
-          Valid(true)
+          Valid("")
         } else Invalid(WrongParams("Using $set on anything but \"targetEntityType\": \"item\" is not supported"))
       case "$delete" =>
         // set the property of an item in the model using the ESClient
@@ -237,9 +237,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
-
+        Valid("Input event processed.")
     }
-    Valid(true)
   }
 
   override def train(): Validated[ValidateError, String] = {

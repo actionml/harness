@@ -124,7 +124,7 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
           case "$delete" =>
             if (event.entityType == "user") {
               // this will only delete a user's data
-              itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
+              //itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
             } // ignore any other reserved event types, they will be caught by the Algorithm if at all
           case _ =>
         }

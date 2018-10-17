@@ -26,11 +26,11 @@ class EventServiceImpl(implicit inj: Injector) extends EventService{
       log.debug("Get event, {}, {}", engineId, eventId)
       sender() ! Invalid(NotImplemented())
 
-    case CreateEvent(engineId, event) ⇒
+    case CreateEvent(engineId, event) =>
       log.debug("Receive new event & stored, {}, {}", engineId, event)
       admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.input(event).map(_.asJson)
-        case None ⇒ sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
+        case Some(engine) => sender() ! engine.input(event).map(_.asJson)
+        case None => sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
       }
 
   }

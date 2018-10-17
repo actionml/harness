@@ -23,6 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
+import com.actionml.core.jobs.JobManager
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
@@ -228,7 +229,7 @@ class URNavHintingAlgorithm private (
     es.deleteIndex()
   }
 
-  override def input(datum: URNavHintingEvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: URNavHintingEvent): Validated[ValidateError, String] = {
     // This deals with real-time model changes, if any are implemented
     // todo: none do anything for the PoC so all return errors
     datum.event match {
@@ -238,8 +239,14 @@ class URNavHintingAlgorithm private (
       case "$delete" =>
         datum.entityType match {
           case "user" =>
-            logger.warn("Delete a \"user\" not supported")
-            Invalid(WrongParams("Using $delele on \"entityType\": \"user\" is not supported yet"))
+            //logger.warn("Delete a \"user\" not supported")
+            //Invalid(WrongParams("Using $delele on \"entityType\": \"user\" is not supported yet"))
+            val (jobId, future) = JobManager.createJob(engineId = engineId)
+            future.map{ _ =>
+              logger.info(s"Finished executing jobId: $jobId")
+              JobManager.removeJob(jobId)
+            }
+            Valid(s"Enqueued jobId: $jobId for background execution.")
           case "model" =>
             logger.warn("Delete a \"model\" not supported")
             Invalid(WrongParams("Using $delele on \"entityType\": \"model\" is not supported yet"))
@@ -250,13 +257,14 @@ class URNavHintingAlgorithm private (
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
-        Valid(true)
+        Valid("")
     }
   }
 
   override def train(): Validated[ValidateError, String] = {
 
-    SparkContextSupport.getSparkContext(initParams, appName = engineId, kryoClasses = Array(classOf[URNavHintingEvent])).map { implicit sc =>
+    SparkContextSupport.getSparkContext(initParams, appName = engineId, kryoClasses = Array(classOf[URNavHintingEvent]))
+      .map { implicit sc =>
 
       val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 

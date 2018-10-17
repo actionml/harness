@@ -86,7 +86,7 @@ class URNavHintingEngine extends Engine {
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
     super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
       parseAndValidate[URNavHintingEvent](jsonEvent).andThen(algo.input)
-    }
+    }.map(_ => true)
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
   }
 

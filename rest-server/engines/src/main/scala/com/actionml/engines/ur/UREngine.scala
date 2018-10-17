@@ -87,7 +87,7 @@ class UREngine extends Engine {
     logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
-      parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
+      parseAndValidate[UREvent](jsonEvent).andThen(algo.input).map(_ => true)
     }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
   }
