@@ -80,13 +80,13 @@ class URNavHintingEngine extends Engine {
     }
   }
 
-  override def input(jsonEvent: String): Validated[ValidateError, Boolean] = {
+  override def input(jsonEvent: String): Validated[ValidateError, String] = {
     logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
     super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
       parseAndValidate[URNavHintingEvent](jsonEvent).andThen(algo.input)
-    }.map(_ => true)
+    }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
   }
 

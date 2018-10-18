@@ -32,7 +32,7 @@ abstract class Administrator extends LazyLogging {
   // engine management
   def getEngine(engineId: String): Option[Engine]
   def addEngine(json: String): Validated[ValidateError, String]
-  def removeEngine(engineId: String): Validated[ValidateError, Boolean]
+  def removeEngine(engineId: String): Validated[ValidateError, String]
   def updateEngine(json: String): Validated[ValidateError, String]
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, String]
   def updateEngineWithImport(engineId: String, inputPath: String): Validated[ValidateError, String]

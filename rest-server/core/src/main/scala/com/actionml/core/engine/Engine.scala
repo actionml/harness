@@ -122,7 +122,7 @@ abstract class Engine extends LazyLogging with JsonParser {
   /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
     * processing. Must be inherited and extended.
     * @param json Input defined by each engine
-    * @return Validated status with error message
+    * @return Validated[ValidateError, ]status with error message
     */
   def input(json: String): Validated[ValidateError, Boolean] = {
     // flatten the event into one string per line as per Spark json collection spec

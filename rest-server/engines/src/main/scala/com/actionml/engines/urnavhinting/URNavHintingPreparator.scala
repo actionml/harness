@@ -1,16 +1,3 @@
-package com.actionml.engines.urnavhinting
-
-import com.actionml.core.store.SparkMongoSupport
-import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
-import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
-import com.typesafe.scalalogging.LazyLogging
-import org.apache.mahout.math.RandomAccessSparseVector
-import org.apache.mahout.math.indexeddataset.BiDictionary
-import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
-import org.apache.mahout.sparkbindings.{DrmRdd, drmWrap}
-import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,6 +14,19 @@ import org.apache.spark.rdd.RDD
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package com.actionml.engines.urnavhinting
+
+import com.actionml.core.store.SparkMongoSupport
+import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
+import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.mahout.math.RandomAccessSparseVector
+import org.apache.mahout.math.indexeddataset.BiDictionary
+import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+import org.apache.mahout.sparkbindings.{DrmRdd, drmWrap}
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 /** Partitions off creation of Mahout data structures from stored data in a DB */
 object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {

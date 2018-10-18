@@ -243,6 +243,8 @@ class URNavHintingAlgorithm private (
             //Invalid(WrongParams("Using $delele on \"entityType\": \"user\" is not supported yet"))
             val (jobId, future) = JobManager.createJob(engineId = engineId)
             future.map{ _ =>
+              logger.info(s"Starting Job execution of jobId: $jobId")
+              Thread.sleep(5000)
               logger.info(s"Finished executing jobId: $jobId")
               JobManager.removeJob(jobId)
               logger.info(s"Active jobIds after finishing jobId: $jobId, are ${JobManager.getActiveJobIds(engineId)}")

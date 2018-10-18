@@ -1,5 +1,3 @@
-package com.actionml.engines
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,12 +15,13 @@ package com.actionml.engines
  * limitations under the License.
  */
 
+package com.actionml.engines
+
 import scala.collection.JavaConversions._
 import org.apache.mahout.sparkbindings.SparkDistributedContext
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.mahout.sparkbindings._
 import org.apache.spark.rdd.RDD
-//import org.json4s._
 
 
 package object urnavhinting {

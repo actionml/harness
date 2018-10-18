@@ -148,17 +148,17 @@ class MongoAdministrator extends Administrator with JsonParser {
     }.getOrElse(Invalid(WrongParams(s"Unable to train Engine: $engineId}, the engine does not exist")))
   }
 
-  override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
+  override def removeEngine(engineId: String): Validated[ValidateError, String] = {
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
       enginesCollection.removeOne("engineId" -> engineId)
       deadEngine.destroy()
-      Valid(true)
+      Valid(s"{\"comment\":\"Engine instance for \"$engineId\" removed \"}")
     } else {
       logger.warn(s"Cannot removeOne non-existent engine for id: $engineId")
-      Invalid(WrongParams(s"Cannot removeOne non-existent engine for id: $engineId"))
+      Invalid(WrongParams(s"Cannot removeOne non-existent engine for engineId: $engineId"))
     }
   }
 

@@ -37,7 +37,7 @@ class FSMirroring(mirrorContainer: String, engineId: String)
   if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, Boolean] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
@@ -63,11 +63,11 @@ class FSMirroring(mirrorContainer: String, engineId: String)
 
     }
 
-    Valid(true)
+    Valid("{\"comment\":\"Event mirrored\"}")
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin))

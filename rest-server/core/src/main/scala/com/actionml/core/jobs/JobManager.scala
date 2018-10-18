@@ -1,10 +1,3 @@
-package com.actionml.core.jobs
-
-import java.util.UUID
-
-import scala.collection.immutable.Queue
-import scala.util.Try
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,18 +15,31 @@ import scala.util.Try
  * limitations under the License.
  */
 
-/** Mixin if you need to run a Try. One per instance of the trait. Will report the jobId if the try is running */
+package com.actionml.core.jobs
+
+import java.util.UUID
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
+
+/** Creates Try type Futures and unique jobIds, both are returned immediately but any arbitrary block of code can be
+  * executed in the Try.map. At the end of the block, the consumer must call removeJob. The jobIds have a UUID as a String
+  * and the engineId for status reporting purposes. If a jobId is in the list it is "pending", otherwise it is "complete"
+  */
 object JobManager {
 
   private var jobIds: Seq[(String, String)] = Seq.empty
 
-  def createJob(engineId: String, jobId: String = createUUID): (String, Try[Unit]) = {
+  /** Pass in the engineId for Engine status reporting purposes */
+  def createJob(engineId: String): (String, Future[Unit]) = {
+    val jobId = createUUID
     jobIds = jobIds :+ (jobId, engineId)
-    (jobId, Try[Unit]{})
+    (jobId, Future[Unit]{})
   }
 
   private def createUUID: String = UUID.randomUUID().toString
 
+  /** Gets any active Jobs for the specified Engine */
   def getActiveJobIds(engineId: String): Seq[(String, String)] = {
     jobIds.filter(_._2 == engineId)
   }
@@ -45,7 +51,7 @@ object JobManager {
 }
 
 /* Usage example
-val (jobId, future) = createJob(engineId = someString)
+val (jobId, future) = createJob(engineId)
 future.map{ jobId =>
   some code ...
   removeJob(jobId)
