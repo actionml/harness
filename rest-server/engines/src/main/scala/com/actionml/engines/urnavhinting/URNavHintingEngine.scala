@@ -22,7 +22,9 @@ import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.model.{EngineParams, Event, Query}
+import com.actionml.core.store.Ordering.{asc, desc}
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.ValidateError
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 //import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
@@ -138,11 +140,11 @@ object URNavHintingEngine {
       //eventId: String, // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      entityId: String,
+      @Indexed(asc) entityId: String,
       targetEntityId: Option[String] = None,
       properties: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      eventTime: String) // ISO8601 date
+      @Indexed(desc) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
   case class ItemProperties (

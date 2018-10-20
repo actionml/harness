@@ -19,6 +19,7 @@ package com.actionml.core.store.backends
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DAO, Store}
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
@@ -29,13 +30,23 @@ import org.mongodb.scala.{MongoClient, MongoDatabase}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 
 class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
-  import scala.concurrent.ExecutionContext.Implicits.global
   import MongoStorage.codecRegistry
 
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   override def createDao[T](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
+    def fn[T: TypeTag]() = {
+      val fields = typeOf[T].members.collect {
+        case s: TermSymbol if s.isVal || s.isVar => s
+      }
+      val x = fields.flatMap(f => f.annotations.find(_.tree.tpe =:= typeOf[Indexed]).map((f, _))).toList
+      (fields, x)
+    }
+
     new MongoDao[T](db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct)))
   }
 
