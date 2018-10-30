@@ -101,7 +101,6 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
   }
 
   override def search(query: SearchQuery): Seq[T] = {
-    var actualIndexName: String = createIndexName(alias)
     client.performRequest(
       // Does the alias exist?
       "HEAD",
@@ -116,23 +115,25 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
               Map.empty[String, String].asJava)
             val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
             val indexSet = responseJValue.extract[Map[String, JValue]].keys
-            actualIndexName = indexSet.headOption.getOrElse(createIndexName(alias))
-          case _ =>
+            indexSet.headOption.fold(Seq.empty[T]) { actualIndexName =>
+              logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+              val response = client.performRequest(
+                "POST",
+                s"/$actualIndexName/_search",
+                Map.empty[String, String].asJava,
+                new StringEntity(mkElasticQueryString(query), ContentType.APPLICATION_JSON))
+              response.getStatusLine.getStatusCode match {
+                case 200 =>
+                  logger.info(s"Got source from query: $query")
+                  transform(parse(EntityUtils.toString(response.getEntity)))
+                case _ =>
+                  logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+                  Seq.empty[T]
+              }
+            }
+          case _ => Seq.empty
         }
-    logger.info(s"Query:\n$query")
-    val response = client.performRequest(
-      "POST",
-      s"/$actualIndexName/_search",
-      Map.empty[String, String].asJava,
-      new StringEntity(mkElasticQueryString(query), ContentType.APPLICATION_JSON))
-    response.getStatusLine.getStatusCode match {
-      case 200 =>
-        logger.info(s"Got source from query: $query")
-        transform(parse(EntityUtils.toString(response.getEntity)))
-      case _ =>
-        logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-        Seq.empty
-    }
+
   }
 
   override def hotSwap(
