@@ -30,6 +30,7 @@ import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
@@ -98,8 +99,8 @@ class URNavHintingAlgorithm private (
   val esIndex = engineId
   val esType = "items"
 
-  def initSettings(params: URAlgorithmParams): Validated[ValidateError, Boolean] = {
-    var err: Validated[ValidateError, Boolean] = Valid(true)
+  def initSettings(params: URAlgorithmParams): Validated[ValidateError, String] = {
+    var err: Validated[ValidateError, String] = Valid(jsonComment("URNavHintingAlgorithm initialized"))
 
     recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
     //val eventNames: Seq[String] = params.eventNames
@@ -135,8 +136,8 @@ class URNavHintingAlgorithm private (
     } else {
       logger.error("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
         s"$params")
-      err = Invalid(MissingParams("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
-        s"$params"))
+      err = Invalid(MissingParams(jsonComment("Must have either eventNames or indicators in algorithm parameters, which are: " +
+        s"$params")))
     }
 
 
@@ -210,7 +211,7 @@ class URNavHintingAlgorithm private (
 
 
     /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+  override def init(engine: Engine): Validated[ValidateError, String] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[URAlgorithmParams](
         initParams,
@@ -235,12 +236,12 @@ class URNavHintingAlgorithm private (
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
       case "$set" =>
-        Invalid(WrongParams("Using $set not supported"))
+        Invalid(WrongParams(jsonComment("Using $set not supported")))
       case "$delete" =>
         datum.entityType match {
           case "user" =>
             //logger.warn("Delete a \"user\" not supported")
-            //Invalid(WrongParams("Using $delele on \"entityType\": \"user\" is not supported yet"))
+            //Invalid(WrongParams(jsonComment("Using $delele on \"entityType\": \"user\" is not supported yet")))
             val (jobId, future) = JobManager.createJob(engineId = engineId)
             future.map{ _ =>
               logger.info(s"Starting Job execution of jobId: $jobId")
@@ -249,18 +250,18 @@ class URNavHintingAlgorithm private (
               JobManager.removeJob(jobId)
               logger.info(s"Active jobIds after finishing jobId: $jobId, are ${JobManager.getActiveJobIds(engineId)}")
             }
-            Valid(s"Added jobId: $jobId for background execution.")
+            Valid(jsonComment(s"Added jobId: $jobId for background execution."))
           case "model" =>
             logger.warn("Delete a \"model\" not supported")
-            Invalid(WrongParams("Using $delele on \"entityType\": \"model\" is not supported yet"))
+            Invalid(WrongParams(jsonComment("Using $delele on entityType: model is not supported yet")))
           case _ =>
             logger.warn(s"Deleting unknown entityType is not supported.")
-            Invalid(WrongParams(s"Deleting unknown entityType is not supported."))
+            Invalid(WrongParams(jsonComment(s"Deleting unknown entityType is not supported.")))
         }
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
-        Valid("")
+        Valid(jsonComment("URNavHinting input processed"))
     }
   }
 

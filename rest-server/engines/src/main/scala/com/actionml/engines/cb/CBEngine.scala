@@ -134,7 +134,7 @@ class CBEngine extends Engine with JsonParser {
         val result = algo.query(query)
         Valid(result.toJson)
       } else {
-        Invalid(WrongParams(s"Query for non-existent group: $json"))
+        Invalid(WrongParams(jsonComment(s"Query for non-existent group: $json")))
       }
     }
   }

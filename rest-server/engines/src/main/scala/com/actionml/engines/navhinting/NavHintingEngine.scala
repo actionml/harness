@@ -23,6 +23,7 @@ import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
+
 import com.actionml.core.validate.{JsonParser, ValidateError}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
@@ -32,7 +33,7 @@ class NavHintingEngine extends Engine with JsonParser {
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -46,13 +47,13 @@ class NavHintingEngine extends Engine with JsonParser {
           ("Mirror Container: ", params.mirrorContainer),
           ("All Parameters:", params)))
 
-        Valid(true)
+        Valid(jsonComment("NavHintingEngine initialized"))
       }.andThen { _ =>
         dataset.init(json).andThen { _ =>
           if (deepInit) {
             algo = new NavHintingAlgorithm(json, dataset)
             algo.init(this)
-          } else Valid(true)
+          } else Valid(jsonComment("NavHintingAlgorithm updated"))
         }
       }
     }
@@ -87,19 +88,12 @@ class NavHintingEngine extends Engine with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, String] = {
     // first detect a batch of events, then persist each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.debug("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
-
-    /*
-    if(super.input(json).isValid)
-      dataset.input(json).andThen(process).map(_ => true)
-    else
-      Valid(true)
-    */
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => jsonComment("NavHinting input processed"))
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */

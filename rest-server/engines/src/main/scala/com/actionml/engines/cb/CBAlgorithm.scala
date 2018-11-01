@@ -115,7 +115,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     } catch {
       case e: NoSuchElementException =>
         logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.", e)
-        Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
+        Invalid(ValidRequestExecutionError(jsonComment(s"Input to non-existent group: $groupName Initialize the group before sending input.")))
     }
   }
 

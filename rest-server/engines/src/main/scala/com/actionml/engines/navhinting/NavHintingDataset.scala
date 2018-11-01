@@ -27,6 +27,7 @@ import com.actionml.core.store.Store
 import com.actionml.core.engine.Dataset
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
+
 import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.duration._
@@ -46,7 +47,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
 
   private var trailLength: Int = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
         trailLength = algoParams.numQueueEvents.getOrElse(50)
@@ -54,7 +55,8 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       }
       Valid(p) // Todo: trailLength may not have been set if algo params is not valid
     }
-    if(res.isInvalid) Invalid(ParseError("Error parsing JSON params for numQueueEvents.")) else Valid(true)
+    if(res.isInvalid) Invalid(ParseError(jsonComment("Error parsing JSON params for numQueueEvents")))
+    else Valid(jsonComment("NavHintingDataset initialized"))
   }
 
   override def destroy() = {
@@ -113,23 +115,23 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
               } catch {
                 case _ => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
                   logger.error(s"Cannot $$delete non-existent model: ${event.entityId}")
-                  Invalid(ResourceNotFound(s"Cannot $$delete non-existent model: ${event.entityId}"))
+                  Invalid(ResourceNotFound(jsonComment(s"Cannot $$delete non-existent model: ${event.entityId}")))
               }
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
-              Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+              Invalid(ParseError(jsonComment(s"Unrecognized event: ${event} will be ignored")))
           }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
-          Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+          Invalid(ParseError(jsonComment(s"Unrecognized event: ${event} will be ignored")))
       }
     } catch {
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
-        Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}"))
+        Invalid(ParseError(jsonComment(s"ISO 8601 Datetime parsing error ignoring input: ${event}")))
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
-        Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}"))
+        Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
   }
 

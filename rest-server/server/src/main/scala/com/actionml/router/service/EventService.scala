@@ -20,7 +20,7 @@ package com.actionml.router.service
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{NotImplemented, WrongParams}
+import com.actionml.core.validate.{JsonParser, NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
@@ -34,7 +34,7 @@ import scaldi.Injector
 
 trait EventService extends ActorInjectable
 
-class EventServiceImpl(implicit inj: Injector) extends EventService{
+class EventServiceImpl(implicit inj: Injector) extends EventService with JsonParser {
 
   private val admin = inject[Administrator]('Administrator)
 
@@ -47,7 +47,7 @@ class EventServiceImpl(implicit inj: Injector) extends EventService{
       log.debug("Receive new event & stored, {}, {}", engineId, event)
       admin.getEngine(engineId) match {
         case Some(engine) => sender() ! engine.input(event).map(_.asJson)
-        case None => sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
+        case None => sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
       }
 
   }

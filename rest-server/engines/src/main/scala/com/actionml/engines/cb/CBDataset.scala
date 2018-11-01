@@ -27,6 +27,7 @@ import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
+
 import scala.language.reflectiveCalls
 
 /** Reacts to persisted input data for the Contextual Bandit.
@@ -55,14 +56,14 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
   val groupsDao = storage.createDao[GroupParams]("groups")
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     // super.init will handle the users collection, allowing sharing of user data between Engines
     super.init(json, deepInit).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
         groupsDao.findOne().foreach { p =>
           usageEventGroups = usageEventGroups + (p._id -> storage.createDao[UsageEvent](p._id))
         }
-        Valid(true)
+        Valid(jsonComment("Initialized CBDataset"))
       }
     }
   }
@@ -113,8 +114,8 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
 
           } else {
             logger.warn(s"Data sent for non-existent group: ${event.properties.testGroupId} will be ignored")
-            Invalid(EventOutOfSequence(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
-              s" will be ignored"))
+            Invalid(EventOutOfSequence(jsonComment(s"Data sent for non-existent group: ${event.properties.testGroupId}" +
+              s" will be ignored")))
           }
 
 
@@ -167,7 +168,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
             case "group" | "testGroup" =>
               if ( !usageEventGroups.isDefinedAt(event.entityId) ) {
                 logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
-                Invalid(ParseError(s"Deleting non-existent group may be an error, operation ignored."))
+                Invalid(ParseError(jsonComment(s"Deleting non-existent group may be an error, operation ignored.")))
               } else {
                 groupsDao.removeOne("_id" -> event.entityId)
                 storage.removeCollection(event.entityId)
@@ -177,19 +178,19 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
               }
             case _ =>
               logger.warn(s"Unrecognized $$delete entityType event: ${event} will be ignored")
-              Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+              Invalid(ParseError(jsonComment(s"Unrecognized event: ${event} will be ignored")))
           }
         case _ =>
           logger.warn(s"Unrecognized event: ${event} will be ignored")
-          Invalid(ParseError(s"Unrecognized event: ${event} will be ignored"))
+          Invalid(ParseError(jsonComment(s"Unrecognized event: ${event} will be ignored")))
       }
     } catch {
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
-        Invalid(ParseError(s"ISO 8601 Datetime parsing error ignoring input: ${event}"))
+        Invalid(ParseError(jsonComment(s"ISO 8601 Datetime parsing error ignoring input: ${event}")))
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
-        Invalid(ParseError(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}"))
+        Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
   }
 
@@ -212,7 +213,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
               logger.trace(s"Dataset: ${engineId} parsing a user $$unset event: ${event.event}")
               parseAndValidate[CBUserUnsetEvent](json).andThen { uue =>
                 if (!uue.properties.isDefined) {
-                  Invalid(MissingParams("No parameters specified, event ignored"))
+                  Invalid(MissingParams(jsonComment("No parameters specified, event ignored")))
                 } else {
                   Valid(uue)
                 }
@@ -220,7 +221,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
             case "group" | "testGroup" => // got a group initialize event, uses either new or old name
               logger.warn(s"Dataset: ${engineId} parsed a group $$unset event: ${event.event} this is undefined " +
                 s"and ignored.")
-              Invalid(WrongParams("Group $unset is not allowed and ignored."))
+              Invalid(WrongParams(jsonComment("Group $unset is not allowed and ignored.")))
           }
 
         case "$delete" => // removeOne an object
