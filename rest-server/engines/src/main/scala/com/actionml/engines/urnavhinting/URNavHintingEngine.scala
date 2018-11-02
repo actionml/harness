@@ -24,9 +24,8 @@ import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.ValidateError
+
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
-//import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
-//import com.actionml.engines.urnavhinting.URNavHintingAlgorithm
 import org.json4s.JValue
 
 class URNavHintingEngine extends Engine {
@@ -36,7 +35,7 @@ class URNavHintingEngine extends Engine {
   private var params: URNavHintingEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     super.init(jsonConfig).andThen { _ =>
 
       parseAndValidate[URNavHintingEngineParams](jsonConfig).andThen { p =>
@@ -80,7 +79,7 @@ class URNavHintingEngine extends Engine {
     }
   }
 
-  override def input(jsonEvent: String): Validated[ValidateError, Boolean] = {
+  override def input(jsonEvent: String): Validated[ValidateError, String] = {
     logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
@@ -93,7 +92,13 @@ class URNavHintingEngine extends Engine {
   // todo: should merge base engine status with URNavHintingEngine's status
   override def status(): Validated[ValidateError, String] = {
     logStatus(params)
-    Valid(this.params.toString) // todo: this should be JSON so the client can parse
+    //Valid(this.params.toString) // todo: this should be JSON so the client can parse
+    Valid(s"""
+       |{
+       |    "engineParams": ${params.toJson},
+       |    "jobStatuses": "not implemented"
+       |}
+     """.stripMargin)
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -132,7 +137,19 @@ object URNavHintingEngine {
       mirrorContainer: Option[String] = None,
       sharedDBName: Option[String] = None,
       sparkConf: Map[String, JValue])
-    extends EngineParams
+    extends EngineParams {
+
+    import org.json4s._
+    import org.json4s.jackson.Serialization
+    import org.json4s.jackson.Serialization.{write}
+
+    implicit val formats = Serialization.formats(NoTypeHints)
+
+    def toJson: String = {
+      write(this)
+    }
+
+  }
 
   case class URNavHintingEvent (
       //eventId: String, // not used in Harness, but allowed for PIO compatibility

@@ -28,6 +28,7 @@ import com.actionml.core.engine._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
+
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{Await, Future}
@@ -51,7 +52,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
 
   var params: NHAlgoParams = _ // todo achtung! public var
 
-  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+  override def init(engine: Engine): Validated[ValidateError, String] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[NHAllParams](json).andThen { p =>
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
@@ -61,15 +62,15 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
             navHintsModels += navModel._id -> MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
               .createDao[NavHint](navModel._id)
           }
-          Valid(true)
+          Valid(jsonComment(s"NavHintingAlgorithm initialized"))
         } else { //bad decay function name
-          Invalid(ParseError(s"Bad decayFunction: ${p.algorithm.decayFunction}"))
+          Invalid(ParseError(jsonComment(s"Bad decayFunction: ${p.algorithm.decayFunction}")))
         }
       }
     }
   }
 
-  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, Boolean] = {
+  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, String] = {
     logger.debug(s"Train Nav Hinting Model with datum: $datum")
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)
@@ -109,7 +110,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
           datetime))
       }
     }
-    Valid(true)
+    Valid(jsonComment(s"NavHinting input processed and model updated"))
   }
 
   /** Add the event to the end of an active journey subject to length limits */

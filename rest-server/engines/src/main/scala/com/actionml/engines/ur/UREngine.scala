@@ -35,7 +35,7 @@ class UREngine extends Engine {
   private var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
       params = p
       engineId = params.engineId
@@ -83,7 +83,7 @@ class UREngine extends Engine {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the jsonEvent */
-  override def input(jsonEvent: String): Validated[ValidateError, Boolean] = {
+  override def input(jsonEvent: String): Validated[ValidateError, String] = {
     logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>

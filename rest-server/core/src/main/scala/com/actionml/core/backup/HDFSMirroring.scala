@@ -18,10 +18,11 @@
 package com.actionml.core.backup
 
 import java.io._
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 /**
@@ -29,7 +30,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
   */
 
 class HDFSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) {
+  extends Mirroring(mirrorContainer, engineId) with JsonParser {
 
   private val hdfs = HDFSFactory.hdfs
 
@@ -54,10 +55,10 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
 
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, Boolean] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
-      Invalid(ValidRequestExecutionError(s"Unable to mirror event to HDFS: $errMsg"))
+      Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event to HDFS: $errMsg")))
 
     if(rootMirrorDir.isDefined) {
       try {
@@ -78,7 +79,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
         //eventsFile.writeUTF(json) // this seems to prepend lines with 0x01 and other chars, UTF?
         //eventsFile.hflush()
         //eventsFile.close()
-        Valid(true)
+        Valid("{\"comment\":\"Event mirrored\"}")
       } catch {
         case ex: IOException =>
           val errMsg = "Problem mirroring input to HDFS"
@@ -92,10 +93,10 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
   // todo: should read in a thread and return at once after checking parameters
   // todo: decouple importEvents from mirrorEvents
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
-      s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
-         | $errMsg""".stripMargin))
+      jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
+         | $errMsg""".stripMargin)))
 
     if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
       logger.error("Reading from the mirror location will cause in infinite loop." +
@@ -118,7 +119,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
               line = lineReader.readLine()
             }
           }
-          Valid(true)
+          Valid("{\"comment\":\"Event mirrored\"}")
         } else {
           logger.warn(s"No event files in location $location. No Events imported")
           importEventsError(s"No event files in location $location. No Events imported!")

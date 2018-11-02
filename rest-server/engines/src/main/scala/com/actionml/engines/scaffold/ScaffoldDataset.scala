@@ -23,6 +23,7 @@ import com.actionml.core.model.{GenericEngineParams, GenericEvent}
 import com.actionml.core.engine.{Dataset}
 import com.actionml.core.validate._
 
+
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -35,12 +36,12 @@ import scala.language.reflectiveCalls
 class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonParser {
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       // Do something with parameters--do not re-initialize the algo if deepInit == false
       Valid(p)
     }
-    Valid(true)
+    Valid(jsonComment("ScaffoldDataset initialized"))
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */

@@ -22,7 +22,7 @@ import java.io.{File, FileWriter, PrintWriter}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source
 
@@ -31,16 +31,16 @@ import scala.io.Source
   */
 
 class FSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) {
+  extends Mirroring(mirrorContainer, engineId) with JsonParser {
 
   private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
   if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, Boolean] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
-      Invalid(ValidRequestExecutionError(s"Unable to mirror event: $errMsg"))
+      Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
 
     if (mirrorContainer != ""){
       try {
@@ -63,14 +63,14 @@ class FSMirroring(mirrorContainer: String, engineId: String)
 
     }
 
-    Valid(true)
+    Valid("{\"comment\":\"Event mirrored\"}")
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
-      s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
-         | $errMsg""".stripMargin))
+      jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
+         | $errMsg""".stripMargin)))
     try {
       val mirrorLocation = new File(containerName)
       val resourceCollection = new File(location)
@@ -106,6 +106,6 @@ class FSMirroring(mirrorContainer: String, engineId: String)
         logger.error(errMsg)
         importEventsError(errMsg)
     }
-    Valid(true)
+    Valid("{\"comment\":\"Job created to import events in the background.\"}")
   }
 }

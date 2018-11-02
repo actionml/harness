@@ -85,7 +85,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+  override def init(engine: Engine): Validated[ValidateError, String] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
@@ -98,12 +98,12 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
         groupEvents.foreach(groupName => add(groupName._1))
         // params .close() should write to the file
 
-        Valid(true)
+        Valid("{\"comment\":\"Init processed\"}")
       }
     }
   }
 
-  override def input(datum: CBAlgorithmInput): Validated[ValidateError, Boolean] = {
+  override def input(datum: CBAlgorithmInput): Validated[ValidateError, String]= {
     events += 1
     // if (events % 20 == 0) checkpointVW(params)
     val groupName = datum.event.toUsageEvent.testGroupId
@@ -111,11 +111,11 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
       checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to saveOneById model
-      Valid(true)
+      Valid("{\"comment\":\"Input processed\"]")
     } catch {
       case e: NoSuchElementException =>
         logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.", e)
-        Invalid(ValidRequestExecutionError(s"Input to non-existent group: $groupName Initialize the group before sending input."))
+        Invalid(ValidRequestExecutionError(jsonComment(s"Input to non-existent group: $groupName Initialize the group before sending input.")))
     }
   }
 

@@ -26,7 +26,7 @@ import com.typesafe.scalalogging.LazyLogging
 //trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
 trait KappaAlgorithm[T] extends LazyLogging {
 
-  def input(datum: T): Validated[ValidateError, Boolean]
+  def input(datum: T): Validated[ValidateError, String]
 
 }
 

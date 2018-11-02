@@ -22,16 +22,20 @@ import org.json4s.JValue
 import org.json4s.ext.JodaTimeSerializers
 
 import scala.reflect.ClassTag
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.{JavaType, ObjectMapper, SerializationFeature}
+import java.io.IOException
+
+import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
+import org.json4s.jackson.JsonMethods._
+import org.json4s.{DefaultFormats, Formats, MappingException}
+
+import scala.reflect.runtime.universe._
 
 
 trait JsonParser extends LazyLogging {
 
-  import cats.data.Validated
-  import cats.data.Validated.{Invalid, Valid}
-  import org.json4s.jackson.JsonMethods._
-  import org.json4s.{DefaultFormats, Formats, MappingException}
-
-  import scala.reflect.runtime.universe._
 
 
   implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all
@@ -52,8 +56,36 @@ trait JsonParser extends LazyLogging {
           }
         } else { errorMsg }
         logger.error(msg + s"$json", e)
-        Invalid(ParseError(msg + s"$json"))
+        Invalid(ParseError(jsonComment(msg + s"$json")))
     }
+  }
+
+  def prettify(jsonString: String): String = {
+    val mapper = new ObjectMapper()
+    try {
+      //val jsonObject = mapper.readValue(jsonString, Object.class)
+      //val jsonObject = mapper.readValue(jsonString, Class[Object])
+      //val jsonObject = mapper.readValue(jsonString, JavaType)
+      //mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject)
+
+      val json = mapper.readValue(jsonString, classOf[Any])
+      mapper.writerWithDefaultPrettyPrinter.writeValueAsString(json)
+    } catch {
+      case e: IOException =>
+        jsonComment(s"Bad Json in prettify: $jsonString")
+      case ex => throw ex
+    }
+  }
+
+  def jsonComment(comment: String): String = {
+    s"""
+       |{"comment": $comment}
+    """.stripMargin
+  }
+
+  def jsonList(jsonStrings: Seq[String]): String = {
+    // todo: create then pretty print instead
+    "[\n    " + jsonStrings.mkString(",\n    ") + "\n]"
   }
 
 

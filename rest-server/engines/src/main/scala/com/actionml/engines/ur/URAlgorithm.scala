@@ -21,6 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
+
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport
@@ -83,8 +84,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   val esIndex = dataset.getItemsDbName
   val esType = dataset.getItemsCollectionName
 
-  def initSettings(params: URAlgorithmParams): Validated[ValidateError, Boolean] = {
-    var err: Validated[ValidateError, Boolean] = Valid(true)
+  def initSettings(params: URAlgorithmParams): Validated[ValidateError, String] = {
+    var err: Validated[ValidateError, String] = Valid(jsonComment("URAlgorithm initialized"))
 
     recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
     //val eventNames: Seq[String] = params.eventNames
@@ -115,10 +116,10 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
           minLLR = indicatorParams.minLLR)
       }.toMap
     } else {
-      logger.error("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
+      logger.error("Must have either eventNames or indicators in algorithm parameters, which are: " +
         s"$params")
-      err = Invalid(MissingParams("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
-        s"$params"))
+      err = Invalid(MissingParams(jsonComment("Must have either eventNames or indicators in algorithm parameters, which are: " +
+        s"$params")))
     }
 
     // continue validating if all is ok so far
@@ -189,7 +190,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
 
     /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(engine: Engine): Validated[ValidateError, Boolean] = {
+  override def init(engine: Engine): Validated[ValidateError, String] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[URAlgorithmParams](
         initParams,
@@ -206,7 +207,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   override def destroy(): Unit = {
   }
 
-  override def input(datum: UREvent): Validated[ValidateError, Boolean] = {
+  override def input(datum: UREvent): Validated[ValidateError, String] = {
     logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
       " This is where that will be done")
     // This deals with real-time model changes.
@@ -225,21 +226,20 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
           // todo: now saveOneById to the ES model also
           // dataset.itemsDAO.saveOneById(event._id, event.copy(properties = newProps))
-          Valid(true)
-        } else Invalid(WrongParams("Using $set on anything but \"targetEntityType\": \"item\" is not supported"))
+          Valid("")
+        } else Invalid(WrongParams(jsonComment("Using $set on anything but \"targetEntityType\": \"item\" is not supported")))
       case "$delete" =>
         // set the property of an item in the model using the ESClient
         logger.info("Delete an item in the model, or Delete a model")
         logger.warn("Not implemented!")
         if (datum.entityType == "model") {
-          Invalid(WrongParams("Using $delele on \"targetEntityType\": \"model\" is not supported yet"))
-        }  else Invalid(WrongParams("Using $delete on anything but \"targetEntityType\": \"user\" or \"model\" is not supported"))
+          Invalid(WrongParams(jsonComment("Using $delele on targetEntityType: model is not supported yet")))
+        }  else Invalid(WrongParams(jsonComment("Using $delete on anything but targetEntityType: user or model is not supported")))
 
       case _ =>
       // already processed by the dataset, only model changing event processed here
-
+        Valid(jsonComment("Input event processed."))
     }
-    Valid(true)
   }
 
   override def train(): Validated[ValidateError, String] = {
