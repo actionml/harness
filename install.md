@@ -13,21 +13,22 @@ These projects are related and should be built together when installing from sou
  5. Python sdk (included with the Harness Server AML repo)
 
 ## Repositories
-For Harness 0.3.0+ These are split into 3 GitHub repositories. `git clone` these into separate direcories.
+For Harness 0.3.0+ These are split into 3 GitHub repositories.
 
- 1. [Harness](https://github.com/actionml/harness/tree/release/0.3.0-SNAPSHOT): rest-server + Engines + Python CLI + Python SDK
+ 1. [Harness](https://github.com/actionml/harness): rest-server + Engines + Python CLI + Python SDK
  2. [Harness-Auth-Server](https://github.com/actionml/harness-auth-server): this is quite stable and has had no major changes for since 1/2018 and so is less subject to change
- 3. The [Harness-Java-SDK](https://github.com/actionml/harness-java-sdk/tree/release/0.3.0-SNAPSHOT) only supports Events and Queries and so is also stable and not very likely to change
+ 3. The [Harness Java-SDK](https://github.com/actionml/harness-java-sdk) only supports Events and Queries and so is also stable and not very likely to change
 
 For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md).
 
 ## General Requirements
 
- - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
- - Scala 2.11, install using `apt-get`, `yum`, or `brew`
- - Boost 1.55.0 or higher is fine. This is only for Vowpal Wabbit
- - Git
- - MongoDB 3.6+ or 4.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These instructions [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - **Java 8:** this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
+ - **Scala 2.11:** install using `apt-get`, `yum`, or `brew`
+ - **Boost 1.55.0:** or higher is fine. This is only for Vowpal Wabbit
+ - **Git**
+ - **MongoDB 4+:** this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These instructions [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - **Other:** Each Engine or component may have its own requirements, see each below.
 
 ## The Contextual Bandit
  
@@ -99,10 +100,10 @@ Get and build from source. The Authserver is pretty stable and has not had any c
 git clone https://github.com/actionml/harness-auth-server.git harness-auth-server
 cd harness-auth-server
 ./make-auth-server-distribution.sh
-tar xvf AuthServer-0.3.0.tar.gz
+tar xvf AuthServer-0.3.x.ab.tar.gz # use the version in the tarball name
 ```
 
-This creates the AuthServer but it is not needed for local testing when auth and TLS are not being use. It must be built to create jars in the local `/.ivy2` cache. After building, populate the cache:
+This creates the AuthServer but it is not needed for local testing when auth and TLS are not being used. It must be built to create jars in the local `/.ivy2` cache. After building, populate the cache:
 
 ```
 sbt harnessAuthCommon/publish-local
@@ -184,7 +185,10 @@ The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your ha
     ```
     nohup /path/to/elasticsearch/bin/elasticsearch -d &
     ```
- - **Start Harness:**    
+    
+ - **Start Other Services:** Harness and its Engines should have their dependent services started on boot. If they are not then start them before Harness. MongoDB is the only global requirement and installation with one of the distribution repo managers will leave it running and will setup for launch on reboot.
+ 
+ - **Start Harness:**
 
     ```
     harness start # you will get a status message printed
