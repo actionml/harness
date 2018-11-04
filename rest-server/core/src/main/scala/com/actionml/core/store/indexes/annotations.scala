@@ -19,8 +19,10 @@ package com.actionml.core.store.indexes
 
 import com.actionml.core.store.Ordering._
 
+import scala.concurrent.duration.Duration
+
 
 object annotations {
 
-  case class Indexed(order: Ordering) extends scala.annotation.StaticAnnotation
+  case class Indexed(order: Ordering = default, ttl: Duration = Duration.Inf) extends scala.annotation.StaticAnnotation
 }

@@ -24,6 +24,7 @@ object Ordering extends Enumeration {
   type Ordering = Value
   val asc = Value("asc")
   val desc = Value("desc")
+  val default = desc
 }
 
 case class OrderBy(ordering: Ordering.Ordering, fieldNames: String*)
