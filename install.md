@@ -1,15 +1,16 @@
 # Harness Installation
 
-This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. Much of this is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
+This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. This is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
 
 # Requirements
 
 These projects are related and should be built together when installing from source (tarball and jar build TBD):
 
- 1. The Harness server
- 2. Engines' dependencies
- 3. java-sdk 
- 4. python sdk
+ 1. The Harness server (ActionML repo)
+ 2. The Harness Auth server (ActionML repo)
+ 3. Engines' dependencies (external tarball, apt-get, yum, or brew installs)
+ 4. Java-sdk (ActionML repo)
+ 5. Python sdk (included with the Harness Server AML repo)
 
 ## Repositories
 For Harness 0.3.0+ These are split into 3 GitHub repositories. `git clone` these into separate direcories.
@@ -18,7 +19,7 @@ For Harness 0.3.0+ These are split into 3 GitHub repositories. `git clone` these
  2. [Harness-Auth-Server](https://github.com/actionml/harness-auth-server): this is quite stable and has had no major changes for since 1/2018 and so is less subject to change
  3. The [Harness-Java-SDK](https://github.com/actionml/harness-java-sdk/tree/release/0.3.0-SNAPSHOT) only supports Events and Queries and so is also stable and not very likely to change
 
-For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md). Much of this is targeted at Debian/Ubuntu with side notes for macOS (BSD Unix based).
+For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md).
 
 ## General Requirements
 
@@ -26,7 +27,7 @@ For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugg
  - Scala 2.11, install using `apt-get`, `yum`, or `brew`
  - Boost 1.55.0 or higher is fine. This is only for Vowpal Wabbit
  - Git
- - MongoDB 3.6+ or 4.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. For example, these instructions [install Mongo 3.4 on Ubuntu](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - MongoDB 3.6+ or 4.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These instructions [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
 
 ## The Contextual Bandit
  
@@ -152,9 +153,9 @@ You are now ready to launch and run Harness with the included Engines
 
 # Elasticsearch 5.x or 6.x
 
-Some newer engines require Elasticsearch. Anything based on the Universal Recommender, for instance, uses Elasticsearch to store the model and to run special queries not allowed in other DBS. These special "similarity" queries are actually part of the algorithm so Elasticsearch is a requirement (although any engine based on Lucene could be used, if you write your own client to perform the same operations).
+The Universal Recommender (and variants like the URNavHintingEngine), requires Elasticsearch to store the model and to run special queries not allowed in other DBS. These special "similarity" queries are actually part of the algorithm.
 
-Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 5.x or newer.
+Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 6+.
 
 ## macOS High Sierra
 
@@ -165,13 +166,17 @@ Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum r
 
 The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
 
-## Docker Elasticsearch
-
-If you wish to use Docker containers for ES, just be sure to supply the host a port in any Engine's JSON config (not supported for 0.3.0-RC1)
-
 # Launching Harness  
 
-To configure Harness for localhost connections you should not need to change the configuration in `harness/Harness-0.3.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing port numbers and if you want to connect to Harness from other hosts have it listen to `0.0.0.0` instead of `localhost`, which is default.
+To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.x.0/bin/harness-env`. Look there to see examples for changing global Harness config.
+
+Set the `path` in your env to include the bin directory of both Harness and the Harness Auth server: 
+
+```
+export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
+```
+
+Now you can launch and run the CLI:
 
 ```
 harness start # you will get a status message printed
@@ -179,37 +184,17 @@ harness add <path-to-engine's-json-file> # get a success response
 harness status <engine-id-from-json-file>
 ```
 
-You now have an empty Engine of the type, `engineId`, and params defined in the Engines config JSON file.
+You now have an empty Engine of the type defined in the engine's JSON conig file with the `engineId` and params defined there.
 
-To send events and make queries see "examples" directories in `java-sdk` and `python-sdk`.
+To send events and make queries see either the Java or Python SDK.
 
-When you are done playing around delete the Engine to clear out the DB and disk used by the Engine.
+When you are done experimenting delete the Engine to clear out the DB and disk.
 
 ```
-harness delete !!your engineId!! # use the engine's engineId
+harness delete <some-engine-id> # use the engine's engineId
 # if you want to shutdown the server
 harness stop
 ```
-
-**Note**: if you have put the `harness` script on your path commands can be executed from anywhere
-
-## Simple CLI Integration Test
-
-A simple CLI integration test is included
-
-```
-cd harness/rest-server/Harness-0.3.0-SNAPSHOT/
-./harness-cli-test
-```
-
-# Running the Integration Test
-
-```
-cd harness/java-sdk
-./integration-test.sh
-```
-
-You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the diff printed at the end has no "important differences" then the test passes.
 
 # Advanced Settings
 
