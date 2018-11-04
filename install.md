@@ -87,49 +87,47 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     
     This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. You are now ready to build the Harness Server. This includes the CLI and services the Harness REST API.
 
-# Full Harness 0.3.0-SNAPSHOT Build
+# Harness 0.3.0 Build from Source (develop branch)
 
 The AuthServer must be built first and jars put in the local sbt cache. Then the Harness Server with build successfully. This is needed even if you are not using the AuthServer.
 
-## AuthServer-0.3.0-SNAPSHOT
+## Harness AuthServer
 
-Get and build from source
+Get and build from source. The Authserver is pretty stable and has not had any changes since v0.1.0. So it is now released into the master branch of its repo.
 
 ```
-git clone -b release/0.3.0-SNAPSHOT https://github.com/actionml/harness-auth-server.git harness-auth-server
+git clone https://github.com/actionml/harness-auth-server.git harness-auth-server
 cd harness-auth-server
 ./make-auth-server-distribution.sh
-tar xvf AuthServer-0.3.0-SNAPSHOT.tar.gz
+tar xvf AuthServer-0.3.0.tar.gz
 ```
 
-This creates the AuthServer but it is not needed for local testing.
-
-If all you need is the jars for imported classes to be cached for SBT when building the Harness server. Run this command:
+This creates the AuthServer but it is not needed for local testing when auth and TLS are not being use. It must be built to create jars in the local `/.ivy2` cache. After building, populate the cache:
 
 ```
 sbt harnessAuthCommon/publish-local
 ```
 
-## Harness-0.3.0-SNAPSHOT
+## Harness (WIP in develop)
 
 Get and build source:
  
 ```
-git clone -b release/0.3.0-SNAPSHOT https://github.com/actionml/harness.git harness
+git clone -b develop https://github.com/actionml/harness.git harness
 cd harness/rest-server
 ./make-distribution
-tar xvf Harness-0.3.0-SNAPSHOT
-nano Harness-0.0.3.0-SNAPSHOT/bin/harness-env # config the env for Harness
+tar xvf Harness-0.3.x-abc # use the version number in the tarball name
+nano Harness-0.3.x-abc/bin/harness-env # config the env for Harness
 ```
 
-The default config in `harness-env` is usually sufficient for testing locally.
+The default config in `harness-env` is usually sufficient for testing locally. You can also copy the file from earlier builds, little has changed in it.
 
-Add the Harness CLI (the `bin/` directory in the distribution) to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
+Add the Harness CLI (located the `bin/` directory of the distribution tarball) to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
     
 ```
-export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.3.0-SNAPSHOT/bin/
+export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.3.x-abc/bin/
 # substitute your path to the distribution's "bin" directory
-# it should have the .../bin/main file and other CLI scripts
+# the dir should contain the .../bin/main file and other CLI scripts
 ```
     
 Then source the `.profile` with 
@@ -138,26 +136,32 @@ Then source the `.profile` with
 . ~/.profile
 ```
 
-## Python SDK 0.3.0a0
+## Python SDK
+
+**Requirements**
+
+ - Python 3: This can usally be installed from the distribution's repos using `apt-get`, `brew`, or `yum`.
 
 The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
 
-The Python SDK requires python3 to be installed and all use of python will invoke `python3` This means that no code should assume `python` executes `python3`. In other words no symlink of `python -> python3` exists.
+**Note:** Most distributions install Python 3 to be executed with the CLI `python3` not `python`. Harness is setup to expect this.
+
+To install the Python SDK for local use:
 
 ```
-cd harness/python-sdk
-python3 setup.py install
+cd harness/python-sdk # where ever the source is installed
+python3 setup.py install # you may need to add "sudo" to this
 ```
 
 You are now ready to launch and run Harness with the included Engines
 
 # Elasticsearch 5.x or 6.x
 
-The Universal Recommender (and variants like the URNavHintingEngine), requires Elasticsearch to store the model and to run special queries not allowed in other DBS. These special "similarity" queries are actually part of the algorithm.
+The Universal Recommender (and variants like the URNavHintingEngine), requires Elasticsearch to store the model and to run special queries not implemented by many other DBS. These special "similarity" queries are actually part of the UR's CCO algorithm.
 
 Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 6+.
 
-## macOS High Sierra
+## macOS
 
     $ brew update
     $ brew install elasticsearch
@@ -168,35 +172,28 @@ The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your ha
 
 # Launching Harness  
 
-To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.x.0/bin/harness-env`. Look there to see examples for changing global Harness config.
+ - **Setup Harness config:** To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.3.x-abc/bin/harness-env`. Look there to see examples for changing global Harness config.
+ - **Set the `path`** in your env to include the bin directory of both Harness and the Harness Auth server: 
 
-Set the `path` in your env to include the bin directory of both Harness and the Harness Auth server: 
+    ```
+    export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
+    ```
+    
+ - **Start Elasticsearch:** If you are using some variant of the Universal Recommender Engine (like the URNavHintingEngine) launch Elasticsearch
 
-```
-export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
-```
+    ```
+    nohup /path/to/elasticsearch/bin/elasticsearch -d &
+    ```
+ - **Start Harness:**    
 
-Now you can launch and run the CLI:
+    ```
+    harness start # you will get a status message printed
+    harness status engines # will list all active engines
+    ```
 
-```
-harness start # you will get a status message printed
-harness add <path-to-engine's-json-file> # get a success response
-harness status <engine-id-from-json-file>
-```
-
-You now have an empty Engine of the type defined in the engine's JSON conig file with the `engineId` and params defined there.
-
-To send events and make queries see either the Java or Python SDK.
-
-When you are done experimenting delete the Engine to clear out the DB and disk.
-
-```
-harness delete <some-engine-id> # use the engine's engineId
-# if you want to shutdown the server
-harness stop
-```
-
+    See [Commands](commands.md) for a description of the Harness CLI.
+    
 # Advanced Settings
 
-See [Advanced Settings](advanced_settings.md) for allowing external connections, using Auth, and TLS/SSL.
+See [Advanced Settings](advanced_settings.md) for allowing external connections, using Auth, TLS/SSL, and other settings.
 
