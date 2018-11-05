@@ -88,7 +88,7 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     
     This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. You are now ready to build the Harness Server. This includes the CLI and services the Harness REST API.
 
-# Harness 0.3.0 Build from Source (develop branch)
+# Harness Build from Source (develop branch)
 
 The AuthServer must be built first and jars put in the local sbt cache. Then the Harness Server with build successfully. This is needed even if you are not using the AuthServer.
 
