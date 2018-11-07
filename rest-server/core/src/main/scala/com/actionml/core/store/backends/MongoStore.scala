@@ -29,7 +29,7 @@ import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -43,7 +43,8 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   import scala.concurrent.ExecutionContext.Implicits.global
 
   override def createDao[T: TypeTag](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
-    def getIndexNames: List[(String, Indexed)] = {
+    // get information about indexes from annotations of DAO's type
+    def getRequiredIndexesInfo: List[(String, Indexed)] = {
       val symbol = symbolOf[T]
       if (symbol.isClass) {
         symbol.asClass.primaryConstructor.typeSignature.paramLists.head
@@ -66,22 +67,30 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
           }
       } else List.empty
     }
+    // get information about indexes from mongo db
+    def getActualIndexesInfo(col: MongoCollection[T]): Future[Seq[(String, Indexed)]] = {
+      col.listIndexes().map { i =>
+        val keyInfo = i.get("key").get.asDocument()
+        val iName = keyInfo.getFirstKey
+        (iName, Indexed())
+      }.toFuture
+    }
+
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
-    collection.listIndexes().map { i =>
-      val keyInfo = i.get("key").get.asDocument()
-      val iName = keyInfo.getFirstKey
-      (iName, Indexed())
-    }.toFuture.map(indexesInfo => getIndexNames diff indexesInfo.toList).flatMap { absentIndexes =>
-      val newIndexes = absentIndexes.map { case (iName, Indexed(iOrder, ttl)) =>
-        val options = new IndexOptions()
-        if (ttl.isFinite()) options.expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
-        IndexModel(Document(iName -> 1), options)
-      }
-      if (newIndexes.nonEmpty) {
-        logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
-        collection.createIndexes(newIndexes).toFuture
-      } else Future.successful()
-    }.recover {
+    // compare actual and required indexes and create missing ones
+    getActualIndexesInfo(collection)
+      .map(actualIndexesInfo => getRequiredIndexesInfo diff actualIndexesInfo.toList)
+      .flatMap { absentIndexes =>
+        val newIndexes = absentIndexes.map { case (iName, Indexed(iOrder, ttl)) =>
+          val options = new IndexOptions()
+          if (ttl.isFinite()) options.expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+          IndexModel(Document(iName -> 1), options)
+        }
+        if (newIndexes.nonEmpty) {
+          logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
+          collection.createIndexes(newIndexes).toFuture
+        } else Future.successful(())
+      }.recover {
       case e: Exception =>
         logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
     }
