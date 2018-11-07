@@ -22,36 +22,52 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
-/** Creates Try type Futures and unique jobIds, both are returned immediately but any arbitrary block of code can be
-  * executed in the Try.map. At the end of the block, the consumer must call removeJob. The jobIds have a UUID as a String
-  * and the engineId for status reporting purposes. If a jobId is in the list it is "pending", otherwise it is "complete"
+/** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
+  * executed in the Future.map. At the end of the block, the consumer must call removeJob. The jobDescriptions are
+  * mapped to engineId for status reporting purposes and have UUIDs. If a JobDescription is in the list it is "queued",
+  *  or "executing" otherwise it is "notQueued". No information is kept about the completion status of a job so the logs
+  * must be scanned for any error reports. Todo: do we want to remember some number of old finished jobs?
   */
 object JobManager {
 
-  private var jobIds: Seq[(String, String)] = Seq.empty
+  private var jobDescriptions: Map[String, Seq[JobDescription]] = Map.empty
 
   /** Pass in the engineId for Engine status reporting purposes */
-  def createJob(engineId: String): (String, Future[Unit]) = {
+  def createJob(engineId: String, extId: Option[String] = None, cmnt: String = ""): (JobDescription, Future[Unit]) = {
     val jobId = createUUID
-    jobIds = jobIds :+ (jobId, engineId)
-    (jobId, Future[Unit]{})
+    val newJobDescription = JobDescription(jobId, extId, status = JobStatus.queued, comment = cmnt)
+    val newJobDescriptions: Seq[JobDescription] = jobDescriptions.getOrElse(engineId, Seq[JobDescription]()) ++: Seq(newJobDescription)
+    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
+    (newJobDescription, Future[Unit]{})
   }
 
   private def createUUID: String = UUID.randomUUID().toString
 
   /** Gets any active Jobs for the specified Engine */
-  def getActiveJobIds(engineId: String): Seq[(String, String)] = {
-    jobIds.filter(_._2 == engineId)
+  def getActiveJobDescriptions(engineId: String): Seq[JobDescription] = {
+    if(jobDescriptions.isDefinedAt(engineId)) {
+      jobDescriptions(engineId)
+    } else Seq.empty[JobDescription]
   }
 
-  def removeJob(jobId: String): Unit = {
-    jobIds = jobIds.filter(_._1 != jobId)
+  def removeJob(harnessJobId: String): Unit = {
+    jobDescriptions = jobDescriptions.map { jds =>
+      (jds._1, jds._2.filter(_.harnessId != harnessJobId))
+    }
   }
 
 }
 
+case class JobDescription(harnessId: String, externalId: Option[String] = None, status: String, comment: String)
+
+object JobStatus {
+  val queued = "queued"
+  val notQueued = "not queued"
+  val executing = "executing"
+}
+
 /* Usage example
-val (jobId, future) = createJob(engineId)
+val (jobId, future) = createJob(engineId, )
 future.map{ jobId =>
   some code ...
   removeJob(jobId)
