@@ -21,14 +21,14 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.ValidateError
-
+import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
 
-class URNavHintingEngine extends Engine {
+class URNavHintingEngine extends Engine with JsonParser {
 
   private var dataset: URNavHintingDataset = _
   private var algo: URNavHintingAlgorithm = _
@@ -91,12 +91,14 @@ class URNavHintingEngine extends Engine {
 
   // todo: should merge base engine status with URNavHintingEngine's status
   override def status(): Validated[ValidateError, String] = {
+    import org.json4s.jackson.Serialization.write
+
     logStatus(params)
     //Valid(this.params.toString) // todo: this should be JSON so the client can parse
     Valid(s"""
        |{
        |    "engineParams": ${params.toJson},
-       |    "jobStatuses": "not implemented"
+       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
        |}
      """.stripMargin)
   }
@@ -105,11 +107,10 @@ class URNavHintingEngine extends Engine {
     algo.train()
   }
 
-  /** triggers parse, validation of the query then returns the result with HTTP Status Code */
+  /** triggers parse, validation of the query then returns the result as JSONharness */
   def query(jsonQuery: String): Validated[ValidateError, String] = {
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URNavHintingQuery](jsonQuery).andThen { query =>
-      // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
       Valid(result.toJson)
     }

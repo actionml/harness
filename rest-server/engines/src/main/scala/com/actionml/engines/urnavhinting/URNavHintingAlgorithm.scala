@@ -237,23 +237,12 @@ class URNavHintingAlgorithm private (
       // Here is where you process by reserved events which may modify the model in real-time
       case "$set" =>
         Invalid(WrongParams(jsonComment("Using $set not supported")))
-      case "$delete" =>
+      /*case "$delete" =>
         datum.entityType match {
-          case "user" =>
-            //logger.warn("Delete a \"user\" not supported")
-            //Invalid(WrongParams(jsonComment("Using $delele on \"entityType\": \"user\" is not supported yet")))
-            val (jobId, future) = JobManager.createJob(engineId = engineId)
-            future.map{ _ =>
-              logger.info(s"Starting Job execution of jobId: $jobId")
-              Thread.sleep(5000)
-              logger.info(s"Finished executing jobId: $jobId")
-              JobManager.removeJob(jobId)
-              logger.info(s"Active jobIds after finishing jobId: $jobId, are ${JobManager.getActiveJobIds(engineId)}")
-            }
-            Valid(jsonComment(s"Added jobId: $jobId for background execution."))
           case "model" =>
-            logger.warn("Delete a \"model\" not supported")
-            Invalid(WrongParams(jsonComment("Using $delele on entityType: model is not supported yet")))
+            logger.info(s"Deleted data for model: ${datum.entityId}, retrain to get it reflected in new queries")
+            // Todo: remove the model data from Elasticsearch? Lots of work, may require a Job
+            Valid(jsonComment("Using $delele on entityType: model is not supported yet"))
           case _ =>
             logger.warn(s"Deleting unknown entityType is not supported.")
             Invalid(WrongParams(jsonComment(s"Deleting unknown entityType is not supported.")))
@@ -262,6 +251,7 @@ class URNavHintingAlgorithm private (
       case _ =>
       // already processed by the dataset, only model changing event processed here
         Valid(jsonComment("URNavHinting input processed"))
+      */
     }
   }
 

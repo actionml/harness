@@ -18,12 +18,11 @@
 package com.actionml.engines.urnavhinting
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.BadParamsException
 import com.actionml.core.engine.Dataset
 import com.actionml.core.store.{DAO, DaoQuery, Store}
 import com.actionml.core.validate._
-
 import com.actionml.engines.ur.URDataset
 import com.actionml.engines.ur.UREngine.UREvent
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
@@ -116,18 +115,30 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
             // saveOneById in journeys until a conversion happens
             activeJourneysDao.saveOne(event)
           }
-        } else { // must be secondary indicator
-          indicatorsDao.saveOne(event)
+        } else { // must be secondary indicator so no conversion, but accumulate in journeys, not already converted
+          activeJourneysDao.saveOne(event)
         }
         Valid(event)
       } else { // not an indicator so check for reserved events the dataset cares about
         event.event match {
           case "$delete" =>
-            if (event.entityType == "user") {
-              // this will only delete a user's data
-              //itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
-            } // ignore any other reserved event types, they will be caught by the Algorithm if at all
-          case _ =>
+            event.entityType match {
+              case "user" =>
+                indicatorsDao.removeMany(("entityId", event.entityId))
+                logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
+              case "model" =>
+                logger.info(s"Deleted data for model: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(jsonComment(s"Deleted data for model: ${event.entityId}, " +
+                  s"retrain to get it reflected in new queries"))
+                if (event.entityType == "user") {
+                  // this will only delete a user's data
+                  //itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
+                } // ignore any other reserved event types, they will be caught by the Algorithm if at all
+              case _ =>
+                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
+            }
         }
 
         Valid(event)

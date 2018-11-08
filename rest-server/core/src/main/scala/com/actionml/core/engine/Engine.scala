@@ -20,10 +20,12 @@ package com.actionml.core.engine
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
+import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate._
-
 import com.typesafe.scalalogging.LazyLogging
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -132,7 +134,14 @@ abstract class Engine extends LazyLogging with JsonParser {
   }
 
   def batchInput(inputPath: String): Validated[ValidateError, String] = {
-    mirroring.importEvents(this, inputPath)
+    import org.json4s.jackson.Serialization.write
+    val (jobDescription, f) = JobManager.addJob(engineId, cmnt  = "batch import, non-Spark job")
+    f.map { _ =>
+      //JobManager.startJob(engineId, jobDescription.harnessId)
+      mirroring.importEvents(this, inputPath)
+      //JobManager.removeJob(jobDescription.harnessId) // todo: this should be done automatically at the end of a job
+    }
+    Valid(write(jobDescription))
   }
 
   /** train is only used in Lambda offline learners */
