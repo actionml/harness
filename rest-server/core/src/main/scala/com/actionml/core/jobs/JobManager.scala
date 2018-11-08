@@ -30,47 +30,49 @@ import scala.concurrent.Future
   */
 object JobManager {
 
-  private var jobDescriptions: Map[String, Seq[JobDescription]] = Map.empty
+  // first key is engineId, second is the harness specific Job id
+  private var jobDescriptions: Map[String, Map[String, JobDescription]] = Map.empty
 
-  /** Pass in the engineId for Engine status reporting purposes */
-  def createJob(engineId: String, extId: Option[String] = None, cmnt: String = ""): (JobDescription, Future[Unit]) = {
+  /** Index by the engineId for Engine status reporting purposes */
+  def addJob(engineId: String, extId: Option[String] = None, cmnt: String = ""): (JobDescription, Future[Unit]) = {
     val jobId = createUUID
-    val newJobDescription = JobDescription(jobId, extId, status = JobStatus.queued, comment = cmnt)
-    val newJobDescriptions: Seq[JobDescription] = jobDescriptions.getOrElse(engineId, Seq[JobDescription]()) ++: Seq(newJobDescription)
+    val newJobDescription = JobDescription(extId, status = JobStatus.queued, comment = cmnt)
+    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map[String, JobDescription]()) + (jobId -> newJobDescription)
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     (newJobDescription, Future[Unit]{})
+  }
+
+  def startJob(engineId: String, jobId: String): Unit = {
+    val startedJob = jobDescriptions.getOrElse(engineId, Map.empty).getOrElse(jobId, JobDescription(status = JobStatus.queued))
+    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
+      (jobId -> startedJob.copy(status = JobStatus.executing))
+    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
   }
 
   private def createUUID: String = UUID.randomUUID().toString
 
   /** Gets any active Jobs for the specified Engine */
-  def getActiveJobDescriptions(engineId: String): Seq[JobDescription] = {
+  def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
     if(jobDescriptions.isDefinedAt(engineId)) {
       jobDescriptions(engineId)
-    } else Seq.empty[JobDescription]
+    } else Map.empty
   }
 
   def removeJob(harnessJobId: String): Unit = {
-    jobDescriptions = jobDescriptions.map { jds =>
-      (jds._1, jds._2.filter(_.harnessId != harnessJobId))
+    jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
+      engineId -> (jds - harnessJobId)
     }
   }
 
 }
 
-case class JobDescription(harnessId: String, externalId: Option[String] = None, status: String, comment: String)
+case class JobDescription(
+  externalId: Option[String] = None,
+  status: String = JobStatus.queued,
+  comment: String = "")
 
 object JobStatus {
   val queued = "queued"
-  val notQueued = "not queued"
   val executing = "executing"
 }
 
-/* Usage example
-val (jobId, future) = createJob(engineId, )
-future.map{ jobId =>
-  some code ...
-  removeJob(jobId)
-}
-Valid(s"jobId")
-*/

@@ -98,7 +98,7 @@ class URNavHintingEngine extends Engine with JsonParser {
     Valid(s"""
        |{
        |    "engineParams": ${params.toJson},
-       |    "jobStatuses": ${write[Seq[JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
+       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
        |}
      """.stripMargin)
   }

@@ -135,10 +135,11 @@ abstract class Engine extends LazyLogging with JsonParser {
 
   def batchInput(inputPath: String): Validated[ValidateError, String] = {
     import org.json4s.jackson.Serialization.write
-    val (jobDescription, f) = JobManager.createJob(engineId, cmnt  = "batch import, non-Spark job")
+    val (jobDescription, f) = JobManager.addJob(engineId, cmnt  = "batch import, non-Spark job")
     f.map { _ =>
+      //JobManager.startJob(engineId, jobDescription.harnessId)
       mirroring.importEvents(this, inputPath)
-      JobManager.removeJob(jobDescription.harnessId) // todo: this should be done automatically at the end of a job
+      //JobManager.removeJob(jobDescription.harnessId) // todo: this should be done automatically at the end of a job
     }
     Valid(write(jobDescription))
   }
