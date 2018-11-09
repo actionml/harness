@@ -18,9 +18,20 @@
 package com.actionml.core.jobs
 
 import java.util.UUID
+
+import com.actionml.core.jobs.JobStatus.JobStatus
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+
+trait JobManagerInterface {
+  def addJob(engineId: String, comment: String = ""): JobDescription
+  def startJob(engineId: String, jobId: String): Unit
+  def startJob(engineId: String, f: Future[_], comment: String = ""): JobDescription
+  def getActiveJobDescriptions(engineId: String): Map[String, JobDescription]
+  def removeJob(harnessJobId: String): Unit
+}
 
 /** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
   * executed in the Future.map. At the end of the block, the consumer must call removeJob. The jobDescriptions are
@@ -28,37 +39,49 @@ import scala.concurrent.Future
   *  or "executing" otherwise it is "notQueued". No information is kept about the completion status of a job so the logs
   * must be scanned for any error reports. Todo: do we want to remember some number of old finished jobs?
   */
-object JobManager {
+object JobManager extends JobManagerInterface {
 
   // first key is engineId, second is the harness specific Job id
   private var jobDescriptions: Map[String, Map[String, JobDescription]] = Map.empty
 
   /** Index by the engineId for Engine status reporting purposes */
-  def addJob(engineId: String, extId: Option[String] = None, cmnt: String = ""): (JobDescription, Future[Unit]) = {
+  override def addJob(engineId: String, cmnt: String = ""): JobDescription = {
     val jobId = createUUID
-    val newJobDescription = JobDescription(extId, status = JobStatus.queued, comment = cmnt)
+    val newJobDescription = JobDescription(jobId = createUUID, status = JobStatus.queued, comment = cmnt)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map[String, JobDescription]()) + (jobId -> newJobDescription)
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
-    (newJobDescription, Future[Unit]{})
+    newJobDescription
   }
 
-  def startJob(engineId: String, jobId: String): Unit = {
-    val startedJob = jobDescriptions.getOrElse(engineId, Map.empty).getOrElse(jobId, JobDescription(status = JobStatus.queued))
+  override def startJob(engineId: String, jobId: String): Unit = {
+    val description = jobDescriptions
+      .getOrElse(engineId, Map.empty)
+      .getOrElse(jobId, JobDescription(jobId = createUUID))
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (jobId -> startedJob.copy(status = JobStatus.executing))
+      (jobId -> description.copy(status = JobStatus.executing))
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
+  }
+
+  override def startJob(engineId: String, f: Future[_], comment: String): JobDescription = {
+    val description = JobDescription(createUUID, JobStatus.executing, comment)
+    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
+      (description.jobId -> description.copy(status = JobStatus.executing))
+    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
+    f.map(_ => removeJob(description.jobId))
+     .recover { case _ => removeJob(description.jobId) }
+    description
   }
 
   private def createUUID: String = UUID.randomUUID().toString
 
   /** Gets any active Jobs for the specified Engine */
-  def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
+  override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
     if(jobDescriptions.isDefinedAt(engineId)) {
       jobDescriptions(engineId)
     } else Map.empty
   }
 
-  def removeJob(harnessJobId: String): Unit = {
+  override def removeJob(harnessJobId: String): Unit = {
     jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
       engineId -> (jds - harnessJobId)
     }
@@ -67,12 +90,14 @@ object JobManager {
 }
 
 case class JobDescription(
-  externalId: Option[String] = None,
-  status: String = JobStatus.queued,
+  jobId: String,
+  status: JobStatus = JobStatus.queued,
   comment: String = "")
 
-object JobStatus {
-  val queued = "queued"
-  val executing = "executing"
+object JobStatus extends Enumeration {
+  type JobStatus = Value
+
+  val queued = Value("queued")
+  val executing = Value("executing")
 }
 
