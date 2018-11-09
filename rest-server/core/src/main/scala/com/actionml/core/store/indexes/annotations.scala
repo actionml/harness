@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package com.actionml.core.store
+package com.actionml.core.store.indexes
+
+import com.actionml.core.store.Ordering._
+
+import scala.concurrent.duration.Duration
 
 
-case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
+object annotations {
 
-object Ordering extends Enumeration {
-  type Ordering = Value
-  val asc = Value("asc")
-  val desc = Value("desc")
-  val default = desc
+  case class Indexed(order: Ordering = default, ttl: Duration = Duration.Inf) extends scala.annotation.StaticAnnotation
 }
-
-case class OrderBy(ordering: Ordering.Ordering, fieldNames: String*)
-
