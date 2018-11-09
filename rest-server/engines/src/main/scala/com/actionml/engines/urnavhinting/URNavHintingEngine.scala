@@ -29,6 +29,7 @@ import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
+import scala.concurrent.duration._
 
 
 class URNavHintingEngine extends Engine with JsonParser {
@@ -145,7 +146,7 @@ object URNavHintingEngine {
 
     import org.json4s._
     import org.json4s.jackson.Serialization
-    import org.json4s.jackson.Serialization.{write}
+    import org.json4s.jackson.Serialization.write
 
     implicit val formats = Serialization.formats(NoTypeHints)
 
