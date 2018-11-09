@@ -31,10 +31,10 @@ abstract class Algorithm[Q, R] extends LazyLogging {
   var engineId: String = _
   var modelPath: String = _  // optional place in some filesystem to persist the model, a file path
 
-  def init(engine: Engine): Validated[ValidateError, Boolean] = {
+  def init(engine: Engine): Validated[ValidateError, String] = {
     engineId = engine.engineId
     modelPath = engine.modelContainer + engineId //todo: should the Engine even know about the modelContainer?
-    Valid(true)
+    Valid("{\"comment\":\"Init processed\"}")
   }
 
   def destroy(): Unit

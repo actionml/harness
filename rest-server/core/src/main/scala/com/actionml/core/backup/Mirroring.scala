@@ -32,8 +32,8 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Mirroring(mirrorContainer: String, engineId: String) extends LazyLogging {
 
-  def mirrorEvent(json: String): Validated[ValidateError, Boolean]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
+  def mirrorEvent(json: String): Validated[ValidateError, String]
+  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
@@ -56,7 +56,7 @@ abstract class Mirroring(mirrorContainer: String, engineId: String) extends Lazy
 
 }
 
-/** TODO: will be used when mirroring is config selectable */
+/** Used when mirroring is config selectable */
 object Mirroring {
   val localfs = "localfs"
   val hdfs = "hdfs"

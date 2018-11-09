@@ -1,9 +1,26 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.actionml.router.service
 
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{NotImplemented, WrongParams}
+import com.actionml.core.validate.{JsonParser, NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
@@ -17,7 +34,7 @@ import scaldi.Injector
 
 trait EventService extends ActorInjectable
 
-class EventServiceImpl(implicit inj: Injector) extends EventService{
+class EventServiceImpl(implicit inj: Injector) extends EventService with JsonParser {
 
   private val admin = inject[Administrator]('Administrator)
 
@@ -26,11 +43,11 @@ class EventServiceImpl(implicit inj: Injector) extends EventService{
       log.debug("Get event, {}, {}", engineId, eventId)
       sender() ! Invalid(NotImplemented())
 
-    case CreateEvent(engineId, event) ⇒
+    case CreateEvent(engineId, event) =>
       log.debug("Receive new event & stored, {}, {}", engineId, event)
       admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.input(event).map(_.asJson)
-        case None ⇒ sender() ! Invalid(WrongParams(s"Engine for id=$engineId not found"))
+        case Some(engine) => sender() ! engine.input(event).map(_.asJson)
+        case None => sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
       }
 
   }

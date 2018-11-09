@@ -25,6 +25,7 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine.Engine
 import com.actionml.core.store.{OrderBy, DaoQuery}
 import com.actionml.core.validate._
+
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString
 
@@ -99,11 +100,11 @@ class MongoAdministrator extends Administrator with JsonParser {
         builder += "params" -> BsonString(json)
         enginesCollection.insert(builder.result)
         engines += params.engineId -> newEngine
-        logger.debug(s"Engine for resource-id: ${ params.engineId } with params $json initialized successfully")
-        Valid(params.engineId)
+        logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
+        Valid(jsonComment(s"EngineId: ${params.engineId} created"))
       } else {
         // ignores case of too many engine with the same engineId
-        Invalid(ParseError(s"Unable to create Engine: ${params.engineId}, the config JSON seems to be in error"))
+        Invalid(ParseError(jsonComment(s"Unable to create Engine the config JSON seems to be in error")))
       }
     }
   }
@@ -114,51 +115,37 @@ class MongoAdministrator extends Administrator with JsonParser {
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
         val update = Document("$set" -> Document("engineFactory" -> params.engineFactory, "params" -> json))
         enginesCollection.update("engineId" -> params.engineId)(update)
-        existingEngine.init(json, deepInit = false).andThen(_ => Valid(
-          """{
-            |  "comment":"Get engine status to see what was changed."
-            |}
-          """.stripMargin))
-      }.getOrElse(Invalid(WrongParams(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))
+        existingEngine.init(json, deepInit = false)
+      }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
     }
   }
 
   override def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, String] = {
-    engines.get(engineId).map { existingEngine =>
-      logger.trace(s"Importing a batch of events into engine: ${engineId} from $importPath")
-      existingEngine.batchInput(importPath).andThen(_ => Valid(
-        """{
-          |  "comment":"New events imported"
-          |}
-        """.stripMargin))
-    }.getOrElse(Invalid(WrongParams(s"Unable to import to Engine: $engineId}, the engine does not exist")))
+    if(engines.get(engineId).isDefined) {
+      engines(engineId).batchInput(importPath)
+    } else Invalid(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
   }
 
   override def updateEngineWithTrain(engineId: String): Validated[ValidateError, String] = {
-    engines.get(engineId).map { existingEngine =>
-      logger.trace(s"Requesting engine: ${engineId} train on available data.")
-      existingEngine.train()
-        /*
-        .andThen(_ => Valid(
-        """{
-          |  "comment": "New train job requested, will add the job status or id here for supporting engines"
-          |}
-        """.stripMargin))
-        */
-    }.getOrElse(Invalid(WrongParams(s"Unable to train Engine: $engineId}, the engine does not exist")))
+    val eid = engines.get(engineId)
+    if (eid.isDefined) {
+      eid.get.train()
+    } else {
+      Invalid(WrongParams(jsonComment(s"Unable to train Engine: $engineId, the engine does not exist")))
+    }
   }
 
-  override def removeEngine(engineId: String): Validated[ValidateError, Boolean] = {
+  override def removeEngine(engineId: String): Validated[ValidateError, String] = {
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
       enginesCollection.removeOne("engineId" -> engineId)
       deadEngine.destroy()
-      Valid(true)
+      Valid(jsonComment(s"Engine instance for engineId: $engineId deleted and all its data"))
     } else {
-      logger.warn(s"Cannot removeOne non-existent engine for id: $engineId")
-      Invalid(WrongParams(s"Cannot removeOne non-existent engine for id: $engineId"))
+      logger.warn(s"Cannot removeOne non-existent engine for engineId: $engineId")
+      Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     }
   }
 
@@ -166,14 +153,18 @@ class MongoAdministrator extends Administrator with JsonParser {
     if (resourceId.nonEmpty) {
       if (engines.contains(resourceId.get)) {
         logger.trace(s"Getting status for ${resourceId.get}")
-        Valid(engines(resourceId.get).status().toString)
+        engines(resourceId.get).status()
       } else {
         logger.error(s"Non-existent engine-id: ${resourceId.get}")
-        Invalid(WrongParams(s"Non-existent engine-id: ${resourceId.get}"))
+        Invalid(WrongParams(jsonComment(s"Non-existent engine-id: ${resourceId.get}")))
       }
     } else {
       logger.trace("Getting status for all Engines")
-      Valid(engines.mapValues(_.status()).toSeq.mkString("\n"))
+      val statuses = jsonList(
+        engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)
+      Valid(
+        prettify(jsonList(
+          engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)))
     }
   }
 

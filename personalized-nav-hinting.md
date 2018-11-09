@@ -58,43 +58,35 @@ Configuration is especially important because it defines the type of events by n
 
 ```
 {
-  "engineId": "ur",
-  "engineFactory": "com.actionml.engines.ur.UrNavHintingEngine",
+  "engineId": "test_ur_nav_hinting",
+  "engineFactory": "com.actionml.engines.urnavhinting.URNavHintingEngine",
   "sparkConf": {
-    "master": "yarn",
-    "deploy-mode": "cluster",
-    "driver-memory": "4g",
-    "executor-memory": "4g",
-    "executor-cores": "1",
+    "master": "local",
+    "spark.driver-memory": "4g",
+    "spark.executor-memory": "4g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
     "spark.kryoserializer.buffer": "300m",
-    "es.index.auto.create": "true",
-    "comment": "remove this because it will confuse the ES Spark lib is these nodes do not exist--example only",
-    "es.nodes": "es-node-1,es-node-2"
+    "es.index.auto.create": "true"
   },
   "algorithm": {
+    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
     "esMaster": "es-node-1",
-    "indexName": "urindex",
-    "typeName": "items",    "numQueueEvents": 50,
-    "blacklistEvents": [], // IMPORTANT, this must be an empty list
-    "maxEventsPerEventType": 500,
-    "maxCorrelatorsPerEventType": 50,
-    "maxQueryEvents": 100,
-    "num": 2,
+    "blacklist": [],
     "indicators": [
       {
-        "name": "nav-id"
-      },{
-        "name": "content-pref",
-        "maxCorrelatorsPerItem": 50,
-        "minLLR": 5.0
+        "name": "nav-event"
       },{
         "name": "search-terms"
+      },{
+        "name": "content-pref"
       }
     ],
-    "num": 1
+    "availableDateName": "available",
+    "expireDateName": "expires",
+    "dateName": "date",
+    "num": 6
   }
 }
 ```

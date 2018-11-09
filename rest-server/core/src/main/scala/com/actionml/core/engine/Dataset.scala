@@ -29,7 +29,7 @@ import scala.reflect.ClassTag
 abstract class Dataset[T](engineId: String) extends LazyLogging with JsonParser {
 
   // methods that must be implemented in the Engine
-  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean]
+  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String]
   def destroy(): Unit
   def input(datum: String): Validated[ValidateError, Event]
   /** Required method to parserAndValidate the input event */
@@ -45,13 +45,13 @@ abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Da
   with JsonParser with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
       // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
       // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      Valid(true)
+      Valid("{\"comment\":\"Init processed\"}")
     }
   }
 

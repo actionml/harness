@@ -1,16 +1,3 @@
-package com.actionml.engines.urnavhinting
-
-import com.actionml.core.search.Hit
-import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.typesafe.scalalogging.LazyLogging
-import org.apache.mahout.math.indexeddataset.IndexedDataset
-import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
-import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-import org.json4s.JsonAST._
-import org.joda.time.DateTime
-
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,6 +14,18 @@ import org.joda.time.DateTime
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package com.actionml.engines.urnavhinting
+
+import com.actionml.core.search.Hit
+import com.actionml.core.search.elasticsearch.ElasticSearchClient
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.mahout.math.indexeddataset.IndexedDataset
+import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
+import org.json4s.JsonAST._
+import org.joda.time.DateTime
 
 /** Universal Recommender models to save in ES */
 class URNavHintingModel(

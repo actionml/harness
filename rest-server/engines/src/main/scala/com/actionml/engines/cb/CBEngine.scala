@@ -33,7 +33,7 @@ class CBEngine extends Engine with JsonParser {
   private var algo: CBAlgorithm = _
   private var params: GenericEngineParams = _
 
-  private def createResources(p: GenericEngineParams): Validated[ValidateError, Boolean] = {
+  private def createResources(p: GenericEngineParams): Validated[ValidateError, String] = {
     params = p
     engineId = params.engineId
     val storage = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
@@ -45,10 +45,10 @@ class CBEngine extends Engine with JsonParser {
       ("Mirror Type: ", params.mirrorType),
       ("Mirror Container: ", params.mirrorContainer),
       ("Model Container: ", modelContainer)))
-    Valid(true)
+    Valid("{\"comment\":\"CBEngine resources created\"}")
   }
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     super.init(json, deepInit).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         createResources(p).andThen{ _ =>
@@ -56,7 +56,7 @@ class CBEngine extends Engine with JsonParser {
             if (deepInit) {
               algo = new CBAlgorithm(json ,p.engineId, dataset)
               algo.init(this)
-            } else Valid(true)
+            } else Valid("{\"comment\":\"Init processed\"}")
           }
         }
       }
@@ -92,12 +92,12 @@ class CBEngine extends Engine with JsonParser {
   }
 
   /** Triggers parse, validation, and processing of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, String] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => true)
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => "{\"comment\":\"Input processed\"}")
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -134,7 +134,7 @@ class CBEngine extends Engine with JsonParser {
         val result = algo.query(query)
         Valid(result.toJson)
       } else {
-        Invalid(WrongParams(s"Query for non-existent group: $json"))
+        Invalid(WrongParams(jsonComment(s"Query for non-existent group: $json")))
       }
     }
   }

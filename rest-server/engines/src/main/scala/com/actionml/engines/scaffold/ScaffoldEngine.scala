@@ -18,11 +18,12 @@
 package com.actionml.engines.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
 import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError, WrongParams}
+
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
@@ -35,7 +36,7 @@ class ScaffoldEngine extends Engine with JsonParser {
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, Boolean] = {
+  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -51,7 +52,7 @@ class ScaffoldEngine extends Engine with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          if (deepInit) algo.init(this) else Valid(true)
+          if (deepInit) algo.init(this) else Valid(jsonComment("ScaffoldAlgorithm updated"))
         }
       }
     }
@@ -90,14 +91,14 @@ class ScaffoldEngine extends Engine with JsonParser {
   */
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, Boolean] = {
+  override def input(json: String): Validated[ValidateError, String] = {
     super.init(json).andThen { _ =>
       logger.trace("Got JSON body: " + json)
       // validation happens as the input goes to the dataset
       if (super.input(json).isValid)
-        dataset.input(json).andThen(process).map(_ => true)
+        dataset.input(json).andThen(process).map(_ => jsonComment("ScaffoldEngine input processed"))
       else
-        Valid(true) // Some error like an ExecutionError in super.input happened
+        Invalid(ValidRequestExecutionError(jsonComment("Some error like an ExecutionError in super.input happened")))
       // todo: pass back indication of deeper error
     }
   }
