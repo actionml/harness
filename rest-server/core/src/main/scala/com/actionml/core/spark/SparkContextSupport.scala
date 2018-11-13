@@ -20,8 +20,10 @@ package com.actionml.core.spark
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
+import com.actionml.core.jobs.{JobDescription, JobManager, JobManagerInterface}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.scheduler.{SparkListener, SparkListenerJobEnd, SparkListenerJobStart}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -69,9 +71,9 @@ object SparkContextSupport extends LazyLogging {
   /*
   Creates one context per jvm and one parameters set and gives promises for future contexts.
    */
-  def getSparkContext(config: String, appName: String, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
-    val params = SparkContextParams(config, appName, kryoClasses)
-    state.get match {
+  def getSparkContext(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
+    val params = SparkContextParams(config, engineId, jobDescription, kryoClasses = kryoClasses)
+    val f = state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
         val tryContext = createSparkContext(params)
@@ -79,7 +81,7 @@ object SparkContextSupport extends LazyLogging {
           p.complete(tryContext)
           p.future
         } else {
-          getSparkContext(config, appName, kryoClasses)
+          getSparkContext(config, engineId, jobDescription, kryoClasses)
         }
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
@@ -97,6 +99,8 @@ object SparkContextSupport extends LazyLogging {
           sc
         }
     }
+    f.foreach(sc => sc.setJobGroup(jobDescription.jobId, jobDescription.comment))
+    f
   }
 
 
@@ -104,7 +108,7 @@ object SparkContextSupport extends LazyLogging {
     val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
     val conf = new SparkConf()
     configMap.get("master").foreach(conf.setMaster)
-    conf.setAppName(params.appName)
+    conf.setAppName(params.engineId)
     conf.setAll(configMap - "master")
     val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
     conf.setJars(jars)
@@ -113,7 +117,19 @@ object SparkContextSupport extends LazyLogging {
     // especially in the sparkConf, which is only partially known. We can check for required things and let the
     // rest through on the hope they are correct
     if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
-    new SparkContext(conf)
+    val sc = new SparkContext(conf)
+    sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
+    sc
+  }
+
+  private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
+    override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
+      jobManager.startJob(engineId, jobId)
+    }
+
+    override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+      jobManager.removeJob(jobId)
+    }
   }
 
   private def configParams: Map[String, String] = {
@@ -140,7 +156,7 @@ object SparkContextSupport extends LazyLogging {
     transform(parse(jsonStr)).extract[T]
   }
 
-  private case class SparkContextParams(config: String, appName: String, kryoClasses: Array[Class[_]])
+  private case class SparkContextParams(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]])
 
   private sealed trait SparkContextState
   private case class Running(currentParams: SparkContextParams,

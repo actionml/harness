@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-
+import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport
@@ -263,7 +263,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
     }
     */
 
-    SparkContextSupport.getSparkContext(initParams, appName = engineId).map { sc => // or implicit sc =>
+    val jobDescription = JobManager.addJob(engineId)
+    SparkContextSupport.getSparkContext(initParams, engineId, jobDescription).map { sc => // or implicit sc =>
     //sparkContext.andThen { implicit sc =>
 
       val s = 1 to 10000
