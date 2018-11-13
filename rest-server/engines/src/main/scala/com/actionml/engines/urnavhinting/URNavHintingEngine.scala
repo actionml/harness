@@ -23,10 +23,14 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query}
+import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.{JsonParser, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
+import scala.concurrent.duration._
+
 
 class URNavHintingEngine extends Engine with JsonParser {
 
@@ -142,7 +146,7 @@ object URNavHintingEngine {
 
     import org.json4s._
     import org.json4s.jackson.Serialization
-    import org.json4s.jackson.Serialization.{write}
+    import org.json4s.jackson.Serialization.write
 
     implicit val formats = Serialization.formats(NoTypeHints)
 
@@ -156,11 +160,11 @@ object URNavHintingEngine {
       //eventId: String, // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      entityId: String,
+      @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
       properties: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      eventTime: String) // ISO8601 date
+      @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
   case class ItemProperties (
@@ -198,7 +202,4 @@ object URNavHintingEngine {
     }
   }
 
-
-
 }
-
