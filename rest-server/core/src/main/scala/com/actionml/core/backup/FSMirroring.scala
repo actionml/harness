@@ -63,7 +63,7 @@ class FSMirroring(mirrorContainer: String, engineId: String)
 
     }
 
-    Valid("{\"comment\":\"Event mirrored\"}")
+    Valid(jsonComment("Event mirrored"))
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
@@ -106,6 +106,6 @@ class FSMirroring(mirrorContainer: String, engineId: String)
         logger.error(errMsg)
         importEventsError(errMsg)
     }
-    Valid("{\"comment\":\"Job created to import events in the background.\"}")
+    Valid(jsonComment("Job created to import events in the background."))
   }
 }

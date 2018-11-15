@@ -98,24 +98,20 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
     parseAndValidate[URNavHintingEvent](jsonEvent, errorMsg = s"Invalid URNavHintingEvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        if (indicatorNames.head == event.event && event.properties.get("converted").isDefined) {
+        if (indicatorNames.head == event.event && event.properties.get("conversion").isDefined) {
           // this handles a conversion
-          //if (event.properties.get.get("converted").contains(true)) {
-          //if (event.properties.get.getOrElse("converted", false) == true) {
-          if(event.properties.getOrElse("converted", false)) {
+          if(event.properties.getOrElse("conversion", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
             val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq(("entityId", event.entityId)))).toSeq
             val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
-            // todo: need to tag these so they can be removed when the model is $deleted
-            // todo: not sure this will work, we can only get one collection with Mongo + Spark and so we may
-            // want to have them all in one, treating converted and unconverted nav-events differently
+            // tag these so they can be removed when the model is $deleted
             indicatorsDao.insertMany(taggedConvertedJourneys)
-            activeJourneysDao.removeMany(("entityId", event.entityId)) // should only have nav-events so no type check needed
+            activeJourneysDao.removeMany(("entityId", event.entityId))
           } else {
-            // saveOneById in journeys until a conversion happens
+            // save in journeys until a conversion happens
             activeJourneysDao.saveOne(event)
           }
-        } else { // must be secondary indicator so no conversion, but accumulate in journeys, not already converted
+        } else { // must be secondary indicator so no conversion, but accumulate in journeys
           activeJourneysDao.saveOne(event)
         }
         Valid(event)

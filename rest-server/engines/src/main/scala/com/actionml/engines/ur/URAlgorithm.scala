@@ -288,7 +288,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
     }
 
-    Valid("Started train Job on Spark")
+    Valid(jsonComment("Started train Job on Spark"))
   }
 
   def query(query: GenericQuery): GenericQueryResult = {

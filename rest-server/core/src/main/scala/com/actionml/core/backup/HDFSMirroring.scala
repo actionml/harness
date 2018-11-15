@@ -79,7 +79,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
         //eventsFile.writeUTF(json) // this seems to prepend lines with 0x01 and other chars, UTF?
         //eventsFile.hflush()
         //eventsFile.close()
-        Valid("{\"comment\":\"Event mirrored\"}")
+        Valid(jsonComment("Event mirrored"))
       } catch {
         case ex: IOException =>
           val errMsg = "Problem mirroring input to HDFS"
@@ -119,7 +119,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
               line = lineReader.readLine()
             }
           }
-          Valid("{\"comment\":\"Event mirrored\"}")
+          Valid(jsonComment("Event mirrored"))
         } else {
           logger.warn(s"No event files in location $location. No Events imported")
           importEventsError(s"No event files in location $location. No Events imported!")

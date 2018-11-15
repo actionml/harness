@@ -98,7 +98,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
         groupEvents.foreach(groupName => add(groupName._1))
         // params .close() should write to the file
 
-        Valid("{\"comment\":\"Init processed\"}")
+        Valid(jsonComment("Init processed"))
       }
     }
   }
@@ -111,7 +111,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
       logger.trace(s"Train trainer $groupName, with datum: $datum")
       trainers(groupName) ! Train(datum)
       checkpointVW(params) // todo: may miss some since train is in an Actor, should try the pseudo-param to saveOneById model
-      Valid("{\"comment\":\"Input processed\"]")
+      Valid(jsonComment("Input processed"))
     } catch {
       case e: NoSuchElementException =>
         logger.error(s"Training triggered on non-existent group: $groupName Initialize the group before sending input.", e)

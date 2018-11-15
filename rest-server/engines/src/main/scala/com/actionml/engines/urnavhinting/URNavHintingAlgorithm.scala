@@ -247,11 +247,10 @@ class URNavHintingAlgorithm private (
             logger.warn(s"Deleting unknown entityType is not supported.")
             Invalid(WrongParams(jsonComment(s"Deleting unknown entityType is not supported.")))
         }
-
+      */
       case _ =>
       // already processed by the dataset, only model changing event processed here
         Valid(jsonComment("URNavHinting input processed"))
-      */
     }
   }
 
@@ -310,7 +309,7 @@ class URNavHintingAlgorithm private (
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
-    Valid("Started train Job on Spark")
+    Valid(jsonComment("Started train Job on Spark"))
   }
 
   /*

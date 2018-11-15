@@ -51,7 +51,7 @@ abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Da
       // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
       // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      Valid("{\"comment\":\"Init processed\"}")
+      Valid(jsonComment("Init processed"))
     }
   }
 

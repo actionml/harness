@@ -45,7 +45,7 @@ class CBEngine extends Engine with JsonParser {
       ("Mirror Type: ", params.mirrorType),
       ("Mirror Container: ", params.mirrorContainer),
       ("Model Container: ", modelContainer)))
-    Valid("{\"comment\":\"CBEngine resources created\"}")
+    Valid(jsonComment("CBEngine resources created"))
   }
 
   override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
@@ -56,7 +56,7 @@ class CBEngine extends Engine with JsonParser {
             if (deepInit) {
               algo = new CBAlgorithm(json ,p.engineId, dataset)
               algo.init(this)
-            } else Valid("{\"comment\":\"Init processed\"}")
+            } else Valid(jsonComment("Init processed"))
           }
         }
       }
