@@ -118,15 +118,12 @@ object SparkContextSupport extends LazyLogging {
     // rest through on the hope they are correct
     if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
     val sc = new SparkContext(conf)
+    JobManager.startJob(params.jobDescription.jobId)
     sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
     sc
   }
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
-    override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
-      jobManager.startJob(engineId, jobId)
-    }
-
     override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
       jobManager.removeJob(jobId)
     }

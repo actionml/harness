@@ -79,7 +79,9 @@ trait JsonParser extends LazyLogging {
 
   def jsonComment(comment: String): String = {
     s"""
-       |{"comment": $comment}
+       |{
+       |    "comment": "$comment"
+       |}
     """.stripMargin
   }
 
