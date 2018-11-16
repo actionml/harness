@@ -25,8 +25,8 @@ import scala.concurrent.Future
 
 trait JobManagerInterface {
   def addJob(engineId: String, comment: String = ""): JobDescription
-  def startJob(engineId: String, jobId: String): Unit
-  def startJob(engineId: String, f: Future[_], comment: String = ""): JobDescription
+  def startJob(jobId: String): Unit
+  def startNewJob(engineId: String, f: Future[_], comment: String = ""): JobDescription
   def getActiveJobDescriptions(engineId: String): Map[String, JobDescription]
   def removeJob(harnessJobId: String): Unit
 }
@@ -45,22 +45,21 @@ object JobManager extends JobManagerInterface {
   /** Index by the engineId for Engine status reporting purposes */
   override def addJob(engineId: String, cmnt: String = ""): JobDescription = {
     val jobId = createUUID
-    val newJobDescription = JobDescription(jobId = createUUID, status = JobStatus.queued, comment = cmnt)
-    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map[String, JobDescription]()) + (jobId -> newJobDescription)
+    val newJobDescription = JobDescription(jobId, status = JobStatus.queued, comment = cmnt)
+    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) + (jobId -> newJobDescription)
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     newJobDescription
   }
 
-  override def startJob(engineId: String, jobId: String): Unit = {
-    val description = jobDescriptions
-      .getOrElse(engineId, Map.empty)
-      .getOrElse(jobId, JobDescription(jobId = createUUID))
-    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (jobId -> description.copy(status = JobStatus.executing))
-    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
+  override def startJob(jobId: String): Unit = {
+    jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
+      jds.get(jobId).fold(engineId -> jds) { d =>
+        engineId -> (jds + (jobId -> d.copy(status = JobStatus.executing)))
+      }
+    }
   }
 
-  override def startJob(engineId: String, f: Future[_], comment: String): JobDescription = {
+  override def startNewJob(engineId: String, f: Future[_], comment: String): JobDescription = {
     val description = JobDescription(createUUID, JobStatus.executing, comment)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
       (description.jobId -> description.copy(status = JobStatus.executing))
@@ -74,9 +73,7 @@ object JobManager extends JobManagerInterface {
 
   /** Gets any active Jobs for the specified Engine */
   override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
-    if(jobDescriptions.isDefinedAt(engineId)) {
-      jobDescriptions(engineId)
-    } else Map.empty
+    jobDescriptions.getOrElse(engineId, Map.empty)
   }
 
   override def removeJob(harnessJobId: String): Unit = {

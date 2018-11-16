@@ -255,9 +255,10 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, String] = {
-    val jobDescription = JobManager.addJob(engineId, s"Spark job")
+    val jobDescription = JobManager.addJob(engineId, "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[URNavHintingEvent]))
-      f.map { implicit sc =>
+    f.map { implicit sc =>
+      try {
         val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
         // todo: this should work but not tested and not used in any case
@@ -275,7 +276,7 @@ class URNavHintingAlgorithm private (
 
         val model = recsModel match {
           case RecsModels.All => calcAll(data, eventsRdd)
-          case RecsModels.CF  => calcAll(data, eventsRdd, calcPopular = false)
+          case RecsModels.CF => calcAll(data, eventsRdd, calcPopular = false)
           // todo: no support for pure popular model
           // case RecsModels.BF  => calcPop(data)(sc)
           // error, throw an exception
@@ -290,7 +291,7 @@ class URNavHintingAlgorithm private (
         //val data = getIndicators(modelEventNames, eventsRdd)
 
         logger.info("======================================== Contents of Indicators ========================================")
-        data.actions.foreach { case(name, id) =>
+        data.actions.foreach { case (name, id) =>
           val ids = id.asInstanceOf[IndexedDatasetSpark]
           logger.info(s"Event name: $name")
           logger.info(s"Num users/rows = ${ids.matrix.nrow}")
@@ -304,8 +305,16 @@ class URNavHintingAlgorithm private (
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
 
         //sc.stop() // no more use of sc will be tolerated ;-)
+      } catch {
+        case e: Throwable =>
+          logger.error(s"Spark computation failed for job $jobDescription", e)
+          sc.cancelJobGroup(jobDescription.jobId)
+          throw e
+      } finally {
+        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
+    }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
