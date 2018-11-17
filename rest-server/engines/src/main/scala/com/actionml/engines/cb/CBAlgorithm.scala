@@ -310,9 +310,10 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
           }
           logger.info(s"Success deleting model: $modelPath")
         }
-      }, 3 seconds) } catch {
+      }, 5 seconds)
+    } catch {
       case e: TimeoutException =>
-        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 3 second timeout.")
+        logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 5 second timeout.")
     }
   }
 

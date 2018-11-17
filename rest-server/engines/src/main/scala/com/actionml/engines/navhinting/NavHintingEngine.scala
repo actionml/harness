@@ -155,10 +155,10 @@ case class NavHintingStatus(
   def toJson: String = {
     s"""
       |{
-      |  "description": $description,
-      |  "engineType": $engineType,
-      |  "engineParams": $engineParams,
-      |  "algorithmParams": $algorithmParams,
+      |  "description": "$description",
+      |  "engineType": "$engineType",
+      |  "engineParams": "$engineParams",
+      |  "algorithmParams": "$algorithmParams",
       |}
     """.stripMargin
   }

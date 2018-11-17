@@ -189,11 +189,11 @@ case class CBStatus(
   def toJson: String = {
     s"""
       |{
-      |  "description": $description,
-      |  "engineType": $engineType,
-      |  "engineParams": $engineParams,
-      |  "algorithmParams": $algorithmParams,
-      |  "activeGroups": $activeGroups
+      |  "description": "$description",
+      |  "engineType": "$engineType",
+      |  "engineParams": "$engineParams",
+      |  "algorithmParams": "$algorithmParams",
+      |  "activeGroups": "$activeGroups"
       |}
     """.stripMargin
   }
