@@ -19,19 +19,16 @@ package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.{store, _}
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core._
 import com.actionml.core.engine.Engine
-import com.actionml.core.store.{OrderBy, DaoQuery}
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.store.DaoQuery
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-
-import org.mongodb.scala.Document
-import org.mongodb.scala.bson.BsonString
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
-  private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
+  private val storage = MongoStorage.getStorage("harness_meta_store", codecs = MongoAdministrator.codecs)
 
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   @volatile private var engines = Map.empty[String, Engine]
@@ -178,3 +175,12 @@ case class EngineMetadata(
   engineId: String,
   engineFactory: String,
   params: String)
+
+object MongoAdministrator {
+  import org.bson.codecs.configuration.CodecProvider
+
+  val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[EngineMetadata])
+  }
+}
