@@ -19,7 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
+import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.validate._
@@ -31,10 +31,10 @@ import scala.concurrent.Future
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging with JsonParser {
+abstract class Engine extends LazyLogging with JsonSupport {
 
   var engineId: String = _
-  private var mirroring: Mirroring = _
+  private var mirroring: Mirror = _
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
 
@@ -45,6 +45,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     * @param json the Engine's config JSON for initializing all objects
     * @return The extending Engine instance, initialized and ready for input and/or queries etc.
     */
+  @deprecated("Companion factory objects should be used instead of this old factory method", "0.3.0")
   def initAndGet(json: String): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
@@ -69,18 +70,18 @@ abstract class Engine extends LazyLogging with JsonParser {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
-      mirroring = new FSMirroring("", engineId) // must create because Mirroring is also used for import Todo: decouple these for Lambda
+      mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(jsonComment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
-          mirroring = new FSMirroring(container, engineId)
-          Valid(jsonComment("Mirroring to localfs"))
+          mirroring = new FSMirror(container, engineId)
+          Valid(jsonComment("Mirror to localfs"))
         case "hdfs" | "HDFS" =>
-          mirroring = new HDFSMirroring(container, engineId)
-          Valid(jsonComment("Mirroring to HDFS"))
+          mirroring = new HDFSMirror(container, engineId)
+          Valid(jsonComment("Mirror to HDFS"))
         case mt => Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
@@ -89,11 +90,12 @@ abstract class Engine extends LazyLogging with JsonParser {
   }
 
   /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
-    * deepInit means to initialize a new object, it is set to false when updating a running Engine.*/
-  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+    * update means to update an existing object, it is set to false when creating a new Engine. So this method handles
+    * C(reate) and U(pdate) of CRUD */
+  def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
 
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      if (deepInit) {
+      if (!update) { // if not updating then must be creating
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
         modelContainer = p.modelContainer.getOrElse(container)
       } // not allowed to change with `harness update`

@@ -18,7 +18,7 @@
 package com.actionml.engines.ur
 
 import com.actionml.core.model.GenericEvent
-import com.actionml.core.validate.JsonParser
+import com.actionml.core.validate.JsonSupport
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.joda.time.format.ISODateTimeFormat
@@ -49,7 +49,7 @@ object RankingType {
 }
 
 class PopModel(fieldsRDD: RDD[(String, Map[String, Seq[String]])])(implicit sc: SparkContext)
-  extends JsonParser {
+  extends JsonSupport {
 
   def calc(
     modelName: String,

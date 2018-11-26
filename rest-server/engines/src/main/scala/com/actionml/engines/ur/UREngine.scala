@@ -35,7 +35,7 @@ class UREngine extends Engine {
   private var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
     parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
       params = p
       engineId = params.engineId

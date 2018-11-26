@@ -22,15 +22,15 @@ import java.io._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 /**
-  * Mirroring implementation for HDFS.
+  * Mirror implementation for HDFS.
   */
 
-class HDFSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) with JsonParser {
+class HDFSMirror(mirrorContainer: String, engineId: String)
+  extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
   private val hdfs = HDFSFactory.hdfs
 

@@ -18,27 +18,29 @@
 package com.actionml.core.validate
 
 import com.typesafe.scalalogging.LazyLogging
-import org.json4s.JValue
+import org.json4s.{DefaultFormats, Formats, JValue, MappingException, NoTypeHints}
 import org.json4s.ext.JodaTimeSerializers
 
 import scala.reflect.ClassTag
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.{JavaType, ObjectMapper, SerializationFeature}
 import java.io.IOException
-
+import org.json4s.jackson.Serialization.write
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, MappingException}
+import org.json4s.jackson.Serialization
 
 import scala.reflect.runtime.universe._
 
 
-trait JsonParser extends LazyLogging {
+trait JsonSupport extends LazyLogging {
 
 
 
-  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all
+  implicit val dateFormats: Formats = DefaultFormats ++ JodaTimeSerializers.all
+  implicit val jsonFormats = Serialization.formats(NoTypeHints)
+
 
   def parseAndValidate[T : ClassTag](
     json: String,

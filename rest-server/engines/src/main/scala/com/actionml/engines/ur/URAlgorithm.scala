@@ -25,7 +25,7 @@ import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{GenericQuery, GenericQueryResult}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, Field, RankingParams, URAlgorithmParams}
 import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 import org.apache.spark.rdd.RDD
@@ -48,7 +48,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   extends Algorithm[GenericQuery, GenericQueryResult]
     with LambdaAlgorithm[UREvent]
     with SparkMongoSupport
-    with JsonParser {
+    with JsonSupport {
 
 
   private var sparkContext: Validated[ValidateError, SparkContext] = _
@@ -297,7 +297,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
 
 }
 
-object URAlgorithm extends JsonParser {
+object URAlgorithm extends JsonSupport {
 
   def apply(engine: UREngine, initParams: String, dataset: URDataset): URAlgorithm = {
 

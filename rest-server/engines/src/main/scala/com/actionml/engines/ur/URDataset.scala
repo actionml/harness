@@ -36,7 +36,7 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent](engineId) with JsonParser {
+class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent](engineId) with JsonSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val indicatorsDao = store.createDao[UREvent]("indicator_events")
@@ -56,7 +56,7 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
   protected var indicatorNames: Seq[String] = _
 
   // These should only be called from trusted source like the CLI!
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
     parseAndValidate[URAlgorithmParams](
       jsonConfig,
       errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
@@ -107,9 +107,5 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
     }
   }
 
-  // This is not needed, deprecate from Engine API
-  override def parseAndValidateInput(jsonEvent: String): Validated[ValidateError, UREvent] = {
-    parseAndValidate[UREvent](jsonEvent)
-  }
 }
 

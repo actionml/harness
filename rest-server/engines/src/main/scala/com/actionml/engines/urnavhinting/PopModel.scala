@@ -18,7 +18,7 @@
 package com.actionml.engines.urnavhinting
 
 import com.actionml.core.model.GenericEvent
-import com.actionml.core.validate.JsonParser
+import com.actionml.core.validate.JsonSupport
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.PreparedData
 import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging

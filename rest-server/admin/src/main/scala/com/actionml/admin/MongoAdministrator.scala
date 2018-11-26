@@ -30,10 +30,10 @@ import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonString
 
 
-class MongoAdministrator extends Administrator with JsonParser {
+class MongoAdministrator extends Administrator with JsonSupport {
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
 
-  private lazy val enginesCollection = storage.createDao[Document]("engines")
+  private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   @volatile private var engines = Map.empty[String, Engine]
 
   drawActionML
@@ -45,18 +45,18 @@ class MongoAdministrator extends Administrator with JsonParser {
   override def init() = {
     // ask engines to init
     engines = enginesCollection.findMany().map { engine =>
-      val engineId = engine.get("engineId").get.asString.getValue
-      val engineFactory = engine.get("engineFactory").get.asString.getValue
-      val params = engine.get("params").get.asString.getValue
+      //val engineId = engine.get("engineId").get.asString.getValue
+      //val engineFactory = engine.get("engineFactory").get.asString.getValue
+      //val params = engine.get("params").get.asString.getValue
       // create each engine passing the params
-      val e = engineId -> newEngineInstance(engineFactory, params)
+      val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)
       if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
-        logger.error(s"Error creating engineId: $engineId from $params" +
+        logger.error(s"Error creating engineId: ${engine.engineId} from ${engine.params}" +
           s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
           s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
-        enginesCollection.removeOne("engineId" -> engineId)
+        enginesCollection.removeOne("engineId" -> engine.engineId)
         // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
@@ -87,18 +87,21 @@ class MongoAdministrator extends Administrator with JsonParser {
       if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
-        enginesCollection.update("engineId" -> params.engineId)(update)
+        //val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
+        //enginesCollection.update("engineId" -> params.engineId)(update)
+        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
-        Valid(params.engineId)
+        Valid(jsonComment(params.engineId))
       } else if (newEngine != null) {
         //add new
         logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        val builder = Document.builder
-        builder += "engineId" -> BsonString(params.engineId)
-        builder += "engineFactory" -> BsonString(params.engineFactory)
-        builder += "params" -> BsonString(json)
-        enginesCollection.insert(builder.result)
+        //val builder = Document.builder
+        //builder += "engineId" -> BsonString(params.engineId)
+        //builder += "engineFactory" -> BsonString(params.engineFactory)
+        //builder += "params" -> BsonString(json)
+        //enginesCollection.insert(builder.result)
+        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
+        // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
         logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
         Valid(jsonComment(s"EngineId: ${params.engineId} created"))
@@ -113,9 +116,10 @@ class MongoAdministrator extends Administrator with JsonParser {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
-        enginesCollection.update("engineId" -> params.engineId)(update)
-        existingEngine.init(json, deepInit = false)
+        //val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
+        //enginesCollection.update("engineId" -> params.engineId)(update)
+        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
+        existingEngine.init(json, update = true)
       }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
     }
   }
@@ -170,3 +174,7 @@ class MongoAdministrator extends Administrator with JsonParser {
 
 }
 
+case class EngineMetadata(
+  engineId: String,
+  engineFactory: String,
+  params: String)

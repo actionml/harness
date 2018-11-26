@@ -27,7 +27,7 @@ import com.actionml.core.store.{DAO, _}
 import com.actionml.core.engine._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.utils.DateTimeUtil
-import com.actionml.core.validate.{JsonParser, ParseError, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -45,7 +45,7 @@ import scala.concurrent.duration._
   * be able to train and persist in parallel when we switch to the new async DB client.
   */
 class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
-  extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonParser {
+  extends Algorithm[NHQuery, NHQueryResult] with KappaAlgorithm[NavHintingAlgoInput] with JsonSupport {
 
   private var activeJourneys = Map[String, Seq[JourneyStep]]() // kept as key - user-id, sequence of nav-ids and timestamps
   private var navHintsModels = Map[String, DAO[NavHint]]()

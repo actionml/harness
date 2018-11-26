@@ -26,20 +26,20 @@ import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.Indexed
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
 import scala.concurrent.duration._
 
 
-class URNavHintingEngine extends Engine with JsonParser {
+class URNavHintingEngine extends Engine with JsonSupport {
 
   private var dataset: URNavHintingDataset = _
   private var algo: URNavHintingAlgorithm = _
   private var params: URNavHintingEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
     super.init(jsonConfig).andThen { _ =>
 
       parseAndValidate[URNavHintingEngineParams](jsonConfig).andThen { p =>
@@ -73,7 +73,7 @@ class URNavHintingEngine extends Engine with JsonParser {
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
   override def initAndGet(jsonConfig: String): URNavHintingEngine = {
-    val response =init(jsonConfig)
+    val response = init(jsonConfig)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $jsonConfig")
       this
@@ -98,10 +98,9 @@ class URNavHintingEngine extends Engine with JsonParser {
     import org.json4s.jackson.Serialization.write
 
     logStatus(params)
-    //Valid(this.params.toString) // todo: this should be JSON so the client can parse
     Valid(s"""
        |{
-       |    "engineParams": ${params.toJson},
+       |    "engineParams": ${write(params)},
        |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
        |}
      """.stripMargin)

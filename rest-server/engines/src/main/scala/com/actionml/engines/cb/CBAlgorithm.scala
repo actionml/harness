@@ -32,7 +32,7 @@ import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.store._
 import com.actionml.core.store.backends.MongoDao
 import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 
@@ -70,7 +70,7 @@ case class Train(datum: CBAlgorithmInput)
   * The GroupTrain Actors are managed by the ScaffoldAlgorithm and will be added and killed when needed.
   */
 class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
-  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonParser {
+  extends Algorithm[CBQuery, CBQueryResult] with KappaAlgorithm[CBAlgorithmInput] with JsonSupport {
 
   private val actors = ActorSystem(resourceId)
   actors.whenTerminated.onComplete {

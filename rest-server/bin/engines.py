@@ -16,7 +16,7 @@ if args.action == 'create':
         config = json.load(data_file)
         try:
             res = engine_client.create(config)
-            print_success(res, 'Created new engine: ')
+            print_success(res, 'Created new engine: \n')
         except HttpError as err:
             print_failure(err, 'Error creating new engine\n')
 
