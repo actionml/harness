@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.ur
+package com.actionml.admin
 
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 import org.bson.codecs.configuration.CodecProvider
 
 object MongoStorageHelper {
 
   val codecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
-    List(classOf[ItemProperties], classOf[UREvent])
+    List(classOf[EngineMetadata])
   }
 }

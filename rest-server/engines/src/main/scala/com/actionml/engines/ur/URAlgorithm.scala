@@ -17,25 +17,34 @@
 
 package com.actionml.engines.ur
 
+import java.io.Serializable
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.jobs.JobManager
-import com.actionml.core.model.{GenericQuery, GenericQueryResult}
+import com.actionml.core.search.elasticsearch.ElasticSearchClient
+import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
-import com.actionml.core.store.SparkMongoSupport
+import com.actionml.core.store.SparkMongoSupport.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
-import com.actionml.engines.ur.URAlgorithm.{DefaultIndicatorParams, DefaultURAlgoParams, Field, RankingParams, URAlgorithmParams}
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
+import com.actionml.engines.ur.{URDataset, URPreparator}
+import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
+import com.actionml.engines.ur.UREngine.{UREvent, URQuery, URQueryResult}
+import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
+import org.apache.mahout.math.indexeddataset.IndexedDataset
+import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext, rdd}
-import org.bson.Document
-import org.joda.time.DateTime
-import com.actionml.core.store.backends.MongoStorage
-import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+//import com.actionml.engines.urnavhinting.{ItemID, UserID, PropertyMap}
+
+import scala.concurrent.duration.Duration
+
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -44,14 +53,18 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class URAlgorithm private (engine: UREngine, initParams: String, dataset: URDataset, params: URAlgorithmParams)
-  extends Algorithm[GenericQuery, GenericQueryResult]
-    with LambdaAlgorithm[UREvent]
-    with SparkMongoSupport
-    with JsonSupport {
+class URAlgorithm private (
+    engine: UREngine,
+    initParams: String,
+    dataset: URDataset,
+    params: URAlgorithmParams,
+    eventsDao: DAO[UREvent])
+  extends Algorithm[URQuery, URQueryResult]
+  with LambdaAlgorithm[UREvent]
+  with SparkMongoSupport
+  with JsonSupport {
 
-
-  private var sparkContext: Validated[ValidateError, SparkContext] = _
+  import URAlgorithm._
 
   case class BoostableCorrelators(actionName: String, itemIDs: Seq[String], boost: Option[Float] = None) {
     def toFilterCorrelators: FilterCorrelators = {
@@ -79,10 +92,13 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
   private var dateNames: Seq[String] = _
+  private var es: ElasticSearchClient[Hit] = _
+  private var indicators: Option[List[IndicatorParams]] = None
+  private var seed: Option[Long] = None
 
   // setting that cannot change with config
-  val esIndex = dataset.getItemsDbName
-  val esType = dataset.getItemsCollectionName
+  val esIndex = engineId
+  val esType = "items"
 
   def initSettings(params: URAlgorithmParams): Validated[ValidateError, String] = {
     var err: Validated[ValidateError, String] = Valid(jsonComment("URAlgorithm initialized"))
@@ -104,6 +120,9 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
       // not ideal but avoids one query to the event store per event type
     }
 
+    indicators = params.indicators
+    seed = params.seed
+
     if (params.eventNames.nonEmpty) { // using eventNames shortcut
       indicatorParams = params.eventNames.get.map { eventName =>
         eventName -> DefaultIndicatorParams()
@@ -116,11 +135,12 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
           minLLR = indicatorParams.minLLR)
       }.toMap
     } else {
-      logger.error("Must have either eventNames or indicators in algorithm parameters, which are: " +
+      logger.error("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
         s"$params")
       err = Invalid(MissingParams(jsonComment("Must have either eventNames or indicators in algorithm parameters, which are: " +
         s"$params")))
     }
+
 
     // continue validating if all is ok so far
     err.andThen { isOK =>
@@ -130,7 +150,7 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
         params.eventNames.get
       } else {
         params.indicators.get.map(_.name)
-      }
+      }.toSeq
 
       blacklistEvents = params.blacklistEvents.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
@@ -164,6 +184,8 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
         params.dateName,
         params.availableDateName,
         params.expireDateName).collect { case Some(date) => date } distinct
+
+      es = ElasticSearchClient(engineId)
 
       drawInfo("URAlgorithm initialization parameters including \"defaults\"", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
@@ -205,106 +227,270 @@ class URAlgorithm private (engine: UREngine, initParams: String, dataset: URData
   }
 
   override def destroy(): Unit = {
+    // todo: delete the model, only the algorithm knows where it is
+    es.deleteIndex()
   }
 
   override def input(datum: UREvent): Validated[ValidateError, String] = {
-    logger.info("Some events may cause the UR to immediately modify the model, like property change events." +
-      " This is where that will be done")
-    // This deals with real-time model changes.
+    // This deals with real-time model changes, if any are implemented
+    // todo: none do anything for the PoC so all return errors
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
       case "$set" =>
-        // set the property of an item in the model using the ESClient
-        logger.info("Set the property of an item in the model")
-        logger.warn("Not implemented!")
-        if (datum.entityType == "item") {
-          // set the new properties in the input DAO and in the Model item
-          val event = dataset.getItemsDao.findOneById(datum.entityId).getOrElse(ItemProperties(datum.event, Map.empty
-          ))
-          val newProps = event.properties ++ datum.properties.getOrElse(Map.empty)
-          dataset.getItemsDao.saveOneById(event._id, event.copy(properties = newProps))
-
-          // todo: now saveOneById to the ES model also
-          // dataset.itemsDAO.saveOneById(event._id, event.copy(properties = newProps))
-          Valid("")
-        } else Invalid(WrongParams(jsonComment("Using $set on anything but \"targetEntityType\": \"item\" is not supported")))
-      case "$delete" =>
-        // set the property of an item in the model using the ESClient
-        logger.info("Delete an item in the model, or Delete a model")
-        logger.warn("Not implemented!")
-        if (datum.entityType == "model") {
-          Invalid(WrongParams(jsonComment("Using $delele on targetEntityType: model is not supported yet")))
-        }  else Invalid(WrongParams(jsonComment("Using $delete on anything but targetEntityType: user or model is not supported")))
-
+        Invalid(WrongParams(jsonComment("Using $set not supported")))
+      /*case "$delete" =>
+        datum.entityType match {
+          case "model" =>
+            logger.info(s"Deleted data for model: ${datum.entityId}, retrain to get it reflected in new queries")
+            // Todo: remove the model data from Elasticsearch? Lots of work, may require a Job
+            Valid(jsonComment("Using $delele on entityType: model is not supported yet"))
+          case _ =>
+            logger.warn(s"Deleting unknown entityType is not supported.")
+            Invalid(WrongParams(jsonComment(s"Deleting unknown entityType is not supported.")))
+        }
+      */
       case _ =>
       // already processed by the dataset, only model changing event processed here
-        Valid(jsonComment("Input event processed."))
+        Valid(jsonComment("UR input processed"))
     }
   }
 
   override def train(): Validated[ValidateError, String] = {
-     /*
-    sparkContext = createSparkContext(
-      appName = dataset.engineId,
-      dbName = dataset.dbName,
-      collection = dataset.collection,
-      config = initParams)
-    */
+    val jobDescription = JobManager.addJob(engineId, "Spark job")
+    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
+    f.map { implicit sc =>
+      try {
+        val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
 
-    logger.debug(s"Starting train $this with spark $sparkContext")
+        // todo: this should work but not tested and not used in any case
+        /*
+        val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
+          (itemProps._id, itemProps.properties)
+        }
+        */
 
-    /*
-    sparkContext.andThen { sc =>
+        val trainingData = URPreparator.mkTraining(modelEventNames, eventsRdd)
 
-      val rdd = sc.makeRDD((1 to 10000).toSeq))
-      val result = rdd.ma
+        //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
+        //val collectedFields = trainingData.fieldsRDD.collect()
+        val data = URPreparator.prepareData(trainingData)
 
-      Valid("URAlgorithm model creation queued for processing on the Spark cluster")
+        val model = recsModel match {
+          case RecsModels.All => calcAll(data, eventsRdd)
+          case RecsModels.CF => calcAll(data, eventsRdd, calcPopular = false)
+          // todo: no support for pure popular model
+          // case RecsModels.BF  => calcPop(data)(sc)
+          // error, throw an exception
+          case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
+            // from Spark or any part fo the UR. These were allowed in PIO--not here!
+            throw new IllegalArgumentException(
+              s"""
+                 |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
+                 |Use one of the available parameter values ($recsModel).""".stripMargin)
+        }
+
+        //val data = getIndicators(modelEventNames, eventsRdd)
+
+        logger.info("======================================== Contents of Indicators ========================================")
+        data.actions.foreach { case (name, id) =>
+          val ids = id.asInstanceOf[IndexedDatasetSpark]
+          logger.info(s"Event name: $name")
+          logger.info(s"Num users/rows = ${ids.matrix.nrow}")
+          logger.info(s"Num items/columns = ${ids.matrix.ncol}")
+          logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
+          logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+        }
+        logger.info("======================================== done ========================================")
+
+        // todo: for now ignore properties and only calc popularity, then save to ES
+        calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
+
+        //sc.stop() // no more use of sc will be tolerated ;-)
+      } catch {
+        case e: Throwable =>
+          logger.error(s"Spark computation failed for job $jobDescription", e)
+          sc.cancelJobGroup(jobDescription.jobId)
+          throw e
+      } finally {
+        JobManager.removeJob(jobDescription.jobId)
+        SparkContextSupport.stopAndClean(sc)
+      }
     }
-    */
 
-    val jobDescription = JobManager.addJob(engineId)
-    SparkContextSupport.getSparkContext(initParams, engineId, jobDescription).map { sc => // or implicit sc =>
-    //sparkContext.andThen { implicit sc =>
-
-      val s = 1 to 10000
-      val rdd = sc.parallelize(s)
-      val seq = rdd.collect()
-      // val rdd = createRdd(sc)
-      // val result = sc.runJob(rdd, myTrainFunction)
-      val result = rdd.fold(0) { (last, current) => last + current }
-      //val r2 = rdd.collect() // forces job to complete
-      //sc.stop() // always stop or it will be active forever
-
-      logger.info(
-        s"""
-           |URAlgorithm.train
-           |  Status for appname: ${sc.appName}
-           |  Run on master: ${sc.master}
-           |  Result: $result
-           |  Completed asynchronously
-        """.stripMargin
-      )
-
-    }
-
+    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
+    logger.debug(s"Starting train $this with spark")
     Valid(jsonComment("Started train Job on Spark"))
   }
 
-  def query(query: GenericQuery): GenericQueryResult = {
-    GenericQueryResult()
+  /*
+  def getIndicators(
+    modelEventNames: Seq[String],
+    eventsRdd: RDD[UREvent])
+    (implicit sc: SparkContext): PreparedData = {
+    URPreparator.prepareData(modelEventNames, eventsRdd)
+  }
+  */
+
+  /** Calculates recs model as well as popularity model */
+  def calcAll(
+    data: PreparedData,
+    eventsRdd: RDD[UREvent],
+    calcPopular: Boolean = true)(implicit sc: SparkContext): URModel = {
+
+    /*logger.info("Indicators read now creating correlators")
+    val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
+      data.actions.map(_._2).toArray,
+      ap.seed.getOrElse(System.currentTimeMillis()).toInt)
+      .map(_.asInstanceOf[IndexedDatasetSpark])
+    */
+
+    //val in = data.actions.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
+
+    val convertedItems = data.actions.filter { case (en, ids) => en == modelEventNames.head}
+      .head._2.columnIDs.toMap.keySet.toSeq
+
+    logger.info("Actions read now creating correlators")
+    val cooccurrenceIDSs = if (indicators.isEmpty) { // using one global set of algo params
+      SimilarityAnalysis.cooccurrencesIDSs(
+        data.actions.map(_._2).toArray,
+        randomSeed = seed.getOrElse(System.currentTimeMillis()).toInt,
+        maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
+        maxNumInteractions = maxEventsPerEventType)
+        .map(_.asInstanceOf[IndexedDatasetSpark])
+    } else { // using params per matrix pair, these take the place of eventNames, maxCorrelatorsPerEventType,
+      // and maxEventsPerEventType!
+      val iDs = data.actions.map(_._2).toSeq
+      val datasets = iDs.zipWithIndex.map {
+        case (iD, i) =>
+          new DownsamplableCrossOccurrenceDataset(
+            iD,
+            indicators.get(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
+            indicators.get(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
+            indicators.get(i).minLLR)
+      }.toList
+
+      SimilarityAnalysis.crossOccurrenceDownsampled(
+        datasets,
+        seed.getOrElse(System.currentTimeMillis()).toInt)
+        .map(_.asInstanceOf[IndexedDatasetSpark])
+    }
+
+    //val collectedIdss = cooccurrenceIDSs.map(_.toStringMapRDD("anon").collect())
+
+    val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
+
+    val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
+      val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
+      //val colledtedFileds = data.fieldsRdd.collect()
+      //colledtedFileds.foreach { f => logger.info(s"$f") }
+      //val collectedRanks = ranksRdd.collect()
+      //collectedRanks.foreach { f => logger.info(s"$f") }
+      //logger.info("About to add properties and ranking")
+      data.fieldsRdd.fullOuterJoin(ranksRdd).map {
+        case (item, (Some(fieldsPropMap), Some(rankPropMap))) => item -> (fieldsPropMap ++ rankPropMap)
+        case (item, (Some(fieldsPropMap), None))              => item -> fieldsPropMap
+        case (item, (None, Some(rankPropMap)))                => item -> rankPropMap
+        case (item, _)                                        => item -> Map.empty
+      }
+    } else {
+      sc.emptyRDD
+    }
+
+    //val collectedProps = propertiesRDD.collect()
+
+    logger.info("Correlators created now putting into URModel")
+    new URModel(
+      coocurrenceMatrices = cooccurrenceCorrelators,
+      propertiesRDDs = Seq(propertiesRDD),
+      typeMappings = getMappings)(sc, es)
+  }
+
+
+
+  def query(query: URQuery): URQueryResult = {
+    // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
+    // like "you forgot to train"
+    // todo: order by date
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq(("entityId", query.user))))
+    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq(("entityId", query.user))))
+    val userEvents = modelEventNames.map { n =>
+      (n,
+        (unconvertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq ++
+        convertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq).distinct
+      )
+    }
+    val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
+    val mustMatcher = Matcher("values", query.eligibleNavIds)
+    val esQuery = SearchQuery(
+      should = Map("terms" -> shouldMatchers),
+      must = Map("ids" -> Seq(mustMatcher)),
+      sortBy = "popRank",
+      size = limit
+    )
+    logger.info(s"Sending query: $esQuery")
+    val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
+    URQueryResult(esResult)
+  }
+
+  /** Calculate all fields and items needed for ranking.
+    *
+    *  @param fieldsRDD all items with their fields
+    *  @param sc the current Spark context
+    *  @return
+    */
+  def getRanksRDD(
+    fieldsRDD: RDD[(ItemID, PropertyMap)],
+    eventsRdd: RDD[UREvent],
+    convertedItems: Seq[String])
+    (implicit sc: SparkContext): RDD[(ItemID, PropertyMap)] = {
+
+    val popModel = PopModel(fieldsRDD)
+    val rankRDDs: Seq[(String, RDD[(ItemID, Double)])] = rankingsParams map { rankingParams =>
+      val rankingType = rankingParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
+      val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
+      val durationAsString = rankingParams.duration.getOrElse(DefaultURAlgoParams.BackfillDuration)
+      val duration = Duration(durationAsString).toSeconds.toInt
+      val backfillEvents = rankingParams.eventNames.getOrElse(modelEventNames.take(1))
+      val offsetDate = rankingParams.offsetDate
+      val rankRdd = popModel.calc(rankingType, eventsRdd, backfillEvents, duration, offsetDate)
+      rankingFieldName -> rankRdd
+    }
+    //    logger.debug(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
+    rankRDDs
+      .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
+      case (leftRdd, (fieldName, rightRdd)) =>
+        leftRdd.fullOuterJoin(rightRdd).map {
+          case (itemId, (Some(propMap), Some(rank))) => itemId -> (propMap + (fieldName -> rank))
+          case (itemId, (Some(propMap), None))       => itemId -> propMap
+          case (itemId, (None, Some(rank)))          => itemId -> Map(fieldName -> rank)
+          case (itemId, _)                           => itemId -> Map.empty
+        }
+    }.filter { case (itemId, props) => convertedItems.contains(itemId) }
+  }
+
+  def getMappings: Map[String, (String, Boolean)] = {
+    val mappings = rankingFieldNames.map { fieldName =>
+      fieldName -> ("float", false)
+    }.toMap ++ // create mappings for correlators, where the Boolean says to not use norms
+      modelEventNames.map { correlator =>
+        correlator -> ("keyword", true) // use norms with correlators to get closer to cosine similarity.
+      }.toMap ++
+      dateNames.map { dateName =>
+        dateName -> ("date", false) // map dates to be interpreted as dates
+      }
+    logger.info(s"Index mappings for the Elasticsearch URModel: $mappings")
+    mappings
   }
 
 }
 
 object URAlgorithm extends JsonSupport {
 
-  def apply(engine: UREngine, initParams: String, dataset: URDataset): URAlgorithm = {
-
+  def apply(engine: UREngine, initParams: String, dataset: URDataset, eventsDao: DAO[UREvent]): URAlgorithm = {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URAlgorithm(engine, initParams, dataset, params)
+    new URAlgorithm(engine, initParams, dataset, params, eventsDao)
   }
 
   /** Available value for algorithm param "RecsModel" */
@@ -354,7 +540,7 @@ object URAlgorithm extends JsonSupport {
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
-         |""".stripMargin
+      """.stripMargin
     }
   }
 
@@ -408,25 +594,6 @@ object URAlgorithm extends JsonSupport {
   /** The Query spec with optional values. The only hard rule is that there must be either a user or
     *  an item id. All other values are optional.
     */
-  case class Query(
-      user: Option[String] = None, // must be a user or item id
-      userBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      item: Option[String] = None, // must be a user or item id
-      itemBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      itemSet: Option[List[String]] = None, // item-set query, shpping cart for instance.
-      itemSetBias: Option[Float] = None, // default: whatever is in algorithm params or 1
-      fields: Option[List[Field]] = None, // default: whatever is in algorithm params or None
-      currentDate: Option[String] = None, // if used will override dateRange filter, currentDate must lie between the item's
-      // expireDateName value and availableDateName value, all are ISO 8601 dates
-      dateRange: Option[DateRange] = None, // optional before and after filter applied to a date field
-      blacklistItems: Option[List[String]] = None, // default: whatever is in algorithm params or None
-      returnSelf: Option[Boolean] = None, // means for an item query should the item itself be returned, defaults
-      // to what is in the algorithm params or false
-      num: Option[Int] = None, // default: whatever is in algorithm params, which itself has a default--probably 20
-      from: Option[Int] = None, // paginate from this position return "num"
-      eventNames: Option[List[String]], // names used to ID all user actions
-      withRanks: Option[Boolean] = None) // Add to ItemScore rank fields values, default false
-    extends Serializable
 
   /** Used to specify how Fields are represented in engine.json */
   case class Field( // no optional values for fields, whne specified
@@ -443,15 +610,14 @@ object URAlgorithm extends JsonSupport {
       after: Option[String]) // both empty should be ignored
     extends Serializable
 
-  /** results of a URAlgoritm.predict */
-  case class PredictedResult(
-      itemScores: Array[ItemScore])
-    extends Serializable
+  case class PreparedData(
+      actions: Seq[(String, IndexedDataset)],
+      fieldsRdd: RDD[(String, Map[String, Any])]) extends Serializable
 
-  case class ItemScore(
-      item: String, // item id
-      score: Double, // used to rank only, score returned from the search engine
-      ranks: Option[Map[String, Double]] = None)
-    extends Serializable
+  case class TrainingData(
+    actions: Seq[(String, RDD[(String, String)])],// indicator name, RDD[user-id, item-id]
+    fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
+    minEventsPerUser: Option[Int] = Some(1)) extends Serializable
+
 }
 

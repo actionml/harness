@@ -18,14 +18,13 @@
 package com.actionml.engines.ur
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.BadParamsException
-import com.actionml.engines.ur.URAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.core.engine.Dataset
-import com.actionml.core.store.{DAO, Store}
+import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
-
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREngineParams, UREvent}
+import com.actionml.engines.ur.URAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
+import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 
 import scala.language.reflectiveCalls
 
@@ -36,24 +35,29 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent](engineId) with JsonSupport {
+class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
+  private val activeJourneysDao = store.createDao[UREvent]("active_journeys")
   private val indicatorsDao = store.createDao[UREvent]("indicator_events")
+
 
   // This holds a place for any properties that should go into the model at training time
   private val esIndex = store.dbName // index and db name should be the same
   private val esType = DefaultURAlgoParams.ModelType
-  protected val itemsDao = store.createDao[ItemProperties](esType) // the _id can be the name, it should be unique and indexed
+  private val itemsDao = store.createDao[ItemProperties](esType) // the _id can be the name, it should be unique and indexed
   def getItemsDbName = esIndex
   def getItemsCollectionName = esType
+  def getIndicatorEventsCollectionName = "indicator_events"
   def getItemsDao = itemsDao
+  def getActiveJourneysDao = activeJourneysDao
+  def getIndicatorsDao = indicatorsDao
 
   private var params: URAlgorithmParams = _
 
   // we assume the findMany of event names is in the params if not the config is rejected by some earlier stage since
   // this is not calculated until an engine is created with the config and taking input
-  protected var indicatorNames: Seq[String] = _
+  private var indicatorNames: Seq[String] = _
 
   // These should only be called from trusted source like the CLI!
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
@@ -82,6 +86,9 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
 
   /** Cleanup all persistent data or processes created by the Dataset */
   override def destroy(): Unit = {
+    // todo: Yikes this cannot be used with the sharedDb or all data from all engines will be dropped!!!!!
+    // must drop only the data from collections
+    store.drop //.dropDatabase(engineId)
   }
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
@@ -89,17 +96,45 @@ class URDataset(engineId: String, store: Store) extends Dataset[UREngine.UREvent
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        indicatorsDao.saveOne(event)
-
+        if (indicatorNames.head == event.event && event.properties.get("conversion").isDefined) {
+          // this handles a conversion
+          if(event.properties.getOrElse("conversion", false)) {
+            // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
+            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq(("entityId", event.entityId)))).toSeq
+            if(conversionJourney.size != 0) {
+              val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
+              // tag these so they can be removed when the model is $deleted
+              indicatorsDao.insertMany(taggedConvertedJourneys)
+              activeJourneysDao.removeMany(("entityId", event.entityId))
+            }
+          } else {
+            // save in journeys until a conversion happens
+            activeJourneysDao.saveOne(event)
+          }
+        } else { // must be secondary indicator so no conversion, but accumulate in journeys
+          activeJourneysDao.saveOne(event)
+        }
         Valid(event)
-      } else {
+      } else { // not an indicator so check for reserved events the dataset cares about
         event.event match {
           case "$delete" =>
-            if(event.entityType == "user") {
-              // this will only delete a user's data
-              itemsDao.removeOne(filter=("entityId", event.entityId)) // removeOne all events by a user
-            } // ignore any other $delete, they will be caught by the Algorithm if at all
-          case _ =>
+            event.entityType match {
+              case "user" =>
+                indicatorsDao.removeMany(("entityId", event.entityId))
+                logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
+              case "model" =>
+                logger.info(s"Deleted data for model: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(jsonComment(s"Deleted data for model: ${event.entityId}, " +
+                  s"retrain to get it reflected in new queries"))
+                if (event.entityType == "user") {
+                  // this will only delete a user's data
+                  //itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
+                } // ignore any other reserved event types, they will be caught by the Algorithm if at all
+              case _ =>
+                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
+            }
         }
 
         Valid(event)

@@ -20,15 +20,21 @@ package com.actionml.engines.ur
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.Engine
-import com.actionml.core.model.{EngineParams, Event, GenericEvent, GenericQuery}
+import com.actionml.core.engine.{Engine, QueryResult}
+import com.actionml.core.jobs.{JobDescription, JobManager}
+import com.actionml.core.model.{EngineParams, Event, Query}
+import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.ValidateError
-import com.actionml.engines.cb.MongoStorageHelper
-import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent}
+import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
+import com.actionml.engines.ur.URDataset
 import org.json4s.JValue
 
-class UREngine extends Engine {
+import scala.concurrent.duration._
+
+
+class UREngine extends Engine with JsonSupport {
 
   private var dataset: URDataset = _
   private var algo: URAlgorithm = _
@@ -36,22 +42,32 @@ class UREngine extends Engine {
 
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
-    parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
-      params = p
-      engineId = params.engineId
-      val dbName = p.sharedDBName.getOrElse(engineId)
-      dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
-      algo = URAlgorithm(this, jsonConfig, dataset)
-      drawInfo("Generic UR Engine", Seq(
-        ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("EngineId: ", engineId)))
+    super.init(jsonConfig).andThen { _ =>
 
-      Valid(p)
-    }.andThen { p =>
-      dataset.init(jsonConfig).andThen { r =>
-        algo.init(this)
+      parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
+        params = p
+        engineId = params.engineId
+        val dbName = p.sharedDBName.getOrElse(engineId)
+        dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
+        val eventsDao = dataset.store.createDao[UREvent](dataset.getIndicatorEventsCollectionName)
+        algo = URAlgorithm(this, jsonConfig, dataset, eventsDao)
+        logStatus(p)
+        Valid(p)
+      }.andThen { p =>
+        dataset.init(jsonConfig).andThen { r =>
+          algo.init(this)
+        }
       }
     }
+  }
+
+  def logStatus(p: UREngineParams) = {
+    drawInfo("UR Engine", Seq(
+      ("════════════════════════════════════════", "══════════════════════════════════════"),
+      ("Engine ID: ", engineId),
+      ("Mirror type: ", p.mirrorType),
+      ("Mirror Container: ", p.mirrorContainer),
+      ("Shared DB name: ", p.sharedDBName)))
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
@@ -59,7 +75,7 @@ class UREngine extends Engine {
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
   override def initAndGet(jsonConfig: String): UREngine = {
-    val response =init(jsonConfig)
+    val response = init(jsonConfig)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $jsonConfig")
       this
@@ -69,10 +85,40 @@ class UREngine extends Engine {
     }
   }
 
+  override def input(jsonEvent: String): Validated[ValidateError, String] = {
+    logger.trace("Got JSON body: " + jsonEvent)
+    // validation happens as the input goes to the dataset
+    //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
+    super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
+      parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
+    }
+    //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
+  }
+
   // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, String] = {
-    logger.trace(s"Status of UREngine with engineId:$engineId")
-    Valid(this.params.toString)
+    import org.json4s.jackson.Serialization.write
+
+    logStatus(params)
+    Valid(s"""
+       |{
+       |    "engineParams": ${write(params)},
+       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
+       |}
+     """.stripMargin)
+  }
+
+  override def train(): Validated[ValidateError, String] = {
+    algo.train()
+  }
+
+  /** triggers parse, validation of the query then returns the result as JSONharness */
+  def query(jsonQuery: String): Validated[ValidateError, String] = {
+    logger.trace(s"Got a query JSON string: $jsonQuery")
+    parseAndValidate[URQuery](jsonQuery).andThen { query =>
+      val result = algo.query(query)
+      Valid(result.toJson)
+    }
   }
 
   // todo: should kill any pending Spark jobs
@@ -80,31 +126,6 @@ class UREngine extends Engine {
     logger.info(s"Dropping persisted data for id: $engineId")
     dataset.destroy()
     algo.destroy()
-  }
-
-  /** Triggers parse, validation, and persistence of event encoded in the jsonEvent */
-  override def input(jsonEvent: String): Validated[ValidateError, String] = {
-    logger.trace("Got JSON body: " + jsonEvent)
-    // validation happens as the input goes to the dataset
-    super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
-      parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
-    }
-    //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
-  }
-
-  override def train(): Validated[ValidateError, String] = {
-    logger.info("got to UR.train")
-    algo.train()
-  }
-
-  /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(jsonQuery: String): Validated[ValidateError, String] = {
-    logger.trace(s"Got a query JSON string: $jsonQuery")
-    parseAndValidate[GenericQuery](jsonQuery).andThen { query =>
-      // query ok if training group exists or group params are in the dataset
-      val result = algo.query(query)
-      Valid(result.toJson)
-    }
   }
 
 }
@@ -122,22 +143,64 @@ object UREngine {
       mirrorContainer: Option[String] = None,
       sharedDBName: Option[String] = None,
       sparkConf: Map[String, JValue])
-    extends EngineParams
+    extends EngineParams {
+
+    import org.json4s._
+    import org.json4s.jackson.Serialization
+    import org.json4s.jackson.Serialization.write
+
+    implicit val formats = Serialization.formats(NoTypeHints)
+
+    def toJson: String = {
+      write(this)
+    }
+
+  }
 
   case class UREvent (
       //eventId: String, // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      entityId: String,
+      @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
-      properties: Option[Map[String, Any]] = None,
-      eventTime: String) // ISO8601 date
-    extends Event
+      properties: Map[String, Boolean] = Map.empty,
+      conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
+      @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
+    extends Event with Serializable
 
   case class ItemProperties (
       _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
       properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
-  )
+  ) extends Serializable
+
+  case class URQuery(
+      user: String, // ignored for non-personalized
+      eligibleNavIds: Array[String])
+    extends Query
+
+  case class URQueryResult(
+      navHints: Seq[(String, Double)] = Seq.empty)
+    extends QueryResult {
+
+    def toJson: String = {
+      val jsonStart =
+        s"""
+           |{
+           |  "result": [
+        """.stripMargin
+      val jsonMiddle = navHints.map{ case (k, v) =>
+        s"""
+           |   {$k, $v},
+       """.stripMargin
+      }.mkString
+      val jsonEnd =
+        s"""
+           |  ]
+           |}
+        """.stripMargin
+      val retVal = jsonStart + jsonMiddle + jsonEnd
+      retVal
+    }
+  }
 
 }
-

@@ -31,7 +31,7 @@ import org.mongodb.scala.bson.BsonString
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
-  private val storage = MongoStorage.getStorage("harness_meta_store", codecs = List.empty)
+  private val storage = MongoStorage.getStorage("harness_meta_store", codecs = MongoStorageHelper.codecs)
 
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   @volatile private var engines = Map.empty[String, Engine]
@@ -45,9 +45,6 @@ class MongoAdministrator extends Administrator with JsonSupport {
   override def init() = {
     // ask engines to init
     engines = enginesCollection.findMany().map { engine =>
-      //val engineId = engine.get("engineId").get.asString.getValue
-      //val engineFactory = engine.get("engineFactory").get.asString.getValue
-      //val params = engine.get("params").get.asString.getValue
       // create each engine passing the params
       val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)
       if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
@@ -87,19 +84,12 @@ class MongoAdministrator extends Administrator with JsonSupport {
       if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        //val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
-        //enginesCollection.update("engineId" -> params.engineId)(update)
         enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
         Valid(jsonComment(params.engineId))
       } else if (newEngine != null) {
         //add new
         logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        //val builder = Document.builder
-        //builder += "engineId" -> BsonString(params.engineId)
-        //builder += "engineFactory" -> BsonString(params.engineFactory)
-        //builder += "params" -> BsonString(json)
-        //enginesCollection.insert(builder.result)
         enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
@@ -116,8 +106,6 @@ class MongoAdministrator extends Administrator with JsonSupport {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        //val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
-        //enginesCollection.update("engineId" -> params.engineId)(update)
         enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
         existingEngine.init(json, update = true)
       }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
