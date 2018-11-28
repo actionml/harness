@@ -137,8 +137,15 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
 
 
   private def mkFilter(fields: Seq[(String, Any)]): Bson = {
+    import DaoQuery._
     if (fields.isEmpty) Document("_id" -> Document("$exists" -> true))
-    else Filters.and(fields.map { case (k, v) => Filters.eq(k, v) }.toArray: _*)
+    else Filters.and(fields.map {
+      case (k, GreaterOrEqualsTo(v)) => Filters.gte(k, v)
+      case (k, GreaterThen(v)) => Filters.gt(k, v)
+      case (k, LessOrEqualsTo(v)) => Filters.lte(k, v)
+      case (k, LessThen(v)) => Filters.lt(k, v)
+      case (k, v) => Filters.eq(k, v)
+    }.toArray: _*)
   }
 
   private def mkOrder(order: OrderBy): Bson = {

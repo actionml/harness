@@ -93,6 +93,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
+    import DaoQuery.syntax._
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
@@ -100,8 +101,8 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           // this handles a conversion
           if(event.properties.getOrElse("conversion", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
-            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq(("entityId", event.entityId)))).toSeq
-            if(conversionJourney.size != 0) {
+            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq("entityId" === event.entityId))).toSeq
+            if (conversionJourney.nonEmpty) {
               val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
               // tag these so they can be removed when the model is $deleted
               indicatorsDao.insertMany(taggedConvertedJourneys)
