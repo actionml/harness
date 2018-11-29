@@ -70,7 +70,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     */
 
    //val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
-    val fieldsRDD: RDD[(ItemID, PropertyMap)] = ???
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] =
 
     // Have a list of (actionName, RDD), for each action
     // todo: some day allow data to be content, which requires rethinking how to use EventStore
