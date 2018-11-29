@@ -59,7 +59,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     } filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
     //val collectedRdds = eventRDDs.map(_._2.collect())
-    logger.info(s"Received events ${eventRDDs.map(_._1)}")
+    //logger.info(s"Received events ${eventRDDs.map(_._1)}")
 
     /*
     // aggregating all $set/$unsets for metadata fields, which are attached to items

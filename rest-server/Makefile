@@ -11,7 +11,7 @@ SBT ?= sbt
 endif
 
 
-.PHONY: clean build dist
+.PHONY: clean build dist clean_dist
 
 build: sbt
     $(SBT) $(JAVA_PROPS) -batch server/universal:stage
@@ -19,10 +19,14 @@ build: sbt
 clean: sbt
     $(SBT) $(JAVA_PROPS) -batch server/clean
 
+clean_dist: 
+	rm -r $(DIST)
+	echo "Cleanging old artifacts for Harness-"$(VERSION)
+	rm Harness-$(VERSION).tar.gz
 
 ## Make rest server dist/rest-server
 #
-dist: clean build
+dist: clean build clean_dist
     mkdir -p $(DIST) && cd $(DIST) && rm -rf ./* && mkdir bin conf project lib
     cp bin/* $(DIST)/bin/
     cp conf/* $(DIST)/conf/

@@ -38,28 +38,24 @@ import scala.language.reflectiveCalls
 class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-  private val activeJourneysDao = store.createDao[UREvent]("active_journeys")
-  private val indicatorsDao = store.createDao[UREvent]("indicator_events")
+  private val eventsDao = store.createDao[UREvent](getIndicatorEventsCollectionName)
+  private val itemsDao = store.createDao[ItemProperties](esType)
+  def getItemsDao = itemsDao
+  def getIndicatorsDao = eventsDao
 
 
   // This holds a place for any properties that should go into the model at training time
   private val esIndex = store.dbName // index and db name should be the same
   private val esType = DefaultURAlgoParams.ModelType
-  private val itemsDao = store.createDao[ItemProperties](esType) // the _id can be the name, it should be unique and indexed
-  def getItemsDbName = esIndex
-  def getItemsCollectionName = esType
-  def getIndicatorEventsCollectionName = "indicator_events"
-  def getItemsDao = itemsDao
-  def getActiveJourneysDao = activeJourneysDao
-  def getIndicatorsDao = indicatorsDao
+  private def getItemsDbName = esIndex
+  private def getItemsCollectionName = esType
+  private def getIndicatorEventsCollectionName = "events"
 
+  // Engine Params from the JSON config plus defaults
   private var params: URAlgorithmParams = _
 
-  // we assume the findMany of event names is in the params if not the config is rejected by some earlier stage since
-  // this is not calculated until an engine is created with the config and taking input
   private var indicatorNames: Seq[String] = _
 
-  // These should only be called from trusted source like the CLI!
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
     parseAndValidate[URAlgorithmParams](
       jsonConfig,
@@ -95,46 +91,26 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
-        // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        if (indicatorNames.head == event.event && event.properties.get("conversion").isDefined) {
-          // this handles a conversion
-          if(event.properties.getOrElse("conversion", false)) {
-            // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
-            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq(("entityId", event.entityId)))).toSeq
-            if(conversionJourney.size != 0) {
-              val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
-              // tag these so they can be removed when the model is $deleted
-              indicatorsDao.insertMany(taggedConvertedJourneys)
-              activeJourneysDao.removeMany(("entityId", event.entityId))
-            }
-          } else {
-            // save in journeys until a conversion happens
-            activeJourneysDao.saveOne(event)
-          }
-        } else { // must be secondary indicator so no conversion, but accumulate in journeys
-          activeJourneysDao.saveOne(event)
-        }
+        eventsDao.saveOne(event)
         Valid(event)
       } else { // not an indicator so check for reserved events the dataset cares about
         event.event match {
           case "$delete" =>
             event.entityType match {
               case "user" =>
-                indicatorsDao.removeMany(("entityId", event.entityId))
+                eventsDao.removeMany(("entityId", event.entityId))
                 logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
                 Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
-              case "model" =>
-                logger.info(s"Deleted data for model: ${event.entityId}, retrain to get it reflected in new queries")
-                Valid(jsonComment(s"Deleted data for model: ${event.entityId}, " +
-                  s"retrain to get it reflected in new queries"))
-                if (event.entityType == "user") {
-                  // this will only delete a user's data
-                  //itemsDao.removeOne(filter = ("entityId", event.entityId)) // removeOne all events by a user
-                } // ignore any other reserved event types, they will be caught by the Algorithm if at all
+              case "item" =>
+                itemsDao.removeOneById(event.entityId)
+                logger.info(s"Deleted properties for item: ${event.entityId}")
               case _ =>
                 logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
+          case "$set" => // only item properties as allowed here and used for business rules once they are reflected in
+            // the model, which should be immediately but done by the URAlgorithm, which manages the model
+
         }
 
         Valid(event)
