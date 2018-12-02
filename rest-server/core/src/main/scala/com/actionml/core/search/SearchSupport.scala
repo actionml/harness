@@ -42,4 +42,5 @@ trait SearchClient[T] {
     refresh: Boolean = false): Boolean
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[T]
+  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]])
 }
