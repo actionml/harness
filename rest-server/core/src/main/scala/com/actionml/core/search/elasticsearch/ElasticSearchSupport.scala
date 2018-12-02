@@ -20,6 +20,7 @@ package com.actionml.core.search.elasticsearch
 import java.time.Instant
 
 import com.actionml.core.search._
+import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
@@ -64,7 +65,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport {
+class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
@@ -112,6 +113,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
       .getStatusLine
       .getStatusCode match {
           case 200 =>
+            logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
             val aliasResponse = client.performRequest(
               "GET",
               s"/_alias/$alias",

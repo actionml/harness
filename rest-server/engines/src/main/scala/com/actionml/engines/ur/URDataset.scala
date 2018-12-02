@@ -49,7 +49,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private val esType = DefaultURAlgoParams.ModelType
   private def getItemsDbName = esIndex
   private def getItemsCollectionName = esType
-  private def getIndicatorEventsCollectionName = "events"
+  def getIndicatorEventsCollectionName = "events"
 
   // Engine Params from the JSON config plus defaults
   private var params: URAlgorithmParams = _

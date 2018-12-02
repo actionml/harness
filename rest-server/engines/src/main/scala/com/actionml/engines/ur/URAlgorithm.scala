@@ -32,7 +32,7 @@ import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.{URDataset, URPreparator}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.{UREvent, URQuery, URQueryResult}
+import com.actionml.engines.ur.UREngine.{ItemScore, UREvent, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -406,30 +406,150 @@ class URAlgorithm private (
   }
 
 
-
   def query(query: URQuery): URQueryResult = {
     // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     // todo: order by date
-    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq(("entityId", query.user))))
-    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq(("entityId", query.user))))
+    /*
+        queryEventNames = query.eventNames.getOrElse(modelEventNames) // eventNames in query take precedence
+
+    val (queryStr, blacklist) = buildQuery(ap, query, rankingFieldNames)
+    // old es1 query
+    // val searchHitsOpt = EsClient.search(queryStr, esIndex, queryEventNames)
+    val searchHitsOpt = EsClient.search(queryStr, esIndex)
+
+    val withRanks = query.withRanks.getOrElse(false)
+    val predictedResults = searchHitsOpt match {
+      case Some(searchHits) =>
+        val hits = (searchHits \ "hits" \ "hits").extract[Seq[JValue]]
+        val recs = hits.map { hit =>
+          if (withRanks) {
+            val source = hit \ "source"
+            val ranks: Map[String, Double] = rankingsParams map { backfillParams =>
+              val backfillType = backfillParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
+              val backfillFieldName = backfillParams.name.getOrElse(PopModel.nameByType(backfillType))
+              backfillFieldName -> (source \ backfillFieldName).extract[Double]
+            } toMap
+
+            ItemScore((hit \ "_id").extract[String], (hit \ "_score").extract[Double],
+              ranks = if (ranks.nonEmpty) Some(ranks) else None)
+          } else {
+            ItemScore((hit \ "_id").extract[String], (hit \ "_score").extract[Double])
+          }
+        }.toArray
+        logger.info(s"Results: ${hits.length} retrieved of a possible ${(searchHits \ "hits" \ "total").extract[Long]}")
+        PredictedResult(recs)
+
+      case _ =>
+        logger.info(s"No results for query ${parse(queryStr)}")
+        PredictedResult(Array.empty[ItemScore])
+
+     */
+
+
+    val modelQuery = buildModelQuery(query)
+    val result = es.search(modelQuery).map(hit => ItemScore(hit.id, hit.score)) // todo: optionally return rankings?
+    URQueryResult(result)
+  }
+
+  private def buildModelQuery(query: URQuery): SearchQuery = {
+    val queryEventNames = query.eventNames.getOrElse(modelEventNames) // eventNames in query take precedence
+
+    logger.info(s"Got query: \n${query}")
+
+    val startPos = query.from.getOrElse(0)
+    logger.info(s"from: ${startPos}")
+
+    var shouldMatchers = Map.empty[String, Seq[Matcher]]
+    var mustMatchers = Map.empty[String, Seq[Matcher]]
+    var mustNotMatchers = Map.empty[String, Seq[Matcher]]
+
+    // create a list of all query correlators that can have a bias (boost or filter) attached
+    //todo: shouldMatchers ++= getUserHistMatcher(query)
+
+    SearchQuery(
+      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking fields
+      should = shouldMatchers,
+      must = mustMatchers
+    )
+    /*
+    val userHistory = dataset.getIndicatorsDao.findMany(
+      DaoQuery(
+        limit= maxQueryEvents * 100,
+        filter = Seq(("entityId", query.user)))).toSeq.distinct
     val userEvents = modelEventNames.map { n =>
       (n,
-        (unconvertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq ++
-        convertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq).distinct
+        (userHistory.filter(_.event == n).map(_.targetEntityId.get).toSeq).distinct
       )
     }
-    val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
+    val shouldMatchers = userEvents.map { case(name, hist) => Matcher(name, hist) }
     val mustMatcher = Matcher("values", query.eligibleNavIds)
     val esQuery = SearchQuery(
       should = Map("terms" -> shouldMatchers),
       must = Map("ids" -> Seq(mustMatcher)),
-      sortBy = "popRank",
+      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking fields
       size = limit
     )
     logger.info(s"Sending query: $esQuery")
     val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
     URQueryResult(esResult)
+    */
+  }
+
+  /** Get recent events of the user on items to create the personalizing form of the recommendations query */
+  private def getUserHistMatcher(query: URQuery): Seq[Matcher] = {
+
+    val userHistBias = query.userBias.getOrElse(userBias)
+    val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
+    val userHistory = dataset.getIndicatorsDao.findMany(
+      DaoQuery(
+        limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
+        // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
+        // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
+        filter = Seq(("entityId", query.user)))).toSeq.distinct
+
+    val userEvents = modelEventNames.map { name =>
+      (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)
+    }
+
+    val userHistMatcher = userEvents.map { case(name, hist) => Matcher(name, hist, userEventsBoost) }
+    userHistMatcher
+  }
+
+  /** Get similar items for an item, these are already in the eventName correlators in ES */
+  def getSimilarItemsMatchers(query: URQuery): Seq[Matcher] = {
+    val activeItemBias = query.itemBias.getOrElse(itemBias)
+    val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
+
+    if (query.item.nonEmpty) {
+      logger.info(s"using item ${query.item.get}")
+      //val m = es.getSource(esIndex, esType, query.item.get)
+
+      //val itemsProperties = es.findOneById(query.item.get) // itemProperties are the model properties
+      //logger.info(s"got source: ${m}")
+      // todo: replace with query result!!!
+      val itemsProperties = Some(Map[String, Seq[String]]())
+
+      if (itemsProperties.nonEmpty) {
+        logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
+        modelEventNames.map { eventName => // get items that are similar by eventName
+          val items: Seq[String] = itemsProperties.get.getOrElse(eventName, Seq.empty[String])
+          val rItems = items.take(maxQueryEvents)
+          //BoostableCorrelators(eventName, rItems, similarItemsBoost)
+          Matcher(eventName, rItems, similarItemsBoost)
+        }
+      } else {
+        logger.info(s"getBiasedSimilarItems for item ${query.item.get}: item not found")
+        Seq.empty
+      } // item not found in Elasticsearch
+    } else {
+      Seq.empty
+    } // no item specified
+  }
+
+
+  private def getPropertiesMatchers(query: URQuery): Seq[Matcher] = {
+    Seq.empty
   }
 
   /** Calculate all fields and items needed for ranking.

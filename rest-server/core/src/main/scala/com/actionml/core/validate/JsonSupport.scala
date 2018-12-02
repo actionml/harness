@@ -36,6 +36,7 @@ import scala.reflect.runtime.universe._
 
 trait JsonSupport extends LazyLogging {
 
+  import org.json4s.jackson.Serialization.write
 
 
   implicit val dateFormats: Formats = DefaultFormats ++ JodaTimeSerializers.all

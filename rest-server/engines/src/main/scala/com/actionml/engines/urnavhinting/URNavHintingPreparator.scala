@@ -71,7 +71,7 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
 
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
 
-    // Have a list of (actionName, RDD), for each action
+    // Have a list of (actionName, RDD), for each eventName
     // todo: some day allow data to be content, which requires rethinking how to use EventStore
     TrainingData(eventRDDs, fieldsRDD, Some(1))
   }
