@@ -78,10 +78,11 @@ class MongoAdministrator extends Administrator with JsonSupport {
   Action: creates or modifies an existing engine
   */
   def addEngine(json: String): Validated[ValidateError, String] = {
+    import DaoQuery.syntax._
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
+      if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" === params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))

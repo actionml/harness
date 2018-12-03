@@ -499,6 +499,8 @@ class URAlgorithm private (
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
   private def getUserHistMatcher(query: URQuery): Seq[Matcher] = {
 
+    import DaoQuery.syntax._
+
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
     val userHistory = dataset.getIndicatorsDao.findMany(
@@ -506,7 +508,7 @@ class URAlgorithm private (
         limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
         // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
-        filter = Seq(("entityId", query.user)))).toSeq.distinct
+        filter = Seq("entityId" === query.user))).toSeq.distinct
 
     val userEvents = modelEventNames.map { name =>
       (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)

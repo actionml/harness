@@ -18,7 +18,42 @@
 package com.actionml.core.store
 
 
-case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, Any)] = Seq.empty)
+case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, QueryCondition)] = Seq.empty)
+
+object DaoQuery {
+  val empty = DaoQuery()
+
+  case class GreaterOrEqualsTo(value: Any) extends QueryCondition
+  case class GreaterThen(value: Any) extends QueryCondition
+  case class LessOrEqualsTo(value: Any) extends QueryCondition
+  case class LessThen(value: Any) extends QueryCondition
+  case class Equals(value: Any) extends QueryCondition
+
+  object syntax {
+
+    implicit class DaoQueryOps(name: String) {
+      def >=(v: Any): (String, QueryCondition) = {
+        name -> GreaterOrEqualsTo(v)
+      }
+      def <=(v: Any): (String, QueryCondition) = {
+        name -> LessOrEqualsTo(v)
+      }
+      def >(v: Any): (String, QueryCondition) = {
+        name -> GreaterThen(v)
+      }
+      def <(v: Any): (String, QueryCondition) = {
+        name -> LessThen(v)
+      }
+      def ===(v: Any): (String, QueryCondition) = {
+        name -> Equals(v)
+      }
+    }
+  }
+}
+
+trait QueryCondition {
+  def value: Any
+}
 
 object Ordering extends Enumeration {
   type Ordering = Value

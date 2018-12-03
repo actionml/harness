@@ -89,6 +89,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
+    import DaoQuery.syntax._
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         eventsDao.saveOne(event)
