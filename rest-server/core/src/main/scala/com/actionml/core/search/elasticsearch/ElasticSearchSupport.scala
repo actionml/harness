@@ -17,6 +17,8 @@
 
 package com.actionml.core.search.elasticsearch
 
+import java.io.UnsupportedEncodingException
+import java.net.URLEncoder
 import java.time.Instant
 
 import com.actionml.core.search._
@@ -141,6 +143,74 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 
   }
 
+  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]]) = {
+    var rjv: Option[JValue] = Some(JString(""))
+    try {
+      client.performRequest( // Does the alias exist?
+        "HEAD",
+        s"/_alias/$alias",
+        Map.empty[String, String].asJava)
+        .getStatusLine
+        .getStatusCode match {
+        case 200 =>
+          val aliasResponse = client.performRequest(
+            "GET",
+            s"/_alias/$alias",
+            Map.empty[String, String].asJava)
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val indexSet = responseJValue.extract[Map[String, JValue]].keys
+          rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
+            val url = s"/$actualIndexName/$typeName/${encodeURIFragment(id)}"
+            logger.info(s"find doc by id using URL: $url")
+            val response = client.performRequest(
+              "GET",
+              url,
+              Map.empty[String, String].asJava)
+            logger.info(s"got response: $response")
+
+            response.getStatusLine.getStatusCode match {
+              case 200 =>
+                val entity = EntityUtils.toString(response.getEntity)
+                logger.info(s"got status code: 200\nentity: $entity")
+                if (entity.isEmpty) {
+                  None
+                } else {
+                  logger.info(s"About to parse: $entity")
+                  val result = parse(entity)
+                  logger.info(s"getSource for $url result: $result")
+                  Some(result)
+                }
+              case 404 =>
+                logger.info(s"got status code: 404")
+                Some(parse("""{"notFound": "true"}"""))
+              case _ =>
+                logger.info(s"got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
+                None
+            }
+          }
+        case _ =>
+      }
+    } catch {
+      case e: org.elasticsearch.client.ResponseException => {
+        logger.error("got no data for the item", e)
+        rjv = None
+      }
+      case e: Exception =>
+        logger.error("got unknown exception and so no data for the item", e)
+        rjv = None
+    }
+
+    if (rjv.nonEmpty) {
+      //val responseJValue = parse(EntityUtils.toString(response.getEntity))
+      println(s"AAAAAAAAAAAAA${(rjv.get \ "_source")}")
+      val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
+      id -> result
+    } else {
+      logger.info(s"Non-existent item $id, but that's ok, return backfill recs")
+      id -> Map.empty
+    }
+  }
+
   override def hotSwap(
     typeName: String,
     indexRDD: RDD[Map[String, Any]],
@@ -218,6 +288,23 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
     oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
   }
 
+
+  def encodeURIFragment(s: String): String = {
+    var result: String = ""
+    try
+      result = URLEncoder.encode(s, "UTF-8")
+        .replaceAll("\\+", "%20")
+        .replaceAll("\\%21", "!")
+        .replaceAll("\\%27", "'")
+        .replaceAll("\\%28", "(")
+        .replaceAll("\\%29", ")")
+        .replaceAll("\\%7E", "%7E")
+    catch {
+      case e: UnsupportedEncodingException =>
+        result = s
+    }
+    result
+  }
 
   private def createIndexByName(
     indexName: String,
@@ -330,6 +417,11 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
+object A extends App {
+  val client = ElasticSearchClient.apply("test3")
+  println(client.findDocById("http://nav.domain4", "items"))
+  client.close
+}
 object ElasticSearchClient extends App with LazyLogging {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
