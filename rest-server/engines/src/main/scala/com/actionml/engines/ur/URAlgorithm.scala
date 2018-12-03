@@ -458,19 +458,21 @@ class URAlgorithm private (
     logger.info(s"Got query: \n${query}")
 
     val startPos = query.from.getOrElse(0)
-    logger.info(s"from: ${startPos}")
-
+    val numResults = query.num.getOrElse(limit)
     var shouldMatchers = Map.empty[String, Seq[Matcher]]
     var mustMatchers = Map.empty[String, Seq[Matcher]]
     var mustNotMatchers = Map.empty[String, Seq[Matcher]]
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    //todo: shouldMatchers ++= getUserHistMatcher(query)
+   shouldMatchers += "terms" -> getUserHistMatcher(query)
 
     SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking fields
       should = shouldMatchers,
-      must = mustMatchers
+      must = mustMatchers,
+      mustNot = mustNotMatchers,
+      size = numResults,
+      from = startPos
     )
     /*
     val userHistory = dataset.getIndicatorsDao.findMany(
@@ -525,25 +527,14 @@ class URAlgorithm private (
 
     if (query.item.nonEmpty) {
       logger.info(s"using item ${query.item.get}")
-      //val m = es.getSource(esIndex, esType, query.item.get)
+      val (item, itemProperties) = es.findDocById(query.item.get, esType)
 
-      //val itemsProperties = es.findOneById(query.item.get) // itemProperties are the model properties
-      //logger.info(s"got source: ${m}")
-      // todo: replace with query result!!!
-      val itemsProperties = Some(Map[String, Seq[String]]())
-
-      if (itemsProperties.nonEmpty) {
-        logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
-        modelEventNames.map { eventName => // get items that are similar by eventName
-          val items: Seq[String] = itemsProperties.get.getOrElse(eventName, Seq.empty[String])
-          val rItems = items.take(maxQueryEvents)
-          //BoostableCorrelators(eventName, rItems, similarItemsBoost)
-          Matcher(eventName, rItems, similarItemsBoost)
-        }
-      } else {
-        logger.info(s"getBiasedSimilarItems for item ${query.item.get}: item not found")
-        Seq.empty
-      } // item not found in Elasticsearch
+      logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
+      modelEventNames.map { eventName => // get items that are similar by eventName
+        val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
+        val rItems = items.take(maxQueryEvents)
+        Matcher(eventName, rItems, similarItemsBoost)
+      }
     } else {
       Seq.empty
     } // no item specified
