@@ -32,7 +32,7 @@ import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.{URDataset, URPreparator}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.{ItemScore, UREvent, URQuery, URQueryResult}
+import com.actionml.engines.ur.UREngine.{ItemProperties, ItemScore, UREvent, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -56,9 +56,9 @@ import scala.concurrent.duration.Duration
 class URAlgorithm private (
     engine: UREngine,
     initParams: String,
-    dataset: URDataset,
     params: URAlgorithmParams,
-    eventsDao: DAO[UREvent])
+    eventsDao: DAO[UREvent],
+    itemsDao: DAO[ItemProperties])
   extends Algorithm[URQuery, URQueryResult]
   with LambdaAlgorithm[UREvent]
   with SparkMongoSupport
@@ -261,15 +261,9 @@ class URAlgorithm private (
     f.map { implicit sc =>
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
+        val itemsRdd = itemsDao.readRdd[ItemProperties](MongoStorageHelper.codecs)
 
-        // todo: this should work but not tested and not used in any case
-        /*
-        val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
-          (itemProps._id, itemProps.properties)
-        }
-        */
-
-        val trainingData = URPreparator.mkTraining(modelEventNames, eventsRdd)
+        val trainingData = URPreparator.mkTraining(modelEventNames, eventsRdd, itemsRdd)
 
         //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
         //val collectedFields = trainingData.fieldsRDD.collect()
@@ -505,7 +499,7 @@ class URAlgorithm private (
 
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
-    val userHistory = dataset.getIndicatorsDao.findMany(
+    val userHistory = eventsDao.findMany(
       DaoQuery(
         limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
@@ -599,11 +593,11 @@ class URAlgorithm private (
 
 object URAlgorithm extends JsonSupport {
 
-  def apply(engine: UREngine, initParams: String, dataset: URDataset, eventsDao: DAO[UREvent]): URAlgorithm = {
+  def apply(engine: UREngine, initParams: String, dataset: URDataset): URAlgorithm = {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URAlgorithm(engine, initParams, dataset, params, eventsDao)
+    new URAlgorithm(engine, initParams, params, dataset.getIndicatorsDao, dataset.getItemsDao)
   }
 
   /** Available value for algorithm param "RecsModel" */

@@ -19,7 +19,7 @@ package com.actionml.engines.ur
 
 import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.ur.URAlgorithm.{PreparedData, TrainingData}
-import com.actionml.engines.ur.UREngine.UREvent
+import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
@@ -32,7 +32,10 @@ import org.apache.spark.rdd.RDD
 object URPreparator extends LazyLogging with SparkMongoSupport {
 
   /** Reads events from PEventStore and create and RDD for each */
-  def mkTraining(eventNames: Seq[String], eventsRDD: RDD[UREvent])(implicit sc: SparkContext): TrainingData = {
+  def mkTraining(
+    eventNames: Seq[String],
+    eventsRDD: RDD[UREvent],
+    itemsRDD: RDD[ItemProperties])(implicit sc: SparkContext): TrainingData = {
 
     //val eventNames = dsp.eventNames
 
@@ -70,7 +73,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     */
 
    //val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
-    val fieldsRDD: RDD[(ItemID, PropertyMap)] =
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.properties))
 
     // Have a list of (actionName, RDD), for each eventName
     // todo: some day allow data to be content, which requires rethinking how to use EventStore

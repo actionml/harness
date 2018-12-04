@@ -51,7 +51,7 @@ class UREngine extends Engine with JsonSupport {
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
         val eventsDao = dataset.store.createDao[UREvent](dataset.getIndicatorEventsCollectionName)
-        algo = URAlgorithm(this, jsonConfig, dataset, eventsDao)
+        algo = URAlgorithm(this, jsonConfig, dataset)
         logStatus(p)
         Valid(p)
       }.andThen { p =>
