@@ -431,7 +431,12 @@ object ElasticSearchClient extends App with LazyLogging {
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private lazy val client: RestClient = {
-    val builder = RestClient.builder(HttpHost.create(config.getString("elasticsearch.uri")))
+    val builder = RestClient.builder(
+      new HttpHost(
+        config.getString("elasticsearch.host"),
+        config.getInt("elasticsearch.port"),
+        config.getString("elasticsearch.protocol")))
+
     if (config.hasPath("elasticsearch.auth")) {
       val authConfig = config.getConfig("elasticsearch.auth")
       builder.setHttpClientConfigCallback(new BasicAuthProvider(
