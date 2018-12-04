@@ -38,8 +38,8 @@ import scala.language.reflectiveCalls
 class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-  private val eventsDao = store.createDao[UREvent](getIndicatorEventsCollectionName)
-  private val itemsDao = store.createDao[ItemProperties](esType)
+  private val eventsDao = store.createDao[UREvent](getEventsCollectionName)
+  private val itemsDao = store.createDao[ItemProperties](getItemsCollectionName)
   def getItemsDao = itemsDao
   def getIndicatorsDao = eventsDao
 
@@ -47,9 +47,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   // This holds a place for any properties that should go into the model at training time
   private val esIndex = store.dbName // index and db name should be the same
   private val esType = DefaultURAlgoParams.ModelType
-  private def getItemsDbName = esIndex
-  private def getItemsCollectionName = esType
-  def getIndicatorEventsCollectionName = "events"
+  //private def getItemsDbName = esIndex
+  private def getItemsCollectionName = "items"
+  def getEventsCollectionName = "events"
 
   // Engine Params from the JSON config plus defaults
   private var params: URAlgorithmParams = _
