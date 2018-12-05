@@ -65,7 +65,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     //logger.info(s"Received events ${eventRDDs.map(_._1)}")
 
     /*
-    // aggregating all $set/$unsets for metadata fields, which are attached to items
+    // aggregating all $set/$unsets for metadata rules, which are attached to items
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = PEventStore.aggregateProperties(
       appName = dsp.appName,
       entityType = "item")(sc).repartition(sc.defaultParallelism)
@@ -132,7 +132,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
 
     /*
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = trainingData.fieldsRDD.map {
-      case (itemId, propMap) => itemId -> propMap.fields
+      case (itemId, propMap) => itemId -> propMap.rules
     }
     */
 

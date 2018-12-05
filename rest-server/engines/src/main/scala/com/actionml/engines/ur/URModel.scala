@@ -36,9 +36,9 @@ class URModel(
   extends LazyLogging {
 
 
-  /** Save all fields to be indexed by Elasticsearch and queried for recs
-    *  This will is something like a table with row IDs = item IDs and separate fields for all
-    *  cooccurrence and cross-cooccurrence correlators and metadata for each item. Metadata fields are
+  /** Save all rules to be indexed by Elasticsearch and queried for recs
+    *  This will is something like a table with row IDs = item IDs and separate rules for all
+    *  cooccurrence and cross-cooccurrence correlators and metadata for each item. Metadata rules are
     *  limited to text term collections so vector types. Scalar values can be used but depend on
     *  Elasticsearch's support. One exception is the Data scalar, which is also supported
     *  @return always returns true since most other reasons to not save cause exceptions
@@ -80,7 +80,7 @@ class URModel(
     // todo: this could be replaced with an optional list of properties in the params json because now it
     // goes through every element to find it's property name
     val esFields: List[String] = esRDD.flatMap(_.keySet).distinct().collect.toList
-    logger.info(s"ES fields[${esFields.size}]: $esFields")
+    logger.info(s"ES rules[${esFields.size}]: $esFields")
 
     // todo:
     //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
@@ -90,9 +90,9 @@ class URModel(
 
   // Something in the second def of this function hangs on some data, reverting so this
   def groupAll(fields: Seq[RDD[(String, Map[String, Any])]]): RDD[(String, Map[String, Any])] = {
-   //val retval = fields.head.fullOuterJoin()[Map[String, Any]](groupAll(fields.drop(1)))
-    //def groupAll( fields: Seq[RDD[(String, (Map[String, Any]))]]): RDD[(String, (Map[String, Any]))] = {
-    //if (fields.size > 1 && !fields.head.isEmpty() && !fields(1).isEmpty()) {
+   //val retval = rules.head.fullOuterJoin()[Map[String, Any]](groupAll(rules.drop(1)))
+    //def groupAll( rules: Seq[RDD[(String, (Map[String, Any]))]]): RDD[(String, (Map[String, Any]))] = {
+    //if (rules.size > 1 && !rules.head.isEmpty() && !rules(1).isEmpty()) {
     val retval = if (fields.size > 1) {
       fields.head.cogroup[Map[String, Any]](groupAll(fields.drop(1))).map {
         case (key, pairMapSeqs) =>
