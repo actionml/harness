@@ -32,7 +32,7 @@ import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.{URDataset, URPreparator}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.{ItemProperties, ItemScore, UREvent, URQuery, URQueryResult}
+import com.actionml.engines.ur.UREngine.{ItemProperties, ItemScore, Rule, UREvent, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -78,13 +78,14 @@ class URAlgorithm private (
   private var recsModel: String = _
   private var userBias: Float = _
   private var itemBias: Float = _
+  private var itemSetBias: Float = _
   private var maxQueryEvents: Int = _
   private var indicatorParams: Map[String, DefaultIndicatorParams] = _
   private var limit: Int = _
   private var modelEventNames: Seq[String] = _
   private var blacklistEvents: Seq[String] = _
   private var returnSelf: Boolean = _
-  private var fields: Seq[Field] = _
+  private var fields: Seq[Rule] = _
   private var randomSeed: Int = _
   private var numESWriteConnections: Option[Int] = _
   private var maxCorrelatorsPerEventType: Int = _
@@ -93,8 +94,9 @@ class URAlgorithm private (
   private var rankingFieldNames: Seq[String] = _
   private var dateNames: Seq[String] = _
   private var es: ElasticSearchClient[Hit] = _
-  private var indicators: Option[List[IndicatorParams]] = None
+  private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
+  private var rules: Option[Seq[Rule]] = _
 
   // setting that cannot change with config
   val esIndex = engineId
@@ -110,35 +112,27 @@ class URAlgorithm private (
     itemBias = params.itemBias.getOrElse(1f)
 
     // get max total user history events for the ES query
-    maxQueryEvents = if (params.indicators.isEmpty) {
-      params.maxQueryEvents.getOrElse(DefaultURAlgoParams.MaxQueryEvents)
-    } else { // using the indicator method of setting query events
-      params.indicators.get.foldLeft[Int](0) { (previous, indicator) =>
+    // this assumes one event doesn't happen more than 10 times more often than another
+    // not ideal but avoids one query to the event store per event type
+    maxQueryEvents = params.indicators.foldLeft[Int](0) { (previous, indicator) =>
         previous + indicator.maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxQueryEvents)
-      } * 10
-      // this assumes one event doesn't happen more than 10 times more often than another
-      // not ideal but avoids one query to the event store per event type
-    }
+    } * 10
+
 
     indicators = params.indicators
     seed = params.seed
+    rules = params.rules
 
-    if (params.eventNames.nonEmpty) { // using eventNames shortcut
-      indicatorParams = params.eventNames.get.map { eventName =>
-        eventName -> DefaultIndicatorParams()
-      }.toMap
-    } else if (params.indicators.nonEmpty) { // using indicators for fined tuned control
-      indicatorParams = params.indicators.get.map { indicatorParams =>
+   if (params.indicators.nonEmpty) { // using indicators for fined tuned control
+      indicatorParams = params.indicators.map { indicatorParams =>
         indicatorParams.name -> DefaultIndicatorParams(
           maxItemsPerUser = indicatorParams.maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
           maxCorrelatorsPerItem = indicatorParams.maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
           minLLR = indicatorParams.minLLR)
       }.toMap
     } else {
-      logger.error("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
-        s"$params")
-      err = Invalid(MissingParams(jsonComment("Must have either eventNames or indicators in algorithm parameters, which are: " +
-        s"$params")))
+      logger.error("Must have indicators in algorithm parameters, which are empty here: " + s"$params")
+      err = Invalid(MissingParams(jsonComment("Must have indicators in algorithm parameters, which are empty")))
     }
 
 
@@ -146,15 +140,11 @@ class URAlgorithm private (
     err.andThen { isOK =>
       limit = params.num.getOrElse(DefaultURAlgoParams.NumResults)
 
-      modelEventNames = if (params.indicators.isEmpty) { //already know from above that one collection has names
-        params.eventNames.get
-      } else {
-        params.indicators.get.map(_.name)
-      }.toSeq
+      modelEventNames = params.indicators.map(_.name)
 
       blacklistEvents = params.blacklistEvents.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
-      fields = params.fields.getOrElse(Seq.empty[Field])
+      fields = params.rules.getOrElse(Seq.empty[Rule])
 
       randomSeed = params.seed.getOrElse(System.currentTimeMillis()).toInt
 
@@ -359,9 +349,9 @@ class URAlgorithm private (
         case (iD, i) =>
           new DownsamplableCrossOccurrenceDataset(
             iD,
-            indicators.get(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
-            indicators.get(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
-            indicators.get(i).minLLR)
+            indicators(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
+            indicators(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
+            indicators(i).minLLR)
       }.toList
 
       SimilarityAnalysis.crossOccurrenceDownsampled(
@@ -449,52 +439,53 @@ class URAlgorithm private (
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
     val queryEventNames = query.eventNames.getOrElse(modelEventNames) // eventNames in query take precedence
+    val aggregatedRules = aggregateRules(rules, query.rules)
 
     logger.info(s"Got query: \n${query}")
 
     val startPos = query.from.getOrElse(0)
     val numResults = query.num.getOrElse(limit)
-    var shouldMatchers = Map.empty[String, Seq[Matcher]]
-    var mustMatchers = Map.empty[String, Seq[Matcher]]
-    var mustNotMatchers = Map.empty[String, Seq[Matcher]]
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-   shouldMatchers += "terms" -> getUserHistMatcher(query)
+    val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
+    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
+      getSimilarItemsMatchers(query) ++
+      getItemSetMatchers(query) ++
+      getBoostedRulesMatchers(aggregatedRules)))
+
+    val mustMatchers = Map("terms" -> (getIncludeRulesMatchers(aggregatedRules)))
+
+    val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
+      getBlacklistedItemsMatchers(query, userEvents)))
+
+    // todo: add date based rules to Search Query
+    // val dateMatcher = getDateMatchers(query) // or some such...
 
     SearchQuery(
-      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking fields
+      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
       mustNot = mustNotMatchers,
       size = numResults,
       from = startPos
     )
-    /*
-    val userHistory = dataset.getIndicatorsDao.findMany(
-      DaoQuery(
-        limit= maxQueryEvents * 100,
-        filter = Seq(("entityId", query.user)))).toSeq.distinct
-    val userEvents = modelEventNames.map { n =>
-      (n,
-        (userHistory.filter(_.event == n).map(_.targetEntityId.get).toSeq).distinct
-      )
-    }
-    val shouldMatchers = userEvents.map { case(name, hist) => Matcher(name, hist) }
-    val mustMatcher = Matcher("values", query.eligibleNavIds)
-    val esQuery = SearchQuery(
-      should = Map("terms" -> shouldMatchers),
-      must = Map("ids" -> Seq(mustMatcher)),
-      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking fields
-      size = limit
-    )
-    logger.info(s"Sending query: $esQuery")
-    val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
-    URQueryResult(esResult)
-    */
+  }
+
+  /** Aggregates unique Rules by name, discarding config rules that are named the same as a query rule */
+  private def aggregateRules(configRules: Option[Seq[Rule]] = None, queryRules: Option[Seq[Rule]] = None): Seq[Rule] = {
+    val qRules = queryRules.getOrElse(Seq.empty)
+    val qRuleNames = qRules.map(_.name)
+    val validConfigRules = configRules.getOrElse(Seq.empty).filterNot(r => qRuleNames.contains(r.name)) // filter out dup rule names
+
+    if(configRules.nonEmpty && queryRules.nonEmpty)
+      logger.info(s"Warning: duplicate rule names from the Query take precedence." +
+        s"\n    Config rules: ${configRules.get}\n    Query rules: ${queryRules.get}\n")
+
+    qRules ++ validConfigRules
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery): Seq[Matcher] = {
+  private def getUserHistMatcher(query: URQuery): (Seq[Matcher], Seq[UREvent]) = {
 
     import DaoQuery.syntax._
 
@@ -511,8 +502,8 @@ class URAlgorithm private (
       (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)
     }
 
-    val userHistMatcher = userEvents.map { case(name, hist) => Matcher(name, hist, userEventsBoost) }
-    userHistMatcher
+    val userHistMatchers = userEvents.map { case(name, hist) => Matcher(name, hist, userEventsBoost) }
+    (userHistMatchers, userHistory)
   }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
@@ -535,14 +526,56 @@ class URAlgorithm private (
     } // no item specified
   }
 
-
-  private def getPropertiesMatchers(query: URQuery): Seq[Matcher] = {
-    Seq.empty
+  private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
+    query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
+      modelEventNames.head, // only look for items that have been converted on
+      query.itemSet.getOrElse(Seq.empty),
+      params.itemSetBias))
   }
 
-  /** Calculate all fields and items needed for ranking.
+
+  private def getBoostedRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
+    aggregatedRules.filter(rule => rule.bias > 0).map { rule =>
+      Matcher(
+        rule.name,
+        rule.values,
+        Some(rule.bias))
+    }
+  }
+
+  private def getExcludeRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
+    aggregatedRules.filter(rule => rule.bias == 0).map { rule =>
+      Matcher(
+        rule.name,
+        rule.values,
+        None)
+    }
+  }
+
+  private def getIncludeRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
+    aggregatedRules.filter(rule => rule.bias < 0).map { rule =>
+      Matcher(
+        rule.name,
+        rule.values,
+        None)
+    }
+  }
+
+  private def getBlacklistedItemsMatchers(query: URQuery, userEvents: Seq[UREvent]): Seq[Matcher] = {
+    val queryBlacklist = query.blacklistItems.getOrElse(Seq.empty)
+    val blacklistByUserHistory = userEvents.filter(event => blacklistEvents.contains(event.event)).map(_.targetEntityId.getOrElse(""))
+    Seq(
+      Matcher(
+        "id",
+        queryBlacklist ++ blacklistByUserHistory,
+        None))
+  }
+
+
+
+  /** Calculate all rules and items needed for ranking.
     *
-    *  @param fieldsRDD all items with their fields
+    *  @param fieldsRDD all items with their rules
     *  @param sc the current Spark context
     *  @return
     */
@@ -660,6 +693,7 @@ object URAlgorithm extends JsonSupport {
 
   case class IndicatorParams(
       name: String, // must match one in eventNames
+      aliases: Option[Seq[String]] = None,
       maxItemsPerUser: Option[Int], // defaults to maxEventsPerEventType
       maxCorrelatorsPerItem: Option[Int], // defaults to maxCorrelatorsPerEventType
       minLLR: Option[Double]) // defaults to none, takes precendence over maxCorrelatorsPerItem
@@ -668,7 +702,7 @@ object URAlgorithm extends JsonSupport {
       indexName: Option[String], // can optionally be used to specify the elasticsearch index name
       typeName: Option[String], // can optionally be used to specify the elasticsearch type name
       recsModel: Option[String] = None, // "all", "collabFiltering", "backfill"
-      eventNames: Option[Seq[String]], // names used to ID all user actions
+      // eventNames: Option[Seq[String]], // names used to ID all user actions
       blacklistEvents: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
       // number of events in user-based recs query
       maxQueryEvents: Option[Int] = None,
@@ -677,8 +711,9 @@ object URAlgorithm extends JsonSupport {
       num: Option[Int] = None, // default max # of recs requested
       userBias: Option[Float] = None, // will cause the default search engine boost of 1.0
       itemBias: Option[Float] = None, // will cause the default search engine boost of 1.0
+      itemSetBias: Option[Float] = None, // will cause the default search engine boost of 1.0
       returnSelf: Option[Boolean] = None, // query building logic defaults this to false
-      fields: Option[Seq[Field]] = None, //defaults to no fields
+      rules: Option[Seq[Rule]] = None, //defaults to no rules
       // leave out for default or popular
       rankings: Option[Seq[RankingParams]] = None,
       // name of date property field for when the item is available
@@ -687,7 +722,7 @@ object URAlgorithm extends JsonSupport {
       expireDateName: Option[String] = None,
       // used as the subject of a dateRange in queries, specifies the name of the item property
       dateName: Option[String] = None,
-      indicators: Option[List[IndicatorParams]] = None, // control params per matrix pair
+      indicators: Seq[IndicatorParams], // control params per matrix pair, every indicator must be listed at least
       seed: Option[Long] = None, // seed is not used presently
       numESWriteConnections: Option[Int] = None) // hint about how to coalesce partitions so we don't overload ES when
   // writing the model. The rule of thumb is (numberOfNodesHostingPrimaries * bulkRequestQueueLength) * 0.75
@@ -702,14 +737,6 @@ object URAlgorithm extends JsonSupport {
   /** The Query spec with optional values. The only hard rule is that there must be either a user or
     *  an item id. All other values are optional.
     */
-
-  /** Used to specify how Fields are represented in engine.json */
-  case class Field( // no optional values for fields, whne specified
-      name: String, // name of metadata field
-      values: Seq[String], // fields can have multiple values like tags of a single value as when using hierarchical
-      // taxonomies
-      bias: Float) // any positive value is a boost, negative is an inclusion filter, 0 is an exclusion filter
-    extends Serializable
 
   /** Used to specify the date range for a query */
   case class DateRange(

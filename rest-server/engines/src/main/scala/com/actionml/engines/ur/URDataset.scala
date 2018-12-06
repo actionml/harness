@@ -43,11 +43,6 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   def getItemsDao = itemsDao
   def getIndicatorsDao = eventsDao
 
-
-  // This holds a place for any properties that should go into the model at training time
-  private val esIndex = store.dbName // index and db name should be the same
-  private val esType = DefaultURAlgoParams.ModelType
-  //private def getItemsDbName = esIndex
   private def getItemsCollectionName = "items"
   def getEventsCollectionName = "events"
 
@@ -64,16 +59,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       transform = _ \ "algorithm").andThen { p =>
       params = p
 
-      indicatorNames = if(params.indicators.isEmpty) {
-        if(params.eventNames.isEmpty) {
-          // yikes both empty so error so bad we can't init!
-          throw BadParamsException("No indicator or eventNames in the config JSON file")
-        } else {
-          params.eventNames.get
-        }
-      } else {
-        params.indicators.get.map(_.name)
-      }
+      indicatorNames = params.indicators.map(_.name)
 
       Valid(p)
     }
