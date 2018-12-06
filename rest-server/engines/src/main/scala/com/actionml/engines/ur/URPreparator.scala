@@ -19,7 +19,7 @@ package com.actionml.engines.ur
 
 import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.ur.URAlgorithm.{PreparedData, TrainingData}
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
+import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
@@ -35,7 +35,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
   def mkTraining(
     eventNames: Seq[String],
     eventsRDD: RDD[UREvent],
-    itemsRDD: RDD[ItemProperties])(implicit sc: SparkContext): TrainingData = {
+    itemsRDD: RDD[URItemProperties])(implicit sc: SparkContext): TrainingData = {
 
     //val eventNames = dsp.eventNames
 

@@ -24,7 +24,7 @@ import com.actionml.core.engine.Dataset
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
+import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
 
 import scala.language.reflectiveCalls
 
@@ -39,7 +39,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val eventsDao = store.createDao[UREvent](getEventsCollectionName)
-  private val itemsDao = store.createDao[ItemProperties](getItemsCollectionName)
+  private val itemsDao = store.createDao[URItemProperties](getItemsCollectionName)
   def getItemsDao = itemsDao
   def getIndicatorsDao = eventsDao
 
@@ -97,6 +97,23 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
             }
           case "$set" => // only item properties as allowed here and used for business rules once they are reflected in
             // the model, which should be immediately but done by the URAlgorithm, which manages the model
+            event.entityType match {
+              case "user" =>
+                logger.info(s"User properties not supported, send as named indicator event.")
+                Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
+              case "item" =>
+                val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
+                itemsDao.saveOneById(
+                  event.entityId,
+                  URItemProperties(
+                    _id = updateItem._id,
+                    properties = updateItem.properties ++ event.properties
+                  )
+                )
+              case _ =>
+                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
+            }
 
         }
 

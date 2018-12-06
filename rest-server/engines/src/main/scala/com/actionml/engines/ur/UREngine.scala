@@ -165,12 +165,12 @@ object UREngine extends JsonSupport {
       entityType: String,
       @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
-      properties: Map[String, Boolean] = Map.empty,
+      properties: Map[String, Any] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
       @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
-  case class ItemProperties (
+  case class URItemProperties (
       _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
       properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
   ) extends Serializable

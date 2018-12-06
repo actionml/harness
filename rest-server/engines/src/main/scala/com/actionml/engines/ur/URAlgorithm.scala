@@ -32,7 +32,7 @@ import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.{URDataset, URPreparator}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.{ItemProperties, ItemScore, Rule, UREvent, URQuery, URQueryResult}
+import com.actionml.engines.ur.UREngine.{URItemProperties, ItemScore, Rule, UREvent, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -58,7 +58,7 @@ class URAlgorithm private (
     initParams: String,
     params: URAlgorithmParams,
     eventsDao: DAO[UREvent],
-    itemsDao: DAO[ItemProperties])
+    itemsDao: DAO[URItemProperties])
   extends Algorithm[URQuery, URQueryResult]
   with LambdaAlgorithm[UREvent]
   with SparkMongoSupport
@@ -227,8 +227,8 @@ class URAlgorithm private (
     // todo: none do anything for the PoC so all return errors
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
-      case "$set" =>
-        Invalid(WrongParams(jsonComment("Using $set not supported")))
+      //case "$set" => // todo: modify the model, if there is one
+        //Invalid(WrongParams(jsonComment("Using $set not supported")))
       /*case "$delete" =>
         datum.entityType match {
           case "model" =>
@@ -252,7 +252,7 @@ class URAlgorithm private (
     f.map { implicit sc =>
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
-        val itemsRdd = itemsDao.readRdd[ItemProperties](MongoStorageHelper.codecs)
+        val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
 
         val trainingData = URPreparator.mkTraining(modelEventNames, eventsRdd, itemsRdd)
 
