@@ -47,6 +47,7 @@ import scala.language.reflectiveCalls
   *                   data.
   */
 class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends SharedUserDataset[CBEvent](engineId, usersStorage) with JsonSupport {
+  import com.actionml.core.store.DaoQuery.syntax._
 
   var usageEventGroups: Map[String, DAO[UsageEvent]] = Map[String, DAO[UsageEvent]]()
 
@@ -199,14 +200,14 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
             case "user" =>
               logger.trace(s"Dataset: ${engineId} persisting a User Delete Event: ${event}")
               //users.findAndRemove(MongoDBObject("userId" -> event.entityId))
-              usersDAO.removeOne("_id" -> event.entityId)
+              usersDAO.removeOne("_id" === event.entityId)
               Valid(event)
             case "group" | "testGroup" =>
               if (!usageEventGroups.isDefinedAt(event.entityId)) {
                 logger.warn(s"Deleting non-existent group may be an error, operation ignored.")
                 Invalid(ParseError(jsonComment(s"Deleting non-existent group may be an error, operation ignored.")))
               } else {
-                groupsDao.removeOne("_id" -> event.entityId)
+                groupsDao.removeOne("_id" === event.entityId)
                 storage.removeCollection(event.entityId)
                 usageEventGroups = usageEventGroups - event.entityId // removeOne from our collection or collections
                 logger.trace(s"Deleting group ${event.entityId}.")

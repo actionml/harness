@@ -202,7 +202,6 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 
     if (rjv.nonEmpty) {
       //val responseJValue = parse(EntityUtils.toString(response.getEntity))
-      println(s"AAAAAAAAAAAAA${(rjv.get \ "_source")}")
       val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
       id -> result
     } else {
@@ -417,12 +416,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object A extends App {
-  val client = ElasticSearchClient.apply("test3")
-  println(client.findDocById("http://nav.domain4", "items"))
-  client.close
-}
-object ElasticSearchClient extends App with LazyLogging {
+object ElasticSearchClient extends LazyLogging {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 

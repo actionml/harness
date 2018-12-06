@@ -108,7 +108,7 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
               val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
               // tag these so they can be removed when the model is $deleted
               indicatorsDao.insertMany(taggedConvertedJourneys)
-              activeJourneysDao.removeMany(("entityId", event.entityId))
+              activeJourneysDao.removeMany("entityId" === event.entityId)
             }
           } else {
             // save in journeys until a conversion happens
@@ -123,7 +123,7 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
           case "$delete" =>
             event.entityType match {
               case "user" =>
-                indicatorsDao.removeMany(("entityId", event.entityId))
+                indicatorsDao.removeMany("entityId" === event.entityId)
                 logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
                 Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
               case "model" =>

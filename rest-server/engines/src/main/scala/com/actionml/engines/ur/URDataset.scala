@@ -99,7 +99,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           case "$delete" =>
             event.entityType match {
               case "user" =>
-                eventsDao.removeMany(("entityId", event.entityId))
+                eventsDao.removeMany("entityId" === event.entityId)
                 logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
                 Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
               case "item" =>

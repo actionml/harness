@@ -19,18 +19,16 @@ package com.actionml.admin
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.{store, _}
-import com.actionml.core.model.GenericEngineParams
-import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core._
 import com.actionml.core.engine.Engine
-import com.actionml.core.store.{OrderBy, DaoQuery}
+import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.store.DaoQuery
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-
-import org.mongodb.scala.Document
-import org.mongodb.scala.bson.BsonString
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
+  import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = MongoStorageHelper.codecs)
 
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
@@ -53,7 +51,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
           s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
           s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
         // Todo: we need a way to cleanup in this situation
-        enginesCollection.removeOne("engineId" -> engine.engineId)
+        enginesCollection.removeOne("engineId" === engine.engineId)
         // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
       }
       e
@@ -133,7 +131,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
-      enginesCollection.removeOne("engineId" -> engineId)
+      enginesCollection.removeOne("engineId" === engineId)
       deadEngine.destroy()
       Valid(jsonComment(s"Engine instance for engineId: $engineId deleted and all its data"))
     } else {
