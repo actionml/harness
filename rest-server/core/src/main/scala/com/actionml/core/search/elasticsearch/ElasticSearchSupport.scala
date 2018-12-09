@@ -115,7 +115,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
       .getStatusLine
       .getStatusCode match {
           case 200 =>
-            logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
+            // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
             val aliasResponse = client.performRequest(
               "GET",
               s"/_alias/$alias",
@@ -472,7 +472,7 @@ object ElasticSearchClient extends LazyLogging {
             query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
           ))
       }
-    logger.info(s"Query to search engine:\n${pretty(json)}")
+    // logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
   }
 

@@ -165,22 +165,15 @@ object UREngine extends JsonSupport {
       entityType: String,
       @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
-      properties: Map[String, Any] = Map.empty,
+      properties: Map[String, Seq[String]] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
       @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
   case class URItemProperties (
-      _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
-      properties: Map[String, Any] // properties to be written to the model, this is saved in the input dataset
+      @Indexed(order = asc) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+      properties: Map[String, Seq[String]] = Map.empty // properties to be written to the model, this is saved in the input dataset
   ) extends Serializable
-
-  /* used in URNavHinting
-  case class URQuery(
-      user: String, // ignored for non-personalized
-      eligibleNavIds: Array[String])
-    extends Query
-  */
 
   case class URQuery(
       user: Option[String] = None, // must be a user or item id
@@ -228,15 +221,16 @@ object UREngine extends JsonSupport {
       import org.json4s.jackson.Serialization.write
 
       write(this)
+
       /*
       val jsonStart =
         s"""
            |{
            |  "result": [
         """.stripMargin
-      val jsonMiddle = result.map{ case (k, v) =>
+      val jsonMiddle = result.map{ score =>
         s"""
-           |   {$k, $v},
+           |   {${score.item}, ${score.score}},
        """.stripMargin
       }.mkString
       val jsonEnd =
@@ -247,7 +241,6 @@ object UREngine extends JsonSupport {
       val retVal = jsonStart + jsonMiddle + jsonEnd
       retVal
       */
-
     }
   }
 

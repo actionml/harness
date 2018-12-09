@@ -127,7 +127,7 @@ if __name__ == '__main__':
         description="Import sample data for Universal Recommender Engine")
     parser.add_argument('--engine_id', default='test_ur')
     parser.add_argument('--url', default="http://localhost:9090")
-    parser.add_argument('--file', default="examples/data/simple-ur-data.csv")
+    parser.add_argument('--file', default="examples/ur/sample-mobile-device-ur-data.csv")
     parser.add_argument('--primary_event', default="purchase")
     parser.add_argument('--secret', default=None)
     parser.add_argument('--secret_2', default=None)

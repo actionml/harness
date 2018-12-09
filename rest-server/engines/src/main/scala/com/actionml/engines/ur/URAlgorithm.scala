@@ -228,7 +228,7 @@ class URAlgorithm private (
     datum.event match {
       // Here is where you process by reserved events which may modify the model in real-time
       //case "$set" => // todo: modify the model, if there is one
-        //Invalid(WrongParams(jsonComment("Using $set not supported")))
+        // Invalid(WrongParams(jsonComment("Using $set not supported")))
       /*case "$delete" =>
         datum.entityType match {
           case "model" =>
@@ -461,7 +461,7 @@ class URAlgorithm private (
     // todo: add date based rules to Search Query
     // val dateMatcher = getDateMatchers(query) // or some such...
 
-    SearchQuery(
+    val sq =SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
@@ -469,6 +469,11 @@ class URAlgorithm private (
       size = numResults,
       from = startPos
     )
+
+    import org.json4s.jackson.Serialization.write
+
+    logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
+    sq
   }
 
   /** Aggregates unique Rules by name, discarding config rules that are named the same as a query rule */
@@ -496,7 +501,7 @@ class URAlgorithm private (
         limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
         // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
-        filter = Seq("entityId" === query.user))).toSeq.distinct
+        filter = Seq("entityId" === query.user.getOrElse("")))).toSeq.distinct
 
     val userEvents = modelEventNames.map { name =>
       (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)
@@ -557,7 +562,7 @@ class URAlgorithm private (
       Matcher(
         rule.name,
         rule.values,
-        None)
+        Some(0))
     }
   }
 
@@ -567,7 +572,7 @@ class URAlgorithm private (
     Seq(
       Matcher(
         "id",
-        queryBlacklist ++ blacklistByUserHistory,
+        (queryBlacklist ++ blacklistByUserHistory).distinct,
         None))
   }
 
