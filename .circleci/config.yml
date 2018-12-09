@@ -32,7 +32,7 @@ jobs:
             make publish-local
       -
         run:
-          name: Build harness rest-server dist
+          name: Build rest-server dist
           command: make dist
       -
         save_cache:
@@ -48,12 +48,26 @@ jobs:
 
   container:
     docker:
-      - image: stackfeed/alpine
+      - image: docker:stable
     steps:
+      - checkout
+      - setup_remote_docker
       -
         attach_workspace:
-          at: /tmp/dist
-      - run: find /tmp
+          at: /root/project/dist
+      -
+        run:
+          name: Build rest-server docker image
+          command: |
+            docker image build -f docker/Dockerfile \
+              --build-arg version=ci -t actionml/harness:ci ./
+      -
+        run:
+          name: Publish docker image
+          command: |
+            echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+            docker image push actionml/harness:ci
+            docker logout
 
   # test:
   #   docker:
