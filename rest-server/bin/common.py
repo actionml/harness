@@ -15,7 +15,7 @@ parser.add_argument("-r", "--role_set", type=str, default=None)
 parser.add_argument("-e", "--engineid", type=str, default=None)
 parser.add_argument("--data_delete", "-d", dest='delete', default=False, action='store_true')
 parser.add_argument("--force", "-f", default=False, action='store_true')
-parser.add_argument("--input", "-i", type=str, default=None)
+parser.add_argument("--import_path", "-i", type=str, default=None)
 parser.add_argument("--all_engines", "-a", default=False, action='store_true')
 parser.add_argument("--all_users", default=False, action='store_true')
 args = parser.parse_args()
@@ -116,6 +116,19 @@ def print_warning(notice):
 
 def id_or_config():
     engine_id = args.engine_id
+    config = {}
+
+    if args.config is not None:
+        with open(args.config) as data_file:
+            config = json.load(data_file)
+
+    if args.engine_id is None:
+        engine_id = config['engineId']
+
+    return engine_id, config
+
+def id_and_config():
+    engine_id = None
     config = {}
 
     if args.config is not None:

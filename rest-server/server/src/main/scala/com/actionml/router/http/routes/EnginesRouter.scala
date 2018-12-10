@@ -1,3 +1,20 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.actionml.router.http.routes
 
 import akka.actor.ActorRef
@@ -6,6 +23,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
+import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -15,6 +33,9 @@ import com.actionml.router.config.{AppConfig, ConfigurationComponent}
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 /**
   *
@@ -56,13 +77,15 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
         getEngines ~
         createEngine
       } ~
-      path(Segment) { engineId ⇒
+      pathPrefix(Segment) { engineId ⇒
         hasAccess(engine.read, engineId).apply {
           getEngine(engineId)
         } ~
         hasAccess(engine.modify, engineId).apply {
-          updateEngine(engineId) ~
-          deleteEngine(engineId)
+          delete(deleteEngine(engineId)) ~
+          (post & path("imports"))(updateEngineWithImport(engineId)) ~
+          (post & path("configs"))(updateEngineWithConfig(engineId)) ~
+          (post & path("jobs"))(updateEngineWithTrain(engineId))
         }
       }
     }
@@ -86,27 +109,32 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService ? CreateEngine(engineConfig.toString())).mapTo[Response]
+      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Response]
     }
   }
 
-  private def updateEngine(engineId: String)(implicit log: LoggingAdapter): Route = (putOrPost & parameters('data_delete.as[Boolean] ? false, 'force.as[Boolean] ? false, 'input.as[String]) ) { (dataDelete, force, input) ⇒
-    entity(as[Json]) { engineConfig ⇒
-      //log.info("Update engine: {}, {}, delete: {}, force: {}, input: {}", engineId, engineConfig, dataDelete, force, input)
-      log.info("Update engine: {}, {}, delete: {}, force: {}", engineId, engineConfig, dataDelete, force)
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithConfig(engineId, engineConfig.toString(), dataDelete, force, input)).mapTo[Response]
-      }
-    } ~ {
-      log.info("Update engine: {}, delete: {}, force: {}, input: {}", engineId, dataDelete, force, input)
-      completeByValidated(StatusCodes.OK) {
-        (engineService ? UpdateEngineWithId(engineId, dataDelete, force, input)).mapTo[Response]
-      }
+  private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[Json]) { engineConfig ⇒
+    log.info("Update engine: {}, updateConfig: true", engineId)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Response]
     }
-
   }
 
-  private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = delete {
+  private def updateEngineWithImport(engineId: String)(implicit log: LoggingAdapter): Route = parameter('import_path) { importPath ⇒
+    log.info("Update engine: {}, importPath: {}", engineId, importPath)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Response]
+    }
+  }
+
+  private def updateEngineWithTrain(engineId: String)(implicit log: LoggingAdapter): Route = {
+    log.info("Update engine: {}, trainPath: {}", engineId)
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? UpdateEngineWithTrain(engineId)).mapTo[Response]
+    }
+  }
+
+  private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? DeleteEngine(engineId)).mapTo[Response]

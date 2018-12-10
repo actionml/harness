@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from harness import EnginesClient, HttpError
 
@@ -21,12 +21,53 @@ if args.action == 'create':
             print_failure(err, 'Error creating new engine\n')
 
 elif args.action == 'update':
-    engine_id, config = id_or_config()
+    engine_id, config = id_and_config()
+    # print("Engine-id: " + engine_id)
+    # print("Json config: \n" + str(config))
     try:
-        res = engine_client.update(engine_id, config, args.delete, args.force, args.input)
-        print_success(res, 'Updating existing engine. Success:\n')
+        res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_type="configs", data=config)
+        # print_success_string('Updating engine-id: {} \n'.format(engine_id))
+        print_success(res, 'Updating engine: \n')
     except HttpError as err:
-        print_failure(err, 'Error updating engine.')
+        print_failure(err, 'Error updating engine-id: {}\n'.format(engine_id))
+
+#    with open(args.config) as data_file:
+#        config = json.load(data_file)
+#        engine_id = config.engine_id
+#        try:
+#            res = engine_client.update(config)
+#            print_success(res, 'Updating engine: ')
+#        except HttpError as err:
+#            print_failure(err, 'Error updating engine\n')
+
+#    engine_id, config = id_or_config()
+#    try:
+#        res = engine_client.update(engine_id, config, args.delete, args.force, args.input)
+#        print_success(res, 'Updating existing engine. Success:\n')
+#    except HttpError as err:
+#        print_failure(err, 'Error updating engine.')
+
+elif args.action == 'import':
+    engine_id = args.engine_id
+    # print("Import path: {}".format(args.import_path))
+    try:
+        res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_type="imports", data={})
+        print_success(res, 'Importing to engine: {}\n'.format(engine_id))
+    except HttpError as err:
+        print_failure(err, 'Error importing to engine-id: {} from {}\n'.format(engine_id, args.import_path))
+        #  else:
+        #      print_failure(None, "Error: no input for import command.")
+
+elif args.action == 'train':
+    engine_id = args.engine_id
+    # print("Import path: {}".format(args.import_path))
+    try:
+        res = engine_client.update(engine_id=engine_id, import_path=args.import_path, update_type="jobs", data={})
+        print_success(res, 'Asking engine: {} to train\n'.format(engine_id))
+    except HttpError as err:
+        print_failure(err, 'Error requesting engine: {} to train\n'.format(engine_id))
+        #  else:
+        #      print_failure(None, "Error: no input for import command.")
 
 elif args.action == 'delete':
     engine_id, config = id_or_config()

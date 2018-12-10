@@ -80,7 +80,6 @@ fabric.properties
 *.iml
 /rest-server/dist/
 /rest-server/*.tar.gz
-/rest-server/data/
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -173,6 +172,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
-/java-sdk/example/data/
+#/java-sdk/example/data/
 /it/shared/data/*.vw
 /it/shared/logs/*.log

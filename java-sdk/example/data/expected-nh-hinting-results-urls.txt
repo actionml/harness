@@ -1,0 +1,116 @@
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-urls.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain3", "http://nav.domain5", "http://nav.domain1", "http://nav.domain4", "http://nav.domain2", "http://nav.domain6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 589 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain5", "http://nav.domain2", "http://nav.domain3", "http://nav.domain4"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 28 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"eligibleNavIds": ["http://nav.domain1", "http://nav.domain3", "http://nav.domain2", "http://nav.domain4", "http://nav.domain5"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 23 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://fake.nav/id#3", "http://fake.nav/id#5", "http://fake.nav/id#1", "http://fake.nav/id#4", "http://fake.nav/id#2", "http://fake.nav/id#6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 32 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 4.348 s
+[INFO] Finished at: 2018-05-27T21:57:05+00:00
+[INFO] Final Memory: 21M/337M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-urls.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain3", "http://nav.domain5", "http://nav.domain1", "http://nav.domain4", "http://nav.domain2", "http://nav.domain6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain6, 1.0},\n       \n {http://nav.domain5, 0.5},\n       \n {http://nav.domain4, 0.3333333333333333},\n       \n {http://nav.domain3, 0.25},\n       \n {http://nav.domain2, 0.2},\n       \n {http://nav.domain1, 0.16666666666666666},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 527 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain5", "http://nav.domain2", "http://nav.domain3", "http://nav.domain4"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 0.5},\n       \n {http://nav.domain4, 0.3333333333333333},\n       \n {http://nav.domain3, 0.25},\n       \n {http://nav.domain2, 0.2},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 44 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"eligibleNavIds": ["http://nav.domain1", "http://nav.domain3", "http://nav.domain2", "http://nav.domain4", "http://nav.domain5"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 0.5},\n       \n {http://nav.domain4, 0.3333333333333333},\n       \n {http://nav.domain3, 0.25},\n       \n {http://nav.domain2, 0.2},\n       \n {http://nav.domain1, 0.16666666666666666},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 37 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://fake.nav/id#3", "http://fake.nav/id#5", "http://fake.nav/id#1", "http://fake.nav/id#4", "http://fake.nav/id#2", "http://fake.nav/id#6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 29 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 4.396 s
+[INFO] Finished at: 2018-05-27T21:57:18+00:00
+[INFO] Final Memory: 21M/340M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-urls.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain3", "http://nav.domain5", "http://nav.domain1", "http://nav.domain4", "http://nav.domain2", "http://nav.domain6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain6, 2.0},\n       \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n {http://nav.domain1, 0.3333333333333333},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 600 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain5", "http://nav.domain2", "http://nav.domain3", "http://nav.domain4"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 38 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"eligibleNavIds": ["http://nav.domain1", "http://nav.domain3", "http://nav.domain2", "http://nav.domain4", "http://nav.domain5"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n {http://nav.domain1, 0.3333333333333333},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 32 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://fake.nav/id#3", "http://fake.nav/id#5", "http://fake.nav/id#1", "http://fake.nav/id#4", "http://fake.nav/id#2", "http://fake.nav/id#6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 27 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 4.370 s
+[INFO] Finished at: 2018-05-27T21:57:38+00:00
+[INFO] Final Memory: 21M/340M
+[INFO] ------------------------------------------------------------------------
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building harness-java-sdk-example 0.2.0-RC2
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:1.6.0:java (default-cli) @ harness-java-sdk-example ---
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Args: test_nh, data/nh-queries-urls.json, localhost, 9090
+[34mINFO [0;39m [32mSlf4jLogger[0;39m - Slf4jLogger started
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://nav.domain3", "http://nav.domain5", "http://nav.domain1", "http://nav.domain4", "http://nav.domain2", "http://nav.domain6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain6, 2.0},\n       \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n {http://nav.domain1, 0.3333333333333333},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 888 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "joe", "eligibleNavIds": ["http://nav.domain5", "http://nav.domain2", "http://nav.domain3", "http://nav.domain4"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 34 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"eligibleNavIds": ["http://nav.domain1", "http://nav.domain3", "http://nav.domain2", "http://nav.domain4", "http://nav.domain5"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n {http://nav.domain5, 1.0},\n       \n {http://nav.domain4, 0.6666666666666666},\n       \n {http://nav.domain3, 0.5},\n       \n {http://nav.domain2, 0.4},\n       \n {http://nav.domain1, 0.3333333333333333},\n       \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 46 ms.
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Send query: {"user": "pferrel", "eligibleNavIds": ["http://fake.nav/id#3", "http://fake.nav/id#5", "http://fake.nav/id#1", "http://fake.nav/id#4", "http://fake.nav/id#2", "http://fake.nav/id#6"]}
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Results: Pair(200,"\n{\n    \"results\": [\n    \n]}\n       ")
+[34mINFO [0;39m [32mQueriesClientExample[0;39m - Taking 52 ms.
+Shutting down client
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 4.431 s
+[INFO] Finished at: 2018-05-27T21:58:15+00:00
+[INFO] Final Memory: 21M/340M
+[INFO] ------------------------------------------------------------------------

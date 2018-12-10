@@ -19,7 +19,7 @@ package com.actionml.router.service
 
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.admin.Administrator
-import com.actionml.core.template.Engine
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
@@ -36,30 +36,44 @@ trait EngineService extends ActorInjectable
 
 class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
-  private val admin = inject[Administrator]
+  private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
-    case GetEngine(engineId) ⇒
+    case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)
       sender() ! admin.status(Some(engineId)).map(_.asJson)
 
-    case GetEngines() ⇒
+    case GetEngines() =>
       log.info("Get one or all engine status")
       sender() ! admin.status().map(_.asJson)
 
-    case CreateEngine(engineJson) ⇒
+    case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
       sender() ! admin.addEngine(engineJson).map(_.asJson)
 
-    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) ⇒
+    case UpdateEngine(engineJson) =>
+      log.info(s"Update existing engine, ${engineJson}")
+      sender() ! admin.updateEngine(engineJson).map(_.asJson)
+
+    case UpdateEngineWithTrain(engineId) =>
+      log.info(s"Update existing engine, ${engineId}")
+      sender() ! admin.updateEngineWithTrain(engineId).map(_.asJson)
+
+    case UpdateEngineWithImport(engineId, inputPath) =>
+      log.info(s"Update existing engine by importing, ${inputPath}")
+      sender() ! admin.updateEngineWithImport(engineId, inputPath).map(_.asJson)
+
+    /*
+    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
       log.info(s"Update existing engine, ${engineId}, ${engineJson}, ${dataDelete}, ${dataDelete}, ${force}, ${input}")
       sender() ! admin.updateEngine(engineId, Some(engineJson), dataDelete, force, Some(input)).map(_.asJson)
 
-    case UpdateEngineWithId(engineId, dataDelete, force, input) ⇒
+    case UpdateEngineWithId(engineId, dataDelete, force, input) =>
       log.info("Update existing engine, {}, {}, {}, {}", engineId, dataDelete, force, input)
       sender() ! admin.updateEngine(engineId, None, dataDelete, force, Some(input)).map(_.asJson)
+    */
 
-    case DeleteEngine(engineId) ⇒
+    case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
       sender() ! admin.removeEngine(engineId).map(_.asJson)
   }
@@ -69,6 +83,11 @@ sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
 case class GetEngines() extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
-case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
-case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
+case class UpdateEngine(engineJson: String) extends EngineAction
+case class UpdateEngineWithTrain(engineId: String) extends EngineAction
+case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
+
+// keeping update simple, only allow sending new json config
+//case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
+//case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
 case class DeleteEngine(engineId: String) extends EngineAction

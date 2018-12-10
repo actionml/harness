@@ -1,0 +1,204 @@
+Namespace(engine_id='test_ur_nav_hinting', input_file='./data/ur_nav_hinting_handmade_queries.csv', secret=None, secret_2=None, url='http://localhost:9090')
+localhost:9090
+Making queries...
+user: joeeligibleNavIds: ['http://nav.domain1', 'http://nav.domain2', 'http://nav.domain3', 'http://nav.domain4', 'http://nav.domain5', 'http://nav.domain6', 'http://nav.domain7']
+Result for user: joe
+{  "result": [           {http://nav.domain6, 7.9409918785095215},          {http://nav.domain4, 5.0275492668151855},          {http://nav.domain5, 4.452185153961182},          {http://nav.domain1, 1.0},          {http://nav.domain3, 1.0},          {http://nav.domain2, 1.0},         ]}        
+Result for user: joe
+
+{
+  "result": [
+        
+   {http://nav.domain6, 7.9409918785095215},
+       
+   {http://nav.domain4, 5.0275492668151855},
+       
+   {http://nav.domain5, 4.452185153961182},
+       
+   {http://nav.domain1, 1.0},
+       
+   {http://nav.domain3, 1.0},
+       
+   {http://nav.domain2, 1.0},
+       
+  ]
+}
+        
+user: johneligibleNavIds: ['http://nav.domain1', 'http://nav.domain2', 'http://nav.domain3', 'http://nav.domain4', 'http://nav.domain5', 'http://nav.domain6', 'http://nav.domain7']
+Result for user: john
+{  "result": [           {http://nav.domain6, 7.9409918785095215},          {http://nav.domain4, 5.0275492668151855},          {http://nav.domain5, 4.452185153961182},          {http://nav.domain1, 1.0},          {http://nav.domain3, 1.0},          {http://nav.domain2, 1.0},         ]}        
+Result for user: john
+
+{
+  "result": [
+        
+   {http://nav.domain6, 7.9409918785095215},
+       
+   {http://nav.domain4, 5.0275492668151855},
+       
+   {http://nav.domain5, 4.452185153961182},
+       
+   {http://nav.domain1, 1.0},
+       
+   {http://nav.domain3, 1.0},
+       
+   {http://nav.domain2, 1.0},
+       
+  ]
+}
+        
+user: jerryeligibleNavIds: ['http://nav.domain1', 'http://nav.domain2', 'http://nav.domain3', 'http://nav.domain4', 'http://nav.domain5', 'http://nav.domain6', 'http://nav.domain7']
+Result for user: jerry
+{  "result": [           {http://nav.domain5, 2.438410520553589},          {http://nav.domain4, 2.4384102821350098},          {http://nav.domain6, 2.4047234058380127},          {http://nav.domain1, 1.0},          {http://nav.domain3, 1.0},          {http://nav.domain2, 1.0},         ]}        
+Result for user: jerry
+
+{
+  "result": [
+        
+   {http://nav.domain5, 2.438410520553589},
+       
+   {http://nav.domain4, 2.4384102821350098},
+       
+   {http://nav.domain6, 2.4047234058380127},
+       
+   {http://nav.domain1, 1.0},
+       
+   {http://nav.domain3, 1.0},
+       
+   {http://nav.domain2, 1.0},
+       
+  ]
+}
+        
+user: jeffeligibleNavIds: ['http://nav.domain1', 'http://nav.domain2', 'http://nav.domain3', 'http://nav.domain4', 'http://nav.domain5', 'http://nav.domain6', 'http://nav.domain7']
+Result for user: jeff
+{  "result": [           {http://nav.domain6, 4.354147434234619},          {http://nav.domain5, 2.726092576980591},          {http://nav.domain4, 2.150728225708008},          {http://nav.domain1, 1.0},          {http://nav.domain3, 1.0},          {http://nav.domain2, 1.0},         ]}        
+Result for user: jeff
+
+{
+  "result": [
+        
+   {http://nav.domain6, 4.354147434234619},
+       
+   {http://nav.domain5, 2.726092576980591},
+       
+   {http://nav.domain4, 2.150728225708008},
+       
+   {http://nav.domain1, 1.0},
+       
+   {http://nav.domain3, 1.0},
+       
+   {http://nav.domain2, 1.0},
+       
+  ]
+}
+        
+user: jimeligibleNavIds: ['http://nav.domain1', 'http://nav.domain2', 'http://nav.domain3', 'http://nav.domain4', 'http://nav.domain5', 'http://nav.domain6', 'http://nav.domain7']
+Result for user: jim
+{  "result": [           {http://nav.domain6, 5.967099189758301},          {http://nav.domain5, 4.16450309753418},          {http://nav.domain4, 3.0137746334075928},          {http://nav.domain1, 1.0},          {http://nav.domain3, 1.0},          {http://nav.domain2, 1.0},         ]}        
+Result for user: jim
+
+{
+  "result": [
+        
+   {http://nav.domain6, 5.967099189758301},
+       
+   {http://nav.domain5, 4.16450309753418},
+       
+   {http://nav.domain4, 3.0137746334075928},
+       
+   {http://nav.domain1, 1.0},
+       
+   {http://nav.domain3, 1.0},
+       
+   {http://nav.domain2, 1.0},
+       
+  ]
+}
+        
+user: joeeligibleNavIds: ['http://nav.domain14', 'http://nav.domain15', 'http://nav.domain16']
+Result for user: joe
+{  "result": [           {http://nav.domain14, 4.998504161834717},          {http://nav.domain15, 2.438410520553589},          {http://nav.domain16, 1.6676568984985352},         ]}        
+Result for user: joe
+
+{
+  "result": [
+        
+   {http://nav.domain14, 4.998504161834717},
+       
+   {http://nav.domain15, 2.438410520553589},
+       
+   {http://nav.domain16, 1.6676568984985352},
+       
+  ]
+}
+        
+user: johneligibleNavIds: ['http://nav.domain14', 'http://nav.domain15', 'http://nav.domain16']
+Result for user: john
+{  "result": [           {http://nav.domain14, 4.998504161834717},          {http://nav.domain15, 2.438410520553589},          {http://nav.domain16, 1.6676568984985352},         ]}        
+Result for user: john
+
+{
+  "result": [
+        
+   {http://nav.domain14, 4.998504161834717},
+       
+   {http://nav.domain15, 2.438410520553589},
+       
+   {http://nav.domain16, 1.6676568984985352},
+       
+  ]
+}
+        
+user: jerryeligibleNavIds: ['http://nav.domain14', 'http://nav.domain15', 'http://nav.domain16']
+Result for user: jerry
+{  "result": [           {http://nav.domain14, 2.915548801422119},          {http://nav.domain15, 2.726092576980591},          {http://nav.domain16, 2.4047234058380127},         ]}        
+Result for user: jerry
+
+{
+  "result": [
+        
+   {http://nav.domain14, 2.915548801422119},
+       
+   {http://nav.domain15, 2.726092576980591},
+       
+   {http://nav.domain16, 2.4047234058380127},
+       
+  ]
+}
+        
+user: jeffeligibleNavIds: ['http://nav.domain14', 'http://nav.domain15', 'http://nav.domain16']
+Result for user: jeff
+{  "result": [           {http://nav.domain14, 4.864973068237305},          {http://nav.domain15, 3.5891387462615967},          {http://nav.domain16, 2.00412917137146},         ]}        
+Result for user: jeff
+
+{
+  "result": [
+        
+   {http://nav.domain14, 4.864973068237305},
+       
+   {http://nav.domain15, 3.5891387462615967},
+       
+   {http://nav.domain16, 2.00412917137146},
+       
+  ]
+}
+        
+user: jimeligibleNavIds: ['http://nav.domain14', 'http://nav.domain15', 'http://nav.domain16']
+Result for user: jim
+{  "result": [           {http://nav.domain14, 6.477924823760986},          {http://nav.domain15, 2.4384102821350098},          {http://nav.domain16, 1.737066388130188},         ]}        
+Result for user: jim
+
+{
+  "result": [
+        
+   {http://nav.domain14, 6.477924823760986},
+       
+   {http://nav.domain15, 2.4384102821350098},
+       
+   {http://nav.domain16, 1.737066388130188},
+       
+  ]
+}
+        
+10 queries sent

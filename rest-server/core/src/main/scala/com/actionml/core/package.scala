@@ -49,7 +49,7 @@ package object core  extends LazyLogging {
 
   }
 
-
+  case class BadParamsException(message: String) extends Exception(message)
 
 
 }

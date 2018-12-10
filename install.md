@@ -1,33 +1,44 @@
 # Harness Installation
 
-This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. Much of this is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
+This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. This is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
 
-There are 4 projects in the GitHub repo:
+# Requirements
 
- 1. The Harness server 
- 2. java-sdk 
- 3. java-sdk examples 
- 4. python sdk
+These projects are related and should be built together when installing from source (tarball and jar build TBD):
 
-For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md) as well as set them up for debugging with IntelliJ. Much of this is targeted at Debian/Ubuntu with side notes for macOS (BSD based).
+ 1. The Harness server (ActionML repo)
+ 2. The Harness Auth server (ActionML repo)
+ 3. Engines' dependencies (external tarball, apt-get, yum, or brew installs)
+ 4. Java-sdk (ActionML repo)
+ 5. Python sdk (included with the Harness Server AML repo)
 
-When using the source from GitHub follow these instructions to build and deploy.
+## Repositories
+For Harness 0.3.0+ These are split into 3 GitHub repositories.
 
-**General Requirements:**
+ 1. [Harness](https://github.com/actionml/harness): rest-server + Engines + Python CLI + Python SDK
+ 2. [Harness-Auth-Server](https://github.com/actionml/harness-auth-server): this is quite stable and has had no major changes for since 1/2018 and so is less subject to change
+ 3. The [Harness Java-SDK](https://github.com/actionml/harness-java-sdk) only supports Events and Queries and so is also stable and not very likely to change
 
- - Scala 2.11, install using `apt-get`, `yum`, or `brew`
- - Java 8, this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
- - Boost 1.55.0 or higher is fine. This is only for Vowpal Wabbit
- - Git
- - MongoDB 3.x, this may require a newer version than in the distro package repos, so check MongoDB docs for installation. For example, these instructions [install Mongo 3.4 on Ubuntu](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md).
 
-# The Contextual Bandit
+## General Requirements
+
+ - **Java 8:** this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
+ - **Scala 2.11:** install using `apt-get`, `yum`, or `brew`
+ - **Boost 1.55.0:** or higher is fine. This is only for Vowpal Wabbit
+ - **Git**
+ - **MongoDB 4+:** this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These instructions [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - **Other:** Each Engine or component may have its own requirements, see each below.
+
+## The Contextual Bandit
  
 Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
 
 **For macOS** get dependencies:
 
- - `sudo brew install boost maven clang`
+ - `brew install boost`
+ - `brew install maven`
+ - `brew install clang`
 
 
 **For Ubuntu 16.04+ or Debian** get dependencies:
@@ -49,6 +60,13 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     scala> System.getProperty("java.library.path")
     res0: String = /usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
     ```
+    
+    For masOS the location may be something like: 
+    
+    ```
+    res0: String = /Users/aml/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.
+    ```
+    
     We will use the JNI lib location `/usr/lib/jni` or its equivalent on your system
     
     Build VW and install it in the right place. First find the path above using the Scala REPL shell, then make sure the directory exists, you may need to create it, then copy the binary dynamic lib to the jni location.
@@ -70,122 +88,116 @@ Included in the project is a sample Kappa style Template for a Contextual Bandit
     
     This builds and installs the dynamic load lib for VW in a place that the Java JNI wrapper can find it. You are now ready to build the Harness Server. This includes the CLI and services the Harness REST API.
 
-# Harness Server
+# Harness Build from Source (develop branch)
 
- - Get and build source:
+The AuthServer must be built first and jars put in the local sbt cache. Then the Harness Server with build successfully. This is needed even if you are not using the AuthServer.
+
+## Harness AuthServer
+
+Get and build from source. The Authserver is pretty stable and has not had any changes since v0.1.0. So it is now released into the master branch of its repo.
+
+```
+git clone https://github.com/actionml/harness-auth-server.git harness-auth-server
+cd harness-auth-server
+./make-auth-server-distribution.sh
+tar xvf AuthServer-0.3.x.ab.tar.gz # use the version in the tarball name
+```
+
+This creates the AuthServer but it is not needed for local testing when auth and TLS are not being used. It must be built to create jars in the local `/.ivy2` cache. After building, populate the cache:
+
+```
+sbt harnessAuthCommon/publish-local
+```
+
+## Harness (WIP in develop)
+
+Get and build source:
  
-    ```
-    git clone https://github.com/actionml/harness.git
-    cd harness/rest-server
-    ./make-distribution
-    tar xvf Harness-0.1.0-SNAPSHOT
-    nano Harness-0.1.0-SNAPSHOT/bin/harness-env # config the env for Harness
-    ```
+```
+git clone -b develop https://github.com/actionml/harness.git harness
+cd harness/rest-server
+./make-distribution
+tar xvf Harness-0.3.x-abc # use the version number in the tarball name
+nano Harness-0.3.x-abc/bin/harness-env # config the env for Harness
+```
 
-    Add the path to the Harness CLI to your PATH by including something like the following in `~/.profile`
-    
-    ```
-    export PATH=$PATH:/home/aml/harness/rest-server/Harness-0.1.0-SNAPSHOT/bin/
-    # substitute your path to the distribution's "bin" directory
-    # it should have the .../bin/main file
-    ```
-    
-    Then source the `.profile` with 
-    
-    ```
-    . ~/.profile
-    ```
+The default config in `harness-env` is usually sufficient for testing locally. You can also copy the file from earlier builds, little has changed in it.
 
-    You are now ready to launch and run Harness with the included Contextual Bandit.
+Add the Harness CLI (located the `bin/` directory of the distribution tarball) to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
+    
+```
+export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.3.x-abc/bin/
+# substitute your path to the distribution's "bin" directory
+# the dir should contain the .../bin/main file and other CLI scripts
+```
+    
+Then source the `.profile` with 
+    
+```
+. ~/.profile
+```
+
+## Python SDK
+
+**Requirements**
+
+ - Python 3: This can usally be installed from the distribution's repos using `apt-get`, `brew`, or `yum`.
+
+The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
+
+**Note:** Most distributions install Python 3 to be executed with the CLI `python3` not `python`. Harness is setup to expect this.
+
+To install the Python SDK for local use:
+
+```
+cd harness/python-sdk # where ever the source is installed
+python3 setup.py install # you may need to add "sudo" to this
+```
+
+You are now ready to launch and run Harness with the included Engines
+
+# Elasticsearch 5.x or 6.x
+
+The Universal Recommender (and variants like the URNavHintingEngine), requires Elasticsearch to store the model and to run special queries not implemented by many other DBS. These special "similarity" queries are actually part of the UR's CCO algorithm.
+
+Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 6+.
+
+## macOS
+
+    $ brew update
+    $ brew install elasticsearch
+
+## Ubuntu
+
+The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
 
 # Launching Harness  
 
-To configure Harness for localhost connections you should not need to change the configuration in `harness/Harness-0.1.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing port numbers and if you want to connect to Harness from other hosts have it listen to `0.0.0.0` instead of `localhost`.
+ - **Setup Harness config:** To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.3.x-abc/bin/harness-env`. Look there to see examples for changing global Harness config.
+ - **Set the `path`** in your env to include the bin directory of both Harness and the Harness Auth server: 
 
-```
-harness start # you will get a status message printed
-harness add -c /path/to/some/engine.json # get a success response
-```
-
-You now have an empty Contextual Bandit Engine at the resource-id referenced in the engine.json.
-
-To send events and make queries see "examples" directories in `java-sdk` and `python-sdk`.
-
-When you are done playing around remove the Engine since is may be set up to mirror input and therefor taking up disk space with events.
-
-```
-harness delete test_resource # or whatever the engine's resource-id is
-# if you want to shutdown the server
-harness stop
-```
-
-**Note**: if you have put the `harness` script on your path commands can be executed from anywhere
-
-# Running the Integration Test
-
-```
-cd harness/python-sdk
-./integration-test.sh
-```
-
-You may see errors for deleting a non-existent resource or stopping harness when it is not started and this is normal but will not stop the script. If the script exits or the diff printed at the end is not blank the test fails.
-
-# Security
-
-So far all installation is without any security, which may be fine for your deployment but if you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth Server for short) and TLS/SSL. The 2 parts are independent; Harness uses Auth to trust the client and the client uses TLS to trust the Harness Server. 
-
-Security not only has 2 parts but needs to be configured on the Java/Python SDK (client) side **and** the Server Side
-
-## Setup Server-side Auth
-
-Auth starts by creating users see [Commands](commands.md) for User and Permission Management. At minimum you must have an `admin` user to use the CLI. This user can also be used to send test events but typically you will create `client` users for that purpose.
-
-    harness user-add admin
-
-This will report back a user-id and secret, make note of them. To use the default setup in `bin/harness-env` copy the secret to a file named with the user-id:
-
-    echo <user-secret> > ~/.ssh/<user-id>.secret
-
-This creates a file in the admin user's .ssh directory containing the secret. Now all you need to do is open `bin/harness-env` and add the user's id by adding:
-
-    export ADMIN_USER_ID=fc6c8616-1ef8-4440-8875-1bf21d5fbeef
-
-
-## Setup Server-side TLS/SSL 
-
-TLS must be enabled on the Harness Server and on all SDKs that communicate with it. That means at very least Python must be configured because the CLI uses the Python SDK.
-
-    export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-23harness5711!}
-    export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/harness.jks}
-    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+    ```
+    export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
+    ```
     
-# SDK/Client-side Setup
+ - **Start Elasticsearch:** If you are using some variant of the Universal Recommender Engine (like the URNavHintingEngine) launch Elasticsearch
 
-The Java and Python client classes take optional parameters for:
-
- - **user-id**: The user who has been granted permission to access resource(s) on the Harness Server
- - **user-secret**: The secret associated with the user-id above
- - **server.pem**: The path to a .pem formatted certificate created or issued to the Harness Server instance to be communicated with
- - **URL**: The base URL for the Harness Server. This has always been used but must now the "https" prefix for TLS/SSL where "http" is sufficient for non-SSL.
-
-These can be provided directly to the various "Client" objects when they are constructed.
-
-To use the examples in `java-sdk/examples` you can also set the following env:
-
-## Client Examples Auth
-
-    export HARNESS_CLIENT_USER_ID=<client-user-id>
-    # the value returned when creating a client or admin user
-    export HARNESS_CLIENT_USER_SECRET=<user-secret>
-    # the value returned as the user secret when creating
-    # and admin or client user with access to the resource
-    # the SDK will use
-
-## Client Examples TLS/SSL
-
-The following must be setup to use either the Java or Python SDK
-
-    export HARNESS_CA_CERT=/path/to/harness/server/cert.pem
-    # points to the server's .pem file, used for self-signed
-   
+    ```
+    nohup /path/to/elasticsearch/bin/elasticsearch -d &
+    ```
     
+ - **Start Other Services:** Harness and its Engines should have their dependent services started on boot. If they are not then start them before Harness. MongoDB is the only global requirement and installation with one of the distribution repo managers will leave it running and will setup for launch on reboot.
+ 
+ - **Start Harness:**
+
+    ```
+    harness start # you will get a status message printed
+    harness status engines # will list all active engines
+    ```
+
+    See [Commands](commands.md) for a description of the Harness CLI.
+    
+# Advanced Settings
+
+See [Advanced Settings](advanced_settings.md) for allowing external connections, using Auth, TLS/SSL, and other settings.
+

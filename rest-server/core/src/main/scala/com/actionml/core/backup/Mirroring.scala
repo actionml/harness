@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
-import com.actionml.core.template.Engine
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -30,13 +30,13 @@ import com.typesafe.scalalogging.LazyLogging
   * a trait or object extending this.
   *
   */
-abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
+abstract class Mirroring(mirrorContainer: String, engineId: String) extends LazyLogging {
 
-  def mirrorEvent(engineId: String, json: String): Validated[ValidateError, Boolean]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, Boolean]
+  def mirrorEvent(json: String): Validated[ValidateError, String]
+  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
 
   /**
-    * Collection names are formatted with "yy-MM-dd" template. In a filesystems this is the file name
+    * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
     * for mirrored files of events. It means differnent things so other types of Mirrors
     *
     * @return timestamp-based name
@@ -52,11 +52,11 @@ abstract class Mirroring(mirrorContainer: String) extends LazyLogging {
     * @param engineId Engine ID
     * @return directory name
     */
-  protected def containerName(engineId: String): String = s"$mirrorContainer/$engineId"
+  protected def containerName: String = s"$mirrorContainer/$engineId"
 
 }
 
-/** TODO: will be used when mirroring is config selectable */
+/** Used when mirroring is config selectable */
 object Mirroring {
   val localfs = "localfs"
   val hdfs = "hdfs"

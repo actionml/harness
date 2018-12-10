@@ -1,0 +1,41 @@
+nav-event,joe,http://nav.domain1,false
+nav-event,joe,http://nav.domain2,false
+nav-event,joe,http://nav.domain3,false
+nav-event,joe,http://nav.domain4,false
+nav-event,joe,http://nav.domain5,false
+nav-event,joe,http://nav.domain6,false
+nav-event,joe,http://nav.domain7,true
+nav-event,john,http://nav.domain1,false
+nav-event,john,http://nav.domain2,false
+nav-event,john,http://nav.domain3,false
+nav-event,john,http://nav.domain4,false
+nav-event,john,http://nav.domain5,false
+nav-event,john,http://nav.domain6,false
+search-terms,joe,term 1,false
+search-terms,joe,term 2,false
+search-terms,joe,term 3,false
+search-terms,joe,term 4,false
+search-terms,joe,term 5,false
+search-terms,joe,term 6,false
+search-terms,joe,term 7,false
+search-terms,john,term 1,false
+search-terms,john,term 2,false
+search-terms,john,term 3,false
+search-terms,john,term 4,false
+search-terms,john,term 5,false
+search-terms,john,term 6,false
+search-terms,john,term 7,false
+content-pref,joe,tag 1,false
+content-pref,joe,tag 2,false
+content-pref,joe,tag 3,false
+content-pref,joe,tag 4,false
+content-pref,joe,tag 5,false
+content-pref,joe,tag 6,false
+content-pref,joe,tag 7,false
+content-pref,john,tag 1,false
+content-pref,john,tag 2,false
+content-pref,john,tag 3,false
+content-pref,john,tag 4,false
+content-pref,john,tag 5,false
+content-pref,john,tag 6,false
+content-pref,john,tag 7,false

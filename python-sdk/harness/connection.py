@@ -36,7 +36,7 @@ except NameError:
     xrange = range
 
 # some constants
-MAX_RETRY = 1  # 0 means no retry
+MAX_RETRY = 0  # 0 means no retry
 
 # logger
 logger = None
@@ -212,11 +212,12 @@ class AsyncResponse(object):
 
 
 class HarnessHttpConnection(object):
-    def __init__(self, host, https=True, timeout=5):
+    def __init__(self, host, https=False, timeout=5):
         self.access_token = None
         if https:  # https connection
             ca_file = os.getenv("HARNESS_SERVER_CERT_PATH", "harness.pem")
-            ssl_context = ssl.create_default_context(cafile=ca_file)
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            ssl_context.load_verify_locations(ca_file)
             self._connection = httplib.HTTPSConnection(host, timeout=timeout, context=ssl_context)
         else:
             self._connection = httplib.HTTPConnection(host, timeout=timeout)
@@ -326,7 +327,7 @@ class HarnessHttpConnection(object):
         return response  # AsyncResponse object
 
 
-def connection_worker(host, request_queue, https=True, timeout=5, loop=True):
+def connection_worker(host, request_queue, https=False, timeout=5, loop=True):
     """worker function which establishes connection and wait for request jobs
     from the request_queue
     Args:
@@ -393,7 +394,7 @@ class Connection(object):
     spawn multiple connection_worker threads to handle jobs in the queue q
     """
 
-    def __init__(self, host, threads=1, qsize=0, https=True, timeout=5, user_id=None, user_secret=None):
+    def __init__(self, host, threads=1, qsize=0, https=False, timeout=10, user_id=None, user_secret=None):
         """constructor
         Args:
           host: host of the server.

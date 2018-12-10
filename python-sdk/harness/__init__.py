@@ -3,7 +3,7 @@ Provides easy-to-use functions for integrating
 Python applications with ActionML's REST API for the Harness Server.
 """
 
-__version__ = "0.1.0-RC2"
+__version__ = "0.3.0"
 
 # import packages
 import re
@@ -318,35 +318,57 @@ class EnginesClient(BaseClient):
     def create(self, data):
         return self.async_create(data).get_response()
 
-    def async_update(self, engine_id, data, data_delete=False, force=False, input=None):
+    def async_update(self, engine_id, import_path, update_type, data):
         """
-        Asynchronously update engine.
-        :param input: file or directory containing input as raw JSON
-        :param force:
-        :param data_delete:
-        :param data:
-        :param engine_id:
+        Asynchronously update engine with either input events OR new config JSON
+        :param engine_id: should be same as in data, which is json config string
+        :param import_path: if non-empty, defines a path to input json files to import
+        :param update_type: if True means the data = JSON config params for engine
+        :param data: json config data, as in create, engine_id's passed in and in json MUST match
         :return:
         """
-
-        query = {}
-        if data_delete:
-            query['data_delete'] = True
-        if force:
-            query['force'] = True
-        if input is not None:
-            query['input'] = input
-
         path = self._add_segment(engine_id)
-        path = self._add_get_params(path, **query)
+
+        if update_type == "configs":
+            path = path + "/configs"  # endpoint on an engine-id, flagging that data is the new config JSON
+        elif update_type == "imports":
+            path = path + "/imports"  # endpoint on an engine-id, that tells the engine to import from the import_path
+            query = {'import_path': import_path}
+            path = self._add_get_params(path, **query)
+        elif update_type == "jobs":
+            path = path + "/jobs"  # endpoint on an engine-id, that tells the engine to train from existing data
+
+
+        # print("Fully constructed path: {}".format(path))
+        # print("Data supplied: {}".format(data))
 
         request = AsyncRequest("POST", path, **data)
+
+    #        if :
+    #            query['force'] = True
+    #        if input is not None:
+    #            query['input'] = input
+
+    #        path = self._add_segment(engine_id)
+    #        path = self._add_get_params(path, **query)
+
+    #        request = AsyncRequest("POST", path, **data)
+    #        request.set_response_handler(self._ok_response_handler)
+    #        self._connection.make_request(request)
+    #        return request
+
+        # path = self._add_get_params(path, **query)
+
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request
 
-    def update(self, engine_id, data, data_delete=False, force=False, input=None):
-        return self.async_update(engine_id, data, data_delete, force, input).get_response()
+    def update(self, engine_id, import_path, update_type, data):
+        req = self.async_update(engine_id, import_path, update_type, data)
+        # print("Made request: {}".format(req))
+        ret = req.get_response()
+        # print("Got response: {}".format(ret))
+        return ret
 
     def async_delete(self, engine_id):
         request = AsyncRequest("DELETE", self._add_segment(engine_id))

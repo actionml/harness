@@ -1,0 +1,79 @@
+nav-event,u1,Iphone 6,false
+nav-event,u1,Iphone 5,false
+nav-event,u1,Iphone 4,false
+nav-event,u1,Ipad-retina,false
+nav-event,U 2,Nexus,false
+nav-event,U 2,Galaxy,false
+nav-event,u-3,Surface,false
+nav-event,u-4,Iphone 5,false
+nav-event,u-4,Iphone 5,false
+nav-event,u-4,Iphone 5,false
+nav-event,u-4,Iphone 5,false
+nav-event,u-4,Iphone 4,false
+nav-event,u-4,Galaxy,false
+nav-event,u5,Nexus,false
+nav-event,u6,Galaxy,false
+nav-event,u6,Iphone 6,false
+nav-event,u6,Nexus,false
+content-pref,u6,Should not see this,false
+search-terms,u1,Phones,false
+search-terms,u1,Phones,false
+search-terms,u1,Phones,false
+search-terms,u1,Phones,false
+search-terms,u1,Phones,false
+search-terms,u1,Phones,false
+search-terms,u1,Mobile-acc,false
+search-terms,U 2,Phones,false
+search-terms,U 2,tablets,false
+search-terms,U 2,Mobile-acc,false
+search-terms,u-3,Mobile-acc,false
+search-terms,u-4,Phones,false
+search-terms,u-4,tablets,false
+search-terms,u-4,Soap,false
+search-terms,u5,Soap,false
+content-pref,u1,phones,false
+content-pref,u1,phones,false
+content-pref,u1,phones,false
+content-pref,u1,tablets,false
+content-pref,U 2,tablets,false
+content-pref,U 2,phones,false
+content-pref,u-3,tablets,false
+content-pref,u-4,phones,false
+content-pref,u-4,phones,false
+content-pref,u5,toiletries,false
+nav-event,u1,Iphone 6,false
+nav-event,u1,Iphone 5,false
+nav-event,u1,Iphone 4,false
+nav-event,u1,Ipad-retina,false
+nav-event,U 2,Nexus,false
+nav-event,U 2,Galaxy,false
+nav-event,u-3,Surface,false
+nav-event,u-4,Iphone 5,false
+nav-event,u-4,Iphone 4,false
+nav-event,u-4,Galaxy,false
+search-terms,u1,Phones,false
+search-terms,u1,Mobile-acc,false
+search-terms,U 2,Phones,false
+search-terms,U 2,tablets,false
+search-terms,U 2,Mobile-acc,false
+search-terms,u-3,Mobile-acc,false
+search-terms,u-4,Phones,false
+search-terms,u-4,tablets,false
+search-terms,u-4,Soap,false
+search-terms,u5,Soap,false
+nav-event,u1,Galaxy,false
+nav-event,u1,Galaxy,false
+nav-event,u1,Galaxy,false
+nav-event,u1,Galaxy,false
+nav-event,U 2,Iphone 5,false
+nav-event,U 2,Iphone 5,false
+search-terms,u1,Soap,false
+search-terms,u1,Soap,false
+search-terms,u-3,Mobile-acc,false
+search-terms,u-4,Mobile-acc,false
+search-terms,u-4,Mobile-acc,false
+nav-event,u1,nothing,true
+nav-event,U 2,nothing,true
+nav-event,u-3,nothing,true
+nav-event,u-4,nothing,true
+nav-event,u5,nothing,true
