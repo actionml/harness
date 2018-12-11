@@ -69,7 +69,7 @@ def import_events(client, file, primary_event):
                 entity_id=data[0],
                 target_entity_type="item",
                 target_entity_id=data[2],
-                event_time = current_date
+                event_time=current_date
             )
 
             print("Event: " + data[1] + " entity_id: " + data[0] + " target_entity_id: " + data[2] + \
@@ -77,7 +77,7 @@ def import_events(client, file, primary_event):
             if primary_event == data[1] and data[2] not in primary_items:
                 primary_items.append(data[2])
 
-        elif (data[1] == "$set"):  # must be a set event
+        elif data[1] == "$set":  # must be a set event
             properties = data[2].split(PROPERTIES_DELIMITER)
             prop_name = properties.pop(0)
             prop_value = properties if not prop_name == 'defaultRank' else float(properties[0])
@@ -127,7 +127,7 @@ if __name__ == '__main__':
         description="Import sample data for Universal Recommender Engine")
     parser.add_argument('--engine_id', default='test_ur')
     parser.add_argument('--url', default="http://localhost:9090")
-    parser.add_argument('--file', default="examples/ur/sample-mobile-device-ur-data.csv")
+    parser.add_argument('--input_file', default="examples/ur/sample-mobile-device-ur-data.csv")
     parser.add_argument('--primary_event', default="purchase")
     parser.add_argument('--secret', default=None)
     parser.add_argument('--secret_2', default=None)
@@ -143,4 +143,4 @@ if __name__ == '__main__':
         # user_id=args.user_id,
         # user_secret=args.secret
         )
-    import_events(client, args.file, args.primary_event)
+    import_events(client, args.input_file, args.primary_event)

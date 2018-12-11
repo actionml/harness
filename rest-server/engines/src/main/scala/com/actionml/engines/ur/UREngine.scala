@@ -159,14 +159,15 @@ object UREngine extends JsonSupport {
   }
 
   case class UREvent (
-      //eventId: String, // not used in Harness, but allowed for PIO compatibility
+      eventId: Option[String], // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
       @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
       properties: Map[String, Seq[String]] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      @Indexed(order = desc, ttl = 30 days) eventTime: Date) // ISO8601 date
+      // @Indexed(order = desc, ttl = 30 days) eventTime: Date) // ISO8601 date
+      @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
   case class URItemProperties (

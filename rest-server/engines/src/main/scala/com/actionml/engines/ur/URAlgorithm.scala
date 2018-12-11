@@ -28,11 +28,11 @@ import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
-import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.ur.{URDataset, URPreparator}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
-import com.actionml.engines.ur.UREngine.{URItemProperties, ItemScore, Rule, UREvent, URQuery, URQueryResult}
+import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -498,6 +498,7 @@ class URAlgorithm private (
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
     val userHistory = eventsDao.findMany(
       DaoQuery(
+        orderBy = Some(OrderBy(ordering = Ordering.desc, fieldNames = "eventTime")),
         limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
         // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????

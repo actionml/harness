@@ -15,16 +15,18 @@ echo
 # export "HARNESS_CLIENT_USER_SECRET"=abc
 host=localhost
 # for real CLI test: engine=test_ur_nav_hinting
-engine=test_ur_nav_hinting
-test_queries=data/nh-queries-urls.json
-user_events=data/ur_nav_hinting_handmade_data.csv
+engine=test_ur
+engine_json=examples/ur/test_ur_mobile_device.json
+test_queries=examples/ur/test-ur-mobile-device-queries.sh
+user_events=examples/ur/sample-mobile-device-ur-data.csv
+actual_query_results=actual_ur_results.out
 
 training_sleep_seconds=30
 
 # initialize these in case not running from integrated test script
-skip_restarts=${skip_restarts:-false}
+skip_restarts=${skip_restarts:-true}
 clean_test_artifacts=${clean_test_artifacts:-false}
-test_results=data/expected-urnh-results.txt
+expected_test_results=examples/ur/expected-ur-results.txt
 
 
 if [ "$skip_restarts" = false ]; then
@@ -41,15 +43,13 @@ echo "--------------------------------------------------------------------------
 echo "Wipe the Engine clean of data and model first"
 harness delete ${engine}
 #sleep $sleep_seconds
-harness add data/${engine}.json
+harness add ${engine_json}
 #sleep $sleep_seconds
-
-harness status
 
 echo
 echo "Sending all personalization events"
 echo
-python3 ur_nav_hinting_import_handmade.py
+python3 examples/ur/import_mobile_device_ur_data.py --input_file ${user_events}
 
 echo
 echo "Training a new model--THIS WILL TAKE SOME TIME (30 SECONDS?)"
@@ -58,12 +58,12 @@ harness train $engine
 sleep $training_sleep_seconds # wait for training to complete
 
 echo
-echo "Sending hinting queries, joe and john should get the same results since they have identical behavior"
+echo "Sending hinting queries"
 echo
-python3 test_urnh_queries.py > test-urnh.out
+./${test_queries} > ${actual_query_results}
 
 
 echo "---------------------- There should be no important differences ----------------------------"
-diff test-urnh.out ${test_results} | grep result
+diff ${actual_query_results} ${expected_test_results} | grep result
 echo
 
