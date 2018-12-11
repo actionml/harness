@@ -98,10 +98,9 @@ def import_events(client, file, primary_event):
     # items = ['Iphone 6', 'Ipad-retina', 'Nexus', 'Surface', 'Iphone 4', 'Galaxy', 'Iphone 5']
     print("All items: " + str(primary_items))
 
-    """
     for item in primary_items:
 
-        client.create_event(
+        client.cre(
             event="$set",
             entity_type="item",
             entity_id=item,
@@ -120,7 +119,6 @@ def import_events(client, file, primary_event):
 
     f.close()
     print("%s events are imported." % count)
-    """
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
