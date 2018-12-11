@@ -17,6 +17,10 @@
         "name": "category-pref",
         "maxCorrelatorsPerItem": 50,
         "minLLR": 5.0
+      },{
+        "name": "addtocart"
+      },{
+        "name": "transaction"
       }
     ],
     "num": 4

@@ -3,7 +3,7 @@ VERSION := $(shell grep ^version build.sbt | grep -o '".*"' | sed 's/"//g')
 DIST := dist/
 .DEFAULT_GOAL := build
 
-include ../makefile.sbt
+include ../makefile.sbt.sh
 
 # Fallback to system-wide sbt binary
 ifeq (,$(wildcard $(SBT)))

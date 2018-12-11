@@ -17,6 +17,8 @@
 
 package com.actionml.engines.ur
 
+import java.util.Date
+
 import cats.data.Validated
 import cats.data.Validated.Valid
 //import com.actionml.{DateRange, Rule}
@@ -29,7 +31,6 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
-import com.actionml.engines.ur.URDataset
 import org.json4s.JValue
 
 import scala.concurrent.duration._
@@ -146,8 +147,6 @@ object UREngine extends JsonSupport {
       sparkConf: Map[String, JValue])
     extends EngineParams {
 
-    import org.json4s._
-    import org.json4s.jackson.Serialization
     import org.json4s.jackson.Serialization.write
     /*
     implicit val formats = Serialization.formats(NoTypeHints)
@@ -167,7 +166,7 @@ object UREngine extends JsonSupport {
       targetEntityId: Option[String] = None,
       properties: Map[String, Seq[String]] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      @Indexed(order = desc, ttl = 30 days) eventTime: String) // ISO8601 date
+      @Indexed(order = desc, ttl = 30 days) eventTime: Date) // ISO8601 date
     extends Event with Serializable
 
   case class URItemProperties (
