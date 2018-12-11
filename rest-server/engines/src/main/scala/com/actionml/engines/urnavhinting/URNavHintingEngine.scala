@@ -49,7 +49,7 @@ class URNavHintingEngine extends Engine with JsonParser {
         dataset = new URNavHintingDataset(
           engineId = engineId,
           store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs),
-          p.sharedDBName.isDefined)
+          p.sharedDBName.isEmpty)
         val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
         algo = URNavHintingAlgorithm(this, jsonConfig, dataset, eventsDao)
         logStatus(p)
