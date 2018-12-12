@@ -129,8 +129,8 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
                 Valid(event)
 
               } catch {
-                case _ => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
-                  logger.error(s"Cannot $$delete non-existent model: ${event.entityId}")
+                case e: Exception => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
+                  logger.error(s"Cannot $$delete non-existent model: ${event.entityId}", e)
                   Invalid(ResourceNotFound(jsonComment(s"Cannot $$delete non-existent model: ${event.entityId}")))
               }
             case _ =>

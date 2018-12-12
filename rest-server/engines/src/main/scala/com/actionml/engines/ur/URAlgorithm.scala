@@ -29,8 +29,7 @@ import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
-import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
-import com.actionml.engines.ur.{URDataset, URPreparator}
+import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
@@ -40,8 +39,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-//import com.actionml.engines.urnavhinting.{ItemID, UserID, PropertyMap}
 
 import scala.concurrent.duration.Duration
 

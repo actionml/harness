@@ -73,7 +73,7 @@ def import_events(client, file, primary_event):
             )
 
             print("Event: " + data[1] + " entity_id: " + data[0] + " target_entity_id: " + data[2] + \
-                  " current_date: " + current_date.isoformat())
+                  " current_date: " + current_date.isoformat(timespec="milliseconds"))
             if primary_event == data[1] and data[2] not in primary_items:
                 primary_items.append(data[2])
 

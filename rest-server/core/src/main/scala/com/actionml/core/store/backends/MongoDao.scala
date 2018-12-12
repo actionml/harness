@@ -58,7 +58,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
     collection.insertOne(o).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"Successfully inserted $o into $name with result $t")
-        Future.successful(t)
+        Future.successful ()
       case None =>
         logger.error(s"Can't insert value $o to collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
@@ -69,7 +69,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
     collection.insertMany(c).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"Successfully inserted many into $name with result $t")
-        Future.successful(t)
+        Future.successful ()
       case None =>
         logger.error(s"Can't insert many into collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert many to collection ${collection.namespace}"))
