@@ -68,7 +68,7 @@ def time_to_string_if_valid(t):
     """ Validate event_time according to EventAPI Specification."""
 
     if t is None:
-        return datetime.now(pytz.utc).isoformat()
+        return datetime.now(pytz.utc).isoformat(timespec="milliseconds")
 
     if type(t) != datetime:
         raise AttributeError("event_time must be datetime.datetime")
@@ -79,7 +79,7 @@ def time_to_string_if_valid(t):
     # EventServer uses milliseconds, but python datetime class uses micro. Hence
     # need to skip the last three digits.
     # pat: from PIO return t.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + t.strftime("%z")
-    return t.isoformat()
+    return t.isoformat(timespec="milliseconds")
 
 
 class BaseClient(object):
