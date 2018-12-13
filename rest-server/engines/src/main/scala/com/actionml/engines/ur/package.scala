@@ -26,7 +26,6 @@ import scala.collection.JavaConversions._
 
 package object ur {
 
-  type ActionID = String
   type UserID = String
   type ItemID = String
   type PropertyMap = Map[String, Any]

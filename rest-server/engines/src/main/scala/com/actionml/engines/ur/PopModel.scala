@@ -115,7 +115,7 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     interval: Interval): RDD[(ItemID, Double)] = {
 
     /* PIO version
-    val events = eventsRDD(appName, eventNames, interval)
+    val events = eventsRDD(appName, indicatorParams, interval)
     events.map { e => (e.targetEntityId, e.event) }
       .groupByKey()
       .map { case (itemID, itEvents) => (itemID.get, itEvents.size.toDouble) }
@@ -192,7 +192,7 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
   /*
   def eventsRDD(
     appName: String,
-    eventNames: Seq[String] = Seq.empty,
+    indicatorParams: Seq[String] = Seq.empty,
     interval: Interval): RDD[Event] = {
 
     logger.info(s"PopModel getting eventsRDD for startTime: ${interval.getStart} and endTime ${interval.getEnd}")
@@ -200,7 +200,7 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
       appName = appName,
       startTime = Some(interval.getStart),
       untilTime = Some(interval.getEnd),
-      eventNames = if (eventNames.nonEmpty) Some(eventNames) else None)(sc).repartition(sc.defaultParallelism)
+      indicatorParams = if (indicatorParams.nonEmpty) Some(indicatorParams) else None)(sc).repartition(sc.defaultParallelism)
   }
   */
 

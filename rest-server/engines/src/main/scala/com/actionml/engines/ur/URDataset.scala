@@ -77,7 +77,11 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
     import DaoQuery.syntax._
     parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
-      if (indicatorNames.contains(event.event)) { // only store the indicator events here
+      val aliases = params.indicators.flatMap { ip =>
+        ip.aliases.getOrElse(Seq(ip.name))
+      } // should be either aliases for an event name, defaulting to the event name itself
+
+      if(aliases.contains(event.event)) { // only store the indicator events here
         eventsDao.saveOne(event)
         Valid(event)
       } else { // not an indicator so check for reserved events the dataset cares about
