@@ -94,7 +94,6 @@ echo
 
 echo "---------------------- There should be no important differences ----------------------------"
 diff ${actual_query_results} ${expected_test_results} | grep result
-echo "---------------------- Alias results                            ----------------------------"
 diff ${actual_query_results_aliases} ${expected_test_results} | grep result
 echo
 
