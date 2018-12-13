@@ -44,7 +44,7 @@ To use harness in your Python script, import the package, and create an `EventsC
         event_time=current_date, #  These are datetimes
         creation_time=current_date,
         properties={"pageVariants": ["1", "2"],
-                    "testPeriodStart": event_date.isoformat(timespec="milliseconds")
+                    "testPeriodStart": event_date.isoformat()
                     # this is a string that the Engine must parse
                     # you can't use a datetime here
                     }
