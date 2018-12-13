@@ -45,7 +45,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
           logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}")
           logger.error("This error is non-fatal but means events will not be mirrored", ex)
           None
-        case unknownException =>
+        case unknownException: Exception =>
           logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
           throw unknownException
       }

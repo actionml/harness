@@ -18,6 +18,7 @@
 package com.actionml.core.validate
 
 import java.io.IOException
+import java.text.SimpleDateFormat
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -25,8 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
-import org.json4s.{DefaultFormats, Formats, JValue, MappingException, NoTypeHints}
+import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -34,10 +34,14 @@ import scala.reflect.runtime.universe._
 
 trait JsonSupport extends LazyLogging {
 
-
-  implicit val dateFormats: Formats = DefaultFormats ++ JodaTimeSerializers.all
-  implicit val jsonFormats = Serialization.formats(NoTypeHints)
-
+  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all
+  private object CustomFormats extends DefaultFormats {
+    override protected def dateFormatter: SimpleDateFormat = {
+      val f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX")
+      f.setTimeZone(DefaultFormats.UTC)
+      f
+    }
+  }
 
   def parseAndValidate[T : ClassTag](
     json: String,
@@ -72,7 +76,6 @@ trait JsonSupport extends LazyLogging {
     } catch {
       case e: IOException =>
         jsonComment(s"Bad Json in prettify: $jsonString")
-      case ex => throw ex
     }
   }
 

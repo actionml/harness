@@ -73,7 +73,7 @@ def import_events(client, file, primary_event):
             )
 
             print("Event: " + data[1] + " entity_id: " + data[0] + " target_entity_id: " + data[2] + \
-                  " current_date: " + current_date.isoformat())
+                  " current_date: " + current_date.isoformat(timespec="milliseconds"))
             if primary_event == data[1] and data[2] not in primary_items:
                 primary_items.append(data[2])
 
@@ -91,7 +91,7 @@ def import_events(client, file, primary_event):
             )
 
             print("Event: " + data[1] + " entity_id: " + data[0] + " properties/"+prop_name+": " + str(properties) + \
-                  " current_date: " + current_date.isoformat())
+                  " current_date: " + current_date.isoformat(timespec="milliseconds"))
         count += 1
         current_date += event_time_increment
 
@@ -100,18 +100,18 @@ def import_events(client, file, primary_event):
 """
     for item in primary_items:
 
-        client.cre(
+        client.create(
             event="$set",
             entity_type="item",
             entity_id=item,
-            properties={"expires": expire_date.isoformat(),
-                        "available": available_date.isoformat(),
-                        "date": event_date.isoformat()}
+            properties={"expires": expire_date.isoformat(timespec="milliseconds"),
+                        "available": available_date.isoformat(timespec="milliseconds"),
+                        "date": event_date.isoformat(timespec="milliseconds")}
         )
         print("Event: $set entity_id: " + item + \
-              " properties/availableDate: " + available_date.isoformat() + \
-              " properties/date: " + event_date.isoformat() + \
-              " properties/expireDate: " + expire_date.isoformat())
+              " properties/availableDate: " + available_date.isoformat(timespec="milliseconds") + \
+              " properties/date: " + event_date.isoformat(timespec="milliseconds") + \
+              " properties/expireDate: " + expire_date.isoformat(timespec="milliseconds"))
         expire_date += available_date_increment
         event_date += available_date_increment
         available_date += available_date_increment
