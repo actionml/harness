@@ -37,7 +37,7 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class URNavHintingDataset(engineId: String, val store: Store, val noSharedDB = true)
+class URNavHintingDataset(engineId: String, val store: Store, val noSharedDB: Boolean = true)
   extends Dataset[URNavHintingEvent](engineId) with JsonParser {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering

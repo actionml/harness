@@ -10,7 +10,7 @@ To make the UX uncluttered and more self explaining:
 
  - It is recommended to exclude hinting from common navigation elements like menus, sidebars, footers, and mobile app navigation placeholders&mdash;otherwise they may be hinted all the time as much more common paths to conversions.
  - Hint a limited number of nav ids (one?) even though more than one may be returned.
- - When possible a hover tool-tip may be useful to describe the hint purpose.
+ - When possible a hover tool-tip may be useful to describe the hint purpose "you may wish to see this information"
 
 ## Algorithm
 
@@ -71,9 +71,7 @@ Configuration is especially important because it defines the type of events by n
     "es.index.auto.create": "true"
   },
   "algorithm": {
-    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
-    "esMaster": "es-node-1",
-    "blacklist": [],
+    "blacklistEvents": [],
     "indicators": [
       {
         "name": "nav-event"
@@ -83,9 +81,6 @@ Configuration is especially important because it defines the type of events by n
         "name": "content-pref"
       }
     ],
-    "availableDateName": "available",
-    "expireDateName": "expires",
-    "dateName": "date",
     "num": 6
   }
 }
@@ -102,27 +97,22 @@ For the most part these correspond directly to parameters that can be set in the
 
 In other cases they are needed as key->value pairs so that libraries that use spark can read the parameters they need. The Elasticsearch params that start with "es." are this type. These are documented on the Elasticsearch site. The common ones you might need are:
 
- - **es.nodes**: a comma separated list of node names or ip addresses like "host1,host2" or "1.2.3.4,1.2.3.5,1.2.3.6". The default port for ES REST is 9200 so if you are using that there is no need to specify it.
- - **es.port**: defaults to 9200 but can be changed with this config if needed.
- - **es.net.http.auth.user** and **es.net.http.auth.pass** allow you to set username and password if you need to use Elasticsearch with authentication.
+ - **es.nodes**: (optional) a comma separated list of node names or ip addresses like "host1,host2" or "1.2.3.4,1.2.3.5,1.2.3.6". The default port for ES REST is 9200 so if you are using that there is no need to specify it.
+ - **es.port**: (optional) defaults to 9200 but can be changed with this config if needed.
+ - **es.net.http.auth.user** and **es.net.http.auth.pass** (optional) allows the engine to use username and password if needed for Elasticsearch with authentication.
  - **es.index.auto.create**: should always be set to "true"
 
 ## CCO Algorithm Parameters
 
 The Algorithm: params section controls most of the features of the CCO. Possible values are:
 
- - **indexName**: optional, defaults to the URL encoded version of the Engine ID. To specify a different index in Elasticsearch for storage of the CCO model enter a string. The Elasticsearch URI for its REST interface is http:/**elasticsearch-machine**/indexName/typeName/... You can access ES through its REST interface here.
- - **typeName**: optional, defaults to "items". Describes the type in Elasticsearch terminology and is used in the REST access to the model.
- - **numESWriteConnections**: optional, default = number of threads in entire Spark Cluster, which may overload ES. This is used when the model is written to ES after it is calculated using Spark. If you see task failures but due to retries, lowering this may help remove the errors. The other ideal option is to add to / scale out your ES cluster because lowering the number of connections will slow the Spark cluster down by reducing the number of tasks used to write to ES. The rule of thumb for this is (numberOfNodesHostingPrimaries * bulkRequestQueueLength) * 0.75. In general this is (numberOfESCores * 50) * 0.75. For ES 1.7 the bulk queue is defaulted to 50
- - **maxEventsPerEventType**: optional (use with great care), default = 500. Amount of user history to use in model calculation.
- - **maxCorrelatorsPerEventType**: optional, default = 50. this applies to all event types, use indicators to apply to specific event types—called indicators. An integer that controls how many of the strongest correlators are created for every event type named in eventNames.
- - **indicators**: The first name in the array should be "nav-hint" then the rest can be other event names that correspond to indicators of user preferences. This method for naming event types also allows for setting downsampling per event type. These are more properly called "indicators" because they may not be triggered by events but are always assumed to be something known about users, which we think "indicates" something about their preferences:
-    - **name**: name for the indicator, as in eventNames.
-    - **maxCorrelatorsPerItem**: optional, default = 50. The number of correlated items per recommended item or put another way the number of this type of item stored in the model. This is set to give best results for the indicator type and should be significantly less than the total possible number of the named indicator.
-    - **minLLR**: this is not used by default and is here when an LLR score is desired as the minimum threshold. Since LLR scores will be higher for better correlation this can be set to ensure the highest quality correlators are the only ones used. This will increase precision of recommendations but may decrease recall, meaning you will get better recommendations but less of them. A rule of thumb would say to use something like 5 for a typical high quality ecom dataset.
-    - **maxQueryEvents**: optional, default = 100. An integer specifying the number of most recent user history events used to make recommendations for an individual. More implies some will be less recent actions. Theoretically using the right number will capture the user’s current interests.
+ - **numESWriteConnections**: optional, default = number of threads in entire Spark Cluster, which may overload ES. This is used when the model is written to ES after it is calculated using Spark. If you see task failures due to retries, lowering this may help remove the errors. The other ideal option is to add to / scale out your ES cluster because lowering the number of connections will slow the Spark cluster down by reducing the number of tasks used to write to ES. The rule of thumb for this is (numberOfNodesHostingPrimaries * bulkRequestQueueLength) * 0.75. In general this is (numberOfESCores * 50) * 0.75. For ES 1.7 the bulk queue is defaulted to 50
+ - **indicators**: The first name in the array should be "nav-hint" then the rest can be other event names that correspond to indicators of user preferences.
+    - **name**: name for the indicator events.
  - **num**: optional, default = 20. An integer telling the engine the maximum number of recommendations to return per query but less may be returned if the query produces less results or post recommendations filters like blacklists remove some.
- - **blacklistEvents**: optional, default = the primary action. **Note: for nav-hinting this should be set to an empty array.**
+ - **blacklistEvents**: optional, default = the primary action.  **Note**: For nav hinting use one of 2 options:
+    1. To not show a user, links they have followed leave out this setting. 
+    - To hint links the user may have seen, set the value to an empty array as shown above.
 
 # Input
 

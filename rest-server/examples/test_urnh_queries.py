@@ -59,7 +59,6 @@ def send_queries(client, file):
         response = client.send_query({"user": user, "eligibleNavIds": eligible_nav_ids})
 
         print("Result for user: " + data[0] + "\n" + response.json_body.replace("\n", ""))
-        print("Result for user: " + data[0] + "\n" + response.json_body) # leaves pretty result for debugging
         count += 1
 
     print(str(count) + " queries sent")
@@ -70,7 +69,7 @@ if __name__ == '__main__':
         description="Import sample data for recommendation engine")
     parser.add_argument('--engine_id', default='test_ur_nav_hinting')
     parser.add_argument('--url', default="http://localhost:9090")
-    parser.add_argument('--input_file', default="./data/ur_nav_hinting_handmade_queries.csv")
+    parser.add_argument('--input_file', default="examples/data/ur_nav_hinting_handmade_queries.csv")
     parser.add_argument('--secret', default=None)
     parser.add_argument('--secret_2', default=None)
 

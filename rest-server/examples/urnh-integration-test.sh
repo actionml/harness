@@ -16,16 +16,18 @@ echo
 host=localhost
 # for real CLI test: engine=test_ur_nav_hinting
 engine=test_ur_nav_hinting
-test_queries=data/nh-queries-urls.json
-user_events=data/ur_nav_hinting_handmade_data.csv
+engine_json=examples/data/${engine}.json
+test_queries=examples/data/nh-queries-urls.json
+user_events=examples/data/ur_nav_hinting_handmade_data.csv
+import_data_script=examples/ur_nav_hinting_import_handmade.py
+expected_test_results=examples/data/expected-urnh-results.txt
+actual_test_results=actual-urnh-results.out
 
 training_sleep_seconds=30
 
 # initialize these in case not running from integrated test script
 skip_restarts=${skip_restarts:-false}
 clean_test_artifacts=${clean_test_artifacts:-false}
-test_results=data/expected-urnh-results.txt
-
 
 
 
@@ -37,7 +39,7 @@ echo "--------------------------------------------------------------------------
 echo "Wipe the Engine clean of data and model first"
 harness delete ${engine}
 #sleep $sleep_seconds
-harness add data/${engine}.json
+harness add ${engine_json}
 #sleep $sleep_seconds
 
 harness status
@@ -45,7 +47,7 @@ harness status
 echo
 echo "Sending all personalization events"
 echo
-python3 ur_nav_hinting_import_handmade.py
+python3 ${import_data_script}
 
 echo
 echo "Training a new model--THIS WILL TAKE SOME TIME (30 SECONDS?)"
@@ -56,10 +58,10 @@ sleep $training_sleep_seconds # wait for training to complete
 echo
 echo "Sending hinting queries, joe and john should get the same results since they have identical behavior"
 echo
-python3 test_urnh_queries.py > test-urnh.out
+python3 examples/test_urnh_queries.py > ${actual_test_results}
 
 
 echo "---------------------- There should be no important differences ----------------------------"
-diff test-urnh.out ${test_results} | grep result
+diff ${actual_test_results} ${expected_test_results} | grep result
 echo
 

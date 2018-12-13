@@ -101,7 +101,7 @@ if __name__ == '__main__':
         description="Import sample data for recommendation engine")
     parser.add_argument('--engine_id', default='test_ur_nav_hinting')
     parser.add_argument('--url', default="http://localhost:9090")
-    parser.add_argument('--input_file', default="./data/ur_nav_hinting_handmade_data.csv")
+    parser.add_argument('--input_file', default="examples/data/ur_nav_hinting_handmade_data.csv")
     parser.add_argument('--secret', default=None)
     parser.add_argument('--secret_2', default=None)
 
