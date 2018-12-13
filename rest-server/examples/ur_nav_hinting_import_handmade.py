@@ -73,7 +73,7 @@ def import_events(client, file):
                 target_entity_type="item",
                 target_entity_id=data[2],
                 event_time=current_date,
-                properties={"converted": converted}
+                properties={"conversion": converted}
             )
             print("Event: " + str(data))
         elif data[0] == "$set":
