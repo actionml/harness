@@ -6,6 +6,7 @@ SBT_URL ?= https://git.io/sbt
 SBT ?= $(HARNESS_ROOT)/sbt/sbt
 
 RESTSRV_DIR := $(HARNESS_ROOT)/rest-server
+PYTHON_SDK_DIR := $(HARNESS_ROOT)/python-sdk
 DIST ?= ./dist
 
 VERSION := $(shell grep ^version $(RESTSRV_DIR)/build.sbt | grep -o '".*"' | sed 's/"//g')
@@ -32,7 +33,7 @@ clean: sbt
 	cd $(RESTSRV_DIR); \
 		$(SBT) ++$(SCALA_VERSION) -batch server/clean
 
-dist: clean clean-dist build
+dist: clean clean-dist build wheel
 	mkdir -p $(DIST) && cd $(DIST) && mkdir bin conf logs project lib
 	cp $(RESTSRV_DIR)/bin/* $(DIST)/bin/
 	cp $(RESTSRV_DIR)/conf/* $(DIST)/conf/
@@ -43,6 +44,10 @@ dist: clean clean-dist build
 	#  we can not ship without jks which unfortunate.
 	# rm -f $(DIST)/conf/harness.jks $(DIST)/conf/harness.pem
 	echo $(VERSION) > $(DIST)/RELEASE
+
+wheel:
+	mkdir -p $(DIST)
+	pip wheel --wheel-dir=$(DIST)/wheel $(PYTHON_SDK_DIR)
 
 clean-dist:
 	rm -rf $(DIST)
