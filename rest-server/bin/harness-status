@@ -1,90 +1,54 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_HOME}/bin/harness-env"
+. "$(cd "`dirname "$0"`"; pwd)/common.sh"
 
 RESOURCE_TYPE=$1
 RESOURCE_ID=$2
-
-export PIDFILE=${HARNESS_HOME}/harness.pid
-
+line="=================================================================="
 
 if [ -z "$RESOURCE_TYPE" ] ; then
-    echo -e "${CYAN}Harness Server settings${NC}"
-    echo -e "${GLINE}"
-    echo "HARNESS_HOME................${HARNESS_HOME}"
-    echo "REST_SERVER_HOST............${REST_SERVER_HOST}"
-    echo "REST_SERVER_PORT............${REST_SERVER_PORT}"
-    echo "MONGO_HOST..................${MONGO_HOST}"
-    echo "MONGO_PORT..................${MONGO_PORT}"
-    echo "HARNESS_LOG_CONFIG..........${HARNESS_LOG_CONFIG}"
-    echo "HARNESS_LOG_PATH............${HARNESS_LOG_PATH}"
-    echo "HARNESS_SSL_ENABLED.........${HARNESS_SSL_ENABLED}"
-    echo "HARNESS_AUTH_ENABLED........${HARNESS_AUTH_ENABLED}"
-    echo "HARNESS_KEYSTORE_PASSWORD...${HARNESS_KEYSTORE_PASSWORD}"
-    echo "HARNESS_KEYSTORE_PATH.......${HARNESS_KEYSTORE_PATH}"
-    echo "HARNESS_EXTERNAL_ADDRESS....${HARNESS_EXTERNAL_ADDRESS}"
-    echo "PIDFILE.....................${PIDFILE}"
-    if [[ -f ${PIDFILE} ]]; then
-        harness_pid=`cat ${PIDFILE}`
-        echo "Harness pid.................${harness_pid}"
-        echo -e "${RLINE}"
-    else
-        echo -e "${RLINE}"
-        echo -e "${CYAN}No pid file exists, Harness will need to be stopped by hand.${NC}"
-    fi
-    echo -e "${CYAN}Checking Harness Server status${NC}"
-    PYTHON_ARGS=" status ${USER_ARGS}"
-    #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}${NC}"
-    ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
-    exit $?
+  echo -e "${CYAN}Harness Server settings${NC}"
+  echo -e "${CYAN}${line}"
+  status_line "HARNESS_HOME" "${HARNESS_HOME}"
+  status_line "REST_SERVER_HOST" "${REST_SERVER_HOST}"
+  status_line "REST_SERVER_PORT" "${REST_SERVER_PORT}"
+  status_line "MONGO_PORT" "${MONGO_PORT}"
+  status_line "MONGO_PORT" "${MONGO_PORT}"
+  status_line "HARNESS_LOG_CONFIG" "${HARNESS_LOG_CONFIG}"
+  status_line "HARNESS_LOG_PATH" "${HARNESS_LOG_PATH}"
+  status_line "HARNESS_SSL_ENABLED" "${HARNESS_SSL_ENABLED}"
+  status_line "HARNESS_AUTH_ENABLED" "${HARNESS_AUTH_ENABLED}"
+  status_line "HARNESS_KEYSTORE_PASSWORD" "******"
+  status_line "HARNESS_KEYSTORE_PATH" "${HARNESS_KEYSTORE_PATH}"
+  status_line "HARNESS_EXTERNAL_ADDRESS" "${HARNESS_EXTERNAL_ADDRESS}"
+  echo -e "${line}${NC}"
+
+  # output status
+  color="${GREEN}"; status="OK"
+  harness_running || { color="${RED}"; status="FAILED"; }
+  echo -e "${color}Harness Server status: ${status}${NC}"
+
+  harness_running || exit $?
 fi
 
-if [ ${RESOURCE_TYPE} = "engines" ]; then
 
-    if [ -z ${RESOURCE_ID} ]; then
-        PYTHON_ARGS="status --all_engines $USER_ARGS"
-
-        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
-
-        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
-        exit $?
-    fi
-
-    if [ ! -z ${RESOURCE_ID} ]; then
-        PYTHON_ARGS="status -e ${RESOURCE_ID} $USER_ARGS"
-
-        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
-
-        ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}
-        exit $?
-    fi
-
+## engines
+#
+if [ "${RESOURCE_TYPE}" = "engines" ]; then
+  if [ -z ${RESOURCE_ID} ]; then
+    "${HARNESS_HOME}"/bin/engines.py status --all_engines "${USER_ARGS}" || exit $?
+  else
+    "${HARNESS_HOME}"/bin/engines.py status -e "${RESOURCE_ID}" "${USER_ARGS}" || exit $?
+  fi
 fi
 
-if [ ${RESOURCE_TYPE} = "users" ]; then
-    if [ -z ${RESOURCE_ID} ]; then
-        PYTHON_ARGS="status --all_users $USER_ARGS"
 
-        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/engines.py ${PYTHON_ARGS}${NC}"
-
-        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
-        exit $?
-    fi
-
-    if [ ! -z ${RESOURCE_ID} ]; then
-        PYTHON_ARGS="status --user_id ${RESOURCE_ID} $USER_ARGS"
-
-        #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
-
-        ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
-        exit $?
-    fi
-
+## users
+#
+if [ "${RESOURCE_TYPE}" = "users" ]; then
+  if [ -z "${RESOURCE_ID}" ]; then
+    "${HARNESS_HOME}"/bin/users.py status --all_users "${USER_ARGS}" || exit $?
+  else
+    "${HARNESS_HOME}"/bin/users.py status --user_id "${RESOURCE_ID}" "${USER_ARGS}"
+  fi
 fi
-
-echo -e "   ${RED}Error in command, should be:  harness status [[ engines | engines <engine-id>]]${NC}"
-echo -e "       Prints a status message for the harness server, all engines or for the engine specified."
-echo ""
-
-
-
