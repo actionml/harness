@@ -166,7 +166,7 @@ object UREngine extends JsonSupport {
       targetEntityId: Option[String] = None,
       properties: Map[String, Seq[String]] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      @Indexed(order = desc, ttl = 30 days) eventTime: Date)
+      @Indexed(order = desc) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
