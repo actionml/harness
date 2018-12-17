@@ -37,7 +37,7 @@ fi
 
 echo
 echo "----------------------------------------------------------------------------------------------------------------"
-echo "PERSONALIZED NAVIGATION HINTING ENGINE"
+echo "Universal Recommender Integration tests"
 echo "----------------------------------------------------------------------------------------------------------------"
 
 echo "Wipe the Engine clean of data and model first"
@@ -62,8 +62,38 @@ echo "Sending hinting queries"
 echo
 ./${test_queries} > ${actual_query_results}
 
+echo
+echo "---------------------- Testing Event Aliases                    ----------------------------"
+
+engine_aliases_json=examples/ur/test_ur_event_aliases.json
+user_events_aliases=examples/ur/sample-event-alias-ur-data.csv
+actual_query_results_aliases=actual_ur_aliases_results.out
+
+echo "Wipe the Engine clean of data and model first"
+harness delete ${engine}
+#sleep $sleep_seconds
+harness add ${engine_aliases_json}
+#sleep $sleep_seconds
+
+echo
+echo "Sending all personalization events"
+echo
+python3 examples/ur/import_mobile_device_ur_data.py --input_file ${user_events_aliases}
+
+echo
+echo "Training a new model--THIS WILL TAKE SOME TIME (30 SECONDS?)"
+echo
+harness train $engine
+sleep $training_sleep_seconds # wait for training to complete
+
+echo
+echo "Sending hinting queries"
+echo
+./${test_queries} > ${actual_query_results_aliases}
+
 
 echo "---------------------- There should be no important differences ----------------------------"
 diff ${actual_query_results} ${expected_test_results} | grep result
+diff ${actual_query_results_aliases} ${expected_test_results} | grep result
 echo
 

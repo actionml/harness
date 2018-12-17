@@ -103,7 +103,7 @@ class URAlgorithm private (
     var err: Validated[ValidateError, String] = Valid(jsonComment("URAlgorithm initialized"))
 
     recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
-    //val eventNames: Seq[String] = params.eventNames
+    //val indicatorParams: Seq[String] = params.indicatorParams
 
     userBias = params.userBias.getOrElse(1f)
     itemBias = params.itemBias.getOrElse(1f)
@@ -123,6 +123,7 @@ class URAlgorithm private (
    if (params.indicators.nonEmpty) { // using indicators for fined tuned control
       indicatorParams = params.indicators.map { indicatorParams =>
         indicatorParams.name -> DefaultIndicatorParams(
+          aliases = indicatorParams.aliases,
           maxItemsPerUser = indicatorParams.maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
           maxCorrelatorsPerItem = indicatorParams.maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
           minLLR = indicatorParams.minLLR)
@@ -251,9 +252,9 @@ class URAlgorithm private (
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
 
-        val trainingData = URPreparator.mkTraining(modelEventNames, eventsRdd, itemsRdd)
+        val trainingData = URPreparator.mkTraining(indicatorParams, eventsRdd, itemsRdd)
 
-        //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
+        //val collectedActions = trainingData.indicatorRDDs.map { case (en, rdd) => (en, rdd.collect()) }
         //val collectedFields = trainingData.fieldsRDD.collect()
         val data = URPreparator.prepareData(trainingData)
 
@@ -274,7 +275,7 @@ class URAlgorithm private (
         //val data = getIndicators(modelEventNames, eventsRdd)
 
         logger.info("======================================== Contents of Indicators ========================================")
-        data.actions.foreach { case (name, id) =>
+        data.indicatorRDDs.foreach { case (name, id) =>
           val ids = id.asInstanceOf[IndexedDatasetSpark]
           logger.info(s"Event name: $name")
           logger.info(s"Num users/rows = ${ids.matrix.nrow}")
@@ -321,27 +322,27 @@ class URAlgorithm private (
 
     /*logger.info("Indicators read now creating correlators")
     val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
-      data.actions.map(_._2).toArray,
+      data.indicatorRDDs.map(_._2).toArray,
       ap.seed.getOrElse(System.currentTimeMillis()).toInt)
       .map(_.asInstanceOf[IndexedDatasetSpark])
     */
 
-    //val in = data.actions.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
+    //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
-    val convertedItems = data.actions.filter { case (en, ids) => en == modelEventNames.head}
+    val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
     logger.info("Actions read now creating correlators")
     val cooccurrenceIDSs = if (indicators.isEmpty) { // using one global set of algo params
       SimilarityAnalysis.cooccurrencesIDSs(
-        data.actions.map(_._2).toArray,
+        data.indicatorRDDs.map(_._2).toArray,
         randomSeed = seed.getOrElse(System.currentTimeMillis()).toInt,
         maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
         maxNumInteractions = maxEventsPerEventType)
         .map(_.asInstanceOf[IndexedDatasetSpark])
-    } else { // using params per matrix pair, these take the place of eventNames, maxCorrelatorsPerEventType,
+    } else { // using params per matrix pair, these take the place of indicatorParams, maxCorrelatorsPerEventType,
       // and maxEventsPerEventType!
-      val iDs = data.actions.map(_._2).toSeq
+      val iDs = data.indicatorRDDs.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
           new DownsamplableCrossOccurrenceDataset(
@@ -359,7 +360,7 @@ class URAlgorithm private (
 
     //val collectedIdss = cooccurrenceIDSs.map(_.toStringMapRDD("anon").collect())
 
-    val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.actions.map(_._1)).map(_.swap) //add back the actionNames
+    val cooccurrenceCorrelators = cooccurrenceIDSs.zip(data.indicatorRDDs.map(_._1)).map(_.swap) //add back the actionNames
 
     val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
       val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
@@ -393,7 +394,7 @@ class URAlgorithm private (
     // like "you forgot to train"
     // todo: order by date
     /*
-        queryEventNames = query.eventNames.getOrElse(modelEventNames) // eventNames in query take precedence
+        queryEventNames = query.indicatorParams.getOrElse(modelEventNames) // indicatorParams in query take precedence
 
     val (queryStr, blacklist) = buildQuery(ap, query, rankingFieldNames)
     // old es1 query
@@ -435,7 +436,7 @@ class URAlgorithm private (
   }
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    val queryEventNames = query.eventNames.getOrElse(modelEventNames) // eventNames in query take precedence
+    val queryEventNames = query.eventNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
     val aggregatedRules = aggregateRules(rules, query.rules)
 
     logger.info(s"Got query: \n${query}")
@@ -493,13 +494,29 @@ class URAlgorithm private (
 
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
+    // create a Map of alias -> indicator name or indicator name -> indicator name if no aliases
+    val queryEventNames = indicatorParams.flatMap { case (indicatorName, iParams) =>
+      val aliases = iParams.aliases.getOrElse(Seq(indicatorName))
+      if(indicatorName == aliases.head) {
+        Map(indicatorName -> indicatorName)
+      } else {
+        aliases.map(_ -> indicatorName)
+      }.toMap
+    }
+
     val userHistory = eventsDao.findMany(
       DaoQuery(
         orderBy = Some(OrderBy(ordering = Ordering.desc, fieldNames = "eventTime")),
         limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
         // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
-        filter = Seq("entityId" === query.user.getOrElse("")))).toSeq.distinct
+        filter = Seq("entityId" === query.user.getOrElse(""))))
+      .toSeq
+      .distinct
+      .map { event =>
+        val queryEventName = queryEventNames(event.event)
+        event.copy(event = queryEventName)
+      }
 
     val userEvents = modelEventNames.map { name =>
       (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)
@@ -671,7 +688,7 @@ object URAlgorithm extends JsonSupport {
   case class RankingParams(
       name: Option[String] = None,
       `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo eventNames findMany, otherwise a findMany of events
+      eventNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
@@ -680,7 +697,7 @@ object URAlgorithm extends JsonSupport {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |eventNames: $eventNames,
+         |indicatorParams: $eventNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
@@ -689,45 +706,46 @@ object URAlgorithm extends JsonSupport {
   }
 
   case class DefaultIndicatorParams(
-      maxItemsPerUser: Int = DefaultURAlgoParams.MaxQueryEvents, // defaults to maxEventsPerEventType
-      maxCorrelatorsPerItem: Int = DefaultURAlgoParams.MaxCorrelatorsPerEventType,
+    aliases: Option[Seq[String]] = None,
+    maxItemsPerUser: Int = DefaultURAlgoParams.MaxQueryEvents, // defaults to maxEventsPerEventType
+    maxCorrelatorsPerItem: Int = DefaultURAlgoParams.MaxCorrelatorsPerEventType,
       // defaults to maxCorrelatorsPerEventType
-      minLLR: Option[Double] = None) // defaults to none, takes precendence over maxCorrelatorsPerItem
+    minLLR: Option[Double] = None) // defaults to none, takes precendence over maxCorrelatorsPerItem
 
   case class IndicatorParams(
-      name: String, // must match one in eventNames
-      aliases: Option[Seq[String]] = None,
-      maxItemsPerUser: Option[Int], // defaults to maxEventsPerEventType
-      maxCorrelatorsPerItem: Option[Int], // defaults to maxCorrelatorsPerEventType
-      minLLR: Option[Double]) // defaults to none, takes precendence over maxCorrelatorsPerItem
+    name: String, // must match one in indicatorParams
+    aliases: Option[Seq[String]] = None,
+    maxItemsPerUser: Option[Int], // defaults to maxEventsPerEventType
+    maxCorrelatorsPerItem: Option[Int], // defaults to maxCorrelatorsPerEventType
+    minLLR: Option[Double]) // defaults to none, takes precendence over maxCorrelatorsPerItem
 
   case class URAlgorithmParams(
-      indexName: Option[String], // can optionally be used to specify the elasticsearch index name
-      typeName: Option[String], // can optionally be used to specify the elasticsearch type name
-      recsModel: Option[String] = None, // "all", "collabFiltering", "backfill"
-      // eventNames: Option[Seq[String]], // names used to ID all user actions
-      blacklistEvents: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
-      // number of events in user-based recs query
-      maxQueryEvents: Option[Int] = None,
-      maxEventsPerEventType: Option[Int] = None,
-      maxCorrelatorsPerEventType: Option[Int] = None,
-      num: Option[Int] = None, // default max # of recs requested
-      userBias: Option[Float] = None, // will cause the default search engine boost of 1.0
-      itemBias: Option[Float] = None, // will cause the default search engine boost of 1.0
-      itemSetBias: Option[Float] = None, // will cause the default search engine boost of 1.0
-      returnSelf: Option[Boolean] = None, // query building logic defaults this to false
-      rules: Option[Seq[Rule]] = None, //defaults to no rules
-      // leave out for default or popular
-      rankings: Option[Seq[RankingParams]] = None,
-      // name of date property field for when the item is available
-      availableDateName: Option[String] = None,
-      // name of date property field for when an item is no longer available
-      expireDateName: Option[String] = None,
-      // used as the subject of a dateRange in queries, specifies the name of the item property
-      dateName: Option[String] = None,
-      indicators: Seq[IndicatorParams], // control params per matrix pair, every indicator must be listed at least
-      seed: Option[Long] = None, // seed is not used presently
-      numESWriteConnections: Option[Int] = None) // hint about how to coalesce partitions so we don't overload ES when
+    indexName: Option[String], // can optionally be used to specify the elasticsearch index name
+    typeName: Option[String], // can optionally be used to specify the elasticsearch type name
+    recsModel: Option[String] = None, // "all", "collabFiltering", "backfill"
+    // indicatorParams: Option[Seq[String]], // names used to ID all user indicatorRDDs
+    blacklistEvents: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
+    // number of events in user-based recs query
+    maxQueryEvents: Option[Int] = None,
+    maxEventsPerEventType: Option[Int] = None,
+    maxCorrelatorsPerEventType: Option[Int] = None,
+    num: Option[Int] = None, // default max # of recs requested
+    userBias: Option[Float] = None, // will cause the default search engine boost of 1.0
+    itemBias: Option[Float] = None, // will cause the default search engine boost of 1.0
+    itemSetBias: Option[Float] = None, // will cause the default search engine boost of 1.0
+    returnSelf: Option[Boolean] = None, // query building logic defaults this to false
+    rules: Option[Seq[Rule]] = None, //defaults to no rules
+    // leave out for default or popular
+    rankings: Option[Seq[RankingParams]] = None,
+    // name of date property field for when the item is available
+    availableDateName: Option[String] = None,
+    // name of date property field for when an item is no longer available
+    expireDateName: Option[String] = None,
+    // used as the subject of a dateRange in queries, specifies the name of the item property
+    dateName: Option[String] = None,
+    indicators: Seq[IndicatorParams], // control params per matrix pair, every indicator must be listed at least
+    seed: Option[Long] = None, // seed is not used presently
+    numESWriteConnections: Option[Int] = None) // hint about how to coalesce partitions so we don't overload ES when
   // writing the model. The rule of thumb is (numberOfNodesHostingPrimaries * bulkRequestQueueLength) * 0.75
   // for ES 1.7 bulk queue is defaulted to 50
   //  extends Params //fixed default make it reproducible unless supplied
@@ -749,11 +767,11 @@ object URAlgorithm extends JsonSupport {
     extends Serializable
 
   case class PreparedData(
-      actions: Seq[(String, IndexedDataset)],
+      indicatorRDDs: Seq[(String, IndexedDataset)],
       fieldsRdd: RDD[(String, Map[String, Any])]) extends Serializable
 
   case class TrainingData(
-    actions: Seq[(String, RDD[(String, String)])],// indicator name, RDD[user-id, item-id]
+    indicatorEvents: Seq[(String, RDD[(String, String)])],// indicator name, RDD[user-id, item-id]
     fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
     minEventsPerUser: Option[Int] = Some(1)) extends Serializable
 

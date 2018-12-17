@@ -169,7 +169,7 @@ object UREngine extends JsonSupport {
       floatProps: Map[String, Float] = Map.empty,
       booleanProps: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      @Indexed(order = desc, ttl = 30 days) eventTime: Date)
+      @Indexed(order = desc) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
@@ -196,7 +196,7 @@ object UREngine extends JsonSupport {
       // to what is in the algorithm params or false
       num: Option[Int] = None, // default: whatever is in algorithm params, which itself has a default--probably 20
       from: Option[Int] = None, // paginate from this position return "num"
-      eventNames: Option[Seq[String]], // names used to ID all user actions
+      eventNames: Option[Seq[String]], // names used to ID all user indicatorRDDs
       withRanks: Option[Boolean] = None) // Add to ItemScore rank rules values, default false
     extends Query
 
