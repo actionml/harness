@@ -26,9 +26,10 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
+import org.json4s
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{DateFormat, DefaultFormats, Formats, JValue, MappingException}
+import org.json4s.{DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -36,8 +37,22 @@ import scala.reflect.runtime.universe._
 
 trait JsonSupport extends LazyLogging {
 
+  implicit object DateReader extends Reader[Date] {
+    override def read(value: json4s.JValue): Date = {
+      dateFormats.dateFormat.parse(value.extract[String])
+        .getOrElse(throw new RuntimeException(s"Can't parse date $value"))
+    }
+  }
+  implicit object StringReader extends Reader[String] {
+    override def read(value: json4s.JValue): String = value.extract[String]
+  }
+  implicit object JObjectReader extends Reader[JObject] {
+    override def read(value: json4s.JValue): JObject = {
+      value.extract[JObject]
+    }
+  }
   implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all
-  private object CustomFormats extends DefaultFormats {
+  object CustomFormats extends DefaultFormats {
     override val dateFormat: DateFormat = new DateFormat {
       private val df = DateTimeFormatter.ISO_DATE_TIME
 
