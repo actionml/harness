@@ -204,26 +204,24 @@ Then source the `.profile` with
 
 ## Python SDK
 
-**Requirements**
-
- - Python 3: This can usually be installed from the distribution's repos using `apt-get`, `brew`, or `yum`.
-
 The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
 
-**Note:** Most distributions install Python 3 to be executed with the CLI `python3` not `python`. Harness is setup to expect this.
+**Requirements**
 
-To install the Python SDK for local use:
+ - **Python3**: This can usually be installed from the distribution's repos using `apt-get`, `brew`, or `yum`.
+ - **Pip3**: This is required to run the setup script that installs the Harness Python SDK and can be installed through your platform's distribution repos.
+ - **Harness Python SDK** for local use:
 
-```
-cd harness/python-sdk # where ever the source is installed
-python3 setup.py install # you may need to add "sudo" to this
-```
+    ```
+    cd harness/python-sdk # wherever the source is installed
+    python3 setup.py install # you may need to add "sudo" to this
+    ```
 
-You are now ready to launch and run Harness with the included Engines
+You are now ready to launch and run the Harness CLI but you will need more services for included engines so read on.
 
 # Elasticsearch 5.x or 6.x+
 
-The Universal Recommender (and variants like the URNavHintingEngine), requires Elasticsearch to store the model and to run special queries not implemented by many other DBS. These special "similarity" queries are actually part of the UR's CCO algorithm.
+The Universal Recommender (and variants), requires Elasticsearch to store the model and to run special queries not implemented by many other DBS. These special "similarity" queries are actually part of the UR's CCO algorithm.
 
 Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum repos, or macOS brew repos. All will install 6+.
 
@@ -236,22 +234,26 @@ Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum r
 
 The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
 
+Your instructions will look SOMETHING like this:
+
+```
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+sudo echo "deb https://artifacts.elastic.co/packages/6.x/apt stable main" >> /etc/apt/sources.list.d/elastic.list
+sudo apt-get update
+sudo apt-get install elasticsearch
+sudo systemctl start elasticsearch.service
+```
+
 # Launching Harness  
 
  - **Setup Harness config:** To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.4.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing global Harness config.
- - **Set the `path`** in your env to include the bin directory of both Harness and the Harness Auth server: 
+ - **Set the `path`** in your env to include the `bin` directory of both Harness and optionally the Harness Auth server: 
 
     ```
     export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
     ```
     
- - **Start Elasticsearch:** If you are using some variant of the Universal Recommender Engine (like the URNavHintingEngine) launch Elasticsearch
-
-    ```
-    nohup /path/to/elasticsearch/bin/elasticsearch -d &
-    ```
-    
- - **Start Other Services:** Harness and its Engines should have their dependent services started on boot. If they are not then start them before Harness. MongoDB is the only global requirement and installation with one of the distribution repo managers will leave it running and will setup for launch on reboot.
+ - **Start Other Services:** Harness and its Engines should have their dependent services started on boot or start them before Harness.
  
  - **Start Harness:**
 
