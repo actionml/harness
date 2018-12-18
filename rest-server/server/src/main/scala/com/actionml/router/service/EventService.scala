@@ -20,7 +20,7 @@ package com.actionml.router.service
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonParser, NotImplemented, WrongParams}
+import com.actionml.core.validate.{JsonSupport, NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
 import io.circe.syntax._
 import scaldi.Injector
@@ -34,7 +34,7 @@ import scaldi.Injector
 
 trait EventService extends ActorInjectable
 
-class EventServiceImpl(implicit inj: Injector) extends EventService with JsonParser {
+class EventServiceImpl(implicit inj: Injector) extends EventService with JsonSupport {
 
   private val admin = inject[Administrator]('Administrator)
 

@@ -17,9 +17,12 @@
 
 package com.actionml.core.search.elasticsearch
 
+import java.io.UnsupportedEncodingException
+import java.net.URLEncoder
 import java.time.Instant
 
 import com.actionml.core.search._
+import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
@@ -64,7 +67,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport {
+class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
@@ -81,6 +84,9 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
   }
 
   override def deleteIndex(refresh: Boolean): Boolean = {
+    // todo: Andrey, this is a deprecated API, also this throws and exception then the Elasticsearch server is not running
+    // it should give a more friendly error message by testing to see if Elasticsearch is running or maybe we should test
+    // the required services when an engine is created or updated. This would be more efficient for frequent client requests
     client.performRequest(
       // Does the alias exist?
       "HEAD",
@@ -109,6 +115,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
       .getStatusLine
       .getStatusCode match {
           case 200 =>
+            // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
             val aliasResponse = client.performRequest(
               "GET",
               s"/_alias/$alias",
@@ -134,6 +141,73 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
           case _ => Seq.empty
         }
 
+  }
+
+  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]]) = {
+    var rjv: Option[JValue] = Some(JString(""))
+    try {
+      client.performRequest( // Does the alias exist?
+        "HEAD",
+        s"/_alias/$alias",
+        Map.empty[String, String].asJava)
+        .getStatusLine
+        .getStatusCode match {
+        case 200 =>
+          val aliasResponse = client.performRequest(
+            "GET",
+            s"/_alias/$alias",
+            Map.empty[String, String].asJava)
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val indexSet = responseJValue.extract[Map[String, JValue]].keys
+          rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
+            val url = s"/$actualIndexName/$typeName/${encodeURIFragment(id)}"
+            logger.info(s"find doc by id using URL: $url")
+            val response = client.performRequest(
+              "GET",
+              url,
+              Map.empty[String, String].asJava)
+            logger.info(s"got response: $response")
+
+            response.getStatusLine.getStatusCode match {
+              case 200 =>
+                val entity = EntityUtils.toString(response.getEntity)
+                logger.info(s"got status code: 200\nentity: $entity")
+                if (entity.isEmpty) {
+                  None
+                } else {
+                  logger.info(s"About to parse: $entity")
+                  val result = parse(entity)
+                  logger.info(s"getSource for $url result: $result")
+                  Some(result)
+                }
+              case 404 =>
+                logger.info(s"got status code: 404")
+                Some(parse("""{"notFound": "true"}"""))
+              case _ =>
+                logger.info(s"got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
+                None
+            }
+          }
+        case _ =>
+      }
+    } catch {
+      case e: org.elasticsearch.client.ResponseException => {
+        logger.error("got no data for the item", e)
+        rjv = None
+      }
+      case e: Exception =>
+        logger.error("got unknown exception and so no data for the item", e)
+        rjv = None
+    }
+
+    if (rjv.nonEmpty) {
+      //val responseJValue = parse(EntityUtils.toString(response.getEntity))
+      val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
+      id -> result
+    } else {
+      logger.info(s"Non-existent item $id, but that's ok, return backfill recs")
+      id -> Map.empty
+    }
   }
 
   override def hotSwap(
@@ -213,6 +287,23 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
     oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
   }
 
+
+  def encodeURIFragment(s: String): String = {
+    var result: String = ""
+    try
+      result = URLEncoder.encode(s, "UTF-8")
+        .replaceAll("\\+", "%20")
+        .replaceAll("\\%21", "!")
+        .replaceAll("\\%27", "'")
+        .replaceAll("\\%28", "(")
+        .replaceAll("\\%29", ")")
+        .replaceAll("\\%7E", "%7E")
+    catch {
+      case e: UnsupportedEncodingException =>
+        result = s
+    }
+    result
+  }
 
   private def createIndexByName(
     indexName: String,
@@ -325,7 +416,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object ElasticSearchClient extends App with LazyLogging {
+object ElasticSearchClient extends LazyLogging {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
@@ -334,7 +425,12 @@ object ElasticSearchClient extends App with LazyLogging {
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private lazy val client: RestClient = {
-    val builder = RestClient.builder(HttpHost.create(config.getString("elasticsearch.uri")))
+    val builder = RestClient.builder(
+      new HttpHost(
+        config.getString("elasticsearch.host"),
+        config.getInt("elasticsearch.port"),
+        config.getString("elasticsearch.protocol")))
+
     if (config.hasPath("elasticsearch.auth")) {
       val authConfig = config.getConfig("elasticsearch.auth")
       builder.setHttpClientConfigCallback(new BasicAuthProvider(
@@ -376,7 +472,7 @@ object ElasticSearchClient extends App with LazyLogging {
             query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
           ))
       }
-    logger.info(s"Query to search engine:\n${pretty(json)}")
+    // logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
   }
 

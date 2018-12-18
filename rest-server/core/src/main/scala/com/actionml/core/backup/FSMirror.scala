@@ -22,19 +22,19 @@ import java.io.{File, FileWriter, PrintWriter}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source
 
 /**
-  * Mirroring implementation for local FS.
+  * Mirror implementation for local FS.
   */
 
-class FSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) with JsonParser {
+class FSMirror(mirrorContainer: String, engineId: String)
+  extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
   private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
-  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
+  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirror raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(json: String): Validated[ValidateError, String] = {

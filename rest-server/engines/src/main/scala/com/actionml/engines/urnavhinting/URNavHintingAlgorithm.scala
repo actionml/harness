@@ -29,7 +29,7 @@ import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
-import com.actionml.core.validate.{JsonParser, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
@@ -61,7 +61,7 @@ class URNavHintingAlgorithm private (
   extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
   with LambdaAlgorithm[URNavHintingEvent]
   with SparkMongoSupport
-  with JsonParser {
+  with JsonSupport {
 
   import URNavHintingAlgorithm._
 
@@ -410,8 +410,9 @@ class URNavHintingAlgorithm private (
     // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     // todo: order by date
-    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq(("entityId", query.user))))
-    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq(("entityId", query.user))))
+    import DaoQuery.syntax._
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq("entityId" === query.user)))
+    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq("entityId" === query.user)))
     val userEvents = modelEventNames.map { n =>
       (n,
         (unconvertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq ++
@@ -483,7 +484,7 @@ class URNavHintingAlgorithm private (
 
 }
 
-object URNavHintingAlgorithm extends JsonParser {
+object URNavHintingAlgorithm extends JsonSupport {
 
   def apply(engine: URNavHintingEngine, initParams: String, dataset: URNavHintingDataset, eventsDao: DAO[URNavHintingEvent]): URNavHintingAlgorithm = {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>

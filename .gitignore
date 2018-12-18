@@ -3,11 +3,12 @@
 *.class
 *.log
 
-# sbt specific
+# sbt build specific
+sbt/sbt
+**/dist/
 .cache
 .history
 .lib/
-dist/*
 target/
 lib_managed/
 src_managed/
@@ -80,6 +81,7 @@ fabric.properties
 *.iml
 /rest-server/dist/
 /rest-server/*.tar.gz
+/rest-server/data/
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/

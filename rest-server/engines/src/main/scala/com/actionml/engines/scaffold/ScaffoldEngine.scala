@@ -22,21 +22,21 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
 import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
   * base classes but is better used as a starting point for new Engines.
   */
-class ScaffoldEngine extends Engine with JsonParser {
+class ScaffoldEngine extends Engine with JsonSupport {
 
   var dataset: ScaffoldDataset = _
   var algo: ScaffoldAlgorithm = _
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -52,7 +52,8 @@ class ScaffoldEngine extends Engine with JsonParser {
         Valid(p)
       }.andThen { p =>
         dataset.init(json).andThen { r =>
-          if (deepInit) algo.init(this) else Valid(jsonComment("ScaffoldAlgorithm updated"))
+          // handle C(reate) and U(pdate) of CRUD
+          if (!update) algo.init(this) else Valid(jsonComment("ScaffoldAlgorithm updated"))
         }
       }
     }

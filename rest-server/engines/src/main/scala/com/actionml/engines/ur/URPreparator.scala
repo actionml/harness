@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package com.actionml.engines.urnavhinting
+package com.actionml.engines.ur
 
 import com.actionml.core.store.SparkMongoSupport
-import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
-import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
+import com.actionml.engines.ur.URAlgorithm.{PreparedData, TrainingData}
+import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
@@ -29,12 +29,15 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 /** Partitions off creation of Mahout data structures from stored data in a DB */
-object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
+object URPreparator extends LazyLogging with SparkMongoSupport {
 
   /** Reads events from PEventStore and create and RDD for each */
-  def mkTraining(eventNames: Seq[String], eventsRDD: RDD[URNavHintingEvent])(implicit sc: SparkContext): TrainingData = {
+  def mkTraining(
+    indicatorParams: Map[String, URAlgorithm.DefaultIndicatorParams],
+    eventsRDD: RDD[UREvent],
+    itemsRDD: RDD[URItemProperties])(implicit sc: SparkContext): TrainingData = {
 
-    //val eventNames = dsp.eventNames
+    //val indicatorParams = dsp.indicatorParams
 
     // beware! the following call most likely will alter the event stream in the DB!
     //cleanPersistedPEvents(sc) // broken in apache-pio v0.10.0-incubating it erases all data!!!!!!
@@ -43,36 +46,43 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
     val eventsRDD = PEventStore.find(
       appName = dsp.appName,
       entityType = Some("user"),
-      eventNames = Some(eventNames),
+      indicatorParams = Some(indicatorParams),
       targetEntityType = Some(Some("item")))(sc).repartition(sc.defaultParallelism)
     */
 
     // now separate the events by event name
-    val eventRDDs: Seq[(ActionID, RDD[(UserID, ItemID)])] = eventNames.map { eventName =>
+    val indicatorNames = indicatorParams.keySet
+    val eventRDDs: Seq[(String, RDD[(UserID, ItemID)])] = indicatorNames.map { indicatorName =>
+      val aliases = indicatorParams(indicatorName).aliases.getOrElse(Seq(indicatorName))
+
+        //.getOrElse(
+        //indicatorName,
+        //URAlgorithm.DefaultIndicatorParams(aliases = Some(Seq(indicatorName))))
+        //.aliases.get
       val singleEventRDD = eventsRDD
-        .filter( e => e.event == eventName )
+        .filter( e => aliases.contains(e.event) )
         .map { e =>
           (e.entityId, e.targetEntityId.getOrElse(""))
         }
 
-      (eventName, singleEventRDD)
-    } filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
+      (indicatorName, singleEventRDD)
+    }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
-    //val collectedRdds = eventRDDs.map(_._2.collect())
+    val collectedRdds = eventRDDs.map(_._2.collect())
     logger.info(s"Received events ${eventRDDs.map(_._1)}")
 
     /*
-    // aggregating all $set/$unsets for metadata fields, which are attached to items
+    // aggregating all $set/$unsets for metadata rules, which are attached to items
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = PEventStore.aggregateProperties(
       appName = dsp.appName,
       entityType = "item")(sc).repartition(sc.defaultParallelism)
     //    logger.debug(s"FieldsRDD\n${fieldsRDD.take(25).mkString("\n")}")
     */
 
-    val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
+   //val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.properties))
 
     // Have a list of (actionName, RDD), for each eventName
-    // todo: some day allow data to be content, which requires rethinking how to use EventStore
     TrainingData(eventRDDs, fieldsRDD, Some(1))
   }
 
@@ -81,54 +91,54 @@ object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
     * then we supply a companion object that constructs the IndexedDatasetSpark from the
     * String Pair RDD. The pairs are (user-id, item-id) for a given event, see the CCO
     * algorithm to understand how this is used: todo: create a refernce for the algo
-    * @param eventNames From eventNames or indicators in the engine's JSON config
+    * @param indicatorParams From indicatorParams or indicators in the engine's JSON config
     * @param sc an active SparkContext
     * @return Seq of (eventName, IndexedDatasetSpark) todo: should be a Map, legacy from PIO
     */
   def prepareData(
     trainingData: TrainingData)
     (implicit sc: SparkContext): PreparedData = {
-    // now that we have all actions in separate RDDs we must merge any user dictionaries and
+    // now that we have all indicatorRDDs in separate RDDs we must merge any user dictionaries and
     // make sure the same user ids map to the correct events
     var userDictionary: Option[BiDictionary] = None
 
-    val indexedDatasets = trainingData.actions.map {
-      case (eventName, eventRDD) =>
+    val indexedDatasets = trainingData.indicatorEvents.map {
+      case (indicatorName, eventRDD) =>
 
         // passing in previous row dictionary will use the values if they exist
         // and append any new ids, so after all are constructed we have all user ids in the last dictionary
-        logger.info("EventName: " + eventName)
-        // logger.info(s"first eventName is ${trainingData.actions.head._1.toString}")
-        val ids = if (eventName == trainingData.actions.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
+        logger.info("indicatorName: " + indicatorName)
+        // logger.info(s"first indicatorName is ${trainingData.indicatorRDDs.head._1.toString}")
+        val ids = if (indicatorName == trainingData.indicatorEvents.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
           val dIDS = IndexedDatasetSparkFactory(eventRDD, trainingData.minEventsPerUser.get)(sc)
-          logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, eventName: $eventName" +
+          logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, indicatorName: $indicatorName" +
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           // we have removed underactive users now remove the items they were the only to interact with
           val ddIDS = IndexedDatasetSpark(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
           userDictionary = Some(ddIDS.rowIDs)
           logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
-            s"eventName: $eventName number of user-ids: ${userDictionary.get.size}")
+            s"indicatorName: $indicatorName number of user-ids: ${userDictionary.get.size}")
           logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
-          //ddIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+          //ddIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           ddIDS
         } else {
-          //logger.info(s"IndexedDatasetSpark for eventName: $eventName User ids: $userDictionary")
+          //logger.info(s"IndexedDatasetSpark for indicatorName: $indicatorName User ids: $userDictionary")
           val dIDS = IndexedDatasetSpark(eventRDD, userDictionary)(sc)
           userDictionary = Some(dIDS.rowIDs)
-          //dIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+          //dIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
           dIDS
         }
 
-        (eventName, ids)
+        (indicatorName, ids)
 
     }
 
     /*
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = trainingData.fieldsRDD.map {
-      case (itemId, propMap) => itemId -> propMap.fields
+      case (itemId, propMap) => itemId -> propMap.rules
     }
     */
 

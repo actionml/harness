@@ -17,28 +17,45 @@
 
 package com.actionml.core.validate
 
-import com.typesafe.scalalogging.LazyLogging
-import org.json4s.JValue
-import org.json4s.ext.JodaTimeSerializers
-
-import scala.reflect.ClassTag
-import com.fasterxml.jackson.core.JsonProcessingException
-import com.fasterxml.jackson.databind.{JavaType, ObjectMapper, SerializationFeature}
 import java.io.IOException
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.util.{Date, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.typesafe.scalalogging.LazyLogging
+import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{DefaultFormats, Formats, MappingException}
+import org.json4s.{DateFormat, DefaultFormats, Formats, JValue, MappingException}
 
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 
-trait JsonParser extends LazyLogging {
+trait JsonSupport extends LazyLogging {
 
+  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all
+  private object CustomFormats extends DefaultFormats {
+    override val dateFormat: DateFormat = new DateFormat {
+      private val df = DateTimeFormatter.ISO_DATE_TIME
 
+      override def parse(s: String): Option[Date] = {
+        try {
+          Option(Date.from(Instant.from(df.parse(s))))
+        } catch {
+          case e: Exception =>
+            logger.error(s"Can't parse date $s", e)
+            None
+        }
+      }
 
-  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all
+      override def format(d: Date): String = df.format(d.toInstant)
+
+      override def timezone: TimeZone = TimeZone.getDefault
+    }
+  }
 
   def parseAndValidate[T : ClassTag](
     json: String,
@@ -73,7 +90,6 @@ trait JsonParser extends LazyLogging {
     } catch {
       case e: IOException =>
         jsonComment(s"Bad Json in prettify: $jsonString")
-      case ex => throw ex
     }
   }
 

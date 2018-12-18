@@ -24,16 +24,16 @@ import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
 
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidateError}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
-class NavHintingEngine extends Engine with JsonParser {
+class NavHintingEngine extends Engine with JsonSupport {
 
   var dataset: NavHintingDataset = _
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -50,7 +50,7 @@ class NavHintingEngine extends Engine with JsonParser {
         Valid(jsonComment("NavHintingEngine initialized"))
       }.andThen { _ =>
         dataset.init(json).andThen { _ =>
-          if (deepInit) {
+          if (!update) { // do this when creating rather than updating
             algo = new NavHintingAlgorithm(json, dataset)
             algo.init(this)
           } else Valid(jsonComment("NavHintingAlgorithm updated"))

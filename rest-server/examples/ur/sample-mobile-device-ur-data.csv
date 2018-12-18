@@ -1,0 +1,105 @@
+u1,purchase,iPhone XS
+u1,purchase,iPhone XR
+u1,purchase,iPhone 8
+u1,purchase,iPad Pro
+U 2,purchase,Pixel Slate
+U 2,purchase,Galaxy 8
+u-3,purchase,Surface Pro
+u-4,purchase,iPhone XR
+u-4,purchase,iPhone XR
+u-4,purchase,iPhone XR
+u-4,purchase,iPhone XR
+u-4,purchase,iPhone 8
+u-4,purchase,Galaxy 8
+u1,view,Phones
+u1,view,Phones
+u1,view,Phones
+u1,view,Phones
+u1,view,Phones
+u1,view,Phones
+u1,view,Mobile-acc
+U 2,view,Phones
+U 2,view,Tablets
+U 2,view,Mobile-acc
+u-3,view,Mobile-acc
+u-4,view,Phones
+u-4,view,Tablets
+u-4,view,Soap
+u5,view,Soap
+u1,category-pref,phones
+u1,category-pref,phones
+u1,category-pref,phones
+u1,category-pref,tablets
+U 2,category-pref,tablets
+U 2,category-pref,phones
+u-3,category-pref,tablets
+u-4,category-pref,phones
+u-4,category-pref,phones
+u5,category-pref,toiletries
+iPhone XS,$set,categories:Phones:Electronics:Apple
+iPhone XR,$set,categories:Phones:Electronics:Apple
+iPhone 8,$set,categories:Phones:Electronics:Apple
+iPad Pro,$set,categories:Tablets:Electronics:Apple
+Pixel Slate,$set,categories:Tablets:Electronics:Google
+Galaxy 8,$set,categories:Phones:Electronics:Samsung
+Surface Pro,$set,categories:Tablets:Electronics:Microsoft
+iPhone 8,$set,countries:United States:Canada:Estados Unidos Mexicanos
+iPad Pro,$set,countries:United States:Estados Unidos Mexicanos
+Pixel Slate,$set,countries:United States:Canada
+Galaxy 8,$set,countries:United States
+Surface Pro,$set,countries:United States:Canada
+iPhone XS,$set,categories:Cameras
+iPhone XR,$set,categories:Cameras
+iPhone 8,$set,categories:Cameras
+iPad Pro,$set,categories:Computers
+Pixel Slate,$set,categories:Computers
+Galaxy 8,$set,categories:Cameras
+Surface Pro,$set,categories:Computers
+iPhone 8,$set,countries:Cuba
+iPad Pro,$set,countries:Cuba
+Pixel Slate,$set,countries:Cuba
+Galaxy 8,$set,countries:Cuba
+Surface Pro,$set,countries:Cuba
+u1,purchase,iPhone XS
+u1,purchase,iPhone XR
+u1,purchase,iPhone 8
+u1,purchase,iPad Pro
+U 2,purchase,Pixel Slate
+U 2,purchase,Galaxy 8
+u-3,purchase,Surface Pro
+u-4,purchase,iPhone XR
+u-4,purchase,iPhone 8
+u-4,purchase,Galaxy 8
+u1,view,Phones
+u1,view,Mobile-acc
+U 2,view,Phones
+U 2,view,Tablets
+U 2,view,Mobile-acc
+u-3,view,Mobile-acc
+u-4,view,Phones
+u-4,view,Tablets
+u-4,view,Soap
+u5,view,Soap
+u1,purchase,Galaxy 8
+u1,purchase,Galaxy 8
+u1,purchase,Galaxy 8
+u1,purchase,Galaxy 8
+U 2,purchase,iPhone XR
+U 2,purchase,iPhone XR
+u1,view,Soap
+u1,view,Soap
+u-3,view,Mobile-acc
+u-4,view,Mobile-acc
+u-4,view,Mobile-acc
+iPhone XS,$set,categories:Phones:Electronics:Apple
+iPhone XR,$set,categories:Phones:Electronics:Apple
+iPhone 8,$set,categories:Phones:Electronics:Apple
+iPad Pro,$set,categories:Tablets:Electronics:Apple
+Pixel Slate,$set,categories:Tablets:Electronics:Google
+Galaxy 8,$set,categories:Phones:Electronics:Samsung
+Surface Pro,$set,categories:Tablets:Electronics:Microsoft
+iPhone 8,$set,countries:United States:Canada:Estados Unidos Mexicanos
+iPad Pro,$set,countries:United States:Estados Unidos Mexicanos
+Pixel Slate,$set,countries:United States:Canada
+Galaxy 8,$set,countries:United States
+Surface Pro,$set,countries:United States:Canada

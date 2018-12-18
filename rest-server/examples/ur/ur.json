@@ -7,11 +7,6 @@
     "spark.executor-memory": "4g"
   },
   "algorithm": {
-    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
-    "esMaster": "es-node-1",
-    "indexName": "urindex",
-    "typeName": "items",
-    "blacklist": [],
     "indicators": [
       {
         "name": "purchase"
@@ -22,11 +17,12 @@
         "name": "category-pref",
         "maxCorrelatorsPerItem": 50,
         "minLLR": 5.0
+      },{
+        "name": "addtocart"
+      },{
+        "name": "transaction"
       }
     ],
-    "availableDateName": "available",
-    "expireDateName": "expires",
-    "dateName": "date",
     "num": 4
   }
 }

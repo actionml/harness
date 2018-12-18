@@ -23,11 +23,11 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine extends Engine with JsonParser {
+class CBEngine extends Engine with JsonSupport {
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
@@ -48,12 +48,12 @@ class CBEngine extends Engine with JsonParser {
     Valid(jsonComment("CBEngine resources created"))
   }
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
-    super.init(json, deepInit).andThen { _ =>
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+    super.init(json, update).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         createResources(p).andThen{ _ =>
-          dataset.init(json, deepInit).andThen { _ =>
-            if (deepInit) {
+          dataset.init(json, update).andThen { _ =>
+            if (!update) { // !update means creating
               algo = new CBAlgorithm(json ,p.engineId, dataset)
               algo.init(this)
             } else Valid(jsonComment("Init processed"))
@@ -78,11 +78,14 @@ class CBEngine extends Engine with JsonParser {
   }
 
   override def status(): Validated[ValidateError, String] = {
+    import org.json4s.jackson.Serialization.write
+
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(CBStatus(
+    val status = CBStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
-      activeGroups = algo.trainers.size).toJson)
+      activeGroups = algo.trainers.size)
+    Valid(write(status))
   }
 
   override def destroy(): Unit = synchronized {
