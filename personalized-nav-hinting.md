@@ -71,9 +71,8 @@ Configuration is especially important because it defines the type of events by n
     "es.index.auto.create": "true"
   },
   "algorithm": {
-    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
-    "esMaster": "es-node-1",
-    "blacklist": [],
+   "comment": "remove the line below to show the user only nav-ids they have not seen before"
+    "blacklistEvents": [],
     "indicators": [
       {
         "name": "nav-event"
@@ -83,9 +82,7 @@ Configuration is especially important because it defines the type of events by n
         "name": "content-pref"
       }
     ],
-    "availableDateName": "available",
-    "expireDateName": "expires",
-    "dateName": "date",
+    "comment": "how many hints to return"
     "num": 6
   }
 }
@@ -95,6 +92,7 @@ Configuration is especially important because it defines the type of events by n
 
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
+ - **blacklistEvents**: optional, default = `nav-event`. By default this will cause only hints that the User has not visited recently to be hinted. If this is set to an empty list then any hint will be shown even if the User has seen it.
 
 ## Spark Parameters (sparkConf)
 
