@@ -196,7 +196,8 @@ This returns "people who liked the iPad also like these other items". This query
 {
   "user": "xyz"
   "rule": [
-    "brand": ["Apple"],
+    "name": "brand",
+    "values": ["Apple"],
     "bias": 20
   ]
 }
