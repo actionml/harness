@@ -32,9 +32,68 @@ For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugg
  - **Elasticsearch 5.x - 6+**: Used by the UREngine and URNavHinting.
  - **Other:** Each Engine or component may have its own requirements, see each below.
 
-## The Contextual Bandit
+## Install Requirements on Ubuntu 18.04
+
+ - Create regular user with home and shell. On AWS and other cloud providers this means to login with the power credentials ("ubuntu" user for AWS). Then use this sudoer to create a regular user account.
+
+    ```
+    # login as the power user, the sudoer user
+    sudo useradd -m -c "ActionML" aml  -s /bin/bash
+    sudo gpasswd -a aml sudo
+    sudo nano /etc/sudoers
+    # change 
+   ```
+
+ - Add key to the `aml` user's `authorized_keys`
+
+    ```
+    sudo su aml
+    cd /home/aml
+    ssh-keygen # hit CR for all questions
+    nano .ssh/authorized_keys # add your public key to the file
+    chmod 600 .ssh/authorized_keys
+    ```
+    
+    Now you can login as "aml@some-ip-address" using your public key. There are better ways to do this for groups using the ssh agent but this is left to the user to read about.
+
+ - Get Java JDK using Open-JDK from the apt repos.
+
+    ```
+    sudo apt update
+    sudo apt install openjdk-8-jdk git python3
+    ```
+    
+ - Mongo needs a newer version than in is the default 18.04 repos so add the correct repo and install from there.
+
+    ```
+    # your installation will look SOMETHING like this
+    # but read the Mongo instructions for specifc command lines
+    sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
+    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list
+    sudo apt-get update
+    sudo apt-get install -y mongodb-org
+    echo "mongodb-org hold" | sudo dpkg --set-selections
+    echo "mongodb-org-server hold" | sudo dpkg --set-selections
+    echo "mongodb-org-shell hold" | sudo dpkg --set-selections
+    echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+    echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+    sudo service mongod start
+    ``` 
+    
+ - sbt, scala's "simple build tool". Sbt will pull in the correct Scala version needed so unless you want to use scala directly you will not need to install it.
+
+    ```
+    echo "deb https://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+    sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
+    sudo apt-get update
+    sudo apt-get install sbt
+    ```
+      
+## The Contextual Bandit (optional)
  
-Included in the project is a sample Kappa style Template for a Contextual Bandit based on the Vowpal Wabbit ML compute engine. To build Harness will require that you first build and install VW:
+The Contextual Bandit is a sample Engine, which can be ignored if not being used.
+
+The Contextual Bandit is a Kappa style online learning Engine based on the Vowpal Wabbit ML compute engine. To use this Engine (ignore if you are not using it), will require that you first build and install VW:
 
 **For macOS** get dependencies:
 

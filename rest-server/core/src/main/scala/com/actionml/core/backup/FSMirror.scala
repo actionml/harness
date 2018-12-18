@@ -105,6 +105,8 @@ class FSMirror(mirrorContainer: String, engineId: String)
         val errMsg = "Problem while importing saved events"
         logger.error(errMsg)
         importEventsError(errMsg)
+    } finally {
+      logger.info("Completed importing. Check logs for any data errors.")
     }
     Valid(jsonComment("Job created to import events in the background."))
   }

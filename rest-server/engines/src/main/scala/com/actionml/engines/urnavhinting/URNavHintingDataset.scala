@@ -37,7 +37,8 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[URNavHintingEvent](engineId) with JsonSupport {
+class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Boolean = true)
+  extends Dataset[URNavHintingEvent](engineId) with JsonSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val activeJourneysDao = store.createDao[URNavHintingEvent]("active_journeys")
@@ -62,7 +63,7 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
   private var indicatorNames: Seq[String] = _
 
   // These should only be called from trusted source like the CLI!
-  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
     parseAndValidate[URAlgorithmParams](
       jsonConfig,
       errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
@@ -99,9 +100,9 @@ class URNavHintingDataset(engineId: String, val store: Store) extends Dataset[UR
     parseAndValidate[URNavHintingEvent](jsonEvent, errorMsg = s"Invalid URNavHintingEvent JSON: $jsonEvent").andThen { event =>
       if (indicatorNames.contains(event.event)) { // only store the indicator events here
         // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
-        if (indicatorNames.head == event.event && event.properties.get("converted").isDefined) {
+        if (indicatorNames.head == event.event && event.properties.get("conversion").isDefined) {
           // this handles a conversion
-          if(event.properties.getOrElse("converted", false)) {
+          if(event.properties.getOrElse("conversion", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
             val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq("entityId" === event.entityId))).toSeq
             if(conversionJourney.size != 0) {
