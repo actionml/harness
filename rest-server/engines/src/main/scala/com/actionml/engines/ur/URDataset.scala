@@ -17,14 +17,17 @@
 
 package com.actionml.engines.ur
 
+import java.util.Date
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.BadParamsException
 import com.actionml.core.engine.Dataset
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
-import com.actionml.engines.ur.URAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
-import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
+import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
+import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
+import org.json4s.JsonAST._
+import org.json4s.{JArray, JObject}
 
 import scala.language.reflectiveCalls
 
@@ -76,7 +79,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
     import DaoQuery.syntax._
-    parseAndValidate[UREvent](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen { event =>
+    parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen(toUrEvent).andThen { event =>
       val aliases = params.indicators.flatMap { ip =>
         ip.aliases.getOrElse(Seq(ip.name))
       } // should be either aliases for an event name, defaulting to the event name itself
@@ -111,7 +114,10 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
                   event.entityId,
                   URItemProperties(
                     _id = updateItem._id,
-                    properties = updateItem.properties ++ event.properties
+                    dateProps = updateItem.dateProps ++ event.dateProps,
+                    categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+                    floatProps = updateItem.floatProps ++ event.floatProps,
+                    booleanProps = updateItem.booleanProps ++ event.booleanProps
                   )
                 )
               case _ =>
@@ -126,5 +132,39 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     }
   }
 
-}
 
+  private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
+  private def parseProps(j: JObject): (Map[String, Date], Map[String, Seq[String]], Map[String, Float], Map[String, Boolean]) = {
+    j.foldField(emptyProps) {
+      case ((d, s, f, b), field) => field._2 match {
+        case v@JString(_) => (d + (field._1 -> v.as[Date]), s, f, b)
+        case JArray(v) => (d, s + (field._1 -> v.map(_.as[String])), f, b)
+        case JDecimal(v) => (d, s, f + (field._1 -> v.toFloat), b)
+        case JDouble(v) => (d, s, f + (field._1 -> v.toFloat), b)
+        case JInt(v) => (d, s, f + (field._1 -> v.toFloat), b)
+        case JLong(v) => (d, s, f + (field._1 -> v.toFloat), b)
+        case JBool(v) => (d, s, f, b + (field._1 -> v))
+        case _ => (d, s, f, b)
+      }
+    }
+  }
+
+  private def toUrEvent(j: JObject): Validated[ValidateError, UREvent] = {
+    try {
+      val eventId = (j \ "eventId").getAs[String]
+      val event = (j \ "event").as[String]
+      val entityType = (j \ "entityType").as[String]
+      val entityId = (j \ "entityId").as[String]
+      val targetEntityId = (j \ "targetEntityId").getAs[String]
+      val (dateProps, categoricalProps, floatProps, booleanProps) = (j \ "properties").getAs[JObject]
+        .fold(emptyProps)(parseProps)
+      val conversionId = (j \ "conversionId").getAs[String]
+      val eventTime = (j \ "eventTime").as[Date]
+      Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, eventTime))
+    } catch {
+      case e: Exception =>
+        logger.error(s"Can't parse UREvent from $j", e)
+        Invalid(ParseError(s"Can't parse $j as UREvent"))
+    }
+  }
+}

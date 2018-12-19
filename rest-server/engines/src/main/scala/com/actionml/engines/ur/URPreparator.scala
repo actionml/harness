@@ -80,7 +80,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     */
 
    //val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
-    val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.properties))
+    val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.dateProps ++ item.categoricalProps ++ item.floatProps ++ item.booleanProps))
 
     // Have a list of (actionName, RDD), for each eventName
     TrainingData(eventRDDs, fieldsRDD, Some(1))
