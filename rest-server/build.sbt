@@ -6,6 +6,7 @@ version := "0.4.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
+lazy val harnessAuthLibVersion = "0.3.0"
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
@@ -161,7 +162,7 @@ lazy val admin = (project in file("admin")).dependsOn(core).
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
-    "com.actionml" %% "harness-auth-common" % "0.3.0-SNAPSHOT",
+    "com.actionml" %% "harness-auth-common" % harnessAuthLibVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   ),

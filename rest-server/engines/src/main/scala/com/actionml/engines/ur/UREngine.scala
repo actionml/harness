@@ -91,10 +91,13 @@ class UREngine extends Engine with JsonSupport {
     logger.trace("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
-    super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
+    val response = super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { e =>
       parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
     }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
+    import org.json4s.jackson.Serialization.write
+    if(response.isInvalid) logger.info(s"Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
+    response
   }
 
   // todo: should merge base engine status with UREngine's status
@@ -168,7 +171,6 @@ object UREngine extends JsonSupport {
       categoricalProps: Map[String, Seq[String]] = Map.empty,
       floatProps: Map[String, Float] = Map.empty,
       booleanProps: Map[String, Boolean] = Map.empty,
-      conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
       @Indexed(order = desc) eventTime: Date)
     extends Event with Serializable
 

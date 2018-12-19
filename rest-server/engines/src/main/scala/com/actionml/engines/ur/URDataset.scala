@@ -160,7 +160,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         .fold(emptyProps)(parseProps)
       val conversionId = (j \ "conversionId").getAs[String]
       val eventTime = (j \ "eventTime").as[Date]
-      Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, conversionId, eventTime))
+      Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, eventTime))
     } catch {
       case e: Exception =>
         logger.error(s"Can't parse UREvent from $j", e)

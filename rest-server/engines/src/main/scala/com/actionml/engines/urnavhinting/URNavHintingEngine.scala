@@ -46,7 +46,10 @@ class URNavHintingEngine extends Engine with JsonSupport {
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
-        dataset = new URNavHintingDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
+        dataset = new URNavHintingDataset(
+          engineId = engineId,
+          store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs),
+          p.sharedDBName.isEmpty)
         val eventsDao = dataset.store.createDao[URNavHintingEvent](dataset.getIndicatorEventsCollectionName)
         algo = URNavHintingAlgorithm(this, jsonConfig, dataset, eventsDao)
         logStatus(p)
