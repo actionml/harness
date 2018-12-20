@@ -167,13 +167,19 @@ object UREngine extends JsonSupport {
       entityType: String,
       @Indexed(order = asc) entityId: String,
       targetEntityId: Option[String] = None,
-      properties: Map[String, Seq[String]] = Map.empty,
+      dateProps: Map[String, Date] = Map.empty,
+      categoricalProps: Map[String, Seq[String]] = Map.empty,
+      floatProps: Map[String, Float] = Map.empty,
+      booleanProps: Map[String, Boolean] = Map.empty,
       @Indexed(order = desc) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
       @Indexed(order = asc) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
-      properties: Map[String, Seq[String]] = Map.empty // properties to be written to the model, this is saved in the input dataset
+      dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
+      categoricalProps: Map[String, Seq[String]] = Map.empty,
+      floatProps: Map[String, Float] = Map.empty,
+      booleanProps: Map[String, Boolean] = Map.empty
   ) extends Serializable
 
   case class URQuery(
