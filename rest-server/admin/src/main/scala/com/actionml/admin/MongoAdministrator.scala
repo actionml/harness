@@ -87,18 +87,14 @@ class MongoAdministrator extends Administrator with JsonParser {
       if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" -> params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
+        val update = buildEngine(params, json)
         enginesCollection.update("engineId" -> params.engineId)(update)
         engines += params.engineId -> newEngine
         Valid(params.engineId)
       } else if (newEngine != null) {
         //add new
         logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        val builder = Document.builder
-        builder += "engineId" -> BsonString(params.engineId)
-        builder += "engineFactory" -> BsonString(params.engineFactory)
-        builder += "params" -> BsonString(json)
-        enginesCollection.insert(builder.result)
+        enginesCollection.insert(buildEngine(params, json))
         engines += params.engineId -> newEngine
         logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
         Valid(jsonComment(s"EngineId: ${params.engineId} created"))
@@ -108,12 +104,11 @@ class MongoAdministrator extends Administrator with JsonParser {
       }
     }
   }
-
   override def updateEngine(json: String): Validated[ValidateError, String] = {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        val update = Document("engineFactory" -> params.engineFactory, "params" -> json)
+        val update = buildEngine(params, json)
         enginesCollection.update("engineId" -> params.engineId)(update)
         existingEngine.init(json, deepInit = false)
       }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
@@ -168,5 +163,14 @@ class MongoAdministrator extends Administrator with JsonParser {
     }
   }
 
+
+
+  private def buildEngine(params: GenericEngineParams, json: String): Document = {
+    val builder = Document.builder
+    builder += "engineId" -> BsonString(params.engineId)
+    builder += "engineFactory" -> BsonString(params.engineFactory)
+    builder += "params" -> BsonString(json)
+    builder.result()
+  }
 }
 
