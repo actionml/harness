@@ -88,7 +88,7 @@ class UREngine extends Engine with JsonSupport {
   }
 
   override def input(jsonEvent: String): Validated[ValidateError, String] = {
-    logger.trace("Got JSON body: " + jsonEvent)
+    //logger.info("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
     val response = super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { e =>

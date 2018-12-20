@@ -118,6 +118,8 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
                 logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
+          case _ =>
+            logger.warn(s"Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
 
         }
 

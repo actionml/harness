@@ -99,7 +99,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
          | $errMsg""".stripMargin)))
 
     if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
-      logger.error("Reading from the mirror location will cause in infinite loop." +
+      logger.error("Reading from the mirror location will cause an infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
       importEventsError("Reading from the mirror location will cause in infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
