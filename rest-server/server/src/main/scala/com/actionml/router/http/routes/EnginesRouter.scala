@@ -109,14 +109,14 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Response]
+      (engineService ? CreateEngine(engineConfig.noSpaces)).mapTo[Response]
     }
   }
 
   private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[Json]) { engineConfig ⇒
     log.info("Update engine: {}, updateConfig: true", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Response]
+      (engineService ? UpdateEngine(engineConfig.noSpaces)).mapTo[Response]
     }
   }
 

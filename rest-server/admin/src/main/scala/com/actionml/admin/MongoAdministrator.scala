@@ -155,8 +155,6 @@ class MongoAdministrator extends Administrator with JsonParser {
       }
     } else {
       logger.trace("Getting status for all Engines")
-      val statuses = jsonList(
-        engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)
       Valid(
         prettify(jsonList(
           engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)))

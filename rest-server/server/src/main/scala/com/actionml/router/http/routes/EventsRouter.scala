@@ -82,7 +82,7 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
   private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
     log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(engineId, event.toString())).mapTo[Response]
+      (eventService ? CreateEvent(engineId, event.noSpaces)).mapTo[Response]
     }
   }
 

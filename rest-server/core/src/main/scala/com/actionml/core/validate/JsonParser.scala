@@ -22,12 +22,14 @@ import org.json4s.JValue
 import org.json4s.ext.JodaTimeSerializers
 
 import scala.reflect.ClassTag
-import com.fasterxml.jackson.core.JsonProcessingException
-import com.fasterxml.jackson.databind.{JavaType, ObjectMapper, SerializationFeature}
+import com.fasterxml.jackson.core.{JsonParseException, JsonProcessingException}
+import com.fasterxml.jackson.databind.{JavaType, JsonMappingException, ObjectMapper, SerializationFeature}
 import java.io.IOException
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import org.json4s
+import org.json4s.jackson.Json
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, Formats, MappingException}
 
@@ -61,19 +63,12 @@ trait JsonParser extends LazyLogging {
   }
 
   def prettify(jsonString: String): String = {
-    val mapper = new ObjectMapper()
     try {
-      //val jsonObject = mapper.readValue(jsonString, Object.class)
-      //val jsonObject = mapper.readValue(jsonString, Class[Object])
-      //val jsonObject = mapper.readValue(jsonString, JavaType)
-      //mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject)
-
-      val json = mapper.readValue(jsonString, classOf[Any])
-      mapper.writerWithDefaultPrettyPrinter.writeValueAsString(json)
+      json4s.jackson.prettyJson(parse(jsonString))
     } catch {
-      case e: IOException =>
+      case e@(_ :IOException | _ :JsonParseException | _ :JsonMappingException) =>
+        logger.error(s"Can't parse $jsonString", e)
         jsonComment(s"Bad Json in prettify: $jsonString")
-      case ex => throw ex
     }
   }
 
@@ -87,7 +82,7 @@ trait JsonParser extends LazyLogging {
 
   def jsonList(jsonStrings: Seq[String]): String = {
     // todo: create then pretty print instead
-    "[\n    " + jsonStrings.mkString(",\n    ") + "\n]"
+    "[" + jsonStrings.mkString(",") + "]"
   }
 
 
