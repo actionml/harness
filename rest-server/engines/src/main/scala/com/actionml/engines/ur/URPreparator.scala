@@ -69,7 +69,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
     val collectedRdds = eventRDDs.map(_._2.collect())
-    logger.info(s"Received events ${eventRDDs.map(_._1)}")
+    logger.info(s"WARNING WARNING WARNING: REMOVE THIS WHEN NOT DEBUGGIING\nReceived events ${eventRDDs.map( e => s" ${e._1}: ${e._2.count().toString}")}")
 
     /*
     // aggregating all $set/$unsets for metadata rules, which are attached to items
