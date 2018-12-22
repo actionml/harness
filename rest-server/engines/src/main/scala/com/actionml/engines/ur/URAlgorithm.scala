@@ -456,7 +456,6 @@ class URAlgorithm private (
     val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
       getBlacklistedItemsMatchers(query, userEvents)))
 
-    // todo: add date based rules to Search Query
     // val dateMatcher = getDateMatchers(query) // or some such...
 
     val sq =SearchQuery(

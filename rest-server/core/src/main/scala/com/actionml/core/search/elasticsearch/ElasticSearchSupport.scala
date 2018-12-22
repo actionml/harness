@@ -84,7 +84,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
   }
 
   override def deleteIndex(refresh: Boolean): Boolean = {
-    // todo: Andrey, this is a deprecated API, also this throws and exception then the Elasticsearch server is not running
+    // todo: Andrey, this is a deprecated API, also this throws an exception when the Elasticsearch server is not running
     // it should give a more friendly error message by testing to see if Elasticsearch is running or maybe we should test
     // the required services when an engine is created or updated. This would be more efficient for frequent client requests
     client.performRequest(

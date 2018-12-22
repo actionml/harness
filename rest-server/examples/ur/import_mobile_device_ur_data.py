@@ -40,7 +40,7 @@ $set events
 
 
 
-def import_events(client, file, primary_event):
+def import_events(client, file, primary_event, with_dates):
     f = open(file, 'r')
     random.seed(SEED)
     count = 0
@@ -96,30 +96,30 @@ def import_events(client, file, primary_event):
         current_date += event_time_increment
 
     # items = ['Iphone 6', 'Ipad-retina', 'Nexus', 'Surface', 'Iphone 4', 'Galaxy', 'Iphone 5']
-    print("All items: " + str(primary_items))
-"""
-    for item in primary_items:
+    if with_dates:
+        print("Adding date properties for all items: " + str(primary_items))
+        for item in primary_items:
 
-        client.create(
-            event="$set",
-            entity_type="item",
-            entity_id=item,
-            properties={"expires": expire_date.isoformat(timespec="milliseconds"),
-                        "available": available_date.isoformat(timespec="milliseconds"),
-                        "date": event_date.isoformat(timespec="milliseconds")}
-        )
-        print("Event: $set entity_id: " + item + \
-              " properties/availableDate: " + available_date.isoformat(timespec="milliseconds") + \
-              " properties/date: " + event_date.isoformat(timespec="milliseconds") + \
-              " properties/expireDate: " + expire_date.isoformat(timespec="milliseconds"))
-        expire_date += available_date_increment
-        event_date += available_date_increment
-        available_date += available_date_increment
-        count += 1
+            client.create(
+                event="$set",
+                entity_type="item",
+                entity_id=item,
+                properties={"expireDate": expire_date.isoformat(timespec="milliseconds"),
+                            "availableDate": available_date.isoformat(timespec="milliseconds"),
+                            "date": event_date.isoformat(timespec="milliseconds")}
+            )
+            print("Event: $set entity_id: " + item + \
+                  " properties/availableDate: " + available_date.isoformat(timespec="milliseconds") + \
+                  " properties/date: " + event_date.isoformat(timespec="milliseconds") + \
+                  " properties/expireDate: " + expire_date.isoformat(timespec="milliseconds"))
+            expire_date += available_date_increment
+            event_date += available_date_increment
+            available_date += available_date_increment
+            count += 1
 
     f.close()
     print("%s events are imported." % count)
-"""
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Import sample data for Universal Recommender Engine")
@@ -127,6 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('--url', default="http://localhost:9090")
     parser.add_argument('--input_file', default="examples/ur/sample-mobile-device-ur-data.csv")
     parser.add_argument('--primary_event', default="purchase")
+    parser.add_argument('--with_dates', default=False)
     parser.add_argument('--secret', default=None)
     parser.add_argument('--secret_2', default=None)
 
@@ -141,4 +142,4 @@ if __name__ == '__main__':
         # user_id=args.user_id,
         # user_secret=args.secret
         )
-    import_events(client, args.input_file, args.primary_event)
+    import_events(client, args.input_file, args.primary_event, args.with_dates)
