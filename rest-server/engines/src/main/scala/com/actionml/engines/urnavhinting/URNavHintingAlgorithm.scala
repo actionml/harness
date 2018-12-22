@@ -420,15 +420,38 @@ class URNavHintingAlgorithm private (
     }
     val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
     val mustMatcher = Matcher("values", query.eligibleNavIds)
-    val esQuery = SearchQuery(
-      should = Map("terms" -> shouldMatchers),
-      must = Map("ids" -> Seq(mustMatcher)),
-      sortBy = "popRank",
-      size = limit
-    )
+
+    val esQuery = if(params.blacklistEvents.isDefined) {
+      val mustNotIdsMatcher = Matcher("values", convertedHist.map(_.targetEntityId.getOrElse("")).toSeq)
+      SearchQuery(
+        should = Map("terms" -> shouldMatchers),
+        must = Map("ids" -> Seq(mustMatcher)),
+        mustNot = Map("ids" -> Seq(mustNotIdsMatcher)),
+        sortBy = "popRank",
+        size = limit
+      )
+    } else {
+      SearchQuery(
+        should = Map("terms" -> shouldMatchers),
+        must = Map("ids" -> Seq(mustMatcher)),
+        //mustNot = Map("ids" -> Seq(mustNotIdsMatcher)),
+        sortBy = "popRank",
+        size = limit
+      )
+    }
+
     logger.info(s"Sending query: $esQuery")
     val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
     URNavHintingQueryResult(esResult)
+  }
+
+  private def getBlacklistedItemsMatchers(query: URNavHintingQuery, userEvents: Seq[URNavHintingEvent]): Seq[Matcher] = {
+    val blacklistByUserHistory = userEvents.filter(event => blacklistEvents.contains(event.event)).map(_.targetEntityId.getOrElse(""))
+    Seq(
+      Matcher(
+        "values",
+        blacklistByUserHistory.distinct,
+        None))
   }
 
   /** Calculate all fields and items needed for ranking.

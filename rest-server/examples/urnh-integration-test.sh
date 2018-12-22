@@ -16,7 +16,7 @@ echo
 host=localhost
 # for real CLI test: engine=test_ur_nav_hinting
 engine=test_ur_nav_hinting
-engine_json=examples/data/${engine}.json
+engine_json=examples/data/test_ur_nav_hinting.json
 test_queries=examples/data/nh-queries-urls.json
 user_events=examples/data/ur_nav_hinting_handmade_data.csv
 import_data_script=examples/ur_nav_hinting_import_handmade.py
@@ -45,6 +45,10 @@ harness add ${engine_json}
 harness status
 
 echo
+echo "---------------------- Testing URNavHinting  --------------------------------------------"
+echo
+
+echo
 echo "Sending all personalization events"
 echo
 python3 ${import_data_script}
@@ -60,8 +64,38 @@ echo "Sending hinting queries, joe and john should get the same results since th
 echo
 python3 examples/test_urnh_queries.py > ${actual_test_results}
 
+echo
+echo "---------------------- Testing event blacklisting ------------------------------------------"
+echo
+
+engine_blacklist_events=test_ur_nav_hinting
+engine_blacklist_events_json=examples/data/test_urnh_blacklisting.json
+actual_test_results_blacklisting=actual-urnh-results-blacklisting.out
+expected_blacklisting_test_results=examples/data/expected-urnh-blacklisting-test-results.txt
+
+echo "Updating Engine config to affect the model."
+harness update ${engine_blacklist_events_json}
+#sleep $sleep_seconds
+#harness add ${engine_blacklist_events_json}
+#sleep $sleep_seconds
+#python3 ${import_data_script}
+
+echo
+echo "Training a new model--THIS WILL TAKE SOME TIME (30 SECONDS?)"
+echo
+harness train $engine_blacklist_events
+sleep $training_sleep_seconds # wait for training to complete
+
+echo
+echo "Sending hinting queries, joe and john should get the same results since they have identical behavior"
+echo
+python3 examples/test_urnh_queries.py > ${actual_test_results_blacklisting}
+
+
+
 
 echo "---------------------- There should be no important differences ----------------------------"
 diff ${actual_test_results} ${expected_test_results} | grep result
+diff ${actual_test_results_blacklisting} ${expected_blacklisting_test_results} | grep result
 echo
 

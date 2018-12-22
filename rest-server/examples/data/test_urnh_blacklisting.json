@@ -1,5 +1,5 @@
 {
-  "engineId": "ur_nav_hinting",
+  "engineId": "test_ur_nav_hinting",
   "engineFactory": "com.actionml.engines.urnavhinting.URNavHintingEngine",
   "sparkConf": {
     "master": "local",
@@ -12,6 +12,7 @@
     "es.index.auto.create": "true"
   },
   "algorithm": {
+    "blacklistEvents": [],
     "indicators": [
       {
         "name": "nav-event"
