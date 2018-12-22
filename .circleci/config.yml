@@ -46,7 +46,7 @@ jobs:
           paths:
             - ./
 
-  container:
+  publish:
     docker:
       - image: docker:stable
     steps:
@@ -69,18 +69,19 @@ jobs:
             docker image push actionml/harness:ci
             docker logout
 
-  # test:
-  #   docker:
-  #     - image: alpine
-  #   steps:
-  #     - run: echo "unit or other tests"
+  test:
+    docker:
+      - image: alpine
+    steps:
+      - run: echo "unit or other tests"
 
 workflows:
   version: 2
   default:
     jobs:
       - build
-      - container:
+      - test
+      - publish:
           requires:
             - build
-      # - test
+            - test
