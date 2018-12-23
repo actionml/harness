@@ -40,6 +40,7 @@ trait SearchClient[T] {
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
+  def saveOnById(id: String, typeName: String, doc: T): Boolean
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[T]
   def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]])

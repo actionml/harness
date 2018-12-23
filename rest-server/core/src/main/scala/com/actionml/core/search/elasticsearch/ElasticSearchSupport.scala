@@ -36,6 +36,7 @@ import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.json4s.DefaultReaders._
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
@@ -67,7 +68,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
+class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
@@ -81,6 +82,34 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
     refresh: Boolean): Boolean = {
     val indexName = createIndexName(alias)
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
+  }
+
+  override def saveOnById(id: String, typeName: String, doc: T): Boolean = {
+    client.performRequest(
+      "HEAD",
+      s"/_alias/$alias",
+      Map.empty[String, String].asJava)
+      .getStatusLine
+      .getStatusCode match {
+      case 200 =>
+        try {
+          val aliasResponse = client.performRequest(
+            "POST",
+            s"/$alias/$typeName/${encodeURIFragment(id)}/_update",
+            Map.empty[String, String].asJava,
+            new StringEntity(JsonMethods.compact(JObject(
+              "doc" -> JsonMethods.asJValue(doc),
+              "doc_as_upsert" -> JBool(true)
+            )), ContentType.APPLICATION_JSON))
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          (responseJValue \ "result").getAs[String].contains("updated")
+        } catch {
+          case e: Exception =>
+            logger.error(s"Can't upsert $doc with id $id and type $typeName", e)
+            false
+        }
+      case _ => false
+    }
   }
 
   override def deleteIndex(refresh: Boolean): Boolean = {
@@ -288,7 +317,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
   }
 
 
-  def encodeURIFragment(s: String): String = {
+  private def encodeURIFragment(s: String): String = {
     var result: String = ""
     try
       result = URLEncoder.encode(s, "UTF-8")
@@ -417,6 +446,12 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 
 
 object ElasticSearchClient extends LazyLogging {
+  private implicit val _: Writer[Hit] = new Writer[Hit] {
+    override def write(obj: Hit): JValue = JObject(
+      "id" -> JString(obj.id),
+      "score" -> JDouble(obj.score)
+    )
+  }
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
