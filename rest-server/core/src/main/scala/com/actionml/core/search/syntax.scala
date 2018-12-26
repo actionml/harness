@@ -24,23 +24,23 @@ object syntax {
 
   implicit class SearchFilterOps(name: String) {
     def ===(v: Any): FilterClause = {
-      FilterClause(term, name, Conditions.eq, v.toString)
+      FilterClause(term, name, Conditions.eq, v)
     }
 
     def gt(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.gt, v.toString)
+      FilterClause(range, name, Conditions.gt, v)
     }
 
     def gte(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.gte, v.toString)
+      FilterClause(range, name, Conditions.gte, v)
     }
 
     def lt(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.lt, v.toString)
+      FilterClause(range, name, Conditions.lt, v)
     }
 
     def lte(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.lte, v.toString)
+      FilterClause(range, name, Conditions.lte, v)
     }
   }
 }
