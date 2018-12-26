@@ -21,6 +21,7 @@ import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.time.Instant
 
+import com.actionml.core.search.FilterClause.Conditions
 import com.actionml.core.search._
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
@@ -488,6 +489,14 @@ object ElasticSearchClient extends LazyLogging {
         }
       }.flatten.toList ++ others.toList
     }
+    def filterToJson(filters: Seq[FilterClause]): JArray = {
+      filters.map { f =>
+        JObject((if (f.condition == Conditions.eq) "term" else "range") -> JObject(
+          f.name -> (if (f.condition == Conditions.eq) JString(f.value.toString)
+                    else JObject(f.condition.toString -> JString(f.value.toString)))
+        ))
+      }
+    }
     val json =
       if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
         JObject()
@@ -499,6 +508,7 @@ object ElasticSearchClient extends LazyLogging {
               ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
               ("must" -> matcherToJson(query.must)) ~
               ("must_not" -> matcherToJson(query.mustNot)) ~
+              ("filter" -> filterToJson(query.filter)) ~
               ("minimum_should_match" -> 1)
             )
           ) ~
