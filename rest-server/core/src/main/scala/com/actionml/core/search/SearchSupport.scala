@@ -17,16 +17,41 @@
 
 package com.actionml.core.search
 
+import com.actionml.core.search.FilterClause.Conditions.Condition
+import com.actionml.core.search.FilterClause.Types.Type
+
 trait SearchSupport[T] {
   def createSearchClient(engineId: String): SearchClient[T]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
+case class FilterClause(`type`: Type, name: String, condition: Condition, value: Any)
+
+object FilterClause {
+  object Types extends Enumeration {
+    type Type = Value
+
+    val range = Value("range")
+    val term = Value("term")
+  }
+
+  object Conditions extends Enumeration {
+    type Condition = Value
+
+    val eq = Value("eq")
+    val gte = Value("gte")
+    val gt = Value("gt")
+    val lte = Value("lte")
+    val lt = Value("lt")
+  }
+}
+
 case class SearchQuery(
   sortBy: String = "popRank", // todo: make it optional and changeable
   should: Map[String, Seq[Matcher]] = Map.empty,
   must: Map[String, Seq[Matcher]] = Map.empty,
   mustNot: Map[String, Seq[Matcher]] = Map.empty,
+  filter: Seq[FilterClause] = Seq.empty,
   size: Int = 20,
   from: Int = 0 // todo: technically should be optional and changeable, but no sure sending 0 is bad in any way
 )
@@ -40,6 +65,7 @@ trait SearchClient[T] {
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
+  def saveOnById(id: String, typeName: String, doc: T): Boolean
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[T]
   def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]])

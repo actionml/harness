@@ -21,6 +21,7 @@ import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.time.Instant
 
+import com.actionml.core.search.FilterClause.{Conditions, Types}
 import com.actionml.core.search._
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
@@ -36,6 +37,8 @@ import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.json4s.DefaultReaders._
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
@@ -67,7 +70,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
+class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
@@ -81,6 +84,34 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
     refresh: Boolean): Boolean = {
     val indexName = createIndexName(alias)
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
+  }
+
+  override def saveOnById(id: String, typeName: String, doc: T): Boolean = {
+    client.performRequest(
+      "HEAD",
+      s"/_alias/$alias",
+      Map.empty[String, String].asJava)
+      .getStatusLine
+      .getStatusCode match {
+      case 200 =>
+        try {
+          val aliasResponse = client.performRequest(
+            "POST",
+            s"/$alias/$typeName/${encodeURIFragment(id)}/_update",
+            Map.empty[String, String].asJava,
+            new StringEntity(JsonMethods.compact(JObject(
+              "doc" -> JsonMethods.asJValue(doc),
+              "doc_as_upsert" -> JBool(true)
+            )), ContentType.APPLICATION_JSON))
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          (responseJValue \ "result").getAs[String].contains("updated")
+        } catch {
+          case e: Exception =>
+            logger.error(s"Can't upsert $doc with id $id and type $typeName", e)
+            false
+        }
+      case _ => false
+    }
   }
 
   override def deleteIndex(refresh: Boolean): Boolean = {
@@ -288,7 +319,7 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
   }
 
 
-  def encodeURIFragment(s: String): String = {
+  private def encodeURIFragment(s: String): String = {
     var result: String = ""
     try
       result = URLEncoder.encode(s, "UTF-8")
@@ -416,7 +447,13 @@ class ElasticSearchClient[T] private (alias: String) extends SearchClient[T] wit
 }
 
 
-object ElasticSearchClient extends LazyLogging {
+object ElasticSearchClient extends LazyLogging with JsonSupport {
+  private implicit val _: Writer[Hit] = new Writer[Hit] {
+    override def write(obj: Hit): JValue = JObject(
+      "id" -> JString(obj.id),
+      "score" -> JDouble(obj.score)
+    )
+  }
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
@@ -442,17 +479,7 @@ object ElasticSearchClient extends LazyLogging {
   }
 
   private def mkElasticQueryString(query: SearchQuery): String = {
-    import org.json4s.JsonDSL._
     import org.json4s.jackson.JsonMethods._
-    def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
-      clauses.map { case (clause, matchers) =>
-        matchers.map { m =>
-          clause ->
-            (m.name -> m.values) ~
-            m.boost.fold(JObject())("boost" -> _)
-        }
-      }.flatten.toList ++ others.toList
-    }
     val json =
       if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
         JObject()
@@ -464,6 +491,7 @@ object ElasticSearchClient extends LazyLogging {
               ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
               ("must" -> matcherToJson(query.must)) ~
               ("must_not" -> matcherToJson(query.mustNot)) ~
+              ("filter" -> filterToJson(query.filter)) ~
               ("minimum_should_match" -> 1)
             )
           ) ~
@@ -474,6 +502,35 @@ object ElasticSearchClient extends LazyLogging {
       }
     // logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
+  }
+
+  private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
+      clauses.map { case (clause, matchers) =>
+        matchers.map { m =>
+          clause ->
+            (m.name -> m.values) ~
+            m.boost.fold(JObject())("boost" -> _)
+        }
+      }.flatten.toList ++ others.toList
+    }
+
+  private def filterToJson(filters: Seq[FilterClause]): JArray = {
+    implicit val _ = CustomFormats
+    filters.foldLeft(Map.empty[(Types.Type, String), JObject]) { case (acc, f) =>
+      acc.get(f.`type` -> f.name).fold {
+        acc + ((f.`type` -> f.name) -> JObject(
+          f.name -> (if (f.condition == Conditions.eq) Extraction.decompose(f.value)
+          else JObject(f.condition.toString -> Extraction.decompose(f.value)))
+        ))
+      } { j =>
+        acc + ((f.`type` -> f.name) -> j.merge(JObject(
+          f.name -> (if (f.condition == Conditions.eq) Extraction.decompose(f.value)
+          else JObject(f.condition.toString -> Extraction.decompose(f.value)))
+        )))
+      }
+    }
+  }.toList.map {
+    case ((t, _), j) => JObject(t.toString -> j)
   }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
