@@ -12,7 +12,7 @@ if [ -z "$RESOURCE_TYPE" ] ; then
   status_line "HARNESS_HOME" "${HARNESS_HOME}"
   status_line "REST_SERVER_HOST" "${REST_SERVER_HOST}"
   status_line "REST_SERVER_PORT" "${REST_SERVER_PORT}"
-  status_line "MONGO_PORT" "${MONGO_PORT}"
+  status_line "MONGO_HOST" "${MONGO_HOST}"
   status_line "MONGO_PORT" "${MONGO_PORT}"
   status_line "HARNESS_LOG_CONFIG" "${HARNESS_LOG_CONFIG}"
   status_line "HARNESS_LOG_PATH" "${HARNESS_LOG_PATH}"
@@ -36,9 +36,9 @@ fi
 #
 if [ "${RESOURCE_TYPE}" = "engines" ]; then
   if [ -z ${RESOURCE_ID} ]; then
-    "${HARNESS_HOME}"/bin/engines.py status --all_engines "${USER_ARGS}" || exit $?
+    "${HARNESS_HOME}"/bin/engines.py status --all_engines ${USER_ARGS} || exit $?
   else
-    "${HARNESS_HOME}"/bin/engines.py status -e "${RESOURCE_ID}" "${USER_ARGS}" || exit $?
+    "${HARNESS_HOME}"/bin/engines.py status -e "${RESOURCE_ID}" ${USER_ARGS} || exit $?
   fi
 fi
 
@@ -47,8 +47,8 @@ fi
 #
 if [ "${RESOURCE_TYPE}" = "users" ]; then
   if [ -z "${RESOURCE_ID}" ]; then
-    "${HARNESS_HOME}"/bin/users.py status --all_users "${USER_ARGS}" || exit $?
+    "${HARNESS_HOME}"/bin/users.py status --all_users ${USER_ARGS} || exit $?
   else
-    "${HARNESS_HOME}"/bin/users.py status --user_id "${RESOURCE_ID}" "${USER_ARGS}"
+    "${HARNESS_HOME}"/bin/users.py status --user_id "${RESOURCE_ID}" ${USER_ARGS}
   fi
 fi
