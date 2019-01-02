@@ -39,8 +39,10 @@ echo
 echo "----------------------------------------------------------------------------------------------------------------"
 echo "Universal Recommender Integration tests"
 echo "----------------------------------------------------------------------------------------------------------------"
+echo
+echo "---------------------- Testing Simple Personalized Recs with Business Rules         ----------------------------"
 
-: <<'END' # block comment beginning look for END
+#: <<'END' # block comment beginning look for END
 
 echo "Wipe the Engine clean of data and model first"
 harness delete ${engine}
@@ -63,9 +65,10 @@ echo
 echo "Sending hinting queries"
 echo
 ./${test_queries} > ${actual_query_results}
-END
+#END
+
 echo
-echo "---------------------- Testing Event Aliases                    ----------------------------"
+echo "---------------------- Testing Event Aliases -------------------------------------------------------------------"
 
 engine_aliases_json=examples/ur/test_ur_event_aliases.json
 user_events_aliases=examples/ur/sample-event-alias-ur-data.csv
@@ -93,9 +96,9 @@ echo "Sending hinting queries"
 echo
 ./${test_queries} > ${actual_query_results_aliases}
 
-: <<'END' # block comment beginning look for END
 
-echo "---------------------- Testing Dates                     ----------------------------"
+echo "---------------------- Testing Dates NOT IMPLEMENTED!!! --------------------------------------------------------"
+: <<'END' # block comment beginning look for END
 
 engine_dates_json=examples/ur/test_ur_mobile_device_dates.json
 user_events_dates=examples/ur/sample-mobile-device-ur-data.csv
@@ -125,8 +128,8 @@ echo
 ./${test_queries} > ${actual_query_results_dates}
 END
 
-echo "---------------------- Below there should be no differences reported -------------------"
-#diff ${actual_query_results} ${expected_test_results} | grep result
+echo "---------------------- Below there should be no differences reported -------------------------------------------"
+diff ${actual_query_results} ${expected_test_results} | grep result
 diff ${actual_query_results_aliases} ${expected_test_results} | grep result
 #diff ${actual_query_results_dates} ${expected_test_results_dates} | grep result
 echo
