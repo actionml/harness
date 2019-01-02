@@ -68,8 +68,8 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
       (indicatorName, singleEventRDD)
     }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
-    val collectedRdds = eventRDDs.map(_._2.collect())
-    logger.info(s"WARNING WARNING WARNING: REMOVE THIS WHEN NOT DEBUGGIING\nReceived events ${eventRDDs.map( e => s" ${e._1}: ${e._2.count().toString}")}")
+    //val collectedRdds = eventRDDs.map(_._2.collect())
+    //logger.info(s"WARNING WARNING WARNING: REMOVE THIS WHEN NOT DEBUGGIING\nReceived events ${eventRDDs.map( e => s" ${e._1}: ${e._2.count().toString}")}")
 
     /*
     // aggregating all $set/$unsets for metadata rules, which are attached to items
@@ -101,6 +101,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     // now that we have all indicatorRDDs in separate RDDs we must merge any user dictionaries and
     // make sure the same user ids map to the correct events
     var userDictionary: Option[BiDictionary] = None
+    var geometry = Seq.empty[String]
 
     val indexedDatasets = trainingData.indicatorEvents.map {
       case (indicatorName, eventRDD) =>
@@ -121,6 +122,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
             s"indicatorName: $indicatorName number of user-ids: ${userDictionary.get.size}")
           logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
           //ddIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}"
           ddIDS
         } else {
           //logger.info(s"IndexedDatasetSpark for indicatorName: $indicatorName User ids: $userDictionary")
@@ -129,6 +131,8 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
           //dIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
+          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}"
+
           dIDS
         }
 
@@ -141,6 +145,10 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
       case (itemId, propMap) => itemId -> propMap.rules
     }
     */
+    for(string <- geometry) {
+      logger.info(string)
+    }
+
 
     PreparedData(indexedDatasets, trainingData.fieldsRDD)
   }
