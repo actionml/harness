@@ -38,16 +38,16 @@ object DaoQuery {
   object syntax {
 
     implicit class DaoQueryOps(name: String) {
-      def >=(v: Any): (String, QueryCondition) = {
+      def gte(v: Any): (String, QueryCondition) = {
         name -> GreaterOrEqualsTo(v)
       }
-      def <=(v: Any): (String, QueryCondition) = {
+      def lte(v: Any): (String, QueryCondition) = {
         name -> LessOrEqualsTo(v)
       }
-      def >(v: Any): (String, QueryCondition) = {
+      def gt(v: Any): (String, QueryCondition) = {
         name -> GreaterThen(v)
       }
-      def <(v: Any): (String, QueryCondition) = {
+      def lt(v: Any): (String, QueryCondition) = {
         name -> LessThen(v)
       }
       def ===(v: Any): (String, QueryCondition) = {
