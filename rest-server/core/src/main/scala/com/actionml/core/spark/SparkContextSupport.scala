@@ -77,14 +77,17 @@ object SparkContextSupport extends LazyLogging {
     val f = state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
-        createSparkContext(params).flatMap { sc =>
+        createSparkContext(params).foreach { sc =>
           if (state.compareAndSet(Idle, Running(params, Option(sc), p, Map.empty))) {
             p.complete(Success(sc))
-            p.future
           } else {
-            getSparkContext(config, engineId, jobDescription, kryoClasses)
+            state.get match {
+              case r: Running => state.compareAndSet(r, r.copy(otherPromises = r.otherPromises + (params -> p)))
+              case _ => getSparkContext(config, engineId, jobDescription, kryoClasses)
+            }
           }
         }
+        p.future
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
       case s@Running(_, sc, _, promises) if !sc.exists(_.isStopped) =>
