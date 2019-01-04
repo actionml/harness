@@ -18,6 +18,8 @@
 package com.actionml.engines.ur
 
 import java.io.Serializable
+import java.time.{LocalDateTime, OffsetDateTime, ZonedDateTime}
+import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -25,13 +27,14 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.actionml.core.search.{Hit, Matcher, SearchQuery}
+import com.actionml.core.search.{Hit, Filter, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
+import com.sun.jndi.toolkit.dir
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
@@ -39,7 +42,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import scala.concurrent.duration.Duration
 
 
@@ -94,6 +96,10 @@ class URAlgorithm private (
   private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
   private var rules: Option[Seq[Rule]] = _
+  private var availableDateName: Option[String] = _
+  private var expireDateName: Option[String] = _
+  private var itemDateName: Option[String] = _
+
 
   // setting that cannot change with config
   val esIndex = engineId
@@ -119,6 +125,9 @@ class URAlgorithm private (
     indicators = params.indicators
     seed = params.seed
     rules = params.rules
+    availableDateName = params.availableDateName
+    expireDateName = params.expireDateName
+    itemDateName = params.dateName
 
    if (params.indicators.nonEmpty) { // using indicators for fined tuned control
       indicatorParams = params.indicators.map { indicatorParams =>
@@ -172,6 +181,7 @@ class URAlgorithm private (
         params.dateName,
         params.availableDateName,
         params.expireDateName).collect { case Some(date) => date } distinct
+
 
       es = ElasticSearchClient(engineId)
 
@@ -456,13 +466,12 @@ class URAlgorithm private (
     val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
       getBlacklistedItemsMatchers(query, userEvents)))
 
-    // val dateMatcher = getDateMatchers(query) // or some such...
-
     val sq =SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
       mustNot = mustNotMatchers,
+      filters = getDateFilters(query),
       size = numResults,
       from = startPos
     )
@@ -590,7 +599,49 @@ class URAlgorithm private (
         None))
   }
 
-
+  def getDateFilters(query: URQuery): Seq[Filter] = {
+    val expirationSearchFilter = if(expireDateName.isDefined) {
+      Some(
+        Filter(
+          `type` = Filter.Types.range,
+          name = expireDateName.get,
+          condition = Filter.Conditions.gt,
+          value = LocalDateTime.now()
+        )
+      )
+    } else None
+    val availableSearchFilter = if(availableDateName.isDefined) {
+      Some(
+        Filter(
+          `type` = Filter.Types.range,
+          name = availableDateName.get,
+          condition = Filter.Conditions.lt,
+          value = LocalDateTime.now()
+        )
+      )
+    } else None
+    val itemDateRangeSearchFilterUpperLimit = if(query.dateRange.isDefined && query.dateRange.get.before.isDefined) {
+      Some(
+        Filter(
+          `type` = Filter.Types.range,
+          name = query.dateRange.get.name,
+          condition = Filter.Conditions.lt,
+          value = Date.from(OffsetDateTime.parse( query.dateRange.get.after.get ).toInstant)
+        )
+      )
+    } else None
+    val itemDateRangeSearchFilterLowerLimit = if(query.dateRange.isDefined && query.dateRange.get.after.isDefined) {
+      Some(
+        Filter(
+          `type` = Filter.Types.range,
+          name = query.dateRange.get.name,
+          condition = Filter.Conditions.gt,
+          value = Date.from(OffsetDateTime.parse( query.dateRange.get.after.get ).toInstant)
+        )
+      )
+    } else None
+    Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit, itemDateRangeSearchFilterLowerLimit).flatten
+  }
 
   /** Calculate all rules and items needed for ranking.
     *

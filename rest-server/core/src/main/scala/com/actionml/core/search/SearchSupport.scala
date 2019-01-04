@@ -17,17 +17,17 @@
 
 package com.actionml.core.search
 
-import com.actionml.core.search.FilterClause.Conditions.Condition
-import com.actionml.core.search.FilterClause.Types.Type
+import com.actionml.core.search.Filter.Conditions.Condition
+import com.actionml.core.search.Filter.Types.Type
 
 trait SearchSupport[T] {
   def createSearchClient(engineId: String): SearchClient[T]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
-case class FilterClause(`type`: Type, name: String, condition: Condition, value: Any)
+case class Filter(`type`: Type, name: String, condition: Condition, value: Any)
 
-object FilterClause {
+object Filter {
   object Types extends Enumeration {
     type Type = Value
 
@@ -51,9 +51,9 @@ case class SearchQuery(
   should: Map[String, Seq[Matcher]] = Map.empty,
   must: Map[String, Seq[Matcher]] = Map.empty,
   mustNot: Map[String, Seq[Matcher]] = Map.empty,
-  filter: Seq[FilterClause] = Seq.empty,
+  filters: Seq[Filter] = Seq.empty,
   size: Int = 20,
-  from: Int = 0 // todo: technically should be optional and changeable, but no sure sending 0 is bad in any way
+  from: Int = 0 // todo: technically should be optional and changeable, but not sure sending 0 is bad in any way
 )
 
 case class Hit(id: String, score: Float)

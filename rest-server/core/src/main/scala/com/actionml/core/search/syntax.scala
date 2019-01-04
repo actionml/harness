@@ -17,30 +17,30 @@
 
 package com.actionml.core.search
 
-import com.actionml.core.search.FilterClause.Conditions
-import com.actionml.core.search.FilterClause.Types._
+import com.actionml.core.search.Filter.Conditions
+import com.actionml.core.search.Filter.Types._
 
 object syntax {
 
   implicit class SearchFilterOps(name: String) {
-    def ===(v: Any): FilterClause = {
-      FilterClause(term, name, Conditions.eq, v)
+    def ===(v: Any): Filter = {
+      Filter(term, name, Conditions.eq, v)
     }
 
-    def gt(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.gt, v)
+    def gt(v: Any): Filter = {
+      Filter(range, name, Conditions.gt, v)
     }
 
-    def gte(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.gte, v)
+    def gte(v: Any): Filter = {
+      Filter(range, name, Conditions.gte, v)
     }
 
-    def lt(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.lt, v)
+    def lt(v: Any): Filter = {
+      Filter(range, name, Conditions.lt, v)
     }
 
-    def lte(v: Any): FilterClause = {
-      FilterClause(range, name, Conditions.lte, v)
+    def lte(v: Any): Filter = {
+      Filter(range, name, Conditions.lte, v)
     }
   }
 }
