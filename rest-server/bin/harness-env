@@ -14,11 +14,11 @@ export MONGO_PORT=${MONGO_PORT:-27017}
 
 # HDFS setup
 # This should be set by Hadoop, otherwise set it here
-export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
+#export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
 # Files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
 # if needed
-export HDFS_MASTER=${HDFS_MASTER:-localhost}
-export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
+#export HDFS_MASTER=${HDFS_MASTER:-localhost}
+#export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
 
 # Elasticsearch setup (optional: used by UR and similar Engines)
 # todo: need to allow for multiple servers for cluster operation of ES
