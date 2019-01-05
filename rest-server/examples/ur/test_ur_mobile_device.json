@@ -2,14 +2,17 @@
   "engineId": "test_ur",
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
-    "master": "local",
-    "spark.driver-memory": "4g",
-    "spark.executor-memory": "4g",
+    "master": "spark://ec2-35-174-61-13.compute-1.amazonaws.com:7077",
+    "spark.driver.memory": "4g",
+    "spark.executor.memory": "4g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
     "spark.kryoserializer.buffer": "300m",
-    "es.index.auto.create": "true"
+    "es.index.auto.create": "true",
+    "spark.es.index.auto.create": "true",
+    "es.nodes": "172.31.49.150",
+    "spark.es.nodes": "172.31.49.150"
   },
   "algorithm": {
     "indicators": [
