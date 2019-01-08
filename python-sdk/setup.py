@@ -17,6 +17,7 @@ setup(
     url='http://actionml.com',
     license='LICENSE.txt',
     description='Harness Python SDK',
+    zip_safe=False,
     classifiers=[
         'Programming Language :: Python',
         'License :: OSI Approved :: Apache Software License',
