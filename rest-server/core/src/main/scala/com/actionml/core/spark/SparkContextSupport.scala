@@ -30,7 +30,7 @@ import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 
 object SparkContextSupport extends LazyLogging {
@@ -74,7 +74,7 @@ object SparkContextSupport extends LazyLogging {
    */
   def getSparkContext(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
     val params = SparkContextParams(config, engineId, jobDescription, kryoClasses = kryoClasses)
-    val f = state.get match {
+    state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
         createSparkContext(params).foreach { sc =>
@@ -104,28 +104,36 @@ object SparkContextSupport extends LazyLogging {
           sc
         }
     }
-    f.foreach(sc => sc.setJobGroup(jobDescription.jobId, jobDescription.comment))
-    f
   }
 
 
-  private def createSparkContext(params: SparkContextParams): Future[SparkContext] = Future {
-    val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
-    val conf = new SparkConf()
-    configMap.get("master").foreach(conf.setMaster)
-    conf.setAppName(params.engineId)
-    conf.setAll(configMap - "master")
-    val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
-    conf.setJars(jars)
-    // todo: not sure we should make these keys special, if we do then we should report and error if things like
-    // master or appname are required but not provided. We need a better way to report engine.json errors,
-    // especially in the sparkConf, which is only partially known. We can check for required things and let the
-    // rest through on the hope they are correct
-    if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
-    val sc = new SparkContext(conf)
-    JobManager.startJob(params.jobDescription.jobId)
-    sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
-    sc
+  private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
+    val f = Future {
+      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+      val conf = new SparkConf()
+      configMap.get("master").foreach(conf.setMaster)
+      conf.setAppName(params.engineId)
+      conf.setAll(configMap - "master")
+      val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
+      conf.setJars(jars)
+      // todo: not sure we should make these keys special, if we do then we should report and error if things like
+      // master or appname are required but not provided. We need a better way to report engine.json errors,
+      // especially in the sparkConf, which is only partially known. We can check for required things and let the
+      // rest through on the hope they are correct
+      if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
+      val sc = new SparkContext(conf)
+      sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
+      JobManager.startJob(params.jobDescription.jobId)
+      sc
+    }
+    f.onComplete {
+      case Success(sc) =>
+        sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
+      case Failure(e) =>
+        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
+        JobManager.removeJob(params.jobDescription.jobId)
+    }
+    f
   }
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {

@@ -309,11 +309,6 @@ class URAlgorithm private (
         SparkContextSupport.stopAndClean(sc)
       }
     }
-    f.onFailure {
-      case e: Throwable =>
-        logger.error(s"Spark context failed for job $jobDescription", e)
-        JobManager.removeJob(jobDescription.jobId)
-    }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
