@@ -79,7 +79,7 @@ class URAlgorithm private (
   private var itemBias: Float = _
   private var itemSetBias: Float = _
   private var maxQueryEvents: Int = _
-  private var indicatorParams: Map[String, DefaultIndicatorParams] = _
+  private var indicatorParams: Seq[IndicatorParams] = _
   private var limit: Int = _
   private var modelEventNames: Seq[String] = _
   private var blacklistEvents: Seq[String] = _
@@ -128,19 +128,7 @@ class URAlgorithm private (
     availableDateName = params.availableDateName
     expireDateName = params.expireDateName
     itemDateName = params.dateName
-
-   if (params.indicators.nonEmpty) { // using indicators for fined tuned control
-      indicatorParams = params.indicators.map { indicatorParams =>
-        indicatorParams.name -> DefaultIndicatorParams(
-          aliases = indicatorParams.aliases,
-          maxItemsPerUser = indicatorParams.maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
-          maxCorrelatorsPerItem = indicatorParams.maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
-          minLLR = indicatorParams.minLLR)
-      }.toMap
-    } else {
-      logger.error("Must have indicators in algorithm parameters, which are empty here: " + s"$params")
-      err = Invalid(MissingParams(jsonComment("Must have indicators in algorithm parameters, which are empty")))
-    }
+    indicatorParams = params.indicators
 
 
     // continue validating if all is ok so far
@@ -343,15 +331,7 @@ class URAlgorithm private (
       .head._2.columnIDs.toMap.keySet.toSeq
 
     logger.info("Actions read now creating correlators")
-    val cooccurrenceIDSs = if (indicators.isEmpty) { // using one global set of algo params
-      SimilarityAnalysis.cooccurrencesIDSs(
-        data.indicatorRDDs.map(_._2).toArray,
-        randomSeed = seed.getOrElse(System.currentTimeMillis()).toInt,
-        maxInterestingItemsPerThing = maxCorrelatorsPerEventType,
-        maxNumInteractions = maxEventsPerEventType)
-        .map(_.asInstanceOf[IndexedDatasetSpark])
-    } else { // using params per matrix pair, these take the place of indicatorParams, maxCorrelatorsPerEventType,
-      // and maxEventsPerEventType!
+    val cooccurrenceIDSs = {
       val iDs = data.indicatorRDDs.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
@@ -503,14 +483,18 @@ class URAlgorithm private (
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
     // create a Map of alias -> indicator name or indicator name -> indicator name if no aliases
-    val queryEventNames = indicatorParams.flatMap { case (indicatorName, iParams) =>
-      val aliases = iParams.aliases.getOrElse(Seq(indicatorName))
-      if(indicatorName == aliases.head) {
-        Map(indicatorName -> indicatorName)
+    val queryEventNames = indicatorParams.flatMap { case i =>
+      val aliases = i.aliases.getOrElse(Seq(i.name))
+      if(i.name == aliases.head) {
+        Map(i.name -> i.name)
       } else {
-        aliases.map(_ -> indicatorName)
+        aliases.map(_ -> i.name)
       }.toMap
-    }
+    }.toMap
+
+    logger.info(s"Events to alias mapping: ${queryEventNames}")
+
+
 
     val userHistory = eventsDao.findMany(
       DaoQuery(

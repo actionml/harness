@@ -66,7 +66,7 @@ echo "Sending hinting queries"
 echo
 ./${test_queries} > ${actual_query_results}
 #END
-: <<'END' # block comment beginning look for END
+#: <<'END' # block comment beginning look for END
 
 echo
 echo "---------------------- Testing Event Aliases -------------------------------------------------------------------"
@@ -100,6 +100,8 @@ echo
 
 echo "---------------------- Testing Dates NOT IMPLEMENTED!!! --------------------------------------------------------"
 
+: <<'END' # block comment beginning look for END
+
 engine_dates_json=examples/ur/test_ur_mobile_device_dates.json
 user_events_dates=examples/ur/sample-mobile-device-ur-data.csv
 actual_query_results_dates=actual_ur_dates_results.out
@@ -130,7 +132,7 @@ END
 
 echo "---------------------- Below there should be no differences reported -------------------------------------------"
 diff ${actual_query_results} ${expected_test_results} | grep result
-#diff ${actual_query_results_aliases} ${expected_test_results} | grep result
+diff ${actual_query_results_aliases} ${expected_test_results} | grep result
 #diff ${actual_query_results_dates} ${expected_test_results_dates} | grep result
 echo
 

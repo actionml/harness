@@ -18,8 +18,8 @@
 package com.actionml.engines.ur
 
 import com.actionml.core.store.SparkMongoSupport
-import com.actionml.engines.ur.URAlgorithm.{PreparedData, TrainingData}
-import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
+import com.actionml.engines.ur.URAlgorithm.{IndicatorParams, PreparedData, TrainingData}
+import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary
@@ -28,12 +28,12 @@ import org.apache.mahout.sparkbindings.{DrmRdd, drmWrap}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-/** Partitions off creation of Mahout data structures from stored data in a DB */
+/** Creation of Mahout data structures from stored data in a DB */
 object URPreparator extends LazyLogging with SparkMongoSupport {
 
-  /** Reads events from PEventStore and create and RDD for each */
+  /** Reads events from Events RDD and create an RDD for each */
   def mkTraining(
-    indicatorParams: Map[String, URAlgorithm.DefaultIndicatorParams],
+    indicatorParams: Seq[IndicatorParams],
     eventsRDD: RDD[UREvent],
     itemsRDD: RDD[URItemProperties])(implicit sc: SparkContext): TrainingData = {
 
@@ -51,9 +51,14 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     */
 
     // now separate the events by event name
-    val indicatorNames = indicatorParams.keySet
-    val eventRDDs: Seq[(String, RDD[(UserID, ItemID)])] = indicatorNames.map { indicatorName =>
-      val aliases = indicatorParams(indicatorName).aliases.getOrElse(Seq(indicatorName))
+    val indicatorNames = indicatorParams.map(_.name)
+
+    logger.info(s"Indicators: ${indicatorNames}")
+
+    val collectedEventsRDD = eventsRDD.collect()
+
+    val eventRDDs: Seq[(String, RDD[(UserID, ItemID)])] = indicatorParams.map { i =>
+      val aliases = i.aliases.getOrElse(Seq(i.name))
 
         //.getOrElse(
         //indicatorName,
@@ -65,7 +70,9 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
           (e.entityId, e.targetEntityId.getOrElse(""))
         }
 
-      (indicatorName, singleEventRDD)
+      val collectedRdd = singleEventRDD.collect()
+
+      (i.name, singleEventRDD)
     }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
     //val collectedRdds = eventRDDs.map(_._2.collect())
@@ -103,6 +110,9 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     var userDictionary: Option[BiDictionary] = None
     var geometry = Seq.empty[String]
 
+    val primaryIndicatorName = trainingData.indicatorEvents.head._1
+    logger.info(s"Primary Indicator: ${primaryIndicatorName}")
+    logger.info(s"eventRDDs in order: ${trainingData.indicatorEvents.map(_._1)}")
     val indexedDatasets = trainingData.indicatorEvents.map {
       case (indicatorName, eventRDD) =>
 
@@ -110,24 +120,35 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
         // and append any new ids, so after all are constructed we have all user ids in the last dictionary
         logger.info("indicatorName: " + indicatorName)
         // logger.info(s"first indicatorName is ${trainingData.indicatorRDDs.head._1.toString}")
-        val ids = if (indicatorName == trainingData.indicatorEvents.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
+        val ids = if (indicatorName == primaryIndicatorName && trainingData.minEventsPerUser.nonEmpty) {
           val dIDS = IndexedDatasetSparkFactory(eventRDD, trainingData.minEventsPerUser.get)(sc)
           logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, indicatorName: $indicatorName" +
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           // we have removed underactive users now remove the items they were the only to interact with
           val ddIDS = IndexedDatasetSpark(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
-          userDictionary = Some(ddIDS.rowIDs)
+          if(userDictionary.isEmpty && indicatorName == primaryIndicatorName) {
+            geometry = geometry :+ s"Initializing geometry of ${indicatorName}: \nUser dictionary size: ${userDictionary.size}" +
+              s" matrix rows: ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}"
+            userDictionary = Some(ddIDS.rowIDs)
+          }
+
           logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
             s"indicatorName: $indicatorName number of user-ids: ${userDictionary.get.size}")
           logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
           //ddIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}"
+
           ddIDS
+
         } else {
           //logger.info(s"IndexedDatasetSpark for indicatorName: $indicatorName User ids: $userDictionary")
           val dIDS = IndexedDatasetSpark(eventRDD, userDictionary)(sc)
-          userDictionary = Some(dIDS.rowIDs)
+          if(userDictionary.isEmpty && indicatorName == primaryIndicatorName) {
+            geometry = geometry :+ s"Initializing geometry of ${indicatorName}: \nUser dictionary size: ${userDictionary.size}" +
+              s" matrix rows: ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}"
+            userDictionary = Some(dIDS.rowIDs)
+          }
           //dIDS.dfsWrite(indicatorName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
@@ -138,13 +159,14 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
 
         (indicatorName, ids)
 
-    }
+    }.filter(i => i._2.matrix.nrow > 0 && i._2.matrix.ncol > 0) // chuck out empty cross-occurrence data
 
     /*
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = trainingData.fieldsRDD.map {
       case (itemId, propMap) => itemId -> propMap.rules
     }
     */
+
     for(string <- geometry) {
       logger.info(string)
     }
