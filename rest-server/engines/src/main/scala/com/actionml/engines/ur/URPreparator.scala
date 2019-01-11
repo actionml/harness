@@ -55,7 +55,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
 
     logger.info(s"Indicators: ${indicatorNames}")
 
-    val collectedEventsRDD = eventsRDD.collect()
+    //val collectedEventsRDD = eventsRDD.collect()
 
     val eventRDDs: Seq[(String, RDD[(UserID, ItemID)])] = indicatorParams.map { i =>
       val aliases = i.aliases.getOrElse(Seq(i.name))
@@ -70,7 +70,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
           (e.entityId, e.targetEntityId.getOrElse(""))
         }
 
-      val collectedRdd = singleEventRDD.collect()
+      //val collectedRdd = singleEventRDD.collect()
 
       (i.name, singleEventRDD)
     }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
