@@ -110,6 +110,8 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     var userDictionary: Option[BiDictionary] = None
     var geometry: Seq[String] = Seq("All indicator geometry")
 
+    val primaryIndicatorName = trainingData.indicatorEvents.head._1
+
     val indexedDatasets = trainingData.indicatorEvents.map {
       case (indicatorName, eventRDD) =>
 
@@ -123,25 +125,35 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           // we have removed underactive users now remove the items they were the only to interact with
-          val ddIDS = IndexedDatasetSpark(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
-          userDictionary = Some(ddIDS.rowIDs)
+          val ddIDS = IndexedDatasetSparkFactory(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
+          val finalRows = ddIDS.matrix.nrow
+          if(indicatorName == primaryIndicatorName) {
+            geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
+            userDictionary = Some(ddIDS.rowIDs)
+          }
           logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
             s"eventName: $indicatorName number of user-ids: ${userDictionary.get.size}")
           logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
           //ddIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${ddIDS.matrix.ncol.toString}"
 
           ddIDS
         } else {
           //logger.info(s"IndexedDatasetSpark for eventName: $eventName User ids: $userDictionary")
-          val dIDS = IndexedDatasetSpark(eventRDD, userDictionary)(sc)
-          userDictionary = Some(dIDS.rowIDs)
+          val dIDS = IndexedDatasetSparkFactory(eventRDD, userDictionary)(sc)
+          val finalRows = dIDS.matrix.nrow
+          if(indicatorName == primaryIndicatorName) {
+            geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
+            userDictionary = Some(dIDS.rowIDs)
+          }
+
           //dIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
+          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${dIDS.matrix.ncol.toString}"
           dIDS
         }
 
-        geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${ids.matrix.nrow.toString} columns: ${ids.matrix.ncol.toString}"
 
         (indicatorName, ids)
 
@@ -149,7 +161,6 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
       case (name, ids) =>
         ids.matrix.nrow > 0 && ids.matrix.ncol > 0
     }
-
 
 
     /*
@@ -243,6 +254,7 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
 
     PreparedData(indexedDatasets, trainingData.fieldsRDD)
   }
+
 }
 
 /** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */
