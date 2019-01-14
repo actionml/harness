@@ -458,7 +458,7 @@ class URAlgorithm private (
 
     import org.json4s.jackson.Serialization.write
 
-    logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
+    //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
     sq
   }
 
@@ -584,6 +584,7 @@ class URAlgorithm private (
   }
 
   def getDateFilters(query: URQuery): Seq[Filter] = {
+    /*
     val expirationSearchFilter = if(expireDateName.isDefined) {
       Some(
         Filter(
@@ -625,6 +626,20 @@ class URAlgorithm private (
       )
     } else None
     Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit, itemDateRangeSearchFilterLowerLimit).flatten
+    */
+    import com.actionml.core.search.syntax._
+    val expirationSearchFilter = expireDateName.map(_ gt new Date)
+    val availableSearchFilter = availableDateName.map(_ lt new Date)
+    val itemDateRangeSearchFilterUpperLimit = for {
+      name <- query.dateRange.map(_.name)
+      value <- query.dateRange.map(_.before)
+    } yield name lt value
+    val itemDateRangeSearchFilterLowerLimit = for {
+      name <- query.dateRange.map(_.name)
+      value <- query.dateRange.map(_.after)
+    } yield name gt value
+    Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit,
+      itemDateRangeSearchFilterLowerLimit).flatten
   }
 
   /** Calculate all rules and items needed for ranking.
