@@ -458,7 +458,7 @@ class URAlgorithm private (
 
     import org.json4s.jackson.Serialization.write
 
-    logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
+    //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
     sq
   }
 
@@ -595,7 +595,8 @@ class URAlgorithm private (
       name <- query.dateRange.map(_.name)
       value <- query.dateRange.map(_.after)
     } yield name gt value
-    Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit, itemDateRangeSearchFilterLowerLimit).flatten
+    Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit,
+      itemDateRangeSearchFilterLowerLimit).flatten
   }
 
   /** Calculate all rules and items needed for ranking.
