@@ -54,11 +54,12 @@ trait JsonSupport extends LazyLogging {
   implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all
   object CustomFormats extends DefaultFormats {
     override val dateFormat: DateFormat = new DateFormat {
-      private val df = DateTimeFormatter.ISO_DATE_TIME
+      private val readFormat = DateTimeFormatter.ISO_DATE_TIME
+      private val writeFormat = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
       override def parse(s: String): Option[Date] = {
         try {
-          Option(Date.from(Instant.from(df.parse(s))))
+          Option(Date.from(Instant.from(readFormat.parse(s))))
         } catch {
           case e: Exception =>
             logger.error(s"Can't parse date $s", e)
@@ -66,7 +67,7 @@ trait JsonSupport extends LazyLogging {
         }
       }
 
-      override def format(d: Date): String = df.format(Instant.ofEpochMilli(d.getTime).atZone(timezone.toZoneId))
+      override def format(d: Date): String = writeFormat.format(Instant.ofEpochMilli(d.getTime).atZone(timezone.toZoneId))
 
       override def timezone: TimeZone = TimeZone.getDefault
     }
