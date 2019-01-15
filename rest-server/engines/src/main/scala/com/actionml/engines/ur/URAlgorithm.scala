@@ -335,7 +335,7 @@ class URAlgorithm private (
       val iDs = data.indicatorRDDs.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
-          new DownsamplableCrossOccurrenceDataset(
+          DownsamplableCrossOccurrenceDataset(
             iD,
             indicators(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
             indicators(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
@@ -583,47 +583,18 @@ class URAlgorithm private (
         None))
   }
 
-  def getDateFilters(query: URQuery): Seq[Filter] = {
-    val expirationSearchFilter = if(expireDateName.isDefined) {
-      Some(
-        Filter(
-          `type` = Filter.Types.range,
-          name = expireDateName.get,
-          condition = Filter.Conditions.gt,
-          value = LocalDateTime.now()
-        )
-      )
-    } else None
-    val availableSearchFilter = if(availableDateName.isDefined) {
-      Some(
-        Filter(
-          `type` = Filter.Types.range,
-          name = availableDateName.get,
-          condition = Filter.Conditions.lt,
-          value = LocalDateTime.now()
-        )
-      )
-    } else None
-    val itemDateRangeSearchFilterUpperLimit = if(query.dateRange.isDefined && query.dateRange.get.before.isDefined) {
-      Some(
-        Filter(
-          `type` = Filter.Types.range,
-          name = query.dateRange.get.name,
-          condition = Filter.Conditions.lt,
-          value = Date.from(OffsetDateTime.parse( query.dateRange.get.after.get ).toInstant)
-        )
-      )
-    } else None
-    val itemDateRangeSearchFilterLowerLimit = if(query.dateRange.isDefined && query.dateRange.get.after.isDefined) {
-      Some(
-        Filter(
-          `type` = Filter.Types.range,
-          name = query.dateRange.get.name,
-          condition = Filter.Conditions.gt,
-          value = Date.from(OffsetDateTime.parse( query.dateRange.get.after.get ).toInstant)
-        )
-      )
-    } else None
+  private def getDateFilters(query: URQuery): Seq[Filter] = {
+    import com.actionml.core.search.syntax._
+    val expirationSearchFilter = expireDateName.map(_ gt new Date)
+    val availableSearchFilter = availableDateName.map(_ lt new Date)
+    val itemDateRangeSearchFilterUpperLimit = for {
+      name <- query.dateRange.map(_.name)
+      value <- query.dateRange.map(_.before)
+    } yield name lt value
+    val itemDateRangeSearchFilterLowerLimit = for {
+      name <- query.dateRange.map(_.name)
+      value <- query.dateRange.map(_.after)
+    } yield name gt value
     Seq(expirationSearchFilter, availableSearchFilter, itemDateRangeSearchFilterUpperLimit, itemDateRangeSearchFilterLowerLimit).flatten
   }
 
@@ -633,7 +604,7 @@ class URAlgorithm private (
     *  @param sc the current Spark context
     *  @return
     */
-  def getRanksRDD(
+  private def getRanksRDD(
     fieldsRDD: RDD[(ItemID, PropertyMap)],
     eventsRdd: RDD[UREvent],
     convertedItems: Seq[String])
