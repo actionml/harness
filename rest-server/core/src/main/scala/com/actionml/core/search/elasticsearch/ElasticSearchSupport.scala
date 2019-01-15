@@ -478,7 +478,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
     builder.build
   }
 
-  private def mkElasticQueryString(query: SearchQuery): String = {
+  private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
     val json =
       if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
@@ -514,7 +514,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
       }.flatten.toList ++ others.toList
     }
 
-  private def filterToJson(filters: Seq[Filter]): JArray = {
+  private[elasticsearch] def filterToJson(filters: Seq[Filter]): JArray = {
     implicit val _ = CustomFormats
     filters.foldLeft(Map.empty[(Types.Type, String), JObject]) { case (acc, f) =>
       acc.get(f.`type` -> f.name).fold {

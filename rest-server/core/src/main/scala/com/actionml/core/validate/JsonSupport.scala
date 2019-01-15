@@ -66,7 +66,7 @@ trait JsonSupport extends LazyLogging {
         }
       }
 
-      override def format(d: Date): String = df.format(d.toInstant)
+      override def format(d: Date): String = df.format(Instant.ofEpochMilli(d.getTime).atZone(timezone.toZoneId))
 
       override def timezone: TimeZone = TimeZone.getDefault
     }

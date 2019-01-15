@@ -25,6 +25,23 @@ trait SearchSupport[T] {
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
+
+/**
+  * com.actionml.core.search.syntax contains a syntax for Filters, so instead of manual instantiation
+  * {{{
+  *   Filter(Types.range, "name", Conditions.eq, value)
+  * }}}
+  * one can use
+  * {{{
+  * import com.actionml.core.search.syntax._
+  * name eq value
+  * }}}
+  *
+  * @param `type` - type of the filter (range | term)
+  * @param name - name of the field
+  * @param condition - eq|gt|gte|lt|lte
+  * @param value - any value of this field
+  */
 case class Filter(`type`: Type, name: String, condition: Condition, value: Any)
 
 object Filter {
