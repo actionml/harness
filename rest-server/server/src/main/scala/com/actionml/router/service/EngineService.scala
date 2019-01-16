@@ -17,11 +17,10 @@
 
 package com.actionml.router.service
 
-import cats.data.Validated.{Invalid, Valid}
+import cats.implicits._
 import com.actionml.admin.Administrator
-import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
+import io.circe.parser._
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -43,9 +42,9 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
       log.info("Get engine, {}", engineId)
       sender() ! admin.status(Some(engineId)).map(_.asJson)
 
-    case GetEngines() =>
+    case GetEngines =>
       log.info("Get one or all engine status")
-      sender() ! admin.status().map(_.asJson)
+      sender() ! admin.status().andThen(parse(_).toValidated)
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
@@ -81,7 +80,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
 sealed trait EngineAction
 case class GetEngine(engineId: String) extends EngineAction
-case class GetEngines() extends EngineAction
+case object GetEngines extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
 case class UpdateEngine(engineJson: String) extends EngineAction
 case class UpdateEngineWithTrain(engineId: String) extends EngineAction
