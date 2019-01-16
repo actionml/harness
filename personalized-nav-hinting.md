@@ -60,6 +60,7 @@ Configuration is especially important because it defines the type of events by n
 {
   "engineId": "test_ur_nav_hinting",
   "engineFactory": "com.actionml.engines.urnavhinting.URNavHintingEngine",
+  "sharedDBName": "!!!<name of db to share data>!!!",
   "sparkConf": {
     "master": "local",
     "spark.driver-memory": "4g",
@@ -92,7 +93,9 @@ Configuration is especially important because it defines the type of events by n
 
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
- - **blacklistEvents**: optional, default = `nav-event`. By default this will cause only hints that the User has not visited recently to be hinted. If this is set to an empty list then any hint will be shown even if the User has seen it.
+ - **sharedDBName**: optional, this should be a snake-case name associated with the database used to store data shared across Engine Instances and clients. One `sharedDBName` means to share all usable data across all Engine Instances that have this setting. **Note**: most Engine types will not be able to share data with other types but Engines of the same type may be able to. See Engine specific documentation.
+
+ The URNavHinting Engine type can only share data with other URNavHintingEngine isntances.
 
 ## Spark Parameters (sparkConf)
 

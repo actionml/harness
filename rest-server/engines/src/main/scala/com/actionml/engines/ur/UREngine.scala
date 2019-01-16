@@ -122,6 +122,9 @@ class UREngine extends Engine with JsonSupport {
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
+      //logger.info(s"Prettified results: " + prettify(result.toJson))
+      //logger.info(s"Raw results: ")
+      //logger.info(result.toJson)
       Valid(result.toJson)
     }
   }
