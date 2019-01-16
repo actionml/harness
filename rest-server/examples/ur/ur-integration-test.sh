@@ -40,7 +40,7 @@ echo "--------------------------------------------------------------------------
 echo "Universal Recommender Integration tests"
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
-: <<'END' # block comment beginning look for END
+#: <<'END' # block comment beginning look for END
 
 echo "---------------------- Testing Simple Personalized Recs with Business Rules         ----------------------------"
 
@@ -98,7 +98,7 @@ echo "Sending hinting queries"
 echo
 ./${test_queries} > ${actual_query_results_aliases}
 
-END
+#END
 
 echo "---------------------- Testing Queries Filtered by Dates -------------------------------------------------------"
 
@@ -107,7 +107,9 @@ echo "---------------------- Testing Queries Filtered by Dates -----------------
 engine_dates_json=examples/ur/test_ur_mobile_device_dates.json
 user_events_dates=examples/ur/sample-mobile-device-ur-data.csv
 actual_query_results_dates=actual_ur_dates_results.out
-expected_test_results_dates=examples/ur/expected-ur-results-dates.txt
+expected_test_results_dates=examples/ur/expected-ur-date-results.txt
+test_date_queries=examples/ur/test-ur-mobile-date-queries.sh
+
 
 echo "Wipe the Engine clean of data and model first"
 harness delete ${engine}
@@ -129,12 +131,13 @@ sleep $training_sleep_seconds # wait for training to complete
 echo
 echo "Sending hinting queries"
 echo
-./${test_queries} > ${actual_query_results_dates}
+
+./${test_date_queries} > ${actual_query_results_dates}
 #END
 
 echo "---------------------- Below there should be no differences reported -------------------------------------------"
-#diff ${actual_query_results} ${expected_test_results} | grep result
-#diff ${actual_query_results_aliases} ${expected_test_results} | grep result
+diff ${actual_query_results} ${expected_test_results} | grep result
+diff ${actual_query_results_aliases} ${expected_test_results} | grep result
 diff ${actual_query_results_dates} ${expected_test_results_dates} | grep result
 echo
 

@@ -46,13 +46,13 @@ def import_events(client, file, primary_event, with_dates):
     count = 0
     # year, month, day[, hour[, minute[, second[
     #event_date = datetime.datetime(2015, 8, 13, 12, 24, 41)
-    now_date = datetime.datetime.now(pytz.utc) # - datetime.timedelta(days=2.7)
+    now_date = datetime.datetime.now(pytz.utc) - datetime.timedelta(days=2.7)
     current_date = now_date
     event_time_increment = datetime.timedelta(days= -0.8)
     available_date_increment = datetime.timedelta(days= 0.8)
-    event_date = now_date - datetime.timedelta(days= 2.4)
-    available_date = event_date + datetime.timedelta(days=-2)
-    expire_date = event_date + datetime.timedelta(days=2)
+    event_date = now_date # - datetime.timedelta(days= 1.3)
+    available_date = event_date + datetime.timedelta(days=-1)
+    expire_date = event_date + datetime.timedelta(days=1)
     print("Importing data...")
 
     primary_items = []

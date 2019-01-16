@@ -1,18 +1,12 @@
 # The Harness REST Specification
 
-REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on them with URIs and HTTP verbs. For instance an HTTP POST corresponds to the C in CRUD, which in turn stands for Create, Update, Read, Delete. So by combining the HTTP verb with a resource identifying URi most desired operations can be constructed. 
-
-There are cases where these simple methods do not offer good ways to encode "verb" type operations that are beyond CRUD so we do not enforce REST style where it does not fit well. Those places will be noted.
+REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on them by combining URIs with HTTP/HTTPS verbs. For instance an HTTP POST corresponds to the C in CRUD (**C**reate, **U**pdate, **R**ead, **D**elete). So by combining the HTTP verb with a resource identifying URI most desired operations can be constructed. 
 
 # Harness REST
 
-From the outside Harness looks like a single server that fields all REST APIs, but behind this are serval more heavy-weight services (like databases or compute engines). In cases where Harness needs to define a service we use a ***microservices*** architecture, meaning the service is itself called via HTTP and REST APIs.
+From the outside Harness looks like a single server that fields all REST APIs, but behind this are serval more heavy-weight services (like databases or compute engines). In cases where Harness needs to define a service we use a ***microservices*** architecture, meaning the service is itself called via HTTP and REST APIs and encapculates some clear function, like the Harness Authentication Server. All of these Services and Microservices are invisible to the outside and only used by Harness as a byproduct of performing some Harness REST API.
 
-In Harness v0.0.1 there is a microservice for Authentication and Authorization, which manages `users` and `roleSets` that apply to how they can access Harness and all of its resources. Generally these reference resource-ids and routes to the resource as well as which CRUD access they have.
-
-These `roleSets` are defined in the Auth-Server's configuration and are referenced in the REST-API by their names. See the Auth-Server docs for their desciption  (a work in progress), this document describes the entirity of Harness and Auth-Server REST-APIs as designed, though some APIs are not implemented since they are required for operation and those are noted below.
-
-This also does not define the CLI commands that can invoke the APIs&mdash;see [Commands](commands.md) for this.
+The Harness CLI are implemented in Python as calls to the REST API so this separation of client to Harness Server is absolute. See [Commands](commands.md) for more about the CLI.
 
 # Harness HTTP Response Codes
 
@@ -63,29 +57,35 @@ Lambda style batch or background learners require not only setup but batch train
 | --- | --- | :---  | :---  | :---  | :--- |
 | POST | `/engines/<engine-id>/jobs` | JSON params for batch training if defined by the Engine | See Item responses | 202 or collection error responses | Used to start a batch training operation for an engine. Supplies any needed identifiers for input and training defined by the Engine |
 
-# JSON Responses
+# JSON 
 
-Several of the APIs return information beyond the Response Code. These will be parsable as JSON in the following forms
+Harness uses JSON for all POST and response bodies. The format of these bodies are under the control of the Specific Engines with some information layered on by Harness itself.
 
- - GET `/engines/<engine-id>`. This corresponds to the CLI `harness engines status <engine-id>` The response is defined by the Engine to contain configuration and other status information. Performing `harness engines status <engine-id>` The CLI will display the JSON format for the Engine type. 
+Harness enforces certain conventions too. For instance all JSON types are allowed but are validated for their specific use case. Dates are supported as Strings of a common subset of ISO8601. Harness is a JVM (Java Virtual Machine) process and so supports the [Java ISO_DATE_FORMAT](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_DATE_TIME) for input strings. This includes most common formats with and without time zones, and what is called the "Zulu" format.
+
+## Responses
+
+Several of the APIs return information beyond the Response Code.
+
+ - GET `/engines/<engine-id>`. This corresponds to the CLI `harness engines status <engine-id>` The response is defined by the Engine to contain configuration and other status information. Performing `harness engines status <engine-id>` The CLI will display the JSON format for the Engine type. See the Engine docs for specific response bodies.
 
     ```
     {
         "comment": "some general human readable informational message",
         ...
         "jobId": "id of job",
-        "jobStatus": "inactive" | "executing" | "pending"
+        "jobStatus": "queued"
     }
     ```
 
  
- - POST `/engines/<engine-id>/jobs` and POST `/engines/<engine-id>/imports?<import-path>`. The corresponds to the CLI `harness train <engine-id>` and `harness import <path-to-json-directory>` With a Response Code of 202 expect a report of the form:
+ - **Example**: POST `/engines/<engine-id>/jobs` and POST `/engines/<engine-id>/imports?<import-path>`. These corresponds to the CLI `harness train <engine-id>` and `harness import <path-to-json-directory> <engine-id>` With a Response Code of 202 expect a report of the form:
     
     ```
     {
         "comment": "some general human readable informational message",
         "jobId": "id of job",
-        "jobStatus": "executing" | "pending"
+        "jobStatus": "executing" | "queued"
     }
     ```
     
