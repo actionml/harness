@@ -21,7 +21,6 @@ import cats.implicits._
 import com.actionml.admin.Administrator
 import com.actionml.router.ActorInjectable
 import io.circe.parser._
-import io.circe.syntax._
 import scaldi.Injector
 
 /**
@@ -40,7 +39,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
   override def receive: Receive = {
     case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)
-      sender() ! admin.status(Some(engineId)).map(_.asJson)
+      sender() ! admin.status(Some(engineId)).andThen(parse(_).toValidated)
 
     case GetEngines =>
       log.info("Get one or all engine status")
@@ -48,19 +47,19 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
-      sender() ! admin.addEngine(engineJson).map(_.asJson)
+      sender() ! admin.addEngine(engineJson).andThen(parse(_).toValidated)
 
     case UpdateEngine(engineJson) =>
       log.info(s"Update existing engine, ${engineJson}")
-      sender() ! admin.updateEngine(engineJson).map(_.asJson)
+      sender() ! admin.updateEngine(engineJson).andThen(parse(_).toValidated)
 
     case UpdateEngineWithTrain(engineId) =>
       log.info(s"Update existing engine, ${engineId}")
-      sender() ! admin.updateEngineWithTrain(engineId).map(_.asJson)
+      sender() ! admin.updateEngineWithTrain(engineId).andThen(parse(_).toValidated)
 
     case UpdateEngineWithImport(engineId, inputPath) =>
       log.info(s"Update existing engine by importing, ${inputPath}")
-      sender() ! admin.updateEngineWithImport(engineId, inputPath).map(_.asJson)
+      sender() ! admin.updateEngineWithImport(engineId, inputPath).andThen(parse(_).toValidated)
 
     /*
     case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
@@ -74,7 +73,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
-      sender() ! admin.removeEngine(engineId).map(_.asJson)
+      sender() ! admin.removeEngine(engineId).andThen(parse(_).toValidated)
   }
 }
 

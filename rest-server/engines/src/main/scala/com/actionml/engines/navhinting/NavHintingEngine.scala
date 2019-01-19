@@ -23,8 +23,8 @@ import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
-
 import com.actionml.core.validate.{JsonSupport, ValidateError}
+import io.circe.Json
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
 class NavHintingEngine extends Engine with JsonSupport {
@@ -107,11 +107,13 @@ class NavHintingEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String): Validated[ValidateError, Json] = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
     logger.debug(s"Got a query JSON string: $json")
     parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      Valid( algo.query(query).toJson)
+      Valid(algo.query(query).asJson)
     }
   }
 

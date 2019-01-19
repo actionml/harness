@@ -23,6 +23,7 @@ import com.actionml.core.drawInfo
 import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
+import io.circe.Json
 
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
@@ -127,12 +128,14 @@ class ScaffoldEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String): Validated[ValidateError, Json] = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
-      Valid(result.toJson)
+      Valid(result.asJson)
     }
   }
 

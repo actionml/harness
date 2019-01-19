@@ -24,6 +24,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{GenericEngineParams, Query, Status}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
+import io.circe.Json
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -129,13 +130,15 @@ class CBEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String): Validated[ValidateError, Json] = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.groupsDao.findOneById(query.groupId).nonEmpty) {
         val result = algo.query(query)
-        Valid(result.toJson)
+        Valid(result.asJson)
       } else {
         Invalid(WrongParams(jsonComment(s"Query for non-existent group: $json")))
       }

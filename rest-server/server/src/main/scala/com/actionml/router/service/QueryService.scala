@@ -21,7 +21,6 @@ import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
 import com.actionml.core.validate.{JsonSupport, WrongParams}
 import com.actionml.router.ActorInjectable
-import io.circe.syntax._
 import scaldi.Injector
 
 /**
@@ -40,7 +39,7 @@ class QueryServiceImpl(implicit inj: Injector) extends QueryService with JsonSup
     case GetPrediction(engineId, query) ⇒
       log.debug("Get prediction, {}, {}", engineId, query)
       admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.query(query).map(_.asJson)
+        case Some(engine) ⇒ sender() ! engine.query(query)
         case None ⇒ sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
       }
 
