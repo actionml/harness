@@ -20,12 +20,11 @@ package com.actionml.admin
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
-import com.actionml.core.engine.Engine
 import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-import io.circe.Json
+import com.actionml.engines.{Engine, FailedEngineStatus, Status}
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
@@ -114,7 +113,8 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   override def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, String] = {
     if(engines.get(engineId).isDefined) {
-      engines(engineId).batchInput(importPath)
+      ???
+//      engines(engineId).batchInput(importPath)
     } else Invalid(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
   }
 
@@ -141,18 +141,21 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def status(resourceId: Option[String] = None): Validated[ValidateError, String] = {
+  override def status(resourceId: Option[String] = None): Validated[ValidateError, Map[String, Status]] = {
     if (resourceId.nonEmpty) {
       if (engines.contains(resourceId.get)) {
         logger.trace(s"Getting status for ${resourceId.get}")
-        engines(resourceId.get).status()
+        Valid(engines
+          .filter(_._1 == resourceId.get)
+          .mapValues(e => e.status().getOrElse(FailedEngineStatus(s"Engine ${e.engineId} has failed status")))
+        )
       } else {
         logger.error(s"Non-existent engine-id: ${resourceId.get}")
         Invalid(WrongParams(jsonComment(s"Non-existent engine-id: ${resourceId.get}")))
       }
     } else {
       logger.trace("Getting status for all Engines")
-      Valid(jsonList(engines.map(_._2.status().getOrElse(jsonComment(s"Warning: no status returned"))).toSeq))
+      Valid(engines.mapValues(e => e.status().getOrElse(FailedEngineStatus(s"Engine ${e.engineId} doesn't work properly"))))
     }
   }
 

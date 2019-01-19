@@ -21,7 +21,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
-import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -30,31 +29,31 @@ import com.typesafe.scalalogging.LazyLogging
   * a trait or object extending this.
   *
   */
-abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
-
-  def mirrorEvent(json: String): Validated[ValidateError, String]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
-
-  /**
-    * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
-    * for mirrored files of events. It means differnent things so other types of Mirrors
-    *
-    * @return timestamp-based name
-    */
-  protected def batchName: String =
-    // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
-    DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
-
-  /**
-    * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
-    * semantics do not apply
-    *
-    * @param engineId Engine ID
-    * @return directory name
-    */
-  protected def containerName: String = s"$mirrorContainer/$engineId"
-
-}
+//abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
+//
+//  def mirrorEvent(json: String): Validated[ValidateError, String]
+//  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
+//
+//  /**
+//    * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
+//    * for mirrored files of events. It means differnent things so other types of Mirrors
+//    *
+//    * @return timestamp-based name
+//    */
+//  protected def batchName: String =
+//    // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
+//    DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
+//
+//  /**
+//    * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
+//    * semantics do not apply
+//    *
+//    * @param engineId Engine ID
+//    * @return directory name
+//    */
+//  protected def containerName: String = s"$mirrorContainer/$engineId"
+//
+//}
 
 /** Used when mirroring is config selectable */
 object Mirror {

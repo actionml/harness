@@ -100,7 +100,5 @@ trait QueryResult
 trait Event
 trait EngineParams
 trait Query
-trait Status
-
 // some extended version of this should be passed to LambdaAlgorithm.train
 //trait AlgorithmTrainSpec

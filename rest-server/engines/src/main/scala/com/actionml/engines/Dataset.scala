@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.actionml.core.engine
+package com.actionml.engines
 
 import cats.data.Validated
 import cats.data.Validated.Valid
@@ -23,8 +23,6 @@ import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-
-import scala.reflect.ClassTag
 
 abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport {
 

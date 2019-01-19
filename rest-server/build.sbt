@@ -155,7 +155,7 @@ lazy val engines = (project in file("engines")).dependsOn(core).
     )
   )
 
-lazy val admin = (project in file("admin")).dependsOn(core).
+lazy val admin = (project in file("admin")).dependsOn(core, engines).
   settings(
     commonSettings
   )

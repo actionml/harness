@@ -1,7 +1,5 @@
 package com.actionml.core.backup
 
-import com.actionml.core.engine.Engine
-
 /*
  * Copyright ActionML, LLC under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,11 +20,11 @@ import com.actionml.core.engine.Engine
 /** Imports JSON events through the input method of the engine, works with any of several filesystems. HDFS, local FS
   * and in the future perhaps others like Kafka
   */
-object Importer {
-
-  def importEvents(engine: Engine, location: String): Unit = {
-    // determine which filesystem is specified
-    //todo: finish this refactor to decouple import from mirror, import from anywhere, mirror as the engine config says
-  }
-
-}
+//object Importer {
+//
+//  def importEvents(engine: Engine, location: String): Unit = {
+//    // determine which filesystem is specified
+//    //todo: finish this refactor to decouple import from mirror, import from anywhere, mirror as the engine config says
+//  }
+//
+//}

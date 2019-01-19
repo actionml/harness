@@ -21,9 +21,9 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.engines.{Engine, QueryResult, Status, UREngineStatus}
 //import com.actionml.{DateRange, Rule}
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.Ordering._
@@ -101,16 +101,9 @@ class UREngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
-
+  override def status(): Validated[ValidateError, Status] = {
     logStatus(params)
-    Valid(s"""
-       |{
-       |    "engineParams": ${write(params)},
-       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
-       |}
-     """.stripMargin)
+    Valid(UREngineStatus(engineParams = params, jobStatuses = JobManager.getActiveJobDescriptions(engineId)))
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -147,19 +140,8 @@ object UREngine extends JsonSupport {
       mirrorType: Option[String] = None,
       mirrorContainer: Option[String] = None,
       sharedDBName: Option[String] = None,
-      sparkConf: Map[String, JValue])
-    extends EngineParams {
-
-    import org.json4s.jackson.Serialization.write
-    /*
-    implicit val formats = Serialization.formats(NoTypeHints)
-    */
-
-    def toJson: String = {
-      write(this)
-    }
-
-  }
+      sparkConf: Map[String, String])
+    extends EngineParams
 
   case class UREvent (
       eventId: Option[String], // not used in Harness, but allowed for PIO compatibility

@@ -31,8 +31,8 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{GenericEngineParams, User}
 import com.actionml.core.store._
 import com.actionml.core.store.backends.MongoDao
-import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import com.actionml.engines._
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 

@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package com.actionml.core.engine
+package com.actionml.engines
 
 import cats.data.Validated
-import cats.data.Validated.Valid
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 

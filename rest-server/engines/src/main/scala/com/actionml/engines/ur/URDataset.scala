@@ -21,9 +21,9 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.engine.Dataset
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
+import com.actionml.engines.Dataset
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._

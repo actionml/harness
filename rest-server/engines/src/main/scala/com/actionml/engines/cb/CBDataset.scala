@@ -18,13 +18,15 @@
 package com.actionml.engines.cb
 
 import java.time.OffsetDateTime
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.engine.SharedUserDataset
 import com.actionml.core.model.{Event, GenericEngineParams, User}
 import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
+import com.actionml.engines.SharedUserDataset
+
 import scala.language.reflectiveCalls
 
 /** Reacts to persisted input data for the Contextual Bandit.

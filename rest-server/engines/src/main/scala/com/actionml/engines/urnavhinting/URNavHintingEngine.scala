@@ -20,7 +20,6 @@ package com.actionml.engines.urnavhinting
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query}
 import com.actionml.core.store.Ordering._
@@ -28,7 +27,8 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
-import org.json4s.JValue
+import com.actionml.engines.{Engine, QueryResult, Status, URNavHintingEngineStatus}
+
 import scala.concurrent.duration._
 
 
@@ -97,16 +97,9 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with URNavHintingEngine's status
-  override def status(): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
-
+  override def status(): Validated[ValidateError, Status] = {
     logStatus(params)
-    Valid(s"""
-       |{
-       |    "engineParams": ${write(params)},
-       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
-       |}
-     """.stripMargin)
+    Valid(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -143,7 +136,7 @@ object URNavHintingEngine {
       mirrorType: Option[String] = None,
       mirrorContainer: Option[String] = None,
       sharedDBName: Option[String] = None,
-      sparkConf: Map[String, JValue])
+      sparkConf: Map[String, String])
     extends EngineParams {
 
     import org.json4s._

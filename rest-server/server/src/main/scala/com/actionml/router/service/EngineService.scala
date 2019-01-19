@@ -17,10 +17,9 @@
 
 package com.actionml.router.service
 
-import cats.implicits._
 import com.actionml.admin.Administrator
+import com.actionml.engines._
 import com.actionml.router.ActorInjectable
-import io.circe.parser._
 import io.circe.syntax._
 import scaldi.Injector
 
@@ -34,6 +33,7 @@ import scaldi.Injector
 trait EngineService extends ActorInjectable
 
 class EngineServiceImpl(implicit inj: Injector) extends EngineService{
+  import io.circe.generic.auto._
 
   private val admin = inject[Administrator]('Administrator)
 
@@ -44,7 +44,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case GetEngines =>
       log.info("Get one or all engine status")
-      sender() ! admin.status().andThen(parse(_).toValidated)
+      sender() ! admin.status().map(_.asJson)
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)

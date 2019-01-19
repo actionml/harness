@@ -21,9 +21,8 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
 import com.actionml.core.store._
-import com.actionml.core.engine._
-
 import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.engines._
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes

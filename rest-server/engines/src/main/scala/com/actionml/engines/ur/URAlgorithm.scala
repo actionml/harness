@@ -24,14 +24,14 @@ import java.util.Date
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.engine._
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.actionml.core.search.{Hit, Filter, Matcher, SearchQuery}
+import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError}
+import com.actionml.engines.{Algorithm, Engine, LambdaAlgorithm}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
 import com.sun.jndi.toolkit.dir

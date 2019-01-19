@@ -20,10 +20,10 @@ package com.actionml.engines.cb
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.model.{GenericEngineParams, Query}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
+import com.actionml.engines.{CBStatus, Engine, QueryResult, Status}
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -77,15 +77,12 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
-
+  override def status(): Validated[ValidateError, Status] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    val status = CBStatus(
+    Valid(CBStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
-      activeGroups = algo.trainers.size)
-    Valid(write(status))
+      activeGroups = algo.trainers.size))
   }
 
   override def destroy(): Unit = synchronized {
@@ -152,6 +149,8 @@ class CBEngine extends Engine with JsonSupport {
 */
 }
 
+case class CBEngineStatus()
+
 /*
 Query
 {
@@ -178,27 +177,6 @@ case class CBQueryResult(
 
   def toJson: String = {
     s"""{"variant": $variant, "groupId": $groupId}"""
-  }
-}
-
-case class CBStatus(
-    description: String = "Contextual Bandit Algorithm",
-    engineType: String = "Backed by the Vowpal Wabbit compute engine.",
-    engineParams: GenericEngineParams,
-    algorithmParams: AlgorithmParams,
-    activeGroups: Int)
-  extends Status {
-
-  def toJson: String = {
-    s"""
-      |{
-      |  "description": "$description",
-      |  "engineType": "$engineType",
-      |  "engineParams": "$engineParams",
-      |  "algorithmParams": "$algorithmParams",
-      |  "activeGroups": "$activeGroups"
-      |}
-    """.stripMargin
   }
 }
 
