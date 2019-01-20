@@ -23,6 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import io.circe.Json
 
 import scala.io.Source
 
@@ -94,7 +95,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
                   engine.input(line)
                 } catch {
                   case e: IOException =>
-                    logger.error(s"Bad event being ignored: ${prettify(line)} exception ${e.printStackTrace()}")
+                    logger.error(s"Bad event being ignored: $line exception ${e.printStackTrace()}")
                 }
               }
             } catch {

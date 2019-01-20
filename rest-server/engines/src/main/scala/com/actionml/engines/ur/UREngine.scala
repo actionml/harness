@@ -21,6 +21,7 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import io.circe.Json
 //import com.actionml.{DateRange, Rule}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
@@ -118,14 +119,13 @@ class UREngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
-  def query(jsonQuery: String): Validated[ValidateError, String] = {
+  def query(jsonQuery: String): Validated[ValidateError, Json] = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
-      //logger.info(s"Prettified results: " + prettify(result.toJson))
-      //logger.info(s"Raw results: ")
-      //logger.info(result.toJson)
-      Valid(result.toJson)
+      Valid(result.asJson)
     }
   }
 

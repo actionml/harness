@@ -25,6 +25,7 @@ import com.actionml.core.model.GenericEngineParams
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
+import io.circe.Json
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
@@ -151,11 +152,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
       }
     } else {
       logger.trace("Getting status for all Engines")
-      val statuses = jsonList(
-        engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)
-      Valid(
-        prettify(jsonList(
-          engines.mapValues(_.status()).map(_._2.getOrElse(jsonComment(s"Warning: no status returned"))).toSeq)))
+      Valid(jsonList(engines.map(_._2.status().getOrElse(jsonComment(s"Warning: no status returned"))).toSeq))
     }
   }
 
