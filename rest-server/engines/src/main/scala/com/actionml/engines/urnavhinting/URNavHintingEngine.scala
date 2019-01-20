@@ -28,7 +28,9 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
+import io.circe.Json
 import org.json4s.JValue
+
 import scala.concurrent.duration._
 
 
@@ -114,11 +116,13 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
-  def query(jsonQuery: String): Validated[ValidateError, String] = {
+  def query(jsonQuery: String): Validated[ValidateError, Json] = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URNavHintingQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
-      Valid(result.toJson)
+      Valid(result.asJson)
     }
   }
 

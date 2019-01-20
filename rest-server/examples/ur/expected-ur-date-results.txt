@@ -1,0 +1,5 @@
+"{\"result\":[{\"item\":\"iPad Pro\",\"score\":0.0},{\"item\":\"Pixel Slate\",\"score\":0.0}]}"
+"{\"result\":[{\"item\":\"iPad Pro\",\"score\":3.0},{\"item\":\"Pixel Slate\",\"score\":3.0}]}"
+"{\"result\":[{\"item\":\"iPad Pro\",\"score\":3.0}]}"
+"{\"result\":[{\"item\":\"Pixel Slate\",\"score\":1.0}]}"
+"{\"result\":[{\"item\":\"iPad Pro\",\"score\":3.0}]}"
