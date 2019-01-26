@@ -78,7 +78,7 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
+  override def status(): Validated[ValidateError, Status] = {
     import org.json4s.jackson.Serialization.write
 
     logger.trace(s"Status of base Engine with engineId:$engineId")
@@ -87,6 +87,7 @@ class CBEngine extends Engine with JsonSupport {
       algorithmParams = algo.params,
       activeGroups = algo.trainers.size)
     Valid(write(status))
+    ???
   }
 
   override def destroy(): Unit = synchronized {

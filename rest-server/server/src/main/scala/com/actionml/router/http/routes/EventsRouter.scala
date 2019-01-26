@@ -26,7 +26,6 @@ import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.AuthServerProxyService
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json

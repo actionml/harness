@@ -74,11 +74,11 @@ class NavHintingEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
+  override def status(): Validated[ValidateError, NavHintingStatus] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(NavHintingStatus(
       engineParams = this.params,
-      algorithmParams = algo.params).toJson)
+      algorithmParams = algo.params))
   }
 
   override def destroy(): Unit = {
@@ -152,19 +152,7 @@ case class NavHintingStatus(
     engineType: String = "Simple analytical discovery of likely conversion paths",
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams)
-  extends Status {
-
-  def toJson: String = {
-    s"""
-      |{
-      |  "description": "$description",
-      |  "engineType": "$engineType",
-      |  "engineParams": "$engineParams",
-      |  "algorithmParams": "$algorithmParams",
-      |}
-    """.stripMargin
-  }
-}
+  extends Status
 
 object NavHintingEngine {
   def apply(json: String): NavHintingEngine = {

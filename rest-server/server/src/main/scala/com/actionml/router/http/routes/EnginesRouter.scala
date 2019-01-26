@@ -21,24 +21,15 @@ import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.SecurityDirectives
 import akka.pattern.ask
-import cats.data.Validated
-import cats.data.Validated.Valid
-import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.AuthServerProxyService
-import com.actionml.core.validate.ValidateError
-import com.actionml.router.config.{AppConfig, ConfigurationComponent}
+import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json
 import scaldi.Injector
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
 
 /**
   *

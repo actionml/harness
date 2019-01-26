@@ -39,11 +39,13 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
   override def receive: Receive = {
     case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)
-      sender() ! admin.status(Some(engineId)).andThen(parse(_).toValidated)
+      sender() ! admin.status(Some(engineId))
 
     case GetEngines =>
+      import io.circe.syntax._
+      import io.circe.generic.auto._
       log.info("Get one or all engine status")
-      sender() ! admin.status().andThen(parse(_).toValidated)
+      sender() ! admin.status().map(_.asJson)
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)

@@ -23,8 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
-import io.circe.Json
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.Path
 
 /**
   * Mirror implementation for HDFS.

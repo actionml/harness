@@ -23,7 +23,6 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
-import io.circe.Json
 
 import scala.io.Source
 

@@ -20,7 +20,7 @@ package com.actionml.engines.scaffold
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery}
+import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery, Status}
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import io.circe.Json
@@ -75,9 +75,10 @@ class ScaffoldEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
+  override def status(): Validated[ValidateError, Status] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(this.params.toString)
+    ???
   }
 
   override def destroy(): Unit = {

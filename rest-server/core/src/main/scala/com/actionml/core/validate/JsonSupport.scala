@@ -26,7 +26,6 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
-import io.circe.Json
 import org.json4s
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._

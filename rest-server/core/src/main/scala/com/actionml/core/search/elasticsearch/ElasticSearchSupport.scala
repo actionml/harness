@@ -485,34 +485,33 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
         JObject()
       else {
         ("size" -> query.size) ~
-          ("from" -> query.from) ~
-          ("query" ->
-            ("bool" ->
-              ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
-              ("must" -> matcherToJson(query.must)) ~
-              ("must_not" -> matcherToJson(query.mustNot)) ~
-              ("filter" -> filterToJson(query.filters)) ~
-              ("minimum_should_match" -> 1)
-            )
-          ) ~
-          ("sort" -> Seq(
-            "_score" -> JObject("order" -> JString("desc")),
-            query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
-          ))
+        ("from" -> query.from) ~
+        ("query" ->
+          ("bool" ->
+            ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
+            ("must" -> matcherToJson(query.must)) ~
+            ("must_not" -> matcherToJson(query.mustNot)) ~
+            ("filter" -> filterToJson(query.filters)) ~
+            ("minimum_should_match" -> 1)
+        )) ~
+        ("sort" -> Seq(
+          "_score" -> JObject("order" -> JString("desc")),
+          query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
+        ))
       }
     // logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
-      clauses.map { case (clause, matchers) =>
-        matchers.map { m =>
-          clause ->
-            (m.name -> m.values) ~
+    clauses.map { case (clause, matchers) =>
+      matchers.map { m =>
+        clause ->
+          (m.name -> m.values) ~
             m.boost.fold(JObject())("boost" -> _)
-        }
-      }.flatten.toList ++ others.toList
-    }
+      }
+    }.flatten.toList ++ others.toList
+  }
 
   private[elasticsearch] def filterToJson(filters: Seq[Filter]): JArray = {
     implicit val _ = CustomFormats

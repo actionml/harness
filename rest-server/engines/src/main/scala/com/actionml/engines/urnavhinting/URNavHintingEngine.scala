@@ -22,7 +22,7 @@ import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{EngineParams, Event, Query}
+import com.actionml.core.model.{EngineParams, Event, Query, Status}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.Indexed
@@ -99,16 +99,9 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with URNavHintingEngine's status
-  override def status(): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
-
+  override def status(): Validated[ValidateError, Status] = {
     logStatus(params)
-    Valid(s"""
-       |{
-       |    "engineParams": ${write(params)},
-       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
-       |}
-     """.stripMargin)
+    Valid(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -209,3 +202,5 @@ object URNavHintingEngine {
   }
 
 }
+
+case class URNavHintingEngineStatus(engineParams: URNavHintingEngineParams, jobStatuses: Map[String, JobDescription]) extends Status

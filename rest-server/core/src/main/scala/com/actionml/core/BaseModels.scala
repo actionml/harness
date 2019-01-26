@@ -100,7 +100,13 @@ trait QueryResult
 trait Event
 trait EngineParams
 trait Query
-trait Status
+class Status
+object Status {
+  import org.json4s.jackson.Serialization
+  import org.json4s.{ JValue, Extraction, NoTypeHints }
+  implicit val formats = Serialization.formats(NoTypeHints)
+  implicit def statusToJValue[T <: Status]: T => JValue = Extraction.decompose _
+}
 
 // some extended version of this should be passed to LambdaAlgorithm.train
 //trait AlgorithmTrainSpec

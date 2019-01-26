@@ -21,6 +21,7 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.core.model.Status
 import io.circe.Json
 //import com.actionml.{DateRange, Rule}
 import com.actionml.core.drawInfo
@@ -96,22 +97,14 @@ class UREngine extends Engine with JsonSupport {
       parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
     }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
-    import org.json4s.jackson.Serialization.write
     if(response.isInvalid) logger.info(s"Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
   }
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
-
+  override def status(): Validated[ValidateError, Status] = {
     logStatus(params)
-    Valid(s"""
-       |{
-       |    "engineParams": ${write(params)},
-       |    "jobStatuses": ${write[Map[String, JobDescription]](JobManager.getActiveJobDescriptions(engineId))}
-       |}
-     """.stripMargin)
+    Valid(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
   }
 
   override def train(): Validated[ValidateError, String] = {
@@ -255,3 +248,5 @@ object UREngine extends JsonSupport {
   }
 
 }
+
+case class UREngineStatus(engineParams: UREngineParams, jobStatuses: Map[String, JobDescription]) extends Status

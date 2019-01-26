@@ -21,11 +21,10 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.engine.Engine
-import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.model.{GenericEngineParams, Status}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-import io.circe.Json
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
@@ -141,22 +140,26 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def status(resourceId: Option[String] = None): Validated[ValidateError, String] = {
+  override def status(resourceId: Option[String] = None): Validated[ValidateError, Seq[Status]] = {
     if (resourceId.nonEmpty) {
       if (engines.contains(resourceId.get)) {
         logger.trace(s"Getting status for ${resourceId.get}")
-        engines(resourceId.get).status()
+        engines(resourceId.get).status().map(List(_))
       } else {
         logger.error(s"Non-existent engine-id: ${resourceId.get}")
         Invalid(WrongParams(jsonComment(s"Non-existent engine-id: ${resourceId.get}")))
       }
     } else {
       logger.trace("Getting status for all Engines")
-      Valid(jsonList(engines.map(_._2.status().getOrElse(jsonComment(s"Warning: no status returned"))).toSeq))
+      engines.map(_._2.status()).foldLeft[Validated[ValidateError, Seq[Status]]](Valid(Seq.empty)) { (acc, s) =>
+        acc.andThen(statuses => s.map(status => statuses :+ status))
+      }
     }
   }
 
 }
+
+case class EnginesStatuses(statuses: List[Status]) extends Status
 
 case class EngineMetadata(
   engineId: String,
