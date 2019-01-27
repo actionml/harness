@@ -21,10 +21,9 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEngineParams, Query, Response}
+import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
-import io.circe.Json
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -49,7 +48,7 @@ class CBEngine extends Engine with JsonSupport {
     Valid(jsonComment("CBEngine resources created"))
   }
 
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(json, update).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         createResources(p).andThen{ _ =>
@@ -57,7 +56,7 @@ class CBEngine extends Engine with JsonSupport {
             if (!update) { // !update means creating
               algo = new CBAlgorithm(json ,p.engineId, dataset)
               algo.init(this)
-            } else Valid(jsonComment("Init processed"))
+            } else Valid(Comment("Init processed"))
           }
         }
       }
@@ -79,15 +78,12 @@ class CBEngine extends Engine with JsonSupport {
   }
 
   override def status(): Validated[ValidateError, Response] = {
-    import org.json4s.jackson.Serialization.write
-
     logger.trace(s"Status of base Engine with engineId:$engineId")
     val status = CBStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
       activeGroups = algo.trainers.size)
-    Valid(write(status))
-    ???
+    Valid(status)
   }
 
   override def destroy(): Unit = synchronized {
@@ -97,12 +93,12 @@ class CBEngine extends Engine with JsonSupport {
   }
 
   /** Triggers parse, validation, and processing of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, String] = {
+  override def input(json: String): Validated[ValidateError, Response] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => "{\"comment\":\"Input processed\"}")
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => Comment("Input processed"))
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -131,15 +127,13 @@ class CBEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, Json] = {
-    import io.circe.syntax._
-    import io.circe.generic.auto._
+  def query(json: String): Validated[ValidateError, Response] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.groupsDao.findOneById(query.groupId).nonEmpty) {
         val result = algo.query(query)
-        Valid(result.asJson)
+        Valid(result)
       } else {
         Invalid(WrongParams(jsonComment(s"Query for non-existent group: $json")))
       }
@@ -178,7 +172,7 @@ Results
 case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
-  extends QueryResult {
+  extends Response with QueryResult {
 
   def toJson: String = {
     s"""{"variant": $variant, "groupId": $groupId}"""

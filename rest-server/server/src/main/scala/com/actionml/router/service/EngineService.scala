@@ -17,10 +17,8 @@
 
 package com.actionml.router.service
 
-import cats.implicits._
 import com.actionml.admin.Administrator
 import com.actionml.router.ActorInjectable
-import io.circe.parser._
 import scaldi.Injector
 
 /**

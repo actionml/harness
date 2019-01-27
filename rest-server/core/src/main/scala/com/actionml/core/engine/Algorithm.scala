@@ -19,6 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -31,10 +32,10 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
   var engineId: String = _
   var modelPath: String = _  // optional place in some filesystem to persist the model, a file path
 
-  def init(engine: Engine): Validated[ValidateError, String] = {
+  def init(engine: Engine): Validated[ValidateError, Response] = {
     engineId = engine.engineId
     modelPath = engine.modelContainer + engineId //todo: should the Engine even know about the modelContainer?
-    Valid(jsonComment("Init processed"))
+    Valid(Comment("Init processed"))
   }
 
   def destroy(): Unit

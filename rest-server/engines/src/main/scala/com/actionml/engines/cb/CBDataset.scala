@@ -18,13 +18,15 @@
 package com.actionml.engines.cb
 
 import java.time.OffsetDateTime
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.SharedUserDataset
-import com.actionml.core.model.{Event, GenericEngineParams, User}
+import com.actionml.core.model._
 import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
+
 import scala.language.reflectiveCalls
 
 /** Reacts to persisted input data for the Contextual Bandit.
@@ -54,14 +56,14 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
   val groupsDao = storage.createDao[GroupParams]("groups")
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     // super.init will handle the users collection, allowing sharing of user data between Engines
     super.init(json, update).andThen { _ =>
       this.parseAndValidate[GenericEngineParams](json).andThen { p =>
         groupsDao.findOne().foreach { p =>
           usageEventGroups = usageEventGroups + (p._id -> storage.createDao[UsageEvent](p._id))
         }
-        Valid(jsonComment("Initialized CBDataset"))
+        Valid(Comment("Initialized CBDataset"))
       }
     }
   }

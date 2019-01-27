@@ -31,11 +31,11 @@ abstract class Administrator extends LazyLogging {
 
   // engine management
   def getEngine(engineId: String): Option[Engine]
-  def addEngine(json: String): Validated[ValidateError, String]
-  def removeEngine(engineId: String): Validated[ValidateError, String]
-  def updateEngine(json: String): Validated[ValidateError, String]
-  def updateEngineWithTrain(engineId: String): Validated[ValidateError, String]
-  def updateEngineWithImport(engineId: String, inputPath: String): Validated[ValidateError, String]
+  def addEngine(json: String): Validated[ValidateError, Response]
+  def removeEngine(engineId: String): Validated[ValidateError, Response]
+  def updateEngine(json: String): Validated[ValidateError, Response]
+  def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response]
+  def updateEngineWithImport(engineId: String, inputPath: String): Validated[ValidateError, Response]
   def status(resourceId: String): Validated[ValidateError, Response]
   def statuses(): Validated[ValidateError, List[Response]]
   def init(): Administrator = this

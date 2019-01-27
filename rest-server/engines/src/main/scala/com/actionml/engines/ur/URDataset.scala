@@ -22,6 +22,7 @@ import java.util.Date
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -54,7 +55,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   private var indicatorNames: Seq[String] = _
 
-  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
     parseAndValidate[URAlgorithmParams](
       jsonConfig,
       errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
@@ -66,7 +67,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
       Valid(p)
     }
-    Valid(jsonComment("URDataset initialized"))
+    Valid(Comment("URDataset initialized"))
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */

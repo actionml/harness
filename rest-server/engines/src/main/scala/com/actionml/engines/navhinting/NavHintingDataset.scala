@@ -22,12 +22,11 @@ import java.time.format.DateTimeFormatter
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{Event, GenericEngineParams}
+import com.actionml.core.model.{Comment, Event, GenericEngineParams, Response}
 import com.actionml.core.store.Store
 import com.actionml.core.engine.Dataset
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
-
 import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.duration._
@@ -47,7 +46,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
 
   private var trailLength: Int = _
 
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
         trailLength = algoParams.numQueueEvents.getOrElse(50)
@@ -56,7 +55,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       Valid(p) // Todo: trailLength may not have been set if algo params is not valid
     }
     if(res.isInvalid) Invalid(ParseError(jsonComment("Error parsing JSON params for numQueueEvents")))
-    else Valid(jsonComment("NavHintingDataset initialized"))
+    else Valid(Comment("NavHintingDataset initialized"))
   }
 
   override def destroy() = {

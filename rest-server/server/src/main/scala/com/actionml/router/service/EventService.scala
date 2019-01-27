@@ -18,11 +18,9 @@
 package com.actionml.router.service
 
 import cats.data.Validated.Invalid
-import cats.implicits._
 import com.actionml.admin.Administrator
 import com.actionml.core.validate.{JsonSupport, NotImplemented, WrongParams}
 import com.actionml.router.ActorInjectable
-import io.circe.parser._
 import scaldi.Injector
 
 /**
@@ -46,7 +44,7 @@ class EventServiceImpl(implicit inj: Injector) extends EventService with JsonSup
     case CreateEvent(engineId, event) =>
       log.debug("Receive new event & stored, {}, {}", engineId, event)
       admin.getEngine(engineId) match {
-        case Some(engine) => sender() ! engine.input(event).andThen(parse(_).toValidated)
+        case Some(engine) => sender() ! engine.input(event)
         case None => sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
       }
 

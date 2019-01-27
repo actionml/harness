@@ -21,10 +21,9 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
 import com.actionml.core.jobs.JobManager
-import com.actionml.core.model.{GenericEngineParams, Response}
+import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
-import io.circe.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -58,7 +57,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
-  def query(json: String): Validated[ValidateError, Json]
+  def query(json: String): Validated[ValidateError, Response]
 
 
   // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes
@@ -68,22 +67,22 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param params parsed for common params like mirroring location
     * @return may return a ValidateError if the parameters are n
     */
-  private def createResources(params: GenericEngineParams): Validated[ValidateError, String] = {
+  private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
-      Valid(jsonComment("Mirror type and container not defined so falling back to localfs mirroring"))
+      Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
           mirroring = new FSMirror(container, engineId)
-          Valid(jsonComment("Mirror to localfs"))
+          Valid(Comment("Mirror to localfs"))
         case "hdfs" | "HDFS" =>
           mirroring = new HDFSMirror(container, engineId)
-          Valid(jsonComment("Mirror to HDFS"))
+          Valid(Comment("Mirror to HDFS"))
         case mt => Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
@@ -94,8 +93,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
   /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
     * update means to update an existing object, it is set to false when creating a new Engine. So this method handles
     * C(reate) and U(pdate) of CRUD */
-  def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
-
+  def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
       if (!update) { // if not updating then must be creating
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
@@ -125,23 +123,22 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Input defined by each engine
     * @return Validated[ValidateError, ]status with error message
     */
-  def input(json: String): Validated[ValidateError, String] = {
+  def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
     mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-    Valid(jsonComment("Input processed by base Engine"))
+    Valid(Comment("Input processed by base Engine"))
   }
 
-  def batchInput(inputPath: String): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
+  def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.startNewJob(engineId,
       Future(mirroring.importEvents(this, inputPath),
       "batch import, non-Spark job")
     )
-    Valid(write(jobDescription))
+    Valid(jobDescription)
   }
 
   /** train is only used in Lambda offline learners */
-  def train(): Validated[ValidateError, String] = {
+  def train(): Validated[ValidateError, Response] = {
     logger.warn(s"Train is not a valid operation for engineId: ${engineId}")
     Invalid(NotImplemented(jsonComment(s"Train is not a valid operation for engineId: ${engineId}")))
   }

@@ -24,6 +24,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.jobs.JobManager
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
@@ -99,7 +100,7 @@ class URNavHintingAlgorithm private (
   val esIndex = engineId
   val esType = "items"
 
-  def initSettings(params: URAlgorithmParams): Validated[ValidateError, String] = {
+  def initSettings(params: URAlgorithmParams): Validated[ValidateError, Response] = {
     var err: Validated[ValidateError, String] = Valid(jsonComment("URNavHintingAlgorithm initialized"))
 
     recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
@@ -205,13 +206,13 @@ class URNavHintingAlgorithm private (
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.get, x.name)))
 
-      Valid(isOK)
+      Valid(Comment(isOK))
     }
   }
 
 
     /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(engine: Engine): Validated[ValidateError, String] = {
+  override def init(engine: Engine): Validated[ValidateError, Response] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[URAlgorithmParams](
         initParams,
@@ -230,7 +231,7 @@ class URNavHintingAlgorithm private (
     es.deleteIndex()
   }
 
-  override def input(datum: URNavHintingEvent): Validated[ValidateError, String] = {
+  override def input(datum: URNavHintingEvent): Validated[ValidateError, Response] = {
     // This deals with real-time model changes, if any are implemented
     // todo: none do anything for the PoC so all return errors
     datum.event match {
@@ -250,11 +251,11 @@ class URNavHintingAlgorithm private (
       */
       case _ =>
       // already processed by the dataset, only model changing event processed here
-        Valid(jsonComment("URNavHinting input processed"))
+        Valid(Comment("URNavHinting input processed"))
     }
   }
 
-  override def train(): Validated[ValidateError, String] = {
+  override def train(): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[URNavHintingEvent]))
     f.map { implicit sc =>
@@ -318,7 +319,7 @@ class URNavHintingAlgorithm private (
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
-    Valid(jsonComment("Started train Job on Spark"))
+    Valid(Comment("Started train Job on Spark"))
   }
 
   /*

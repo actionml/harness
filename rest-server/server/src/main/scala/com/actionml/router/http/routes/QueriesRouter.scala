@@ -31,6 +31,7 @@ import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 /**
@@ -66,7 +67,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
     completeByValidated(StatusCodes.OK) {
-      (queryService ? GetPrediction(engineId, query.toString())).mapTo[Validated[ValidateError, Response]]
+      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
     }
   }
 

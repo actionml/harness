@@ -19,7 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{Event, GenericEngineParams, User}
+import com.actionml.core.model._
 import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
@@ -27,7 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport {
 
   // methods that must be implemented in the Engine
-  def init(json: String, update: Boolean = false): Validated[ValidateError, String]
+  def init(json: String, update: Boolean = false): Validated[ValidateError, Response]
   def destroy(): Unit
   def input(datum: String): Validated[ValidateError, Event]
 
@@ -41,13 +41,13 @@ abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Da
   with JsonSupport with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
       // way to detect that here since this class is newed in the Engine. update will give a clue but still no way
       // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      Valid(jsonComment("Init processed"))
+      Valid(Comment("Init processed"))
     }
   }
 

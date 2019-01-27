@@ -75,7 +75,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, String] = {
+  def addEngine(json: String): Validated[ValidateError, Response] = {
     import DaoQuery.syntax._
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
@@ -85,7 +85,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
-        Valid(jsonComment(params.engineId))
+        Valid(Comment(params.engineId))
       } else if (newEngine != null) {
         //add new
         logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
@@ -93,7 +93,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
         logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
-        Valid(jsonComment(s"EngineId: ${params.engineId} created"))
+        Valid(Comment(s"EngineId: ${params.engineId} created"))
       } else {
         // ignores case of too many engine with the same engineId
         Invalid(ParseError(jsonComment(s"Unable to create Engine the config JSON seems to be in error")))
@@ -101,7 +101,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def updateEngine(json: String): Validated[ValidateError, String] = {
+  override def updateEngine(json: String): Validated[ValidateError, Response] = {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
@@ -111,13 +111,13 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, String] = {
+  override def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, Response] = {
     if(engines.get(engineId).isDefined) {
       engines(engineId).batchInput(importPath)
     } else Invalid(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
   }
 
-  override def updateEngineWithTrain(engineId: String): Validated[ValidateError, String] = {
+  override def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
     val eid = engines.get(engineId)
     if (eid.isDefined) {
       eid.get.train()
@@ -126,14 +126,14 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def removeEngine(engineId: String): Validated[ValidateError, String] = {
+  override def removeEngine(engineId: String): Validated[ValidateError, Response] = {
     if (engines.contains(engineId)) {
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       val deadEngine = engines(engineId)
       engines = engines - engineId
       enginesCollection.removeOne("engineId" === engineId)
       deadEngine.destroy()
-      Valid(jsonComment(s"Engine instance for engineId: $engineId deleted and all its data"))
+      Valid(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
     } else {
       logger.warn(s"Cannot removeOne non-existent engine for engineId: $engineId")
       Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))

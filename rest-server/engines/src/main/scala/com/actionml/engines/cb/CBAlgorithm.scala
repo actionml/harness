@@ -28,7 +28,7 @@ import akka.actor._
 import akka.event.Logging
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{GenericEngineParams, User}
+import com.actionml.core.model.{Comment, GenericEngineParams, Response, User}
 import com.actionml.core.store._
 import com.actionml.core.store.backends.MongoDao
 import com.actionml.core.engine._
@@ -85,7 +85,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   var vw: VWMulticlassLearner = _
   var events = 0
 
-  override def init(engine: Engine): Validated[ValidateError, String] = {
+  override def init(engine: Engine): Validated[ValidateError, Response] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[CBAllParams](json).andThen { p =>
         params = p.algorithm.copy(
@@ -98,7 +98,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
         groupEvents.foreach(groupName => add(groupName._1))
         // params .close() should write to the file
 
-        Valid(jsonComment("Init processed"))
+        Valid(Comment("Init processed"))
       }
     }
   }

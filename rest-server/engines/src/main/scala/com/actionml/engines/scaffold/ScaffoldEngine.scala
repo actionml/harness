@@ -20,10 +20,9 @@ package com.actionml.engines.scaffold
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, GenericEvent, GenericQuery, Response}
 import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
-import io.circe.Json
+import com.actionml.core.model._
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
@@ -37,7 +36,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -54,7 +53,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
       }.andThen { p =>
         dataset.init(json).andThen { r =>
           // handle C(reate) and U(pdate) of CRUD
-          if (!update) algo.init(this) else Valid(jsonComment("ScaffoldAlgorithm updated"))
+          if (!update) algo.init(this) else Valid(Comment("ScaffoldAlgorithm updated"))
         }
       }
     }
@@ -77,8 +76,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
 
   override def status(): Validated[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(this.params.toString)
-    ???
+    Valid(this.params)
   }
 
   override def destroy(): Unit = {
@@ -94,12 +92,12 @@ class ScaffoldEngine extends Engine with JsonSupport {
   */
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, String] = {
+  override def input(json: String): Validated[ValidateError, Response] = {
     super.init(json).andThen { _ =>
       logger.trace("Got JSON body: " + json)
       // validation happens as the input goes to the dataset
       if (super.input(json).isValid)
-        dataset.input(json).andThen(process).map(_ => jsonComment("ScaffoldEngine input processed"))
+        dataset.input(json).andThen(process).map(_ => Comment("ScaffoldEngine input processed"))
       else
         Invalid(ValidRequestExecutionError(jsonComment("Some error like an ExecutionError in super.input happened")))
       // todo: pass back indication of deeper error
@@ -116,27 +114,18 @@ class ScaffoldEngine extends Engine with JsonSupport {
     Valid(event)
   }
 
-  override def train(): Validated[ValidateError, String] = {
+  override def train(): Validated[ValidateError, Response] = {
     logger.info("got to Scaffold.train")
-    Valid(
-      """
-        |{
-        |  "comment": "Training requested of the ScaffoldEngine"
-        |  "jobId": "A fake job id"
-        |}
-      """.stripMargin
-    )
+    Valid(Comment("Training requested of the ScaffoldEngine"))
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, Json] = {
-    import io.circe.syntax._
-    import io.circe.generic.auto._
+  def query(json: String): Validated[ValidateError, Response] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
-      Valid(result.asJson)
+      Valid(result)
     }
   }
 

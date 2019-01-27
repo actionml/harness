@@ -31,7 +31,8 @@ import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
-import io.circe.Json
+import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 import scala.language.postfixOps
@@ -81,10 +82,10 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
     }
   }
 
-  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
+  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[JValue])) { event =>
     log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(engineId, event.toString())).mapTo[Validated[ValidateError, Response]]
+      (eventService ? CreateEvent(engineId, JsonMethods.compact(event))).mapTo[Validated[ValidateError, Response]]
     }
   }
 

@@ -21,6 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.BadParamsException
 import com.actionml.core.engine.Dataset
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.store.{DAO, DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URDataset
@@ -63,7 +64,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
   private var indicatorNames: Seq[String] = _
 
   // These should only be called from trusted source like the CLI!
-  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(jsonConfig: String, deepInit: Boolean = true): Validated[ValidateError, Response] = {
     parseAndValidate[URAlgorithmParams](
       jsonConfig,
       errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
@@ -84,7 +85,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
 
       Valid(p)
     }
-    Valid(jsonComment("URNavHintingDataset initialized"))
+    Valid(Comment("URNavHintingDataset initialized"))
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */

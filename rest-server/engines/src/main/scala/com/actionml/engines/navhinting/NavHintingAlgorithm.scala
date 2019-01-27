@@ -25,10 +25,10 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.store.{DAO, _}
 import com.actionml.core.engine._
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
-
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{Await, Future}
@@ -52,7 +52,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
 
   var params: NHAlgoParams = _ // todo achtung! public var
 
-  override def init(engine: Engine): Validated[ValidateError, String] = {
+  override def init(engine: Engine): Validated[ValidateError, Response] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[NHAllParams](json).andThen { p =>
         if (DecayFunctionNames.All.contains(p.algorithm.decayFunction.getOrElse(DecayFunctionNames.ClickTimes))) {
@@ -62,7 +62,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
             navHintsModels += navModel._id -> MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
               .createDao[NavHint](navModel._id)
           }
-          Valid(jsonComment(s"NavHintingAlgorithm initialized"))
+          Valid(Comment(s"NavHintingAlgorithm initialized"))
         } else { //bad decay function name
           Invalid(ParseError(jsonComment(s"Bad decayFunction: ${p.algorithm.decayFunction}")))
         }

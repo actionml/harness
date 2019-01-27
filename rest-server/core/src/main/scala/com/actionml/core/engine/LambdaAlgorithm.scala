@@ -18,6 +18,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -30,13 +31,12 @@ trait LambdaAlgorithm[T] extends LazyLogging {
     * @param datum The input Event type defined by the parmeterized type
     * @return
     */
-  def input(datum: T): Validated[ValidateError, String] = Valid("")
+  def input(datum: T): Validated[ValidateError, Response] = Valid(new Response)
 
   /** May train or queue up to execute the process method, such as when using a Spark compute engine
     * Override to use the queuing method to create the model
     * @return
     */
-  def train(): Validated[ValidateError, String]
-
+  def train(): Validated[ValidateError, Response]
 }
 

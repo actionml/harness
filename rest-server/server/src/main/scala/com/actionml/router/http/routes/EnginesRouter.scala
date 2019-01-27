@@ -31,8 +31,8 @@ import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
-import io.circe.Json
 import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 /**
@@ -105,16 +105,17 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   }
 
   private def createEngine(implicit log: LoggingAdapter): Route = entity(as[JValue]) { engineConfig =>
+
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Validated[ValidateError, Response]]
+      (engineService ? CreateEngine(JsonMethods.compact(engineConfig))).mapTo[Validated[ValidateError, Response]]
     }
   }
 
-  private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[Json]) { engineConfig ⇒
+  private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[JValue]) { engineConfig ⇒
     log.info("Update engine: {}, updateConfig: true", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Validated[ValidateError, Response]]
+      (engineService ? UpdateEngine(JsonMethods.compact(engineConfig))).mapTo[Validated[ValidateError, Response]]
     }
   }
 

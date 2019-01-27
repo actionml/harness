@@ -19,10 +19,8 @@ package com.actionml.engines.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericEvent, GenericQuery, GenericQueryResult}
-import com.actionml.core.store._
 import com.actionml.core.engine._
-
+import com.actionml.core.model.{AlgorithmParams => _, _}
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -36,11 +34,11 @@ class ScaffoldAlgorithm(json: String, dataset: ScaffoldDataset)
   extends Algorithm[GenericQuery, GenericQueryResult] with KappaAlgorithm[GenericEvent] with JsonSupport {
 
   /** Be careful to call super.init(...) here to properly make some Engine values available in scope */
-  override def init(engine: Engine): Validated[ValidateError, String] = {
+  override def init(engine: Engine): Validated[ValidateError, Response] = {
     super.init(engine).andThen { _ =>
       parseAndValidate[AllParams](json).andThen { p =>
         // p is just the validated algo params from the engine's params json file.
-        Valid(jsonComment("ScaffoldAlgorithm initialized"))
+        Valid(Comment("ScaffoldAlgorithm initialized"))
       }
     }
   }

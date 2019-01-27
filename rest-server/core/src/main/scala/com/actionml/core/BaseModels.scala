@@ -58,7 +58,7 @@ case class GenericEngineParams(
     sharedDBName: Option[String] = None,
     modelContainer: Option[String] = None,
     algorithm: Option[String] = None)
-  extends EngineParams
+  extends Response with EngineParams
 
 
 // allows us to look at what kind of specialized event to create
@@ -84,7 +84,7 @@ case class GenericQuery() extends Query {
 }
 
 /** Used only for illustration since query results have no required part */
-case class GenericQueryResult() extends QueryResult{
+case class GenericQueryResult() extends Response with QueryResult{
   def toJson =
     s"""
        |{
