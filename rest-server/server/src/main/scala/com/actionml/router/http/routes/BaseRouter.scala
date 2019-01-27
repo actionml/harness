@@ -28,7 +28,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.Response
 import com.actionml.core.validate._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
-import org.json4s.{DefaultFormats, JArray, JValue, jackson}
+import org.json4s.{DefaultFormats, jackson}
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -47,7 +47,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
   implicit protected val timeout = Timeout(5 seconds)
   protected val putOrPost: Directive[Unit] = post | put
 
-  implicit val serialization = jackson.Serialization // or native.Serialization
+  implicit val serialization = jackson.Serialization
   implicit val formats       = DefaultFormats
 
   def route: Route
@@ -60,20 +60,6 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
       case Some(json) => complete(json)
       case None => complete(ifEmptyStatus, ifEmptyStatus.defaultMessage())
     }
-
-//  def completeByValidated(
-//    ifDefinedStatus: StatusCode
-//  )(ifDefinedResource: Future[Validated[ValidateError, Response]]): Route =
-//    onSuccess(ifDefinedResource) {
-//      case Valid(json) => complete(json)
-//      case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
-//      case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
-//      case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
-//      case Invalid(error: EventOutOfSequence) ⇒ complete(StatusCodes.BadRequest, error.message)
-//      case Invalid(error: NotImplemented) ⇒ complete(StatusCodes.NotImplemented, error.message)
-//      case Invalid(error: ResourceNotFound) ⇒ complete(StatusCodes.custom(404, "Resource not found"), error.message)
-//      case _ ⇒ complete(StatusCodes.NotFound)
-//    }
 
   def completeByValidated[T](
     ifDefinedStatus: StatusCode
