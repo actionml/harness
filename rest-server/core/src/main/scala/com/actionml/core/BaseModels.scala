@@ -100,13 +100,11 @@ trait QueryResult
 trait Event
 trait EngineParams
 trait Query
-class Status
-object Status {
+class Response
+object Response {
   import org.json4s.jackson.Serialization
-  import org.json4s.{ JValue, Extraction, NoTypeHints }
+  import org.json4s.{Extraction, JValue, NoTypeHints}
   implicit val formats = Serialization.formats(NoTypeHints)
-  implicit def statusToJValue[T <: Status]: T => JValue = Extraction.decompose _
+  implicit def responseToJValue[T <: Response]: T => JValue = Extraction.decompose _
 }
-
-// some extended version of this should be passed to LambdaAlgorithm.train
-//trait AlgorithmTrainSpec
+case class Comment(comment: String) extends Response

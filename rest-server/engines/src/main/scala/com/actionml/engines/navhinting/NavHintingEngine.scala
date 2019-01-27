@@ -20,7 +20,7 @@ package com.actionml.engines.navhinting
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.model.{GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidateError}
@@ -152,7 +152,7 @@ case class NavHintingStatus(
     engineType: String = "Simple analytical discovery of likely conversion paths",
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams)
-  extends Status
+  extends Response
 
 object NavHintingEngine {
   def apply(json: String): NavHintingEngine = {

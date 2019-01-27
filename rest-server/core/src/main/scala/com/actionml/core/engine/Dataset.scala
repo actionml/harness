@@ -24,8 +24,6 @@ import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.reflect.ClassTag
-
 abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport {
 
   // methods that must be implemented in the Engine

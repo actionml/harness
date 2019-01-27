@@ -22,13 +22,17 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
+import cats.data.Validated
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
+import com.actionml.core.model.Response
+import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
 import io.circe.Json
+import org.json4s.JValue
 import scaldi.Injector
 
 /**
@@ -89,49 +93,49 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private def getEngine(engineId: String)(implicit log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? GetEngine(engineId)).mapTo[Response]
+      (engineService ? GetEngine(engineId)).mapTo[Validated[ValidateError, Response]]
     }
   }
 
   private def getEngines(implicit log: LoggingAdapter): Route = get {
     log.info("Get engines information")
     completeByValidated(StatusCodes.OK) {
-      (engineService ? GetEngines).mapTo[Response]
+      (engineService ? GetEngines).mapTo[Validated[ValidateError, List[Response]]]
     }
   }
 
-  private def createEngine(implicit log: LoggingAdapter): Route = asJson { engineConfig =>
+  private def createEngine(implicit log: LoggingAdapter): Route = entity(as[JValue]) { engineConfig =>
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
-      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Response]
+      (engineService ? CreateEngine(engineConfig.toString)).mapTo[Validated[ValidateError, Response]]
     }
   }
 
   private def updateEngineWithConfig(engineId: String)(implicit log: LoggingAdapter): Route = entity(as[Json]) { engineConfig ⇒
     log.info("Update engine: {}, updateConfig: true", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Response]
+      (engineService ? UpdateEngine( engineConfig.toString()) ).mapTo[Validated[ValidateError, Response]]
     }
   }
 
   private def updateEngineWithImport(engineId: String)(implicit log: LoggingAdapter): Route = parameter('import_path) { importPath ⇒
     log.info("Update engine: {}, importPath: {}", engineId, importPath)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Response]
+      (engineService ? UpdateEngineWithImport(engineId, importPath)).mapTo[Validated[ValidateError, Response]]
     }
   }
 
   private def updateEngineWithTrain(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Update engine: {}, trainPath: {}", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? UpdateEngineWithTrain(engineId)).mapTo[Response]
+      (engineService ? UpdateEngineWithTrain(engineId)).mapTo[Validated[ValidateError, Response]]
     }
   }
 
   private def deleteEngine(engineId: String)(implicit log: LoggingAdapter): Route = {
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
-      (engineService ? DeleteEngine(engineId)).mapTo[Response]
+      (engineService ? DeleteEngine(engineId)).mapTo[Validated[ValidateError, Response]]
     }
   }
 }

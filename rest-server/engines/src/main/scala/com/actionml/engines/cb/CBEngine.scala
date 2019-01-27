@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.model.{GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
 import io.circe.Json
@@ -78,7 +78,7 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, Status] = {
+  override def status(): Validated[ValidateError, Response] = {
     import org.json4s.jackson.Serialization.write
 
     logger.trace(s"Status of base Engine with engineId:$engineId")
@@ -191,7 +191,7 @@ case class CBStatus(
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams,
     activeGroups: Int)
-  extends Status {
+  extends Response {
 
   def toJson: String = {
     s"""

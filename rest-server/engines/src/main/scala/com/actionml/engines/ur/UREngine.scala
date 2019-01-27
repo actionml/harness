@@ -21,7 +21,7 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.Status
+import com.actionml.core.model.Response
 import io.circe.Json
 //import com.actionml.{DateRange, Rule}
 import com.actionml.core.drawInfo
@@ -102,7 +102,7 @@ class UREngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): Validated[ValidateError, Status] = {
+  override def status(): Validated[ValidateError, Response] = {
     logStatus(params)
     Valid(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
   }
@@ -249,4 +249,4 @@ object UREngine extends JsonSupport {
 
 }
 
-case class UREngineStatus(engineParams: UREngineParams, jobStatuses: Map[String, JobDescription]) extends Status
+case class UREngineStatus(engineParams: UREngineParams, jobStatuses: Map[String, JobDescription]) extends Response

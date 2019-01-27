@@ -19,7 +19,7 @@ package com.actionml.admin
 
 import cats.data.Validated
 import com.actionml.core.engine.Engine
-import com.actionml.core.model.Status
+import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
@@ -36,6 +36,7 @@ abstract class Administrator extends LazyLogging {
   def updateEngine(json: String): Validated[ValidateError, String]
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, String]
   def updateEngineWithImport(engineId: String, inputPath: String): Validated[ValidateError, String]
-  def status(resourceId: Option[String] = None): Validated[ValidateError, Seq[Status]]
+  def status(resourceId: String): Validated[ValidateError, Response]
+  def statuses(): Validated[ValidateError, List[Response]]
   def init(): Administrator = this
 }

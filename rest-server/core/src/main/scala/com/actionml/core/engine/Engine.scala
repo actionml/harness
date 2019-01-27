@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
 import com.actionml.core.jobs.JobManager
-import com.actionml.core.model.{GenericEngineParams, Status}
+import com.actionml.core.model.{GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Json
@@ -115,7 +115,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
     * manages and the extending Engine adds json to give stats about the data it manages?
     */
-  def status(): Validated[ValidateError, Status] = {
+  def status(): Validated[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(EngineStatus(engineId, "This Engine does not implement the status API"))
   }
@@ -148,4 +148,4 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
 }
 
-case class EngineStatus(engineId: String, comment: String) extends Status
+case class EngineStatus(engineId: String, comment: String) extends Response

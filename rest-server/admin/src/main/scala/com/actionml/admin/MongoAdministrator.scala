@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.engine.Engine
-import com.actionml.core.model.{GenericEngineParams, Status}
+import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
@@ -140,26 +140,27 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
-  override def status(resourceId: Option[String] = None): Validated[ValidateError, Seq[Status]] = {
-    if (resourceId.nonEmpty) {
-      if (engines.contains(resourceId.get)) {
-        logger.trace(s"Getting status for ${resourceId.get}")
-        engines(resourceId.get).status().map(List(_))
-      } else {
-        logger.error(s"Non-existent engine-id: ${resourceId.get}")
-        Invalid(WrongParams(jsonComment(s"Non-existent engine-id: ${resourceId.get}")))
-      }
+  override def statuses(): Validated[ValidateError, List[Response]] = {
+    logger.trace("Getting status for all Engines")
+    val empty = List.empty
+    engines.map(_._2.status()).foldLeft[Validated[ValidateError, List[Response]]](Valid(empty)) { (acc, s) =>
+      acc.andThen(statuses => s.map(status => statuses :+ status))
+    }
+  }
+
+  override def status(resourceId: String): Validated[ValidateError, Response] = {
+    if (engines.contains(resourceId)) {
+      logger.trace(s"Getting status for $resourceId")
+      engines(resourceId).status()
     } else {
-      logger.trace("Getting status for all Engines")
-      engines.map(_._2.status()).foldLeft[Validated[ValidateError, Seq[Status]]](Valid(Seq.empty)) { (acc, s) =>
-        acc.andThen(statuses => s.map(status => statuses :+ status))
-      }
+      logger.error(s"Non-existent engine-id: $resourceId")
+      Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $resourceId")))
     }
   }
 
 }
 
-case class EnginesStatuses(statuses: List[Status]) extends Status
+case class EnginesStatuses(statuses: List[Response]) extends Response
 
 case class EngineMetadata(
   engineId: String,
