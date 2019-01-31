@@ -2,21 +2,23 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.3.0"
+version := "0.4.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
+lazy val harnessAuthLibVersion = "0.3.0"
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoVersion = "3.6.4"
-//lazy val mongoScalaDriverVersion = "2.4.0"
-lazy val mongoScalaDriverVersion = "2.2.1"
-lazy val mongoSparkConnecterVersion = "2.2.4"
+lazy val mongoScalaDriverVersion = "2.4.2"
+//lazy val mongoScalaDriverVersion = "2.2.1"
+//lazy val mongoSparkConnecterVersion = "2.2.4"
+lazy val mongoSparkConnecterVersion = "2.3.2"
 lazy val hdfsVersion = "2.8.1"
-//lazy val sparkVersion = "2.3.1"
-lazy val sparkVersion = "2.1.3"
+lazy val sparkVersion = "2.3.2"
+//lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
@@ -89,6 +91,7 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-parser" % circeVersion,
       "io.circe" %% "circe-optics" % circeVersion,
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
+      "de.heikoseeberger" %% "akka-http-json4s" % "1.16.0",
 
       "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.4.0",
       "org.elasticsearch" %% "elasticsearch-spark-20" % "6.4.0",
@@ -161,7 +164,7 @@ lazy val admin = (project in file("admin")).dependsOn(core).
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
   libraryDependencies ++= Seq(
-    "com.actionml" %% "harness-auth-common" % "0.3.0-SNAPSHOT",
+    "com.actionml" %% "harness-auth-common" % harnessAuthLibVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.ehcache" % "ehcache" % "3.4.0"
   ),

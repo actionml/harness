@@ -17,14 +17,13 @@
 
 package com.actionml.engines.ur
 
-import com.actionml.core.model.User
-import com.actionml.engines.ur.UREngine.{ItemProperties, UREvent}
+import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
 import org.bson.codecs.configuration.CodecProvider
 
 object MongoStorageHelper {
 
   val codecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
-    List(classOf[ItemProperties], classOf[UREvent])
+    List(classOf[URItemProperties], classOf[UREvent])
   }
 }

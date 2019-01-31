@@ -10,34 +10,36 @@ if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
     exit 1
 fi
 
-if [[ "$1" = "-f" ]] || [[ ! -f ${PIDFILE} ]]; then
-    if [[ -f ${PIDFILE} ]] && [[ "$1" = "-f" ]]; then
-        echo -e "${CYAN}Trying to stop Harness from existing PID file before restarting${NC}"
-        harness-stop
-    fi
-    exec ${HARNESS_HOME}/bin/main -v \
-    -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
-    -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
-    -Drest-server.host=${REST_SERVER_HOST} \
-    -Drest-server.port=${REST_SERVER_PORT} \
-    -Dmongo.host=${MONGO_HOST} \
-    -Dmongo.port=${MONGO_PORT} \
-    <&- > /tmp/harness.log 2>&1 &
-    echo $! > ${PIDFILE}
-    if [[ $? == 0 ]]; then
-        echo -e "${CYAN}Started Harness with PID: $(cat ${PIDFILE})${NC}"
-        echo -e "${CYAN}Checking Harness Server status${NC}"
-        PYTHON_ARGS=" status ${USER_ARGS}"
-        #echo "User args: ${USER_ARGS}"
-        sleep 10
-        # ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
-        harness-status
-        echo -e "${GLINE}${NC}"
-    else
-        echo -e "${RED}[Error] Unable to start Harness. Unknown reason.${NC}"
-    fi
-else
+if [[ -f ${PIDFILE} ]]; then
     echo -e "${RED}There is an existing PID file, this means Harness may be running.${NC}"
+    echo -e "${RED}Starting Harness and overwriting the previous pid in ${PIDFILE}${NC}"
     echo -e "${RED}Run \"harness start -f\" to force a restart${NC}"
-    exit 1
+fi
+
+if [[ -f ${PIDFILE} ]] && [[ "$1" = "-f" ]]; then
+    echo -e "${CYAN}Trying to stop Harness from existing PID file before restarting${NC}"
+    harness-stop
+fi
+
+exec ${HARNESS_HOME}/bin/main -v \
+-Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
+-DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
+-Drest-server.host=${REST_SERVER_HOST} \
+-Drest-server.port=${REST_SERVER_PORT} \
+-Dmongo.host=${MONGO_HOST} \
+-Dmongo.port=${MONGO_PORT} \
+<&- > /tmp/harness.log 2>&1 &
+echo $! > ${PIDFILE}
+
+if [[ $? == 0 ]]; then
+    echo -e "${CYAN}Started Harness with PID: $(cat ${PIDFILE})${NC}"
+    echo -e "${CYAN}Checking Harness Server status${NC}"
+    PYTHON_ARGS=" status ${USER_ARGS}"
+    #echo "User args: ${USER_ARGS}"
+    sleep 10
+    # ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
+    harness-status
+    echo -e "${GLINE}${NC}"
+else
+    echo -e "${RED}[Error] Unable to start Harness. Unknown reason.${NC}"
 fi

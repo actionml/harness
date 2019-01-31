@@ -30,7 +30,7 @@ import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 
 object SparkContextSupport extends LazyLogging {
@@ -58,9 +58,10 @@ object SparkContextSupport extends LazyLogging {
       case s@Running(_, optSc, _, promises) if promises.nonEmpty =>
         val (p, others) = (promises.head, promises.tail)
         optSc.foreach(_.stop())
-        val newSc = createSparkContext(p._1)
-        p._2.complete(newSc)
-        state.compareAndSet(s, Running(p._1, newSc.toOption, p._2, others))
+        createSparkContext(p._1).foreach { newSc =>
+          p._2.complete(Success(newSc))
+          state.compareAndSet(s, Running(p._1, Option(newSc), p._2, others))
+        }
       case s@Running(_, optSc, _, _)  =>
         optSc.foreach(_.stop())
         state.compareAndSet(s, Idle)
@@ -73,19 +74,23 @@ object SparkContextSupport extends LazyLogging {
    */
   def getSparkContext(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
     val params = SparkContextParams(config, engineId, jobDescription, kryoClasses = kryoClasses)
-    val f = state.get match {
+    state.get match {
       case Idle =>
         val p = Promise[SparkContext]()
-        val tryContext = createSparkContext(params)
-        if (state.compareAndSet(Idle, Running(params, tryContext.toOption, p, Map.empty))) {
-          p.complete(tryContext)
-          p.future
-        } else {
-          getSparkContext(config, engineId, jobDescription, kryoClasses)
+        createSparkContext(params).foreach { sc =>
+          if (state.compareAndSet(Idle, Running(params, Option(sc), p, Map.empty))) {
+            p.complete(Success(sc))
+          } else {
+            state.get match {
+              case r: Running => state.compareAndSet(r, r.copy(otherPromises = r.otherPromises + (params -> p)))
+              case _ => getSparkContext(config, engineId, jobDescription, kryoClasses)
+            }
+          }
         }
+        p.future
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         p.future
-      case s@Running(_, sc, p, promises) if !sc.exists(_.isStopped) =>
+      case s@Running(_, sc, _, promises) if !sc.exists(_.isStopped) =>
         promises.getOrElse(params, {
           val p = Promise[SparkContext]()
           state.compareAndSet(s, s.copy(otherPromises = promises + (params -> p)))
@@ -94,33 +99,41 @@ object SparkContextSupport extends LazyLogging {
       case s@Running(_, sc, p, promises) if sc.forall(_.isStopped) =>
         p.tryFailure(new IllegalStateException())
         promises.foreach(_._2.tryFailure(new IllegalStateException()))
-        Future.fromTry(createSparkContext(params)).map { sc =>
+        createSparkContext(params).map { sc =>
           state.compareAndSet(s, Running(params, Some(sc), Promise.successful(sc), Map.empty))
           sc
         }
     }
-    f.foreach(sc => sc.setJobGroup(jobDescription.jobId, jobDescription.comment))
-    f
   }
 
 
-  private def createSparkContext(params: SparkContextParams): Try[SparkContext] = Try {
-    val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
-    val conf = new SparkConf()
-    configMap.get("master").foreach(conf.setMaster)
-    conf.setAppName(params.engineId)
-    conf.setAll(configMap - "master")
-    val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
-    conf.setJars(jars)
-    // todo: not sure we should make these keys special, if we do then we should report and error if things like
-    // master or appname are required but not provided. We need a better way to report engine.json errors,
-    // especially in the sparkConf, which is only partially known. We can check for required things and let the
-    // rest through on the hope they are correct
-    if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
-    val sc = new SparkContext(conf)
-    JobManager.startJob(params.jobDescription.jobId)
-    sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
-    sc
+  private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
+    val f = Future {
+      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+      val conf = new SparkConf()
+      configMap.get("master").foreach(conf.setMaster)
+      conf.setAppName(params.engineId)
+      conf.setAll(configMap - "master")
+      val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
+      conf.setJars(jars)
+      // todo: not sure we should make these keys special, if we do then we should report and error if things like
+      // master or appname are required but not provided. We need a better way to report engine.json errors,
+      // especially in the sparkConf, which is only partially known. We can check for required things and let the
+      // rest through on the hope they are correct
+      if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
+      val sc = new SparkContext(conf)
+      sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
+      JobManager.startJob(params.jobDescription.jobId)
+      sc
+    }
+    f.onComplete {
+      case Success(sc) =>
+        sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
+      case Failure(e) =>
+        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
+        JobManager.removeJob(params.jobDescription.jobId)
+    }
+    f
   }
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {

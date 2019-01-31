@@ -30,7 +30,7 @@ import com.typesafe.scalalogging.LazyLogging
   * a trait or object extending this.
   *
   */
-abstract class Mirroring(mirrorContainer: String, engineId: String) extends LazyLogging {
+abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
 
   def mirrorEvent(json: String): Validated[ValidateError, String]
   def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
@@ -42,7 +42,7 @@ abstract class Mirroring(mirrorContainer: String, engineId: String) extends Lazy
     * @return timestamp-based name
     */
   protected def batchName: String =
-    // yearMonthDay is lexicographically sortable and one file per day seem like a good default.
+    // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
     DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
 
   /**
@@ -57,7 +57,7 @@ abstract class Mirroring(mirrorContainer: String, engineId: String) extends Lazy
 }
 
 /** Used when mirroring is config selectable */
-object Mirroring {
+object Mirror {
   val localfs = "localfs"
   val hdfs = "hdfs"
 }

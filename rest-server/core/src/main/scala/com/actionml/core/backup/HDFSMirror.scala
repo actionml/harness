@@ -22,15 +22,15 @@ import java.io._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
-import org.apache.hadoop.fs.{FileSystem, Path}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import org.apache.hadoop.fs.Path
 
 /**
-  * Mirroring implementation for HDFS.
+  * Mirror implementation for HDFS.
   */
 
-class HDFSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) with JsonParser {
+class HDFSMirror(mirrorContainer: String, engineId: String)
+  extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
   private val hdfs = HDFSFactory.hdfs
 
@@ -45,7 +45,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
           logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}")
           logger.error("This error is non-fatal but means events will not be mirrored", ex)
           None
-        case unknownException =>
+        case unknownException: Exception =>
           logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
           throw unknownException
       }
@@ -99,7 +99,7 @@ class HDFSMirroring(mirrorContainer: String, engineId: String)
          | $errMsg""".stripMargin)))
 
     if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
-      logger.error("Reading from the mirror location will cause in infinite loop." +
+      logger.error("Reading from the mirror location will cause an infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
       importEventsError("Reading from the mirror location will cause in infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")

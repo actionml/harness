@@ -20,20 +20,19 @@ package com.actionml.engines.navhinting
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
-
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidateError}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
-class NavHintingEngine extends Engine with JsonParser {
+class NavHintingEngine extends Engine with JsonSupport {
 
   var dataset: NavHintingDataset = _
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(json).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         params = p
@@ -50,10 +49,10 @@ class NavHintingEngine extends Engine with JsonParser {
         Valid(jsonComment("NavHintingEngine initialized"))
       }.andThen { _ =>
         dataset.init(json).andThen { _ =>
-          if (deepInit) {
+          if (!update) { // do this when creating rather than updating
             algo = new NavHintingAlgorithm(json, dataset)
             algo.init(this)
-          } else Valid(jsonComment("NavHintingAlgorithm updated"))
+          } else Valid(Comment("NavHintingAlgorithm updated"))
         }
       }
     }
@@ -74,11 +73,11 @@ class NavHintingEngine extends Engine with JsonParser {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
+  override def status(): Validated[ValidateError, NavHintingStatus] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(NavHintingStatus(
       engineParams = this.params,
-      algorithmParams = algo.params).toJson)
+      algorithmParams = algo.params))
   }
 
   override def destroy(): Unit = {
@@ -88,12 +87,12 @@ class NavHintingEngine extends Engine with JsonParser {
   }
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, String] = {
+  override def input(json: String): Validated[ValidateError, Response] = {
     // first detect a batch of events, then persist each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.debug("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => jsonComment("NavHinting input processed"))
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => Comment("NavHinting input processed"))
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -107,11 +106,11 @@ class NavHintingEngine extends Engine with JsonParser {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String): Validated[ValidateError, Response] = {
     logger.debug(s"Got a query JSON string: $json")
     parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
-      Valid( algo.query(query).toJson)
+      Valid(algo.query(query))
     }
   }
 
@@ -124,7 +123,7 @@ case class NHQuery(
 
 case class NHQueryResult(
     navHints: Array[(String, Double)])
-  extends QueryResult {
+  extends Response with QueryResult {
 
   def toJson: String = {
     val jsonStart = s"""
@@ -150,19 +149,7 @@ case class NavHintingStatus(
     engineType: String = "Simple analytical discovery of likely conversion paths",
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams)
-  extends Status {
-
-  def toJson: String = {
-    s"""
-      |{
-      |  "description": "$description",
-      |  "engineType": "$engineType",
-      |  "engineParams": "$engineParams",
-      |  "algorithmParams": "$algorithmParams",
-      |}
-    """.stripMargin
-  }
-}
+  extends Response
 
 object NavHintingEngine {
   def apply(json: String): NavHintingEngine = {

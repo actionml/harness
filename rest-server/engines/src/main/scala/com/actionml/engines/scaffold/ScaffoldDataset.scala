@@ -19,10 +19,9 @@ package com.actionml.engines.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{GenericEngineParams, GenericEvent}
-import com.actionml.core.engine.{Dataset}
+import com.actionml.core.model.{Comment, GenericEngineParams, GenericEvent, Response}
+import com.actionml.core.engine.Dataset
 import com.actionml.core.validate._
-
 
 import scala.language.reflectiveCalls
 
@@ -33,15 +32,15 @@ import scala.language.reflectiveCalls
   *
   * @param engineId The Engine ID
   */
-class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonParser {
+class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) with JsonSupport {
 
   // These should only be called from trusted source like the CLI!
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      // Do something with parameters--do not re-initialize the algo if deepInit == false
+      // Do something with parameters--do not re-initialize the algo if update == false
       Valid(p)
     }
-    Valid(jsonComment("ScaffoldDataset initialized"))
+    Valid(Comment("ScaffoldDataset initialized"))
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */
@@ -51,18 +50,13 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(json: String): Validated[ValidateError, GenericEvent] = {
     // good place to persist in whatever way the specific event type requires
-    parseAndValidateInput(json).andThen(Valid(_))
-  }
-
-  /** Required method to parserAndValidate the input event */
-  override def parseAndValidateInput(json: String): Validated[ValidateError, GenericEvent] = {
     parseAndValidate[GenericEvent](json).andThen { event =>
       event.event match {
         case _ => // Based on attributes in the event one can parseAndVaidate more specific types here
           logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[GenericEvent](json)
       }
-    }
+    }.andThen(Valid(_)) // may persist or otherwise react to the parsed and validated event
   }
 
 }

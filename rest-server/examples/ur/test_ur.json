@@ -1,17 +1,17 @@
 {
-  "engineId": "ur",
+  "engineId": "test_ur",
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
     "master": "local",
     "spark.driver-memory": "4g",
-    "spark.executor-memory": "4g"
+    "spark.executor-memory": "4g",
+    "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
+    "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
+    "spark.kryo.referenceTracking": "false",
+    "spark.kryoserializer.buffer": "300m",
+    "es.index.auto.create": "true"
   },
   "algorithm": {
-    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
-    "esMaster": "es-node-1",
-    "indexName": "urindex",
-    "typeName": "items",
-    "blacklist": [],
     "indicators": [
       {
         "name": "purchase"
@@ -24,9 +24,6 @@
         "minLLR": 5.0
       }
     ],
-    "availableDateName": "available",
-    "expireDateName": "expires",
-    "dateName": "date",
     "num": 4
   }
 }

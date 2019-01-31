@@ -60,6 +60,7 @@ Configuration is especially important because it defines the type of events by n
 {
   "engineId": "test_ur_nav_hinting",
   "engineFactory": "com.actionml.engines.urnavhinting.URNavHintingEngine",
+  "sharedDBName": "!!!<name of db to share data>!!!",
   "sparkConf": {
     "master": "local",
     "spark.driver-memory": "4g",
@@ -92,7 +93,9 @@ Configuration is especially important because it defines the type of events by n
 
  - **engineId**: used for the resource-id in the REST API. Can be any URI fragment.
  - **engineFactory**: constructs the Engine and reads the parameters, must be as shown.
- - **blacklistEvents**: optional, default = `nav-event`. By default this will cause only hints that the User has not visited recently to be hinted. If this is set to an empty list then any hint will be shown even if the User has seen it.
+ - **sharedDBName**: optional, this should be a snake-case name associated with the database used to store data shared across Engine Instances and clients. One `sharedDBName` means to share all usable data across all Engine Instances that have this setting. **Note**: most Engine types will not be able to share data with other types but Engines of the same type may be able to. See Engine specific documentation.
+
+ The URNavHinting Engine type can only share data with other URNavHintingEngine isntances.
 
 ## Spark Parameters (sparkConf)
 
@@ -120,7 +123,9 @@ The Algorithm: params section controls most of the features of the CCO. Possible
     - **minLLR**: this is not used by default and is here when an LLR score is desired as the minimum threshold. Since LLR scores will be higher for better correlation this can be set to ensure the highest quality correlators are the only ones used. This will increase precision of recommendations but may decrease recall, meaning you will get better recommendations but less of them. A rule of thumb would say to use something like 5 for a typical high quality ecom dataset.
     - **maxQueryEvents**: optional, default = 100. An integer specifying the number of most recent user history events used to make recommendations for an individual. More implies some will be less recent actions. Theoretically using the right number will capture the user’s current interests.
  - **num**: optional, default = 20. An integer telling the engine the maximum number of recommendations to return per query but less may be returned if the query produces less results or post recommendations filters like blacklists remove some.
- - **blacklistEvents**: optional, default = the primary action. **Note: for nav-hinting this should be set to an empty array.**
+ - **blacklistEvents**: optional, default = the primary action. There are only 2 setting here that make sense:
+    - any empty array meaning show any nav-hint regardless of whether the active user has seen it before or not.
+    - omit the setting to use the default. This will only show hints that the active user has not seen recently. This is on the theory that if they have seen the hinted page/screen, they do not need the hint and better to hint something they have not seen.
 
 # Input
 

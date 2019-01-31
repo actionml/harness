@@ -17,6 +17,7 @@
 
 package com.actionml.core.store.backends
 
+import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
@@ -30,16 +31,17 @@ import scala.reflect.ClassTag
 
 
 class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
+  import DaoQuery.syntax._
 
   override def name = collection.namespace.getFullName
   override def dbName = collection.namespace.getDatabaseName
   override def collectionName: String = collection.namespace.getCollectionName
 
   override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = {
-    findOneAsync("_id" -> id)
+    findOneAsync("_id" === id)
   }
 
-  override def findOneAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Option[T]] = {
+  override def findOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Option[T]] = {
     collection.find(mkFilter(filter)).headOption
   }
 
@@ -56,7 +58,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
     collection.insertOne(o).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"Successfully inserted $o into $name with result $t")
-        Future.successful(t)
+        Future.successful ()
       case None =>
         logger.error(s"Can't insert value $o to collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
@@ -67,14 +69,14 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
     collection.insertMany(c).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"Successfully inserted many into $name with result $t")
-        Future.successful(t)
+        Future.successful ()
       case None =>
         logger.error(s"Can't insert many into collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert many to collection ${collection.namespace}"))
     }
   }
 
-  override def updateAsync(filter: (String, Any)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
+  override def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"Successfully updated object $o with the filter $filter")
@@ -86,7 +88,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   }
 
   override def saveOneByIdAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    val filter = mkFilter(Seq("_id" -> id))
+    val filter = mkFilter(Seq("_id" === id))
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
@@ -99,7 +101,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   // todo: Andrey, isn't this just an alias for insertAsync ???
   override def saveOneAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     val id = new ObjectId()
-    val filter = mkFilter(Seq("_id" -> id))
+    val filter = mkFilter(Seq("_id" === id))
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
@@ -109,7 +111,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
       .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
-  override def removeOneAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[T] = {
+  override def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndDelete(mkFilter(filter)).headOption.flatMap {
       case Some(t) =>
         logger.debug(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
@@ -121,10 +123,10 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   }
 
   override def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T] = {
-    removeOneAsync("_id" -> id)
+    removeOneAsync("_id" === id)
   }
 
-  override def removeManyAsync(filter: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit] = {
+  override def removeManyAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.deleteMany(mkFilter(filter)).headOption().flatMap {
       case Some(t) =>
         logger.debug(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
@@ -136,9 +138,16 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   }
 
 
-  private def mkFilter(fields: Seq[(String, Any)]): Bson = {
+  private def mkFilter(fields: Seq[(String, QueryCondition)]): Bson = {
+    import DaoQuery._
     if (fields.isEmpty) Document("_id" -> Document("$exists" -> true))
-    else Filters.and(fields.map { case (k, v) => Filters.eq(k, v) }.toArray: _*)
+    else Filters.and(fields.map {
+      case (k, GreaterOrEqualsTo(v)) => Filters.gte(k, v)
+      case (k, GreaterThen(v)) => Filters.gt(k, v)
+      case (k, LessOrEqualsTo(v)) => Filters.lte(k, v)
+      case (k, LessThen(v)) => Filters.lt(k, v)
+      case (k, Equals(v)) => Filters.eq(k, v)
+    }.toArray[Bson]: _*)
   }
 
   private def mkOrder(order: OrderBy): Bson = {

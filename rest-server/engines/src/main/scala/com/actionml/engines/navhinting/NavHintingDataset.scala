@@ -22,12 +22,11 @@ import java.time.format.DateTimeFormatter
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.{Event, GenericEngineParams}
+import com.actionml.core.model.{Comment, Event, GenericEngineParams, Response}
 import com.actionml.core.store.Store
 import com.actionml.core.engine.Dataset
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
-
 import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.duration._
@@ -40,14 +39,14 @@ import scala.util.Try
   * and persisted after changes accumulate.
   *
   */
-class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonParser {
+class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionContext) extends Dataset[NHEvent](engineId) with JsonSupport {
 
   val activeJourneysDAO = store.createDao[Journey]("active_journeys")
   val navHintsModels = store.createDao[NavModels]("nav_models")
 
   private var trailLength: Int = _
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     val res = parseAndValidate[GenericEngineParams](json).andThen { p =>
       parseAndValidate[NHAlgoParams](json).andThen { algoParams =>
         trailLength = algoParams.numQueueEvents.getOrElse(50)
@@ -56,7 +55,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       Valid(p) // Todo: trailLength may not have been set if algo params is not valid
     }
     if(res.isInvalid) Invalid(ParseError(jsonComment("Error parsing JSON params for numQueueEvents")))
-    else Valid(jsonComment("NavHintingDataset initialized"))
+    else Valid(Comment("NavHintingDataset initialized"))
   }
 
   override def destroy() = {
@@ -65,8 +64,24 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
 
   // add one json, possibly an NHEvent, to the beginning of the dataset
   override def input(json: String): Validated[ValidateError, NHEvent] = {
-    parseAndValidateInput(json).andThen(persist)
-  }
+    parseAndValidate[NHRawEvent](json).andThen { event =>
+      event.event match {
+        case "$delete" => // removeOne an object
+          event.entityType match {
+            case "user"  => // got a user profile update event
+              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
+              parseAndValidate[NHDeleteEvent](json)
+            case "model" => // deleteing a convversion hinting model
+              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
+              parseAndValidate[NHDeleteEvent](json)
+          }
+        case _ => // default is a self describing usage event, kept as a stream
+          logger.debug(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
+          parseAndValidate[NHNavEvent](json)
+      }
+    }
+  }.andThen(persist)
+
 
 
   private def persist(event: NHEvent): Validated[ValidateError, NHEvent] = {
@@ -113,8 +128,8 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
                 Valid(event)
 
               } catch {
-                case _ => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
-                  logger.error(s"Cannot $$delete non-existent model: ${event.entityId}")
+                case e: Exception => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
+                  logger.error(s"Cannot $$delete non-existent model: ${event.entityId}", e)
                   Invalid(ResourceNotFound(jsonComment(s"Cannot $$delete non-existent model: ${event.entityId}")))
               }
             case _ =>
@@ -132,26 +147,6 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       case e: Exception =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
         Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
-    }
-  }
-
-  override def parseAndValidateInput(json: String): Validated[ValidateError, NHEvent] = {
-
-    parseAndValidate[NHRawEvent](json).andThen { event =>
-      event.event match {
-        case "$delete" => // removeOne an object
-          event.entityType match {
-            case "user"  => // got a user profile update event
-              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
-              parseAndValidate[NHDeleteEvent](json)
-            case "model" => // deleteing a convversion hinting model
-              logger.debug(s"Dataset: ${engineId} parsing an $$delete event: ${event.event}")
-              parseAndValidate[NHDeleteEvent](json)
-          }
-        case _ => // default is a self describing usage event, kept as a stream
-          logger.debug(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
-          parseAndValidate[NHNavEvent](json)
-      }
     }
   }
 

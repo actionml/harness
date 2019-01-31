@@ -19,20 +19,16 @@ package com.actionml.router.http.routes
 
 import java.util.UUID
 
-import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
-import akka.pattern.ask
-import com.actionml.router.service.GetEngines
 import io.circe.syntax._
+import org.json4s.JValue
 import scaldi.Injector
 
 /**
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
 class CommandsRouter(implicit inj: Injector) extends BaseRouter {
-
-  private val engineService = inject[ActorRef]('EngineService)
 
   override val route: Route = rejectEmptyResponse {
     pathPrefix("commands") {
@@ -69,7 +65,7 @@ class CommandsRouter(implicit inj: Injector) extends BaseRouter {
     complete(StatusCodes.OK, true.asJson)
   }
 
-  private def runCommand = (asJson & extractLog) { (json, log) ⇒
+  private def runCommand = (entity(as[JValue]) & extractLog) { (json, log) ⇒
     log.info("Run command {}", json)
     complete(StatusCodes.OK, UUID.randomUUID().toString)
   }

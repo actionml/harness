@@ -58,7 +58,7 @@ case class GenericEngineParams(
     sharedDBName: Option[String] = None,
     modelContainer: Option[String] = None,
     algorithm: Option[String] = None)
-  extends EngineParams
+  extends Response with EngineParams
 
 
 // allows us to look at what kind of specialized event to create
@@ -84,7 +84,7 @@ case class GenericQuery() extends Query {
 }
 
 /** Used only for illustration since query results have no required part */
-case class GenericQueryResult() extends QueryResult{
+case class GenericQueryResult() extends Response with QueryResult{
   def toJson =
     s"""
        |{
@@ -100,7 +100,11 @@ trait QueryResult
 trait Event
 trait EngineParams
 trait Query
-trait Status
-
-// some extended version of this should be passed to LambdaAlgorithm.train
-//trait AlgorithmTrainSpec
+class Response
+object Response {
+  import org.json4s.jackson.Serialization
+  import org.json4s.{Extraction, JValue, NoTypeHints}
+  implicit val formats = Serialization.formats(NoTypeHints)
+  implicit def responseToJValue[T <: Response]: T => JValue = Extraction.decompose _
+}
+case class Comment(comment: String) extends Response

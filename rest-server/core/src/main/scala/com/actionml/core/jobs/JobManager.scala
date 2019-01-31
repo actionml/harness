@@ -19,6 +19,8 @@ package com.actionml.core.jobs
 
 import java.util.UUID
 
+import com.actionml.core.model.Response
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -87,7 +89,7 @@ object JobManager extends JobManagerInterface {
 case class JobDescription(
   jobId: String,
   status: String = JobStatus.queued,
-  comment: String = "")
+  comment: String = "") extends Response
 
 object JobStatus {
   val queued = "queued"

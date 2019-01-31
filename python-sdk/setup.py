@@ -17,6 +17,7 @@ setup(
     url='http://actionml.com',
     license='LICENSE.txt',
     description='Harness Python SDK',
+    zip_safe=False, # todo: this looks like it might be bad but was needed to install on Amazon Linux
     classifiers=[
         'Programming Language :: Python',
         'License :: OSI Approved :: Apache Software License',

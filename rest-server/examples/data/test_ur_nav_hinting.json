@@ -12,9 +12,6 @@
     "es.index.auto.create": "true"
   },
   "algorithm": {
-    "comment": "may not need indexName and typeName, derive from engineId? but nowhere else to get the RESTClient address",
-    "esMaster": "es-node-1",
-    "blacklist": [],
     "indicators": [
       {
         "name": "nav-event"
@@ -24,9 +21,6 @@
         "name": "content-pref"
       }
     ],
-    "availableDateName": "available",
-    "expireDateName": "expires",
-    "dateName": "date",
     "num": 6
   }
 }

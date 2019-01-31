@@ -22,14 +22,17 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import akka.pattern.ask
+import cats.data.Validated
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.AuthServerProxyService
+import com.actionml.core.model.Response
+import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
-import io.circe.Json
+import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 import scala.language.postfixOps
@@ -75,14 +78,14 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.debug("Get event: {}, {}", datasetId, eventId)
     completeByValidated(StatusCodes.OK) {
-      (eventService ? GetEvent(datasetId, eventId)).mapTo[Response]
+      (eventService ? GetEvent(datasetId, eventId)).mapTo[Validated[ValidateError, Response]]
     }
   }
 
-  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[Json])) { event =>
+  private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[JValue])) { event =>
     log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(engineId, event.toString())).mapTo[Response]
+      (eventService ? CreateEvent(engineId, JsonMethods.compact(event))).mapTo[Validated[ValidateError, Response]]
     }
   }
 

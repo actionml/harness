@@ -19,21 +19,17 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.model.{Event, GenericEngineParams, User}
+import com.actionml.core.model._
 import com.actionml.core.store.Store
-import com.actionml.core.validate.{JsonParser, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.reflect.ClassTag
-
-abstract class Dataset[T](engineId: String) extends LazyLogging with JsonParser {
+abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport {
 
   // methods that must be implemented in the Engine
-  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String]
+  def init(json: String, update: Boolean = false): Validated[ValidateError, Response]
   def destroy(): Unit
   def input(datum: String): Validated[ValidateError, Event]
-  /** Required method to parserAndValidate the input event */
-  def parseAndValidateInput(jsonEvent: String): Validated[ValidateError, T]
 
   // start and stop may be ignored by Engines if not applicable
   def start(): Dataset[T] = {logger.trace(s"Starting base Dataset"); this}
@@ -42,16 +38,16 @@ abstract class Dataset[T](engineId: String) extends LazyLogging with JsonParser 
 }
 
 abstract class SharedUserDataset[T](engineId: String, storage: Store) extends Dataset[T](engineId)
-  with JsonParser with LazyLogging {
+  with JsonSupport with LazyLogging {
 
   val usersDAO = storage.createDao[User]("users")
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     this.parseAndValidate[GenericEngineParams](json).andThen { p =>
       // todo: if we are updating, we should merge data for user from the engine dataset to the shared DB but there's no
-      // way to detect that here since this class is newed in the Engine. deepInit will give a clue but still no way
+      // way to detect that here since this class is newed in the Engine. update will give a clue but still no way
       // to findOne old users that will be orphaned.
       // this should switch to using a shared user db if configs tells us to, but orphaned user data is left uncleaned
-      Valid(jsonComment("Init processed"))
+      Valid(Comment("Init processed"))
     }
   }
 

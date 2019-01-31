@@ -22,11 +22,16 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import akka.pattern.ask
+import cats.data.Validated
 import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
+import com.actionml.core.model.Response
+import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
+import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 /**
@@ -59,10 +64,11 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     }
   }
 
-  private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & asJson) { query =>
+  /** Creates a Query in REST so status = 201 */
+  private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
-    completeByValidated(StatusCodes.OK) {
-      (queryService ? GetPrediction(engineId, query.toString())).mapTo[Response]
+    completeByValidated(StatusCodes.Created) {
+      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
     }
   }
 

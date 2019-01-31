@@ -21,13 +21,13 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.model.{GenericEngineParams, Query, Status}
+import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.{JsonParser, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
-class CBEngine extends Engine with JsonParser {
+class CBEngine extends Engine with JsonSupport {
 
   private var dataset: CBDataset = _
   private var algo: CBAlgorithm = _
@@ -48,15 +48,15 @@ class CBEngine extends Engine with JsonParser {
     Valid(jsonComment("CBEngine resources created"))
   }
 
-  override def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
-    super.init(json, deepInit).andThen { _ =>
+  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
+    super.init(json, update).andThen { _ =>
       parseAndValidate[GenericEngineParams](json).andThen { p =>
         createResources(p).andThen{ _ =>
-          dataset.init(json, deepInit).andThen { _ =>
-            if (deepInit) {
+          dataset.init(json, update).andThen { _ =>
+            if (!update) { // !update means creating
               algo = new CBAlgorithm(json ,p.engineId, dataset)
               algo.init(this)
-            } else Valid(jsonComment("Init processed"))
+            } else Valid(Comment("Init processed"))
           }
         }
       }
@@ -77,12 +77,13 @@ class CBEngine extends Engine with JsonParser {
     }
   }
 
-  override def status(): Validated[ValidateError, String] = {
+  override def status(): Validated[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(CBStatus(
+    val status = CBStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
-      activeGroups = algo.trainers.size).toJson)
+      activeGroups = algo.trainers.size)
+    Valid(status)
   }
 
   override def destroy(): Unit = synchronized {
@@ -92,12 +93,12 @@ class CBEngine extends Engine with JsonParser {
   }
 
   /** Triggers parse, validation, and processing of event encoded in the json */
-  override def input(json: String): Validated[ValidateError, String] = {
+  override def input(json: String): Validated[ValidateError, Response] = {
     // first detect a batch of events, then process each, parse and validate then persist if needed
     // Todo: for now only single events pre input allowed, eventually allow an array of json objects
     logger.trace("Got JSON body: " + json)
     // validation happens as the input goes to the dataset
-    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => "{\"comment\":\"Input processed\"}")
+    super.input(json).andThen(_ => dataset.input(json).andThen(process)).map(_ => Comment("Input processed"))
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated against the system by this time */
@@ -126,13 +127,13 @@ class CBEngine extends Engine with JsonParser {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, String] = {
+  def query(json: String): Validated[ValidateError, Response] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       if(algo.trainers.isDefinedAt(query.groupId) || dataset.groupsDao.findOneById(query.groupId).nonEmpty) {
         val result = algo.query(query)
-        Valid(result.toJson)
+        Valid(result)
       } else {
         Invalid(WrongParams(jsonComment(s"Query for non-existent group: $json")))
       }
@@ -171,7 +172,7 @@ Results
 case class CBQueryResult(
     variant: String = "",
     groupId: String = "")
-  extends QueryResult {
+  extends Response with QueryResult {
 
   def toJson: String = {
     s"""{"variant": $variant, "groupId": $groupId}"""
@@ -184,7 +185,7 @@ case class CBStatus(
     engineParams: GenericEngineParams,
     algorithmParams: AlgorithmParams,
     activeGroups: Int)
-  extends Status {
+  extends Response {
 
   def toJson: String = {
     s"""

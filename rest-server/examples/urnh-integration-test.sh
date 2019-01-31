@@ -27,7 +27,11 @@ clean_test_artifacts=${clean_test_artifacts:-false}
 test_results=data/expected-urnh-results.txt
 
 
-
+if [ "$skip_restarts" = false ]; then
+    harness stop
+    harness start -f
+    sleep 10
+fi
 
 echo
 echo "----------------------------------------------------------------------------------------------------------------"

@@ -112,7 +112,7 @@ The common settings for all engine instances available or required in any JSON f
     
  - **modelContainer**: A descriptor for the location the engine instance may use to keep the persistent form of any model needed by the instance. This may be a localfs directory or some id required by the Engine. Typically this is a directory, which will have a model named for each engine-id. Defaults to the `HARMESS_HOME` if the Engine needs it. **Note**: Each Engine may define storage of models in different ways so see the Engine documentation for specifics of how this is used&mdash;it may even be ignored. 
 
- - **sharedDBName**: The name of a db shared between all engine instances that as configured to use it. Each Engine decides what it can share. Data stored here must be carefully coordinated between engines, use at your own risk. The primary use would be for user information shared between all Engine instances assigned to a single client app or site. See each Engine docs for specifics.
+ - **sharedDBName**: optional, this should be a snake-case name associated with the database used to store data shared across Engine Instances. One `sharedDBName` means to share all **usable** data across all Engine Instances that have this setting. **Note**: most Engine types will not be able to share data with another type but Engines of the same type may well be able to share. See Engine specific documentation.
 
  - **algorithm**: The parameters control the operation of the Algorithm and so are specified in the Engine documents.
 

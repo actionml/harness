@@ -19,11 +19,12 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.backup.{FSMirroring, HDFSMirroring, Mirroring}
+import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
 import com.actionml.core.jobs.JobManager
-import com.actionml.core.model.GenericEngineParams
+import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -31,10 +32,10 @@ import scala.concurrent.Future
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging with JsonParser {
+abstract class Engine extends LazyLogging with JsonSupport {
 
   var engineId: String = _
-  private var mirroring: Mirroring = _
+  private var mirroring: Mirror = _
   val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
 
@@ -45,6 +46,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     * @param json the Engine's config JSON for initializing all objects
     * @return The extending Engine instance, initialized and ready for input and/or queries etc.
     */
+  @deprecated("Companion factory objects should be used instead of this old factory method", "0.3.0")
   def initAndGet(json: String): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
@@ -55,7 +57,7 @@ abstract class Engine extends LazyLogging with JsonParser {
     * @param json Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
-  def query(json: String): Validated[ValidateError, String]
+  def query(json: String): Validated[ValidateError, Response]
 
 
   // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes
@@ -65,22 +67,22 @@ abstract class Engine extends LazyLogging with JsonParser {
     * @param params parsed for common params like mirroring location
     * @return may return a ValidateError if the parameters are n
     */
-  private def createResources(params: GenericEngineParams): Validated[ValidateError, String] = {
+  private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
       logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
-      mirroring = new FSMirroring("", engineId) // must create because Mirroring is also used for import Todo: decouple these for Lambda
-      Valid(jsonComment("Mirror type and container not defined so falling back to localfs mirroring"))
+      mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
+      Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType match {
         case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
-          mirroring = new FSMirroring(container, engineId)
-          Valid(jsonComment("Mirroring to localfs"))
+          mirroring = new FSMirror(container, engineId)
+          Valid(Comment("Mirror to localfs"))
         case "hdfs" | "HDFS" =>
-          mirroring = new HDFSMirroring(container, engineId)
-          Valid(jsonComment("Mirroring to HDFS"))
+          mirroring = new HDFSMirror(container, engineId)
+          Valid(Comment("Mirror to HDFS"))
         case mt => Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
@@ -89,11 +91,11 @@ abstract class Engine extends LazyLogging with JsonParser {
   }
 
   /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
-    * deepInit means to initialize a new object, it is set to false when updating a running Engine.*/
-  def init(json: String, deepInit: Boolean = true): Validated[ValidateError, String] = {
-
+    * update means to update an existing object, it is set to false when creating a new Engine. So this method handles
+    * C(reate) and U(pdate) of CRUD */
+  def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
     parseAndValidate[GenericEngineParams](json).andThen { p =>
-      if (deepInit) {
+      if (!update) { // if not updating then must be creating
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
         modelContainer = p.modelContainer.getOrElse(container)
       } // not allowed to change with `harness update`
@@ -111,15 +113,9 @@ abstract class Engine extends LazyLogging with JsonParser {
     * todo: can we combine the json output so this can be inherited to supply status for the data the Engine class
     * manages and the extending Engine adds json to give stats about the data it manages?
     */
-  def status(): Validated[ValidateError, String] = {
+  def status(): Validated[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(
-      s"""
-         |{
-         |  "engineId: ": "$engineId",
-         |  "comment: ": "This Engine does not implement the status API"
-         |}
-       """.stripMargin)
+    Valid(EngineStatus(engineId, "This Engine does not implement the status API"))
   }
 
   /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
@@ -127,25 +123,26 @@ abstract class Engine extends LazyLogging with JsonParser {
     * @param json Input defined by each engine
     * @return Validated[ValidateError, ]status with error message
     */
-  def input(json: String): Validated[ValidateError, String] = {
+  def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
     mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-    Valid(jsonComment("Input processed by base Engine"))
+    Valid(Comment("Input processed by base Engine"))
   }
 
-  def batchInput(inputPath: String): Validated[ValidateError, String] = {
-    import org.json4s.jackson.Serialization.write
+  def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.startNewJob(engineId,
       Future(mirroring.importEvents(this, inputPath),
       "batch import, non-Spark job")
     )
-    Valid(write(jobDescription))
+    Valid(jobDescription)
   }
 
   /** train is only used in Lambda offline learners */
-  def train(): Validated[ValidateError, String] = {
+  def train(): Validated[ValidateError, Response] = {
     logger.warn(s"Train is not a valid operation for engineId: ${engineId}")
     Invalid(NotImplemented(jsonComment(s"Train is not a valid operation for engineId: ${engineId}")))
   }
 
 }
+
+case class EngineStatus(engineId: String, comment: String) extends Response

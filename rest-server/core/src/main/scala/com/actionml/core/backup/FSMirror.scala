@@ -17,24 +17,24 @@
 
 package com.actionml.core.backup
 
-import java.io.{File, FileWriter, PrintWriter}
+import java.io.{File, FileWriter, IOException, PrintWriter}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonParser, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source
 
 /**
-  * Mirroring implementation for local FS.
+  * Mirror implementation for local FS.
   */
 
-class FSMirroring(mirrorContainer: String, engineId: String)
-  extends Mirroring(mirrorContainer, engineId) with JsonParser {
+class FSMirror(mirrorContainer: String, engineId: String)
+  extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
   private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
-  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirroring raw un-validated events to $mirrorContainer")
+  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirror raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(json: String): Validated[ValidateError, String] = {
@@ -82,11 +82,30 @@ class FSMirroring(mirrorContainer: String, engineId: String)
           // Todo: update for Spark
           val flist = new java.io.File(location).listFiles.filterNot(_.getName.startsWith(".")) // importing files that do not start with a dot like .DStore on Mac
           logger.info(s"Reading files from directory: ${location}")
+          var filesRead = 0
+          var eventsProcessed = 0
           for (file <- flist) {
-            Source.fromFile(file).getLines().foreach { line =>
-              engine.input(line)
+            filesRead += 1
+            logger.info(s"Importing from file: ${file.getName}")
+            try {
+              Source.fromFile(file).getLines().foreach { line =>
+                eventsProcessed += 1
+                try {
+                  engine.input(line)
+                } catch {
+                  case e: IOException =>
+                    logger.error(s"Bad event being ignored: $line exception ${e.printStackTrace()}")
+                }
+              }
+            } catch {
+            case e: IOException =>
+              logger.error(s"Error reading file: ${file.getName} exception ${e.printStackTrace()}")
             }
           }
+          if(filesRead == 0 || eventsProcessed == 0)
+            logger.warn(s"No events were processed, did you mean to import JSON events from directory $location ?")
+          else
+            logger.info(s"Import read $filesRead files and processed $eventsProcessed events.")
         } else if (resourceCollection.exists()) { // single file
           logger.info(s"Reading events from single file: ${location}")
           Source.fromFile(location).getLines().foreach { line =>
@@ -101,10 +120,12 @@ class FSMirroring(mirrorContainer: String, engineId: String)
         importEventsError(errMsg)
       }
     } catch {
-      case _: Exception =>
-        val errMsg = "Problem while importing saved events"
+      case e: IOException =>
+        val errMsg = s"Problem while importing saved events from $location, exception ${e.printStackTrace()}"
         logger.error(errMsg)
         importEventsError(errMsg)
+    } finally {
+      logger.info("Completed importing. Check logs for any data errors.")
     }
     Valid(jsonComment("Job created to import events in the background."))
   }

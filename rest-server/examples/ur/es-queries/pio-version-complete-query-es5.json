@@ -1,0 +1,116 @@
+{
+  "from": 0,
+  "size": 4,
+  "query":
+  {
+    "bool":
+    {
+      "should": [
+        {
+          "terms":
+          {
+            "purchase": ["Surface"]
+          }
+        },
+        {
+          "terms":
+          {
+            "view": ["Mobile-acc"]
+          }
+        },
+        {
+          "terms":
+          {
+            "category-pref": ["tablets"]
+          }
+        },
+        {
+          "terms":
+          {
+            "countries": ["Estados Unidos Mexicanos"],
+            "boost": 5.0
+          }
+        },
+        {
+          "constant_score":
+          {
+            "filter":
+            {
+              "match_all":
+              {}
+            },
+            "boost": 0
+          }
+        }],
+      "must": [
+        {
+          "terms":
+          {
+            "categories": ["Phones"],
+            "boost": 0
+          }
+        },
+        {
+          "constant_score":
+          {
+            "filter":
+            {
+              "range":
+              {
+                "available":
+                {
+                  "lte": "2019-01-23T22:27:25.914Z"
+                }
+              }
+            },
+            "boost": 0
+          }
+        },
+        {
+          "constant_score":
+          {
+            "filter":
+            {
+              "range":
+              {
+                "expires":
+                {
+                  "gt": "2019-01-23T22:27:25.914Z"
+                }
+              }
+            },
+            "boost": 0
+          }
+        }],
+      "must_not": [
+        {
+          "ids":
+          {
+            "values": ["Surface"],
+            "boost": 0
+          }
+        },
+        {
+          "terms":
+          {
+            "categories": ["Tablets", "Samsung"]
+          }
+        }],
+      "minimum_should_match": 1
+    }
+  },
+  "sort": [
+    {
+      "_score":
+      {
+        "order": "desc"
+      }
+    },
+    {
+      "popRank":
+      {
+        "unmapped_type": "double",
+        "order": "desc"
+      }
+    }]
+}

@@ -1,0 +1,28 @@
+{
+  "engineId": "ur",
+  "engineFactory": "com.actionml.engines.ur.UREngine",
+  "sparkConf": {
+    "master": "local",
+    "spark.driver-memory": "4g",
+    "spark.executor-memory": "4g"
+  },
+  "algorithm": {
+    "indicators": [
+      {
+        "name": "purchase"
+      },{
+        "name": "view",
+        "maxCorrelatorsPerItem": 50
+      },{
+        "name": "category-pref",
+        "maxCorrelatorsPerItem": 50,
+        "minLLR": 5.0
+      },{
+        "name": "addtocart"
+      },{
+        "name": "transaction"
+      }
+    ],
+    "num": 4
+  }
+}
