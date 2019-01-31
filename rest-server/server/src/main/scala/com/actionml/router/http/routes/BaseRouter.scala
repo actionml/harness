@@ -18,7 +18,6 @@
 package com.actionml.router.http.routes
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.{Directive, Directives, Route}
 import akka.stream.ActorMaterializer
@@ -28,7 +27,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.Response
 import com.actionml.core.validate._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
-import org.json4s.{DefaultFormats, jackson}
+import org.json4s.{DefaultFormats, JValue, jackson}
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 
@@ -63,9 +62,10 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
 
   def completeByValidated[T](
     ifDefinedStatus: StatusCode
-  )(ifDefinedResource: Future[Validated[ValidateError, T]])(implicit t: T => ToResponseMarshallable): Route = {
+  )(ifDefinedResource: Future[Validated[ValidateError, T]])(implicit toJson: T => JValue): Route = {
     onSuccess(ifDefinedResource) {
-      case Valid(json) => complete(ifDefinedStatus, json)
+      case Valid(a) =>
+        complete(ifDefinedStatus, toJson(a))
       case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
