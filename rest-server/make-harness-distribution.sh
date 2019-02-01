@@ -39,8 +39,10 @@ echo "Building binary distribution for Harness $VERSION..."
 
 cd ${FWDIR}
 set -x
-sbt/sbt "${JAVA_PROPS[@]}" server/clean
-sbt/sbt "${JAVA_PROPS[@]}" server/universal:stage
+# sbt/sbt "${JAVA_PROPS[@]}" server/clean
+# sbt/sbt "${JAVA_PROPS[@]}" server/universal:stage
+sbt "${JAVA_PROPS[@]}" server/clean
+sbt "${JAVA_PROPS[@]}" server/universal:stage
 set +x
 
 cd ${FWDIR}
@@ -52,7 +54,7 @@ mkdir -p ${DISTDIR}/logs
 mkdir -p ${DISTDIR}/lib
 mkdir -p ${DISTDIR}/project
 
-mkdir -p ${DISTDIR}/sbt
+# mkdir -p ${DISTDIR}/sbt
 
 cp ${FWDIR}/bin/* ${DISTDIR}/bin || :
 cp ${FWDIR}/conf/* ${DISTDIR}/conf
@@ -63,7 +65,7 @@ cp -r ${FWDIR}/examples ${DISTDIR}/examples
 # cp ${FWDIR}/harness.jks ${DISTDIR}
 # cp ${FWDIR}/harness.pem ${DISTDIR}
 cp ${FWDIR}/project/build.properties ${DISTDIR}/project
-cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
+# cp ${FWDIR}/sbt/sbt ${DISTDIR}/sbt
 cp ${FWDIR}/server/target/universal/stage/lib/* ${DISTDIR}/lib
 # Hmm, this seems to be called "server" now, breaks the build as "harness-server"
 #cp ${FWDIR}/server/target/universal/stage/bin/harness-server ${DISTDIR}/bin/main

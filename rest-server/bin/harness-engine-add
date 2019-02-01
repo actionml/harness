@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_HOME}/bin/harness-env"
+. "$(cd "`dirname "$0"`"; pwd)/common.sh"
 
 case "$1" in
     #c) ENGINE_CONFIG=$2

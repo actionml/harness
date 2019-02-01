@@ -1,57 +1,28 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_HOME}/bin/harness-env"
+. "$(cd "`dirname "$0"`"; pwd)/common.sh"
 
-export PIDFILE=${HARNESS_HOME}/harness.pid
-sd_delay=60
+# Correct class identifier is required (check with main)!!!
+HARNESS_CLASS=com.actionml.HarnessServer
 
-# Harness Server
+# Stop/kill settings
+delay=2
+kill_timeout=30
 
-# wait for a pid to be killed for max time then kill -9 to really kill it
-killwait(){ # pid passed as $1
-    killwait_pid=$1
-    killwait_timeout=30
-    killwait_loops=0
-    killwait_sleep=0.5
-    p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
+pid=$(java_pid "${HARNESS_CLASS}")
+[ -z "${pid}" ] || echo -e "${GREEN}Stopping Harness Server...${NC}"
 
-    #echo "Killing pid: ${killwait_pid}"
-    # while `kill   "${killwait_pid}"`; do
-    while (( p == 1 )); do
-        kill   "${killwait_pid}"
-        printf "%0.s." # print dots every half-second
-        sleep ${killwait_sleep}
-        p=`ps aux | grep "${killwait_pid}.*com\.actionml\.HarnessServer" | wc -l`
-        (( killwait_loops = killwait_loops + 1 ))
-        if (( killwait_loops > killwait_timeout )); then
-            echo -e "\nTimed out, performing hard termination" # \n after dot
-            kill  -9 "${killwait_pid}"
-            sleep ${killwait_sleep}
-            break 2 # get out of function
-        fi
-    done
-    echo # \n after dot
-}
+# Gracefull kill loop
+while ( harness_running && [ -n $(java_pid "${HARNESS_CLASS}") ] ); do
+  kill $pid
+  sleep $delay
+  kill_timeout=$((kill_timeout - delay))
+  [ "${kill_timeout}" -le 0 ] && break
+done
 
-if [ -e ${PIDFILE} ]; then
-    #cat ${PIDFILE} | xargs kill
-    pid=`cat ${PIDFILE}`
-    echo -e "${GREEN}Stopping Harness Server on pid: ${pid} ${NC}"
-    #kill ${pid} # Todo: this should not use -9, find why Harness is sometimes not stopping with only kill pid
-    killwait ${pid}
-    #sleep ${sd_delay}
-
-    #h=`jps -l | grep actionml | wc -l`
-    #if [[ "$h" -gt "0" ]]; then
-    #    echo -e "${RED}Error Harness failed to shutdown after ${sd_delay} seconds, there are $h instances of harness running.${NC}"
-    #    exit 1
-    #fi
-
-    if [[ $? != 0 ]]; then # this is not sufficient, the command is async so the stop will return but the pid may be active
-        echo -e "${RED}Unable to stop Harness from PID file. May already be stopped.${NC}"
-        echo -e "${RED}Removing PID file.${NC}"
-    fi
-    rm ${PIDFILE}
-else
-    echo -e "${RED}PID file not found.${NC}"
+if ( harness_running ); then
+  echo -e "${RED}Harness Server is still running, killing the process${NC}"
+  kill -9 $pid
 fi
+
+echo -e "${GREEN}Harness Server is stopped${NC}"

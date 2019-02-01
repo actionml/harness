@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_HOME}/bin/harness-env"
+. "$(cd "`dirname "$0"`"; pwd)/common.sh"
 
 ROLE_SET=$1
 ENGINE_ID=$2
@@ -12,14 +12,14 @@ if [ -z "$ROLE_SET" ]; then
 fi
 
 if [ ! -z "$ENGINE_ID" ]; then
-    if [ $ROLE_SET = "client" ]; then
+    if [ "${ROLE_SET}" = "client" ]; then
         PYTHON_ARGS="user-add --role_set ${ROLE_SET} --engineid ${ENGINE_ID} $USER_ARGS"
 
         #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
 
         ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
         exit $?
-    elif [ $ROLE_SET = "admin" ]; then
+    elif [ "${ROLE_SET}" = "admin" ]; then
         echo -e "${RED}An engine-id is ignored for an \"admin\" user since admin have access to all resources${NC}"
         echo -e "Expected command: ${CYAN}harness add-user admin${NC}"
         PYTHON_ARGS="user-add --role_set ${ROLE_SET} $USER_ARGS"
@@ -35,7 +35,7 @@ if [ ! -z "$ENGINE_ID" ]; then
     fi
 fi
 
-if [ "$ROLE_SET" = "admin" ]; then
+if [ "${ROLE_SET}" = "admin" ]; then
     PYTHON_ARGS="user-add --role_set ${ROLE_SET} $USER_ARGS"
 
     #echo -e "${CYAN}Run ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}${NC}"
@@ -43,4 +43,3 @@ if [ "$ROLE_SET" = "admin" ]; then
     ${HARNESS_HOME}/bin/users.py ${PYTHON_ARGS}
     exit $?
 fi
-

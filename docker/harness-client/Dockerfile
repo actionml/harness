@@ -1,1 +1,0 @@
-FROM actionml/java:8

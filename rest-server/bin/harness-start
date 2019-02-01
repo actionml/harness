@@ -1,45 +1,60 @@
 #!/usr/bin/env bash
 
-. "${HARNESS_HOME}/bin/harness-env"
+. "$(cd "`dirname "$0"`"; pwd)/common.sh"
 
-export PIDFILE=${HARNESS_HOME}/harness.pid
+# cli args parse :)
+( echo "$*" | grep -sqwi "\-d" ) && detached=yes
+( echo "$*" | grep -sqwi "\-f" ) && force=yes
 
-if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
-    echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
-    echo -e "${RED}The Harness Server must be run after doing a distribution build${NC}"
-    exit 1
-fi
+# Correct class identifier is required (check with main)!!!
+HARNESS_CLASS=com.actionml.HarnessServer
 
-if [[ -f ${PIDFILE} ]]; then
-    echo -e "${RED}There is an existing PID file, this means Harness may be running.${NC}"
-    echo -e "${RED}Starting Harness and overwriting the previous pid in ${PIDFILE}${NC}"
-    echo -e "${RED}Run \"harness start -f\" to force a restart${NC}"
-fi
-
-if [[ -f ${PIDFILE} ]] && [[ "$1" = "-f" ]]; then
-    echo -e "${CYAN}Trying to stop Harness from existing PID file before restarting${NC}"
-    harness-stop
-fi
-
-exec ${HARNESS_HOME}/bin/main -v \
+# Harness options passed to the Java service
+HARNESS_OPTS="\
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
 -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
 -Drest-server.host=${REST_SERVER_HOST} \
 -Drest-server.port=${REST_SERVER_PORT} \
 -Dmongo.host=${MONGO_HOST} \
--Dmongo.port=${MONGO_PORT} \
-<&- > /tmp/harness.log 2>&1 &
-echo $! > ${PIDFILE}
+-Dmongo.port=${MONGO_PORT}"
 
-if [[ $? == 0 ]]; then
-    echo -e "${CYAN}Started Harness with PID: $(cat ${PIDFILE})${NC}"
-    echo -e "${CYAN}Checking Harness Server status${NC}"
-    PYTHON_ARGS=" status ${USER_ARGS}"
-    #echo "User args: ${USER_ARGS}"
-    sleep 10
-    # ${HARNESS_HOME}/bin/commands.py ${PYTHON_ARGS}
-    harness-status
-    echo -e "${GLINE}${NC}"
+
+if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
+  echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
+  echo -e "${RED}The Harness server must be run after doing a distribution build${NC}"
+  exit 1
+fi
+
+
+# Locate harness PID
+pid=$(java_pid $HARNESS_CLASS)
+harness_running && running=yes
+
+if [ -n "${running}" -a -n "${pid}" -a -z "${force}" ]; then
+  # harness seems to be running
+  >&2 echo -e "${RED}Harness server seems to be running, pid: ${pid}${NC}"
+  >&2 echo -e "${YELLOW}Use -f option to forcefully restart Harness server${NC}"
+  exit 1
+elif [ -n "${running}" -a -n "${pid}" -a -n "${force}" ]; then
+  # force restart
+  echo -e "${CYAN}Force Harness server restart${NC}"
+  "${HARNESS_HOME}"/bin/harness-stop
+  exec "${HARNESS_HOME}"/bin/harness-start "$@"
 else
-    echo -e "${RED}[Error] Unable to start Harness. Unknown reason.${NC}"
+  # start
+  [ -z "${detached}" ] || echo -e "${CYAN}Starting Harness server...${NC}"
+
+  if [ -z "${detached}" ]; then
+    exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS}
+  else
+    # stderr/stdout log when bin/harness used only
+    HARNESS_CLILOG="${HARNESS_CLILOG:-/tmp/harness.log}"
+    exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" &
+  fi
+
+  if ( waitfor_harness ); then
+    "${HARNESS_HOME}"/bin/harness-status
+  else
+    >&2 echo -e "${RED}Harness server startup failed${NC}"
+  fi
 fi

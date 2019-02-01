@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# harness environment file (sourced by scripts)
 
 # Harness Server config, should work as-id unless you are using SSL
 # to listen on the host IP address for external connections
@@ -62,4 +62,3 @@ export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
 # The Python CLI needs to pass the user-id and user-secret to the Python SDK so when using Auth supply a pointer to
 # the user-secret here.
 # export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
-

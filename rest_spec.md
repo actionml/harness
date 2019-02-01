@@ -30,9 +30,24 @@ The Harness CLI are implemented in Python as calls to the REST API so this separ
 
 # Harness ML/AI REST
 
-Most of the Harness API deals with Engines, which have Events and Queries, and Commands, which perform jobs on Harness resources.
+Most of the Harness API deals with Engines, which have sub-resources: Events and Queries. There are also some REST 
+APIs that modify the REST with params to create long lived "Jobs" for importing or training. 
 
-For "client" type users, POSTing to `/engines/<engine-id>/events` and `/engines/<engine-id>/queries` will be the primary endpoints of interest, the rest typically require "admin" user permissions with some minor exceptions.
+## Requests
+
+REST defines the nature of the request and for those that have a body, it is in JSON and must be formatted to fit the spec in each Engine for "Events", "Queries", and the Engine Config.
+
+## Responces
+
+These are optional where the Response code says all that is required but may also include information, parsable as JSON, that give further information. For instance a `DELETE /engines/engine-id` may return an error HTTP code AND a JSON comment with a human readable error description.
+
+## User Roles
+
+Users 
+
+For user with a "client" role, POSTing to `/engines/<engine-id>/events` and `/engines/<engine-id>/queries` will be the primary endpoints of interest. These endpoints are all that is needed to send data and make queries. "client" users are given permission to read and modify one or more engine-ids but the remaining API will block access due to lack of permission.
+
+The rest of the REST APIs is more properly thought of being used by the "admin" user role. "admin"s have access to all of the REST API. 
 
 | HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
 | --- | --- | :---  | :---  | :---  | :--- |

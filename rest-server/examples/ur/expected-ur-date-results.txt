@@ -1,5 +1,5 @@
-{"result":[{"item":"iPhone XR","score":0.0,"ranks":null},{"item":"Galaxy 8","score":0.0,"ranks":null},{"item":"iPhone 8","score":0.0,"ranks":null},{"item":"iPad Pro","score":0.0,"ranks":null},{"item":"Pixel Slate","score":0.0,"ranks":null}]}
-{"result":[{"item":"Pixel Slate","score":1.4384104013442993,"ranks":null},{"item":"iPad Pro","score":1.093929409980774,"ranks":null}]}
-{"result":[{"item":"iPad Pro","score":1.093929409980774,"ranks":null}]}
-{"result":[{"item":"Pixel Slate","score":1.4384104013442993,"ranks":null}]}
-{"result":[{"item":"iPad Pro","score":1.093929409980774,"ranks":null}]}
+{"result":[{"item":"iPhone XR","score":0.0},{"item":"Galaxy 8","score":0.0},{"item":"iPhone 8","score":0.0},{"item":"iPad Pro","score":0.0},{"item":"Pixel Slate","score":0.0}]}
+{"result":[{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPad Pro","score":1.093929409980774}]}
+{"result":[{"item":"iPad Pro","score":1.093929409980774}]}
+{"result":[{"item":"Pixel Slate","score":1.4384104013442993}]}
+{"result":[{"item":"iPad Pro","score":1.093929409980774}]}
