@@ -10,7 +10,7 @@ services:
       driver: none
 
   router:
-    build: ./rest-server
+    build: ./docker
     ports:
       - '9090:9090'
     environment:

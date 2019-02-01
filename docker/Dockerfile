@@ -13,23 +13,19 @@ COPY ./dist /harness
 
 RUN cd /tmp && \
   apk add --no-cache --update tini curl bash procps && \
-# install python3
   apk add --no-cache --update python3 && \
-    python3 -m ensurepip && \
-    rm -r /usr/lib/python*/ensurepip && \
-    pip3 install --upgrade pip setuptools && \
-        ln -sf /usr/bin/python3 /usr/bin/python && \
-        ln -sf /usr/bin/python3-config /usr/bin/python-config && \
-        ln -sf /usr/bin/pydoc3 /usr/bin/pydoc && \
-        ln -sf /usr/bin/pip3 /usr/bin/pip && \
-    rm -r /root/.cache && \
-# install harness python sdk
+  python3 -m ensurepip && \
+  rm -r /usr/lib/python*/ensurepip && \
+  pip3 install --upgrade pip setuptools && \
+  ln -sf /usr/bin/python3 /usr/bin/python && \
+  ln -sf /usr/bin/python3-config /usr/bin/python-config && \
+  ln -sf /usr/bin/pydoc3 /usr/bin/pydoc && \
+  ln -sf /usr/bin/pip3 /usr/bin/pip && \
+  rm -r /root/.cache && \
   pip install /harness/wheel/*.whl && \
-# install confd generator
   curl -#SL -o /usr/local/bin/confd https://github.com/kelseyhightower/confd/releases/download/${CONFD_VERSION}/confd-${CONFD_VERSION#v}-linux-amd64 && \
-    echo "${CONFD_SHA256}  /usr/local/bin/confd" | sha256sum -c && chmod 755 /usr/local/bin/confd && \
-# cleanup
-    rm -rf /tmp/*
+  echo "${CONFD_SHA256}  /usr/local/bin/confd" | sha256sum -c && chmod 755 /usr/local/bin/confd && \
+  rm -rf /tmp/*
 
 WORKDIR /harness
 ENTRYPOINT ["/sbin/tini", "--"]
