@@ -70,7 +70,7 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     }
   }
 
-  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, String] = {
+  override def input(datum: NavHintingAlgoInput): Validated[ValidateError, Response] = {
     logger.debug(s"Train Nav Hinting Model with datum: $datum")
     //trainer.get ! Train(datum)
     val activeJourney = activeJourneys.get(datum.event.entityId)

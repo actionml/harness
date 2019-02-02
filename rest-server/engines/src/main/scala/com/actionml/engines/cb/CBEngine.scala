@@ -33,7 +33,7 @@ class CBEngine extends Engine with JsonSupport {
   private var algo: CBAlgorithm = _
   private var params: GenericEngineParams = _
 
-  private def createResources(p: GenericEngineParams): Validated[ValidateError, String] = {
+  private def createResources(p: GenericEngineParams): Validated[ValidateError, Response] = {
     params = p
     engineId = params.engineId
     val storage = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)

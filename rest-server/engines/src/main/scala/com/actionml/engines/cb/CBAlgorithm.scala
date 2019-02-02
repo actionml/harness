@@ -103,7 +103,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def input(datum: CBAlgorithmInput): Validated[ValidateError, String]= {
+  override def input(datum: CBAlgorithmInput): Validated[ValidateError, Response]= {
     events += 1
     // if (events % 20 == 0) checkpointVW(params)
     val groupName = datum.event.toUsageEvent.testGroupId

@@ -101,7 +101,7 @@ class URNavHintingAlgorithm private (
   val esType = "items"
 
   def initSettings(params: URAlgorithmParams): Validated[ValidateError, Response] = {
-    var err: Validated[ValidateError, String] = Valid(jsonComment("URNavHintingAlgorithm initialized"))
+    var err: Validated[ValidateError, Response] = Valid(jsonComment("URNavHintingAlgorithm initialized"))
 
     recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
     //val eventNames: Seq[String] = params.eventNames
@@ -206,7 +206,7 @@ class URNavHintingAlgorithm private (
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.get, x.name)))
 
-      Valid(Comment(isOK))
+      Valid(isOK)
     }
   }
 

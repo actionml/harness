@@ -22,6 +22,7 @@ import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
 import com.actionml.core.engine.Engine
+import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -32,8 +33,8 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
 
-  def mirrorEvent(json: String): Validated[ValidateError, String]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
+  def mirrorEvent(json: String): Validated[ValidateError, Response]
+  def importEvents(engine: Engine, location: String): Validated[ValidateError, Response]
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name

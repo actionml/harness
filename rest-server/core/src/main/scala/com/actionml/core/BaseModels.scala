@@ -18,6 +18,8 @@
 package com.actionml.core.model
 
 import org.json4s.JArray
+import org.json4s.jackson.Serialization
+import org.json4s.{Extraction, JValue, NoTypeHints}
 
 /* todo: we should come up with a better way of composing or mixing case classes so they can be more
 * easily extended in child classes while allowing the child class to parse (json4s) the parent
@@ -104,10 +106,9 @@ trait EngineParams
 trait Query
 class Response
 object Response {
-  import org.json4s.jackson.Serialization
-  import org.json4s.{Extraction, JValue, NoTypeHints}
   implicit val formats = Serialization.formats(NoTypeHints)
   implicit def responseToJValue[T <: Response]: T => JValue = Extraction.decompose _
   implicit def responseListToJArray[T <: List[Response]]: T => JArray = l => JArray(l.map(Extraction.decompose _))
+  def toJson: Response => JValue = Extraction.decompose _
 }
 case class Comment(comment: String) extends Response

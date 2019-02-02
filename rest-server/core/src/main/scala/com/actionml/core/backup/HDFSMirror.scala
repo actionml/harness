@@ -22,6 +22,7 @@ import java.io._
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
+import com.actionml.core.model.Response
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import org.apache.hadoop.fs.Path
 
@@ -55,7 +56,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
 
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, Response] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event to HDFS: $errMsg")))
@@ -93,7 +94,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
   // todo: should read in a thread and return at once after checking parameters
   // todo: decouple importEvents from mirrorEvents
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Response] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
          | $errMsg""".stripMargin)))

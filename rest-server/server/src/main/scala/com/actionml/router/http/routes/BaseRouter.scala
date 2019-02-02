@@ -24,7 +24,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.model.Response
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import org.json4s.{DefaultFormats, JValue, jackson}
@@ -63,15 +63,15 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
   def completeByValidated[T](
     ifDefinedStatus: StatusCode
   )(ifDefinedResource: Future[Validated[ValidateError, T]])(implicit toJson: T => JValue): Route = {
+    val commentToJson = implicitly[Comment => JValue]
     onSuccess(ifDefinedResource) {
-      case Valid(a) =>
-        complete(ifDefinedStatus, toJson(a))
-      case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
-      case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
-      case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)
-      case Invalid(error: EventOutOfSequence) => complete(StatusCodes.BadRequest, error.message)
-      case Invalid(error: NotImplemented) => complete(StatusCodes.NotImplemented, error.message)
-      case Invalid(error: ResourceNotFound) => complete(StatusCodes.custom(404, "Resource not found"), error.message)
+      case Valid(a) => complete(ifDefinedStatus, toJson(a))
+      case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, commentToJson(error.comment))
+      case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, commentToJson(error.comment))
+      case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, commentToJson(error.comment))
+      case Invalid(error: EventOutOfSequence) => complete(StatusCodes.BadRequest, commentToJson(error.comment))
+      case Invalid(error: NotImplemented) => complete(StatusCodes.NotImplemented, commentToJson(error.comment))
+      case Invalid(error: ResourceNotFound) => complete(StatusCodes.custom(404, "Resource not found"), commentToJson(error.comment))
       case _ => complete(StatusCodes.NotFound)
     }
   }

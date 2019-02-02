@@ -18,7 +18,7 @@
 package com.actionml.core.engine
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -26,7 +26,7 @@ import com.typesafe.scalalogging.LazyLogging
 //trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
 trait KappaAlgorithm[T] extends LazyLogging {
 
-  def input(datum: T): Validated[ValidateError, String]
+  def input(datum: T): Validated[ValidateError, Response]
 
 }
 

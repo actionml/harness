@@ -24,6 +24,7 @@ import java.util.{Date, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.model.Comment
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
@@ -93,29 +94,7 @@ trait JsonSupport extends LazyLogging {
     }
   }
 
-  def prettify(jsonString: String): String = {
-    val mapper = new ObjectMapper()
-    try {
-      //val jsonObject = mapper.readValue(jsonString, Object.class)
-      //val jsonObject = mapper.readValue(jsonString, Class[Object])
-      //val jsonObject = mapper.readValue(jsonString, JavaType)
-      //mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject)
-
-      val json = mapper.readValue(jsonString, classOf[Any])
-      mapper.writerWithDefaultPrettyPrinter.writeValueAsString(json)
-    } catch {
-      case e: IOException =>
-        jsonComment(s"Bad Json in prettify: $jsonString")
-    }
-  }
-
-  def jsonComment(comment: String): String = {
-    s"""
-       |{
-       |    "comment": "$comment"
-       |}
-    """.stripMargin
-  }
+  def jsonComment(comment: String): Comment = Comment(comment)
 
   def jsonList(jsonStrings: Seq[String]): String = {
     // todo: create then pretty print instead

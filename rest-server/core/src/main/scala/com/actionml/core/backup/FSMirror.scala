@@ -22,6 +22,7 @@ import java.io.{File, FileWriter, IOException, PrintWriter}
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Engine
+import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
 import scala.io.Source
@@ -37,7 +38,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
   if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirror raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
+  override def mirrorEvent(json: String): Validated[ValidateError, Response] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
@@ -67,7 +68,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
+  override def importEvents(engine: Engine, location: String): Validated[ValidateError, Response] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin)))
