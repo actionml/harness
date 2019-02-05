@@ -14,6 +14,7 @@ echo
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
 host=localhost
+diffs_and_errors_file=diffs_and_errors.txt
 # for real CLI test: engine=test_ur_nav_hinting
 engine=test_ur
 engine_json=examples/ur/test_ur_mobile_device.json
@@ -21,7 +22,7 @@ test_queries=examples/ur/test-ur-mobile-device-queries.sh
 user_events=examples/ur/sample-mobile-device-ur-data.csv
 actual_query_results=actual_ur_results.out
 
-training_sleep_seconds=45
+training_sleep_seconds=30
 
 # initialize these in case not running from integrated test script
 skip_restarts=${skip_restarts:-true}
@@ -40,7 +41,7 @@ echo "--------------------------------------------------------------------------
 echo "Universal Recommender Integration tests"
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
-#: <<'END' # block comment beginning look for END
+: <<'END' # block comment beginning look for END
 
 echo "---------------------- Testing Simple Personalized Recs with Business Rules         ----------------------------"
 
@@ -63,10 +64,10 @@ harness train $engine
 sleep $training_sleep_seconds # wait for training to complete
 
 echo
-echo "Sending hinting queries"
+echo "Sending UR queries"
 echo
 ./${test_queries} > ${actual_query_results}
-#END
+END
 #: <<'END' # block comment beginning look for END
 
 echo
@@ -94,7 +95,7 @@ harness train $engine
 sleep $training_sleep_seconds # wait for training to complete
 
 echo
-echo "Sending hinting queries"
+echo "Sending UR queries"
 echo
 ./${test_queries} > ${actual_query_results_aliases}
 
@@ -102,7 +103,7 @@ echo
 
 echo "---------------------- Testing Queries Filtered by Dates -------------------------------------------------------"
 
-#: <<'END' # block comment beginning look for END
+: <<'END' # block comment beginning look for END
 
 engine_dates_json=examples/ur/test_ur_mobile_device_dates.json
 user_events_dates=examples/ur/sample-mobile-device-ur-data.csv
@@ -129,14 +130,28 @@ harness train $engine
 sleep $training_sleep_seconds # wait for training to complete
 
 echo
-echo "Sending hinting queries"
+echo "Sending UR queries"
 echo
 
 ./${test_date_queries} > ${actual_query_results_dates}
-#END
+END
 
-echo "---------------------- Below there should be no differences reported -------------------------------------------"
-diff ${actual_query_results} ${expected_test_results} | grep result
-diff ${actual_query_results_aliases} ${expected_test_results} | grep result
-diff ${actual_query_results_dates} ${expected_test_results_dates} | grep result
-echo
+# echo "---------------------- Below there should be no differences reported -------------------------------------------"
+rm -f ${diffs_and_errors_file}
+
+#diff ${actual_query_results} ${expected_test_results} | grep "result" >> ${diffs_and_errors_file}
+#cat ${actual_query_results} | grep "error" >> ${diffs_and_errors_file}
+diff ${actual_query_results_aliases} ${expected_test_results} | grep "result" >> ${diffs_and_errors_file}
+cat ${actual_query_results_aliases} | grep "error"  >> ${diffs_and_errors_file}
+#diff ${actual_query_results_dates} ${expected_test_results_dates} | grep "result"  >> ${diffs_and_errors_file}
+#cat ${actual_query_results_dates} | grep "error" >> ${diffs_and_errors_file}
+
+if [ -s ${diffs_and_errors_file} ]
+then
+   echo " Some differences between actual and expected or server errors, check the actual results files. "
+   cat ${diffs_and_errors_file}
+   exit 1
+else
+   echo "Tests pass."
+   exit 0
+fi

@@ -16,7 +16,7 @@
     "indicators": [
       {
         "name": "purchase",
-        "aliases": ["p1", "p2", "p3"]
+        "aliases": ["purchase", "p2", "p3"]
       },{
         "name": "view",
         "aliases": ["v1", "v2"]
