@@ -57,18 +57,43 @@ jobs:
           at: /root/project/dist
       -
         run:
+          name: Docker login
+          command: |
+            echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+      -
+        run:
           name: Build rest-server docker image
           command: |
-            docker image build -f docker/Dockerfile \
-              --build-arg version=ci -t actionml/harness:ci ./
+           case "${CIRCLE_BRANCH}" in
+             "master")
+               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:latest ./
+             ;;
+             "develop")
+               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+             ;;
+             "ci")
+               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+             ;;
+             *)
+             ;;
+           esac
       -
         run:
           name: Publish docker image
           command: |
-            echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-            docker image push actionml/harness:ci
-            docker logout
-
+           case "${CIRCLE_BRANCH}" in
+             "master")
+               docker image push actionml/harness:latest
+             ;;
+             "develop")
+               docker image push actionml/harness:${CIRCLE_BRANCH}
+             ;;
+             "ci")
+               docker image push actionml/harness:${CIRCLE_BRANCH}
+             ;;
+             *)
+             ;;
+           esac
   test:
     docker:
       - image: alpine
