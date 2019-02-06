@@ -41,7 +41,7 @@ echo "--------------------------------------------------------------------------
 echo "Universal Recommender Integration tests"
 echo "----------------------------------------------------------------------------------------------------------------"
 echo
-: <<'END' # block comment beginning look for END
+#: <<'END' # block comment beginning look for END
 
 echo "---------------------- Testing Simple Personalized Recs with Business Rules         ----------------------------"
 
@@ -67,7 +67,7 @@ echo
 echo "Sending UR queries"
 echo
 ./${test_queries} > ${actual_query_results}
-END
+#END
 #: <<'END' # block comment beginning look for END
 
 echo
@@ -103,7 +103,7 @@ echo
 
 echo "---------------------- Testing Queries Filtered by Dates -------------------------------------------------------"
 
-: <<'END' # block comment beginning look for END
+#: <<'END' # block comment beginning look for END
 
 engine_dates_json=examples/ur/test_ur_mobile_device_dates.json
 user_events_dates=examples/ur/sample-mobile-device-ur-data.csv
@@ -134,17 +134,20 @@ echo "Sending UR queries"
 echo
 
 ./${test_date_queries} > ${actual_query_results_dates}
-END
+#END
 
 # echo "---------------------- Below there should be no differences reported -------------------------------------------"
+set +e # ignore trivial errors like no grep match
+
 rm -f ${diffs_and_errors_file}
 
-#diff ${actual_query_results} ${expected_test_results} | grep "result" >> ${diffs_and_errors_file}
-#cat ${actual_query_results} | grep "error" >> ${diffs_and_errors_file}
+diff ${actual_query_results} ${expected_test_results} | grep "result" >> ${diffs_and_errors_file}
+cat ${actual_query_results} | grep "error" >> ${diffs_and_errors_file}
 diff ${actual_query_results_aliases} ${expected_test_results} | grep "result" >> ${diffs_and_errors_file}
 cat ${actual_query_results_aliases} | grep "error"  >> ${diffs_and_errors_file}
-#diff ${actual_query_results_dates} ${expected_test_results_dates} | grep "result"  >> ${diffs_and_errors_file}
-#cat ${actual_query_results_dates} | grep "error" >> ${diffs_and_errors_file}
+diff ${actual_query_results_dates} ${expected_test_results_dates} | grep "result"  >> ${diffs_and_errors_file}
+cat ${actual_query_results_dates} | grep "error" >> ${diffs_and_errors_file}
+
 
 if [ -s ${diffs_and_errors_file} ]
 then

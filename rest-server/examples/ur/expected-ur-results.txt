@@ -4,9 +4,9 @@
 {"result":[{"item":"iPhone XR","score":0.0},{"item":"Galaxy 8","score":0.0},{"item":"iPhone 8","score":0.0},{"item":"iPhone XS","score":0.0},{"item":"iPad Pro","score":0.0},{"item":"Surface Pro","score":0.0},{"item":"Pixel Slate","score":0.0}]}
 {"result":[{"item":"Pixel Slate","score":1.4384104013442993},{"item":"Surface Pro","score":0.28768208622932434}]}
 {"result":[{"item":"iPhone 8","score":1.3406014442443848},{"item":"iPhone XS","score":0.9116078019142151},{"item":"iPad Pro","score":0.9116078019142151},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"Pixel Slate","score":0.28768208622932434},{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636},{"item":"Galaxy 8","score":0.133531391620636},{"item":"iPhone 8","score":0.133531391620636}]}
+{"result":[{"item":"Pixel Slate","score":0.28768208622932434},{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636}]}
 {"result":[{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone XS","score":1.093929409980774},{"item":"iPad Pro","score":1.093929409980774},{"item":"Surface Pro","score":0.0}]}
-{"result":[{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636},{"item":"Galaxy 8","score":0.133531391620636},{"item":"iPhone 8","score":0.133531391620636},{"item":"Surface Pro","score":0.0},{"item":"Pixel Slate","score":0.0}]}
+{"result":[{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636},{"item":"Galaxy 8","score":0.133531391620636}]}
 
 ++++ Personalized with Business Rules ++++
 ============= Inclusion      =============
@@ -39,28 +39,28 @@
 
 +++++++++++++ Item-based     +++++++++++++
 
-{"result":[{"item":"iPhone XR","score":1.6076642274856567},{"item":"Galaxy 8","score":1.6076642274856567},{"item":"iPhone 8","score":1.6076642274856567},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPad Pro","score":1.276250958442688},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone XR","score":1.271191954612732},{"item":"Galaxy 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"iPhone XR","score":1.6076642274856567},{"item":"Galaxy 8","score":1.6076642274856567},{"item":"iPhone 8","score":1.6076642274856567},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone XS","score":1.276250958442688},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"iPhone XR","score":1.3406014442443848},{"item":"Galaxy 8","score":1.3406014442443848},{"item":"iPhone 8","score":1.3406014442443848},{"item":"iPhone XS","score":0.9116078019142151},{"item":"iPad Pro","score":0.9116078019142151},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"iPhone XR","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"Pixel Slate","score":0.28768208622932434},{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636},{"item":"Galaxy 8","score":0.133531391620636},{"item":"iPhone 8","score":0.133531391620636}]}
+{"result":[{"item":"iPhone XR","score":1.6076642274856567},{"item":"Galaxy 8","score":1.6076642274856567},{"item":"iPhone 8","score":1.6076642274856567},{"item":"Pixel Slate","score":1.4384104013442993}]}
+{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
+{"result":[{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone XR","score":1.271191954612732}]}
+{"result":[{"item":"iPhone XR","score":1.6076642274856567},{"item":"Galaxy 8","score":1.6076642274856567},{"item":"iPhone 8","score":1.6076642274856567},{"item":"Pixel Slate","score":1.4384104013442993}]}
+{"result":[{"item":"iPhone XR","score":1.3406014442443848},{"item":"Galaxy 8","score":1.3406014442443848},{"item":"iPhone 8","score":1.3406014442443848},{"item":"iPhone XS","score":0.9116078019142151}]}
+{"result":[{"item":"iPhone XR","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
+{"result":[{"item":"Pixel Slate","score":0.28768208622932434},{"item":"iPhone XS","score":0.18232156336307526},{"item":"iPad Pro","score":0.18232156336307526},{"item":"iPhone XR","score":0.133531391620636}]}
 
 +++++ Item-based with Business Rules +++++
 ============= Inclusion      =============
 
 ------------- iPhone XR all  -------------
-{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
+{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
 ------------- iPhone XR rules ------------
 {"result":[{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"Surface Pro","score":0.28768208622932434}]}
 {"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPhone 8","score":1.271191954612732}]}
-{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
+{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
 
 ============= Exclusion      =============
 
 ------------- iPhone XR all  -------------
-{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
+{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
 ------------- iPhone XR rules ------------
 {"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPhone 8","score":1.271191954612732}]}
 {"result":[{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"Surface Pro","score":0.28768208622932434}]}
@@ -69,11 +69,11 @@
 ============= Boost          =============
 
 ------------- iPhone XR all  -------------
-{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"iPhone 8","score":1.271191954612732},{"item":"Surface Pro","score":0.28768208622932434}]}
+{"result":[{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993}]}
 ------------- iPhone XR rules ------------
-{"result":[{"item":"iPad Pro","score":15.650020599365234},{"item":"Pixel Slate","score":7.192051887512207},{"item":"Surface Pro","score":6.041323661804199},{"item":"Galaxy 8","score":2.2111992835998535},{"item":"iPhone XS","score":1.787076473236084},{"item":"iPhone 8","score":1.271191954612732}]}
-{"result":[{"item":"iPhone XS","score":15.650020599365234},{"item":"Galaxy 8","score":4.881827354431152},{"item":"iPhone 8","score":3.941819667816162},{"item":"iPad Pro","score":1.787076473236084},{"item":"Pixel Slate","score":1.4384104013442993},{"item":"Surface Pro","score":0.28768208622932434}]}
-{"result":[{"item":"iPhone XS","score":15.650020599365234},{"item":"iPad Pro","score":15.650020599365234},{"item":"Pixel Slate","score":7.192051887512207},{"item":"Surface Pro","score":6.041323661804199},{"item":"Galaxy 8","score":4.881827354431152},{"item":"iPhone 8","score":3.941819667816162}]}
+{"result":[{"item":"iPad Pro","score":15.650020599365234},{"item":"Pixel Slate","score":7.192051887512207},{"item":"Surface Pro","score":6.041323661804199},{"item":"Galaxy 8","score":2.2111992835998535}]}
+{"result":[{"item":"iPhone XS","score":15.650020599365234},{"item":"Galaxy 8","score":4.881827354431152},{"item":"iPhone 8","score":3.941819667816162},{"item":"iPad Pro","score":1.787076473236084}]}
+{"result":[{"item":"iPhone XS","score":15.650020599365234},{"item":"iPad Pro","score":15.650020599365234},{"item":"Pixel Slate","score":7.192051887512207},{"item":"Surface Pro","score":6.041323661804199}]}
 
 ============= Include A & B =============
 
