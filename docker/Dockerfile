@@ -7,10 +7,10 @@ LABEL com.actionml.harness.vendor=ActionML \
 
 ENV LANG=C.UTF-8 \
     CONFD_VERSION=v0.16.0 \
-    CONFD_SHA256=255d2559f3824dd64df059bdc533fd6b697c070db603c76aaf8d1d5e6b0cc334
+    CONFD_SHA256=255d2559f3824dd64df059bdc533fd6b697c070db603c76aaf8d1d5e6b0cc334 \
+    PATH=$PATH:~/bin/
 
 COPY ./dist /harness
-COPY rest-server/examples/ /harness/examples/
 
 RUN cd /tmp && \
 	apk add --no-cache --update tini curl bash procps && \

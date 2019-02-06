@@ -2,15 +2,8 @@ version: '3'
 
 services:
 
-  mongo:
-    image: mongo:3.2
-    ports:
-      - '27017:27017'
-    logging:
-      driver: none
-
   router:
-    image: actionml/harness:ci
+    image: actionml/harness:develop
     ports:
       - '9090:9090'
     environment:
@@ -20,6 +13,15 @@ services:
     depends_on:
       - mongo
     volumes:
+      - ./rest-server/examples:/harness/examples
+
+  mongo:
+    image: mongo:3.2
+    ports:
+      - '27017:27017'
+    logging:
+      driver: none
+    volumes: #volumes to persist MongoDB data and make logs accesible
       - ./it/shared/logs:/app/logs
       - ./it/shared/data:/data
 
@@ -28,4 +30,5 @@ services:
     ports:
       - '9200:9200'
       - '9300:9300'
-
+    volumes:
+      - ./it/shared/esdata:/usr/share/elasticsearch/data
