@@ -3,6 +3,7 @@
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
     "master": "local",
+    "es.nodes": "elasticsearch",
     "spark.driver.memory": "4g",
     "spark.executor.memory": "4g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
@@ -10,6 +11,7 @@
     "spark.kryo.referenceTracking": "false",
     "spark.kryoserializer.buffer": "300m",
     "es.index.auto.create": "true",
+    "es.nodes.wan.only": "true",
     "spark.es.index.auto.create": "true"
   },
   "algorithm": {
