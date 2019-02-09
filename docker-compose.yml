@@ -2,7 +2,7 @@ version: '3'
 
 services:
 
-  router:
+  rest-server:
     image: actionml/harness:develop
     ports:
       - '9090:9090'
@@ -10,10 +10,12 @@ services:
       MONGO_HOST: "mongo"
       REST_SERVER_HOST: "0.0.0.0"
       REST_SERVER_PORT: "9090"
+      ELASTICSEARCH_REST_HOST: "elasticsearch"
     depends_on:
       - mongo
     volumes:
       - ./rest-server/examples:/harness/examples
+      - ./it/shared/logs/:/harness/logs
 
   mongo:
     image: mongo:3.2
@@ -27,6 +29,10 @@ services:
 
   elasticsearch:
     image: elasticsearch:5.6.14-alpine
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "discovery.zen.ping.unicast.hosts=elasticsearch"
+      - "discovery.type=single-node"
     ports:
       - '9200:9200'
       - '9300:9300'

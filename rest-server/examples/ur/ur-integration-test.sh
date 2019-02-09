@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 echo
 echo "Usage: contextual-bandit-integration-test.sh"
 echo "run from harness/java-sdk or from the integration-test.sh"
