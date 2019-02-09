@@ -3,8 +3,8 @@
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
     "master": "local",
-    "spark.driver.memory": "4g",
-    "spark.executor.memory": "4g",
+    "spark.driver.memory": "5g",
+    "spark.executor.memory": "5g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
