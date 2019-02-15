@@ -72,7 +72,7 @@ status_line() {
 #
 java_pid() {
   local pid service_class="$1"
-  ps -e ww -o pid,command | grep "\bjava .*${service_class}" | sed 's/^ *\([0-9]*\) .*/\1/'
+  ps -e -w -w -o pid,command | grep "\bjava .*${service_class}" | sed 's/^ *\([0-9]*\) .*/\1/'
 }
 
 

@@ -25,6 +25,7 @@
         "minLLR": 5.0
       }
     ],
-    "num": 4
+    "num": 4,
+    "trimAfter": "365 days"
   }
 }

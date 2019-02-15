@@ -261,6 +261,7 @@ class URAlgorithm private (
     val jobDescription = JobManager.addJob(engineId, "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
+      logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
