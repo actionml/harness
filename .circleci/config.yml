@@ -53,6 +53,7 @@ jobs:
 
   publish:
     docker:
+    - image: docker:stable
     steps:
       - checkout
       - setup_remote_docker
