@@ -343,6 +343,7 @@ class URAlgorithm private (
 
     //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
+    logger.info(s"Indicator names: ${modelEventNames}")
     val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
