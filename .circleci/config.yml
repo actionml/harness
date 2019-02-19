@@ -46,9 +46,14 @@ jobs:
           paths:
             - ./
 
-    steps:
-      - run: docker-compose up -d
-      - run: docker-compose exec rest-server ./examples/ur/ur-integration-test.sh
+      - 
+        run: 
+          name: Run docker-compose file
+          command: docker-compose up -d
+      - 
+        run: 
+          name: Run integration test
+          command: docker-compose exec rest-server ./examples/ur/ur-integration-test.sh
 
   publish:
     docker:
