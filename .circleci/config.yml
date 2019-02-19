@@ -46,9 +46,13 @@ jobs:
           paths:
             - ./
 
+  test:
+    steps:
+      - run: docker-compose up -d
+      - run: docker-compose exec rest-server ./examples/ur/ur-integration-test.sh
+
   publish:
     docker:
-      - image: docker:stable
     steps:
       - checkout
       - setup_remote_docker
@@ -94,11 +98,6 @@ jobs:
              *)
              ;;
            esac
-  test:
-    docker:
-      - image: alpine
-    steps:
-      - run: echo "unit or other tests"
 
 workflows:
   version: 2

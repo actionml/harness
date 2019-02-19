@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+
+  rest-server:
+    image: actionml/harness:develop
+    ports:
+      - '9090:9090'
+    environment:
+      MONGO_HOST: "mongo"
+      REST_SERVER_HOST: "0.0.0.0"
+      REST_SERVER_PORT: "9090"
+      ELASTICSEARCH_REST_HOST: "elasticsearch"
+    depends_on:
+      - mongo
+    volumes:
+      - ./rest-server/examples:/harness/examples
+      - ./it/shared/logs/:/harness/logs
+
+  mongo:
+    image: mongo:3.2
+    ports:
+      - '27017:27017'
+    logging:
+      driver: none
+    volumes: #volumes to persist MongoDB data and make logs accesible
+      - ./it/shared/logs:/app/logs
+      - ./it/shared/data:/data
