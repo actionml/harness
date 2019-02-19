@@ -408,7 +408,7 @@ class QueriesClient(BaseClient):
         """
 
         request = AsyncRequest("POST", self.path, **data)
-        request.set_response_handler(self._ok_response_handler)
+        request.set_response_handler(self._create_response_handler)
         self._connection.make_request(request)
         return request
 
