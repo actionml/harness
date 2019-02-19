@@ -47,6 +47,7 @@ jobs:
             - ./
 
   test:
+    machine:
     steps:
       - run: docker-compose up -d
       - run: docker-compose exec rest-server ./examples/ur/ur-integration-test.sh
