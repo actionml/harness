@@ -32,7 +32,7 @@ build: sbt
 clean: sbt
 	cd $(RESTSRV_DIR) && \
 		$(SBT) ++$(SCALA_VERSION) -batch server/clean
-	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \;
+	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \; || /bin/true
 
 dist: clean clean-dist build wheel
 	mkdir -p $(DIST) && cd $(DIST) && mkdir bin conf logs project lib
