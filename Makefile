@@ -32,7 +32,7 @@ build: sbt
 clean: sbt
 	cd $(RESTSRV_DIR) && \
 		$(SBT) ++$(SCALA_VERSION) -batch server/clean
-	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \; || /bin/true
+	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \; || true
 
 dist: clean clean-dist build wheel
 	mkdir -p $(DIST) && cd $(DIST) && mkdir bin conf logs project lib
@@ -51,4 +51,4 @@ wheel:
 	pip3 wheel --wheel-dir=$(DIST)/wheel $(PYTHON_SDK_DIR)
 
 clean-dist:
-	cd $(DIST) && ls -1A | xargs rm -r || /bin/true
+	cd $(DIST) && ls -1A | xargs rm -r || true
