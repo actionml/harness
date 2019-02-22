@@ -15,7 +15,8 @@ COPY ./dist /harness
 RUN cd /tmp && \
 	apk add --no-cache --update tini curl bash procps && \
 	apk add --no-cache --update python3 && \
-	apk add --virtual build-dependencies build-base gcc && \
+	apk add --virtual build-dependencies build-base gcc zlib-dev openssl-dev libffi-dev python3-dev && \
+	apk add boost-dev git && \
 	python3 -m ensurepip && \
 	rm -r /usr/lib/python*/ensurepip && \
 	pip3 install --upgrade pip setuptools && \
