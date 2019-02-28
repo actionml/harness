@@ -31,4 +31,4 @@ RUN cd /tmp && \
 
 WORKDIR /harness
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["./bin/harness","start"]
+CMD ["./bin/harness-start"]
