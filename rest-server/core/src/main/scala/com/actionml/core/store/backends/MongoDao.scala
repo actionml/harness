@@ -57,7 +57,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   override def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertOne(o).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"Successfully inserted $o into $name with result $t")
+        logger.info(s"Successfully inserted $o into $name with result $t")
         Future.successful ()
       case None =>
         logger.error(s"Can't insert value $o to collection ${collection.namespace}")
@@ -107,7 +107,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
+    } yield ()).map(_ => logger.info(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
       .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 

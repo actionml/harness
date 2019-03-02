@@ -60,9 +60,13 @@ class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport
   private val queries = inject[QueriesRouter]
   private val authProxy = inject[AuthServerProxyRouter]
 
-  private val route: Route = (DebuggingDirectives.logRequest("Harness Server", Logging.InfoLevel) & DebuggingDirectives.logRequestResult("Harness Server", Logging.InfoLevel)) {
-    authProxy.route ~ check.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
-  }
+  private val route: Route =
+    (DebuggingDirectives.logRequest("Root Route", Logging.DebugLevel) & DebuggingDirectives.logRequestResult("Root Route", Logging.DebugLevel)){
+      check.route
+    } ~
+    (DebuggingDirectives.logRequest("Harness Server", Logging.InfoLevel) & DebuggingDirectives.logRequestResult("Harness Server", Logging.InfoLevel)) {
+      authProxy.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
+    }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
     if (config.sslEnabled) {
