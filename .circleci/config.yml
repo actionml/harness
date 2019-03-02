@@ -2,111 +2,97 @@ version: 2
 jobs:
   build:
     docker:
-      - image: actionml/harness-sdk:0.1
-        entrypoint: /entrypoint.sh
-
+    - image: actionml/harness-sdk:0.1
+      entrypoint: /entrypoint.sh
     environment:
-      SDK_VERBOSE: yes
-      AUTH_SERVER_GITURL: https://github.com/actionml/harness-auth-server.git
-      AUTH_SERVER_GITREV: ci
-      JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
-
+    - SDK_VERBOSE: true
+    - AUTH_SERVER_GITURL: https://github.com/actionml/harness-auth-server.git
+    - AUTH_SERVER_GITREV: ci
+    - JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
     steps:
-      - checkout
-      -
-        restore_cache:
-          keys:
-            - rest-api-{{ checksum "rest-server/build.sbt" }}
-      -
-        run:
-          name: Build environment details
-          command: /details.sh
-      -
-        run:
-          name: Build auth-server
-          command: |
-            authdir=/tmp/harness-auth-server
-            git clone $AUTH_SERVER_GITURL ${authdir} && cd ${authdir}
-            git checkout $AUTH_SERVER_GITREV
-            # build auth server and populate local ~/.ivy2 cache
-            make publish-local
-      -
-        run:
-          name: Build rest-server dist
-          command: make dist
-      -
-        save_cache:
-          key: rest-api-{{ checksum "rest-server/build.sbt" }}
-          paths:
-            - /root/.sbt
-            - /root/.ivy2
-      -
-        persist_to_workspace:
-          root: /root/project/dist
-          paths:
-            - ./
-
+    - checkout
+    - restore_cache:
+        keys:
+        - rest-api-{{ checksum "rest-server/build.sbt" }}
+    - run:
+        name: Build environment details
+        command: /details.sh
+    - run:
+        name: Build auth-server
+        command: |
+          authdir=/tmp/harness-auth-server
+          git clone $AUTH_SERVER_GITURL ${authdir} && cd ${authdir}
+          git checkout $AUTH_SERVER_GITREV
+          # build auth server and populate local ~/.ivy2 cache
+          make publish-local
+    - run:
+        name: Build rest-server dist
+        command: make dist
+    - save_cache:
+        key: rest-api-{{ checksum "rest-server/build.sbt" }}
+        paths:
+        - /root/.sbt
+        - /root/.ivy2
+    - persist_to_workspace:
+        root: /root/project/dist
+        paths:
+        - ./
   publish:
     docker:
-      - image: docker:stable
+    - image: docker:stable
     steps:
-      - checkout
-      - setup_remote_docker
-      -
-        attach_workspace:
-          at: /root/project/dist
-      -
-        run:
-          name: Docker login
-          command: |
-            echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-      -
-        run:
-          name: Build rest-server docker image
-          command: |
-           case "${CIRCLE_BRANCH}" in
-             "master")
-               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:latest ./
-             ;;
-             "develop")
-               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
-             ;;
-             "ci")
-               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
-             ;;
-             *)
-             ;;
-           esac
-      -
-        run:
-          name: Publish docker image
-          command: |
-           case "${CIRCLE_BRANCH}" in
-             "master")
-               docker image push actionml/harness:latest
-             ;;
-             "develop")
-               docker image push actionml/harness:${CIRCLE_BRANCH}
-             ;;
-             "ci")
-               docker image push actionml/harness:${CIRCLE_BRANCH}
-             ;;
-             *)
-             ;;
-           esac
+    - checkout
+    - setup_remote_docker
+    - attach_workspace:
+        at: /root/project/dist
+    - run:
+        name: Docker login
+        command: |
+          echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+    - run:
+        name: Build rest-server docker image
+        command: |
+          case "${CIRCLE_BRANCH}" in
+            "master")
+              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:latest ./
+            ;;
+            "develop")
+              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+            ;;
+            "ci")
+              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+            ;;
+            *)
+            ;;
+          esac
+    - run:
+        name: Publish docker image
+        command: |
+          case "${CIRCLE_BRANCH}" in
+            "master")
+              docker image push actionml/harness:latest
+            ;;
+            "develop")
+              docker image push actionml/harness:${CIRCLE_BRANCH}
+            ;;
+            "ci")
+              docker image push actionml/harness:${CIRCLE_BRANCH}
+            ;;
+            *)
+            ;;
+          esac
   test:
     docker:
-      - image: alpine
+    - image: alpine
     steps:
-      - run: echo "unit or other tests"
-
+    - run: echo "unit or other tests"
 workflows:
   version: 2
   default:
     jobs:
-      - build
-      - test
-      - publish:
-          requires:
-            - build
-            - test
+    - build
+    - test
+    - publish:
+        requires:
+        - build
+        - test

@@ -3,15 +3,14 @@
   "engineFactory": "com.actionml.engines.ur.UREngine",
   "sparkConf": {
     "master": "local",
-    "es.nodes": "elasticsearch",
     "spark.driver-memory": "4g",
     "spark.executor-memory": "4g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",
     "spark.kryoserializer.buffer": "300m",
-    "es.nodes.wan.only": "true",
-    "es.index.auto.create": "true"
+    "es.index.auto.create": "true",
+    "spark.es.nodes": "???"
   },
   "algorithm": {
     "indicators": [
@@ -26,6 +25,7 @@
         "minLLR": 5.0
       }
     ],
-    "num": 4
+    "num": 4,
+    "trimAfter": "365 days"
   }
 }

@@ -13,7 +13,8 @@ echo
 # point to the harness host, use https://... for SSL and set the credentials if using Auth
 # export "HARNESS_CLIENT_USER_ID"=xyz
 # export "HARNESS_CLIENT_USER_SECRET"=abc
-host=localhost
+
+# set harness-env to point to the correct server for executing these tests
 diffs_and_errors_file=diffs_and_errors.txt
 # for real CLI test: engine=test_ur_nav_hinting
 engine=test_ur

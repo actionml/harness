@@ -63,8 +63,8 @@ Configuration is especially important because it defines the type of events by n
   "sharedDBName": "!!!<name of db to share data>!!!",
   "sparkConf": {
     "master": "local",
-    "spark.driver-memory": "4g",
-    "spark.executor-memory": "4g",
+    "spark.driver.memory": "4g",
+    "spark.executor.memory": "4g",
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer",
     "spark.kryo.registrator": "org.apache.mahout.sparkbindings.io.MahoutKryoRegistrator",
     "spark.kryo.referenceTracking": "false",

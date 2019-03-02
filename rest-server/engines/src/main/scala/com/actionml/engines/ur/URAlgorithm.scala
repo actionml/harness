@@ -261,6 +261,7 @@ class URAlgorithm private (
     val jobDescription = JobManager.addJob(engineId, "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
+      logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
@@ -342,6 +343,8 @@ class URAlgorithm private (
 
     //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
+    logger.info(s"Indicator names: ${modelEventNames}")
+    logger.info(s"Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
     val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
@@ -441,7 +444,6 @@ class URAlgorithm private (
   }
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    val queryEventNames = query.eventNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
     val aggregatedRules = aggregateRules(rules, query.rules)
 
     logger.info(s"Got query: \n${query}")
@@ -461,7 +463,7 @@ class URAlgorithm private (
     val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
       getBlacklistedItemsMatchers(query, userEvents)))
 
-    val sq =SearchQuery(
+    val sq = SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
@@ -495,6 +497,10 @@ class URAlgorithm private (
 
     import DaoQuery.syntax._
 
+    val queryEventNamesFilter = query.eventNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
+    // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
+    // strength. DO NOT document, only for tests
+
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
@@ -507,6 +513,9 @@ class URAlgorithm private (
         filter = Seq("entityId" === query.user.getOrElse(""))))
       .toSeq
       .distinct
+      .filter { event =>
+        queryEventNamesFilter.contains(event.event)
+      }
       .map { event =>
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)

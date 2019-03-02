@@ -13,22 +13,34 @@ export CYAN='\033[0;36m'         # Cyan--hints and info messages
 export WHITE='\033[0;37m'        # White
 
 
+## BSD/MacOS compatible readlink -f
+#
+_readlink_f() {
+  target=$1
+  cd $(dirname $target)
+  target=$(basename $target)
+
+  while [ -L "$target" ]; do
+      target=$(readlink $target)
+      cd $(dirname $target)
+      target=$(basename $target)
+  done
+
+  physical_directory=$(pwd -P)
+  echo $physical_directory/$(basename $target)
+}
+
+
 # export HARNESS_HOME if not set
 if [ -z "${HARNESS_HOME}" ]; then
-  source_path=$(readlink -f "$0" 2>/dev/null)
-
-  if [ $? -eq 0 -a -n "${source_path}" ]; then
-    # readlink has -f and suceeded
-    export HARNESS_HOME=$(dirname "${source_path%/*}")
-  else
-    # try recursively locate while we get links
-    target_dir=$(cd `dirname "$0"`; pwd)
-    while [ -L "${target_dir}" ]; do
-      target_dir=$(ls -l "${target_dir}" | sed 's/.* -> //')
-      target_dir="$(cd `dirname "${target_dir}"`; pwd)"
-    done
-    export HARNESS_HOME="${target_dir}"
+  if [ -z "$(which readlink 2>/dev/null)" ]; then
+    echo -e "${RED}readlink command must be present on your system!${NC}"
+    exit 1
   fi
+
+  bindir=$(dirname `_readlink_f $0`)
+  # trim the last path element (which is supposed to be /bin(/))
+  export HARNESS_HOME=${bindir%/*}
 fi
 
 # source the harness-env file
@@ -72,7 +84,7 @@ status_line() {
 #
 java_pid() {
   local pid service_class="$1"
-  ps -e ww -o pid,command | grep "\bjava .*${service_class}" | sed 's/^ *\([0-9]*\) .*/\1/'
+  ps -e -w -w -o pid,command | grep "\bjava .*${service_class}" | sed 's/^ *\([0-9]*\) .*/\1/'
 }
 
 
