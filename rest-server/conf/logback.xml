@@ -7,13 +7,13 @@
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <!--appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>${HARNESS_LOG_PATH}/main.log</file>
         <append>true</append>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
         </encoder>
-    </appender>
+    </appender-->
 
     <logger name="com.actionml" level="INFO"/>
     <logger name="com.mongodb" level="INFO"/>
@@ -22,6 +22,6 @@
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
+        <!--appender-ref ref="FILE" /><-->
     </root>
 </configuration>
