@@ -15,7 +15,7 @@ services:
       - mongo
     volumes:
       - ./rest-server/examples:/harness/examples
-      - ./it/shared/logs/:/harness/logs
+      - ./it/shared/harness-logs/:/harness/logs
 
   mongo:
     image: mongo:3.2
@@ -24,8 +24,7 @@ services:
     logging:
       driver: none
     volumes: #volumes to persist MongoDB data and make logs accesible
-      - ./it/shared/logs:/app/logs
-      - ./it/shared/data:/data
+      - ./it/shared/mongodata:/data
 
   elasticsearch:
     image: elasticsearch:5.6.14-alpine
