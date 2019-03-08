@@ -13,6 +13,12 @@ echo
 
 curl -H "Content-Type: application/json" -d '
 {
+  "user": "non-existent user"
+}' http://localhost:9090/engines/test_ur/queries
+echo
+
+curl -H "Content-Type: application/json" -d '
+{
   "user": "u1"
 }' http://localhost:9090/engines/test_ur/queries
 echo
@@ -267,6 +273,12 @@ echo
 
 echo
 echo "+++++++++++++ Item-based     +++++++++++++"
+echo
+
+curl -H "Content-Type: application/json" -d '
+{
+  "item": "non-existent item"
+}' http://localhost:9090/engines/test_ur/queries
 echo
 
 # fails, includes self: iPhone XS

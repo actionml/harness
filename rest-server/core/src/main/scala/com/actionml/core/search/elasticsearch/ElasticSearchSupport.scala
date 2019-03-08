@@ -233,8 +233,13 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
 
     if (rjv.nonEmpty) {
       //val responseJValue = parse(EntityUtils.toString(response.getEntity))
-      val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
-      id -> result
+      try {
+        val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
+        id -> result
+      } catch {
+        case e: ClassCastException =>
+          id -> Map.empty
+      }
     } else {
       logger.info(s"Non-existent item $id, but that's ok, return backfill recs")
       id -> Map.empty

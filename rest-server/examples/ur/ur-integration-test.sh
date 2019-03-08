@@ -149,7 +149,6 @@ cat ${actual_query_results_aliases} | grep "error"  >> ${diffs_and_errors_file}
 diff ${actual_query_results_dates} ${expected_test_results_dates} | grep "result"  >> ${diffs_and_errors_file}
 cat ${actual_query_results_dates} | grep "error" >> ${diffs_and_errors_file}
 
-
 if [ -s ${diffs_and_errors_file} ]
 then
    echo " Some differences between actual and expected or server errors, check the actual results files. "
