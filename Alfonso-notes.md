@@ -31,3 +31,16 @@ It's basically the same docker-compose but this one build image instead pull it 
 where `-f` flag is used to specify the new compose file
 
 A Lot of new libraries & dependencies we're added to Dockerfile
+
+
+## Running docker-compose for small hosts
+To enable docker-compose at startup it's necessary to add setting ***restart:always***
+on docker-compose file for every service (ES, Mongo and Harness in our case)
+
+# it/shared/harness-logs is the new directory for harness-logs
+# it/shared/mongodata/ is the new directory for mongodata
+# it/shared/esdata/ is the new directory for ES-data
+
+# for production run 
+`docker-compose up -d --build` for first time setup
+`git pull && docker-compose down && docker-compose up -d --build --force-recreate` to update harness and takedown old containers and create new containers with new harness version
