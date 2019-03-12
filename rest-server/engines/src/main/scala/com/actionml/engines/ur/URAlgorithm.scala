@@ -43,6 +43,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 
@@ -258,7 +259,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, "Spark job")
+    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -397,7 +398,7 @@ class URAlgorithm private (
   }
 
 
-  def query(query: URQuery): URQueryResult = {
+  override def query(query: URQuery): URQueryResult = {
     // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     // todo: order by date
@@ -442,6 +443,11 @@ class URAlgorithm private (
     val result = es.search(modelQuery).map(hit => ItemScore(hit.id, hit.score)) // todo: optionally return rankings?
     URQueryResult(result)
   }
+
+  override def cancelJob(jobId: String): Validated[ValidateError, Response] = {
+    JobManager.cancelJob(jobId)
+  }
+
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
     val aggregatedRules = aggregateRules(rules, query.rules)

@@ -18,9 +18,9 @@
 package com.actionml.core.engine
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, Response}
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -45,6 +45,10 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
   // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
 
   def query(query: Q): R
+
+  def cancelJob(jobId: String): Validated[ValidateError, Response] = {
+    Invalid(NotImplemented(s"Can't cancel job $jobId"))
+  }
 }
 
 trait AlgorithmParams
