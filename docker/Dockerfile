@@ -20,10 +20,6 @@ RUN cd /tmp && \
 	python3 -m ensurepip && \
 	rm -r /usr/lib/python*/ensurepip && \
 	pip3 install --upgrade pip setuptools && \
-	ln -sf /usr/bin/python3 /usr/bin/python && \
-	ln -sf /usr/bin/python3-config /usr/bin/python-config && \
-	ln -sf /usr/bin/pydoc3 /usr/bin/pydoc && \
-	ln -sf /usr/bin/pip3 /usr/bin/pip && \
 	rm -r /root/.cache && \
 	pip install /harness/wheel/*.whl && \
 	curl -#SL -o /usr/local/bin/confd https://github.com/kelseyhightower/confd/releases/download/${CONFD_VERSION}/confd-${CONFD_VERSION#v}-linux-amd64 && \
