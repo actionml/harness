@@ -37,3 +37,8 @@ services:
       - '9300:9300'
     volumes:
       - ./it/shared/esdata:/usr/share/elasticsearch/data
+  auth-server:
+    image: actionml/auth-server:latest
+    ports:
+      - '9099:9099'
+
