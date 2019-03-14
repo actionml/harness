@@ -15,7 +15,8 @@ services:
       - mongo
     volumes:
       - ./rest-server/examples:/harness/examples
-      - ./it/shared/harness-logs/:/harness/logs
+      - ./it/shared/harness-logs:/harness/logs
+      - ./rest-server/conf:/harness/conf
 
   mongo:
     image: mongo:3.2
@@ -41,4 +42,5 @@ services:
     image: actionml/auth-server:latest
     ports:
       - '9099:9099'
-
+  vw:
+    image: actionml/vw:heartcore
