@@ -305,7 +305,13 @@ object IndexedDatasetSparkFactory {
           val userKey = downsampledUserIDDictionary_bcast.value.get(userID).get
           val vector = new RandomAccessSparseVector(ncol)
           for (item <- items) {
-            vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
+            if(!item.isEmpty) {
+              val it = itemIDDictionary_bcast.value.get(item)
+              if(it.isDefined){
+                vector.setQuick(it.get, 1.0d)
+              }
+            }
+            //vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
           }
 
           userKey -> vector

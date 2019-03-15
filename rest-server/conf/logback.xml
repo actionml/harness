@@ -7,13 +7,28 @@
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HARNESS_LOG_PATH}/harness.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${HARNESS_LOG_PATH}/harness.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>1000KB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>10</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>${HARNESS_LOG_PATH}/main.log</file>
         <append>true</append>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
         </encoder>
-    </appender>
+    </appender-->
 
     <logger name="com.actionml" level="INFO"/>
     <logger name="com.mongodb" level="INFO"/>

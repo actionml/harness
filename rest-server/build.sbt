@@ -44,7 +44,7 @@ lazy val commonSettings = Seq(
     "org.apache.hadoop" % "hadoop-hdfs" % hdfsVersion,
     "org.apache.hadoop" % "hadoop-common" % hdfsVersion,
     "ch.qos.logback" % "logback-classic" % "1.2.3",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
+    "le %% "scala-logging" % "3.5.0",
 
     "org.typelevel" %% "cats" % "0.9.0",
 
