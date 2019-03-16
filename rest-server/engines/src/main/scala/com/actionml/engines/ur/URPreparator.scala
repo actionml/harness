@@ -125,7 +125,13 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
             s" number of passing user-ids: ${dIDS.rowIDs.size}")
           logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
           // we have removed underactive users now remove the items they were the only to interact with
-          val ddIDS = IndexedDatasetSparkFactory(eventRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
+
+          // make sure we have only valid Strings to add to dictionaries
+          val scrubbedElements = eventRDD.filter { case (userID, itemID) =>
+            userID != null && !userID.isEmpty && itemID != null && !itemID.isEmpty
+          } // check for invalid Strings from bad code somewhere else
+
+          val ddIDS = IndexedDatasetSparkFactory(scrubbedElements, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
           val finalRows = ddIDS.matrix.nrow
           if(indicatorName == primaryIndicatorName) {
             geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
@@ -140,7 +146,13 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
           ddIDS
         } else {
           //logger.info(s"IndexedDatasetSpark for eventName: $eventName User ids: $userDictionary")
-          val dIDS = IndexedDatasetSparkFactory(eventRDD, userDictionary)(sc)
+
+          // make sure we have only valid Strings to add to dictionaries
+          val scrubbedElements = eventRDD.filter { case (userID, itemID) =>
+            userID != null && !userID.isEmpty && itemID != null && !itemID.isEmpty
+          } // check for invalid Strings from bad code somewhere else
+
+          val dIDS = IndexedDatasetSparkFactory(scrubbedElements, userDictionary)(sc)
           val finalRows = dIDS.matrix.nrow
           if(indicatorName == primaryIndicatorName) {
             geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
@@ -262,34 +274,38 @@ object IndexedDatasetSparkFactory {
 
   /** Constructor for primary indicator where the userDictionary is built */
   def apply(
-    elements: RDD[(String, String)],
+    elements: RDD[(String, String)], // assumes valid String pairs
     minEventsPerUser: Int)(implicit sc: SparkContext): IndexedDatasetSpark = {
     // todo: a further optimization is to return any broadcast dictionaries so they can be passed in and
     // do not get broadcast again. At present there may be duplicate broadcasts.
+
 
     // create separate collections of rowID and columnID tokens
     // use the dictionary passed in or create one from the element ids
     // broadcast the correct row id BiDictionary
     val rowIDDictionary = new BiDictionary(elements.map { case (rowID, _) => rowID }.distinct().collect())
     val rowIDDictionary_bcast = sc.broadcast(rowIDDictionary)
-    val filteredElements = elements.filter {
-      case (rowID, _) =>
-        rowIDDictionary_bcast.value.contains(rowID)
-    }
 
     // item ids are always taken from the RDD passed in
     // todo: an optimization it to pass in a dictionary or item ids if it is the same as an existing one
-    val itemIDs = filteredElements.map { case (_, itemID) => itemID }.distinct().collect()
-
-    val itemIDDictionary = new BiDictionary(keys = itemIDs)
+    val itemIDDictionary = new BiDictionary(elements.map { case (_, itemID) => itemID }.distinct().collect())
     val itemIDDictionary_bcast = sc.broadcast(itemIDDictionary)
+
+    // now remove any elements that were removed from the dictionaries due to invalid String IDs
+    // THIS IS NOT NEEDED SINCE WE REMOVED BEFORE CREATING DICTIONARIES
+    /*
+    val filteredElements = scrubbedElements.filter { case (rowID, itemID) =>
+        rowIDDictionary_bcast.value.contains(rowID) && itemIDDictionary_bcast.value.contains(itemID)
+    }
+    */
 
     val ncol = itemIDDictionary.size
     //val nrow = rowIDDictionary.size
     val minEvents = minEventsPerUser
 
+    // reduce data to include only users with some number of primary indicators
     val downsampledInteractions = elements.groupByKey().filter {
-      case (userId, items) =>
+      case (_, items) =>
         items.size >= minEvents
     }
 
@@ -305,13 +321,8 @@ object IndexedDatasetSparkFactory {
           val userKey = downsampledUserIDDictionary_bcast.value.get(userID).get
           val vector = new RandomAccessSparseVector(ncol)
           for (item <- items) {
-            if(!item.isEmpty) {
-              val it = itemIDDictionary_bcast.value.get(item)
-              if(it.isDefined){
-                vector.setQuick(it.get, 1.0d)
-              }
-            }
-            //vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
+            // this has been scrubbed to the point that it should never fails
+            vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
           }
 
           userKey -> vector
@@ -327,7 +338,7 @@ object IndexedDatasetSparkFactory {
 
   /** Another constructor for secondary indicators where the userDictionary is already known */
   def apply(
-    elements: RDD[(String, String)],
+    elements: RDD[(String, String)], // previously scrubbed of invalid Strings
     existingRowIDs: Option[BiDictionary])(implicit sc: SparkContext): IndexedDatasetSpark = {
     // todo: a further optimization is to return any broadcast dictionaries so they can be passed in and
     // do not get broadcast again. At present there may be duplicate broadcasts.
