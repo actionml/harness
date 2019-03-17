@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.org/actionml/pio-kappa.svg?branch=master)](https://travis-ci.org/actionml/pio-kappa)
-
+[![CircleCI](https://circleci.com/gh/actionml/harness.svg?style=svg)](https://circleci.com/gh/actionml/harness)
 # Harness Overview
 
 This project implements a microservice based Machine Learning Server. It provides an API for plug-in Engines (the API is called a Template) that implements some Algorithm and provides the scaffolding to implement all input and query serving needs including the following features:
