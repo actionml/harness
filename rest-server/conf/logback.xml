@@ -12,10 +12,10 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${HARNESS_LOG_PATH}/harness.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>1G</maxFileSize>
+                <maxFileSize>1GB</maxFileSize>
             </timeBasedFileNamingAndTriggeringPolicy>
             <maxHistory>10</maxHistory>
-            <totalSizeCap>10G</totalSizeCap>
+            <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
 
         <encoder>
