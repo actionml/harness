@@ -9,15 +9,14 @@
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HARNESS_LOG_PATH}/harness.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${HARNESS_LOG_PATH}/harness.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>1GB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <maxHistory>10</maxHistory>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.txt</fileNamePattern>
+            <!-- each file should be at most 1GB, keep 60 days worth of history, but at most 10GB -->
+            <maxFileSize>1GB</maxFileSize>
+            <maxHistory>60</maxHistory>
             <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
-
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
         </encoder>
