@@ -27,10 +27,12 @@ The compose will map container directories into the host filesystem for MongoDB 
 
  - `cd harness`
  - `docker-compose up -d --build` for first time setup
-`git pull && docker-compose down && docker-compose up -d --build --force-recreate` to update harness and takedown old containers and create new containers with new harness version
+ - `git pull && docker-compose down && docker-compose up -d --build --force-recreate` to update harness and takedown old containers and create new containers with new harness version
 
 ## Using the Harness CLI
 
-Harness must be told which Engines to use and how to configure them. To do this we use the Harness CLI. It communicates with a Harness Server via its REST API so all we need to do is set:
+Harness must be told which Engines to use and how to configure them. To do this we use the Harness CLI. It communicates with a Harness Server via its REST API. Install following instructions in the README.md for the [repo here](https://github.com/actionml/harness-cli)
 
- - 
+The default config points to Harness on `localhost:9090` which should be fine for the simple docker-compose method of deployment. If this doesn't connect change `HARNESS_SERVER_ADDRESS=harness` to use the container name for addressing and leave port 9090 as pre-configured. 
+
+Some further notes may be useful in [Alfonso-notes.md](Alfonso-notes.md)
