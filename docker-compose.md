@@ -26,9 +26,8 @@ The compose will map container directories into the host filesystem for MongoDB 
 ## Deploy
 
  - `cd harness`
- - `docker-compose up`
-
-Yep, that's it.
+ - `docker-compose up -d --build` for first time setup
+`git pull && docker-compose down && docker-compose up -d --build --force-recreate` to update harness and takedown old containers and create new containers with new harness version
 
 ## Using the Harness CLI
 
