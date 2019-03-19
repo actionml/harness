@@ -312,7 +312,6 @@ class URNavHintingAlgorithm private (
           sc.cancelJobGroup(jobDescription.jobId)
           throw e
       } finally {
-        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
     }
