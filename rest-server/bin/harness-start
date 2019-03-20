@@ -48,7 +48,9 @@ else
     exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS}
   else
     # stderr/stdout log when bin/harness used only
-    HARNESS_CLILOG="${HARNESS_CLILOG:-/tmp/harness.log}"
+    # below wites continual logs to /tmp eventually filling the disk
+    # HARNESS_CLILOG="${HARNESS_CLILOG:-/tmp/harness.log}"
+    HARNESS_CLILOG="${HARNESS_CLILOG:-/dev/null}" # these will be written to logs and STDOUT/STDERR so do not need in tmp file also
     exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" &
   fi
 
