@@ -20,9 +20,11 @@ package com.actionml.core.jobs
 import java.util.UUID
 
 import com.actionml.core.model.Response
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 
 trait JobManagerInterface {
@@ -39,7 +41,7 @@ trait JobManagerInterface {
   *  or "executing" otherwise it is "notQueued". No information is kept about the completion status of a job so the logs
   * must be scanned for any error reports. Todo: do we want to remember some number of old finished jobs?
   */
-object JobManager extends JobManagerInterface {
+object JobManager extends JobManagerInterface with LazyLogging {
 
   // first key is engineId, second is the harness specific Job id
   private var jobDescriptions: Map[String, Map[String, JobDescription]] = Map.empty
@@ -66,8 +68,14 @@ object JobManager extends JobManagerInterface {
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
       (description.jobId -> description.copy(status = JobStatus.executing))
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
-    f.map(_ => removeJob(description.jobId))
-     .recover { case _ => removeJob(description.jobId) }
+    f.onComplete {
+      case Success(_) =>
+        logger.info(s"Job ${description.jobId} completed successfully [engine $engineId]")
+        removeJob(description.jobId)
+      case Failure(e) =>
+        logger.error(s"Job $description failed [engine $engineId]", e)
+        removeJob(description.jobId)
+    }
     description
   }
 

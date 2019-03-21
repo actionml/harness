@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.actionml.core.jobs.{JobDescription, JobManager, JobManagerInterface}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerJobEnd, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerJobEnd, SparkListenerJobStart}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -137,7 +137,8 @@ object SparkContextSupport extends LazyLogging {
   }
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
-    override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+    override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
+      logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
       jobManager.removeJob(jobId)
     }
   }
