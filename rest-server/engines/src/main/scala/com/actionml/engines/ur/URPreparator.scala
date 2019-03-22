@@ -328,7 +328,14 @@ object IndexedDatasetSparkFactory extends LazyLogging {
           val vector = new RandomAccessSparseVector(ncol)
           for (item <- items) {
             // this has been scrubbed to the point that it should never fails
-            vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
+            val itemId = itemIDDictionary_bcast.value.get(item)
+            if(itemId.isDefined){
+              val id = itemId.get
+              vector.setQuick(id, 1.0d)
+            } else {
+              logger.warn(s"Bad item-id: ${item} not in the dictionary for indicator: ${indicatorName}")
+            }
+            //vector.setQuick(itemIDDictionary_bcast.value.get(item).get, 1.0d)
           }
 
           userKey -> vector
