@@ -115,61 +115,66 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
     val indexedDatasets = trainingData.indicatorEvents.map {
       case (indicatorName, eventRDD) =>
 
+        val scrubbedElementsRDD = eventRDD.filter { case (userID, itemID) =>
+          userID != null && !userID.isEmpty && itemID != null && !itemID.isEmpty
+        } // check for invalid Strings from bad code somewhere else
+
         // passing in previous row dictionary will use the values if they exist
         // and append any new ids, so after all are constructed we have all user ids in the last dictionary
         logger.info("EventName: " + indicatorName)
         // logger.info(s"first eventName is ${trainingData.actions.head._1.toString}")
-        val ids = if (indicatorName == trainingData.indicatorEvents.head._1.toString && trainingData.minEventsPerUser.nonEmpty) {
-          val dIDS = IndexedDatasetSparkFactory(eventRDD, trainingData.minEventsPerUser.get)(sc)
-          logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, eventName: $indicatorName" +
-            s" number of passing user-ids: ${dIDS.rowIDs.size}")
-          logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
-          // we have removed underactive users now remove the items they were the only to interact with
+        val ids: Option[IndexedDatasetSpark] = if (
+          indicatorName == trainingData.indicatorEvents.head._1.toString &&
+          trainingData.minEventsPerUser.nonEmpty &&
+          trainingData.minEventsPerUser.get > 1) {
+          val dIDS = IndexedDatasetSparkFactory.mkIDS(indicatorName, scrubbedElementsRDD, trainingData.minEventsPerUser.get)(sc)
 
-          // make sure we have only valid Strings to add to dictionaries
-          val scrubbedElements = eventRDD.filter { case (userID, itemID) =>
-            userID != null && !userID.isEmpty && itemID != null && !itemID.isEmpty
-          } // check for invalid Strings from bad code somewhere else
+          dIDS.map { dIDS =>
+            logger.info(s"Downsampled  users for minEventsPerUser: ${trainingData.minEventsPerUser}, eventName: $indicatorName" +
+              s" number of passing user-ids: ${dIDS.rowIDs.size}")
+            logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
+            // we have removed underactive users now remove the items they were the only to interact with
 
-          val ddIDS = IndexedDatasetSparkFactory(scrubbedElements, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
-          val finalRows = ddIDS.matrix.nrow
-          if(indicatorName == primaryIndicatorName) {
-            geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
-            userDictionary = Some(ddIDS.rowIDs)
+            val ddIDS = IndexedDatasetSparkFactory.mkIDS(indicatorName, scrubbedElementsRDD, Some(dIDS.rowIDs))(sc) // use the downsampled rows to downnsample
+
+            ddIDS.map { ddIDS =>
+              val finalRows = ddIDS.matrix.nrow
+              if (indicatorName == primaryIndicatorName) {
+                geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
+                userDictionary = Some(ddIDS.rowIDs)
+              }
+              logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
+                s"eventName: $indicatorName number of user-ids: ${userDictionary.get.size}")
+              logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
+              //ddIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+              geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${ddIDS.matrix.ncol.toString}"
+
+              ddIDS
+            }.get
           }
-          logger.info(s"Downsampled columns for users who pass minEventPerUser: ${trainingData.minEventsPerUser}, " +
-            s"eventName: $indicatorName number of user-ids: ${userDictionary.get.size}")
-          logger.info(s"Dimensions rows : ${ddIDS.matrix.nrow.toString} columns: ${ddIDS.matrix.ncol.toString}")
-          //ddIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
-          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${ddIDS.matrix.ncol.toString}"
-
-          ddIDS
         } else {
-          //logger.info(s"IndexedDatasetSpark for eventName: $eventName User ids: $userDictionary")
-
+          //logger.info(s"IndexedDatasetSpark for eventName: $eventName User ids: $userDictionary"
           // make sure we have only valid Strings to add to dictionaries
-          val scrubbedElements = eventRDD.filter { case (userID, itemID) =>
-            userID != null && !userID.isEmpty && itemID != null && !itemID.isEmpty
-          } // check for invalid Strings from bad code somewhere else
+          val dIDS = IndexedDatasetSparkFactory.mkIDS(indicatorName, scrubbedElementsRDD, userDictionary)(sc)
+          dIDS.map { dIDS =>
+            val finalRows = dIDS.matrix.nrow
+            if (indicatorName == primaryIndicatorName) {
+              geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
+              userDictionary = Some(dIDS.rowIDs)
+            }
 
-          val dIDS = IndexedDatasetSparkFactory(scrubbedElements, userDictionary)(sc)
-          val finalRows = dIDS.matrix.nrow
-          if(indicatorName == primaryIndicatorName) {
-            geometry = geometry :+ s"Initializing the user dictionary from indicator ${indicatorName} so all matrices will have ${finalRows} rows"
-            userDictionary = Some(dIDS.rowIDs)
+            //dIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
+            logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
+            logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
+            geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${dIDS.matrix.ncol.toString}"
+            dIDS
           }
-
-          //dIDS.dfsWrite(eventName.toString, DefaultIndexedDatasetWriteSchema)(new SparkDistributedContext(sc))
-          logger.info(s"Dimensions rows : ${dIDS.matrix.nrow.toString} columns: ${dIDS.matrix.ncol.toString}")
-          logger.info(s"Number of user-ids after creation: ${userDictionary.get.size}")
-          geometry = geometry :+ s"Geometry of ${indicatorName} rows: ${finalRows} columns: ${dIDS.matrix.ncol.toString}"
-          dIDS
         }
-
 
         (indicatorName, ids)
 
-    }.filter {
+    }.filter(_._2.isDefined).map { v => v._1 -> v._2.get }
+      .filter {
       case (name, ids) =>
         ids.matrix.nrow > 0 && ids.matrix.ncol > 0
     }
@@ -270,12 +275,13 @@ object URPreparator extends LazyLogging with SparkMongoSupport {
 }
 
 /** Companion Object to construct an IndexedDatasetSpark from String Pair RDDs */
-object IndexedDatasetSparkFactory {
+object IndexedDatasetSparkFactory extends LazyLogging {
 
   /** Constructor for primary indicator where the userDictionary is built */
-  def apply(
+  def mkIDS(
+    indicatorName: String,
     elements: RDD[(String, String)], // assumes valid String pairs
-    minEventsPerUser: Int)(implicit sc: SparkContext): IndexedDatasetSpark = {
+    minEventsPerUser: Int)(implicit sc: SparkContext): Option[IndexedDatasetSpark] = {
     // todo: a further optimization is to return any broadcast dictionaries so they can be passed in and
     // do not get broadcast again. At present there may be duplicate broadcasts.
 
@@ -332,14 +338,26 @@ object IndexedDatasetSparkFactory {
     val drmInteractions = drmWrap[Int](interactions)
 
     //drmInteractions.newRowCardinality(rowIDDictionary.size)
+    if(rowIDDictionary.size <=0){
+      logger.warn(s"No users with indicator: ${indicatorName}")
+      None
+    } else {
+      Some(
+        new IndexedDatasetSpark(
+          drmInteractions.newRowCardinality(rowIDDictionary.size),
+          downsampledUserIDDictionary,
+          itemIDDictionary
+        )
+      )
+    }
 
-    new IndexedDatasetSpark(drmInteractions.newRowCardinality(rowIDDictionary.size), downsampledUserIDDictionary, itemIDDictionary)
   }
 
   /** Another constructor for secondary indicators where the userDictionary is already known */
-  def apply(
+  def mkIDS(
+    indicatorName: String,
     elements: RDD[(String, String)], // previously scrubbed of invalid Strings
-    existingRowIDs: Option[BiDictionary])(implicit sc: SparkContext): IndexedDatasetSpark = {
+    existingRowIDs: Option[BiDictionary])(implicit sc: SparkContext): Option[IndexedDatasetSpark] = {
     // todo: a further optimization is to return any broadcast dictionaries so they can be passed in and
     // do not get broadcast again. At present there may be duplicate broadcasts.
 
@@ -390,7 +408,19 @@ object IndexedDatasetSparkFactory {
     // wrap the DrmRdd and a CheckpointedDrm, which can be used anywhere a DrmLike[Int] is needed
     val drmInteractions = drmWrap[Int](indexedInteractions)
 
-    new IndexedDatasetSpark(drmInteractions.newRowCardinality(rowIDDictionary.size), rowIDDictionary, columnIDDictionary)
+    if(rowIDDictionary.size <=0){
+      logger.warn(s"No users with indicator: ${indicatorName}")
+      None
+    } else {
+      Some(
+        new IndexedDatasetSpark(
+          drmInteractions.newRowCardinality(rowIDDictionary.size),
+          rowIDDictionary,
+          columnIDDictionary)
+      )
+    }
+
+    //Some(new IndexedDatasetSpark(drmInteractions.newRowCardinality(rowIDDictionary.size), rowIDDictionary, columnIDDictionary))
   }
 
 }
