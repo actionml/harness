@@ -28,7 +28,7 @@ export ELASTICSEARCH_REST_PROTOCOL=${ELASTICSEARCH_REST_PROTOCOL:-http}
 
 # To configure Harness logging
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
-export HARNESS_LOG_PATH="${HARNESS_HOME}/logs"
+export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
 
 # =============================================================
 # Only change to enable TLS/SSL
