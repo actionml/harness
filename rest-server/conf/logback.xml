@@ -11,7 +11,7 @@
         <file>${HARNESS_LOG_PATH}/harness.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.txt</fileNamePattern>
+            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <!-- each file should be at most 1GB, keep 60 days worth of history, but at most 10GB -->
             <maxFileSize>1GB</maxFileSize>
             <maxHistory>60</maxHistory>
