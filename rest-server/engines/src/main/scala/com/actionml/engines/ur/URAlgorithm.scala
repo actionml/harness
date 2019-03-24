@@ -18,7 +18,6 @@
 package com.actionml.engines.ur
 
 import java.io.Serializable
-import java.time.{LocalDateTime, OffsetDateTime, ZonedDateTime}
 import java.util.Date
 
 import cats.data.Validated
@@ -32,19 +31,18 @@ import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
-import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
-import com.sun.jndi.toolkit.dir
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -444,8 +442,19 @@ class URAlgorithm private (
     URQueryResult(result)
   }
 
-  override def cancelJob(jobId: String): Validated[ValidateError, Response] = {
-    JobManager.cancelJob(jobId)
+  override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
+    try {
+      JobManager.getActiveJobDescriptions(engineId).get(jobId).fold[Validated[ValidateError, Response]] {
+        Invalid(WrongParams(s"No jobId $jobId found"))
+      } { _ =>
+        Await.result(JobManager.cancelJob(jobId), 5.minutes)
+        Valid(Comment(s"Job $jobId aborted successfully"))
+      }
+    } catch {
+      case e: Exception =>
+        logger.error(s"Job $jobId abort error", e)
+        Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
+    }
   }
 
 
@@ -464,7 +473,7 @@ class URAlgorithm private (
       getItemSetMatchers(query) ++
       getBoostedRulesMatchers(aggregatedRules)))
 
-    val mustMatchers = Map("terms" -> (getIncludeRulesMatchers(aggregatedRules)))
+    val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
 
     val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
       getBlacklistedItemsMatchers(query, userEvents)))
@@ -478,8 +487,6 @@ class URAlgorithm private (
       size = numResults,
       from = startPos
     )
-
-    import org.json4s.jackson.Serialization.write
 
     //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
     sq

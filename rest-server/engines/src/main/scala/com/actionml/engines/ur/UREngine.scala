@@ -123,8 +123,8 @@ class UREngine extends Engine with JsonSupport {
     algo.destroy()
   }
 
-  override def cancelJob(jobId: String): Validated[ValidateError, Response] = {
-    algo.cancelJob(jobId)
+  override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
+    algo.cancelJob(engineId, jobId)
   }
 
 }

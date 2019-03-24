@@ -138,14 +138,14 @@ abstract class Engine extends LazyLogging with JsonSupport {
   }
 
   /** train is only used in Lambda offline learners */
-  def train(): Validated[ValidateError, Response] = notImplemented
+  def train(): Validated[ValidateError, Response] = notImplemented(s"Train is not a valid operation for engineId: $engineId")
 
-  def cancelJob(jobId: String): Validated[ValidateError, Response] = notImplemented
+  def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = notImplemented(s"Cancel is not a valid operation for engineId: $engineId")
 
 
-  private val notImplemented = {
-    logger.warn(s"Train is not a valid operation for engineId: ${engineId}")
-    Invalid(NotImplemented(jsonComment(s"Train is not a valid operation for engineId: ${engineId}")))
+  private def notImplemented(message: String) = {
+    logger.warn(message)
+    Invalid(NotImplemented(jsonComment(message)))
   }
 }
 

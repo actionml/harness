@@ -20,7 +20,7 @@ package com.actionml.core.spark
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-import com.actionml.core.jobs.{JobDescription, JobManager, JobManagerInterface}
+import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobEnd, SparkListenerJobStart}
@@ -123,9 +123,15 @@ object SparkContextSupport extends LazyLogging {
       if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
       val sc = new SparkContext(conf)
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
-      JobManager.startJob(params.jobDescription.jobId)
       sc
     }
+    class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
+      override def cancel(): Future[Unit] = {
+        logger.debug(s"Cancel job $jobId")
+        f.map(_.cancelJobGroup(jobId))
+      }
+    }
+    JobManager.startNewJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
     f.onComplete {
       case Success(sc) =>
         sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)

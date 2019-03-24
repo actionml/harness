@@ -87,7 +87,17 @@ object JobManager extends JobManagerInterface {
     }
   }
 
-  override def cancelJob(jobId: String): Future[Unit] = ???
+  override def cancelJob(jobId: String): Future[Unit] = {
+    jobDescriptions.foreach {
+      case (_, jds) if jds.contains(jobId) =>
+        jds.get(jobId).foreach {
+          case (cancellable, _) =>
+            removeJob(jobId)
+            cancellable.cancel()
+        }
+    }
+    Future.successful(())
+  }
 
 }
 

@@ -161,7 +161,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     engines.get(engineId).map { engine =>
-      engine.cancelJob(jobId)
+      engine.cancelJob(engineId, jobId)
     }.getOrElse {
       logger.error(s"Non-existent engine-id: $engineId")
       Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
