@@ -79,7 +79,7 @@ lazy val core = (project in file("core")).
       //"org.apache.hbase" % "hbase-common" % "2.1.0",
       //"org.apache.hbase" % "hbase-client" % "2.1.0",
 
-      "org.mongodb.spark" %% "mongo-spark-connector" % sparkVersion,
+      "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnecterVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
