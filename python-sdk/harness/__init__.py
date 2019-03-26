@@ -371,11 +371,7 @@ class EnginesClient(BaseClient):
         return ret
 
     def async_cancel_job(self, engine_id, job_id):
-        print("engine_id %s, job_id %s" % (engine_id, job_id))
-        path = self._add_segment(engine_id) + "/jobs/" + job_id
-        print(path)
-        request = AsyncRequest("DELETE", path)
-        print("Made request: {}".format(request))
+        request = AsyncRequest("DELETE", self._add_segment(engine_id) + "/jobs/" + job_id)
         request.set_response_handler(self._ok_response_handler)
         self._connection.make_request(request)
         return request

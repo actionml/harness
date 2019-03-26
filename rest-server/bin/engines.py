@@ -94,7 +94,6 @@ elif args.action == 'status':
 elif args.action == 'cancel':
     engine_id = args.engineid
     job_id = args.jobid
-    print("engine_id %s, job_id %s" % (engine_id, job_id))
     try:
         res = engine_client.cancel_job(engine_id=engine_id, job_id=job_id)
         print_success_string('Cancelled job {}, engine-id: {} \n'.format(job_id, engine_id))
