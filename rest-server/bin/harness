@@ -18,5 +18,6 @@ case ${command} in
   grant) ${HARNESS_HOME}/bin/harness-grant "$@" ;;
   revoke) ${HARNESS_HOME}/bin/harness-revoke "$@" ;;
   train) ${HARNESS_HOME}/bin/harness-engine-train "$@" ;;
+  cancel) ${HARNESS_HOME}/bin/harness-engine-cancel-job "$@" ;;
   *) ${HARNESS_HOME}/bin/harness-help ;;
 esac

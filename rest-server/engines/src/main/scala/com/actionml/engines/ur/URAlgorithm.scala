@@ -461,7 +461,7 @@ class URAlgorithm private (
   private def buildModelQuery(query: URQuery): SearchQuery = {
     val aggregatedRules = aggregateRules(rules, query.rules)
 
-    logger.info(s"Got query: \n${query}")
+    logger.info(s"Got query: \n$query")
 
     val startPos = query.from.getOrElse(0)
     val numResults = query.num.getOrElse(limit)
