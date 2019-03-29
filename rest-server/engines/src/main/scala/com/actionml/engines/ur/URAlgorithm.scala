@@ -263,7 +263,7 @@ class URAlgorithm private (
     f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
-        val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs)
+        val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
 
         val trainingData = URPreparator.mkTraining(indicatorParams, eventsRdd, itemsRdd)
