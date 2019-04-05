@@ -10,7 +10,9 @@ The Universal Recommender input is formed of what are called "indicators" becaus
     
  2. **Item property changes** are always tied to items and are used to set, change, or unset properties of items. User properties are not supported with property change events only through  preference indicators/usage events.
  
-The UR have many indicators as input. These should be seen as a primary indicator, which is a very clear indication of a user preference and secondary indicators that we think may tell us something about user "taste" in some way. The Universal Recommender is built on a distributed Correlated Cross-Occurrence (CCO) Engine, which basically means that it will test every secondary indicator to make sure that it actually correlates to the primary one and those that do not correlate will have little or no effect on recommendations. See ActionML's [Analysis Tools](/docs/ur_advanced_tuning/#mapk) for methods to test event predictiveness.
+The UR may have many indicators as input. These should be seen as a primary indicator, which is a very clear indication of a user preference and several secondary indicators, which we think will tell us something about user "taste" in some way. The Universal Recommender is built on a distributed Correlated Cross-Occurrence (CCO) Engine, which basically means that it will test every secondary indicator to make sure that it actually correlates to the primary one and those that do not correlate will have little or no effect on recommendations.
+
+An example of this in practice was presented on the IBM DevWorks site in [Multi-domain predictive AI or how to make one thing predict another](https://developer.ibm.com/dwblog/2017/mahout-spark-correlated-cross-occurences/)
 
 ## Preference Indicators aka Usage Events
 
@@ -68,9 +70,9 @@ To attach properties to items use a `"$set"` event like this:
 {
    "event" : "$set",
    "entityType" : "item",
-   "entityId" : "ipad",
+   "entityId" : "iPad",
    "properties" : {
-      "category": ["electronics", "mobile-phones"],
+      "category": ["electronics", "mobile"],
       "expireDate": "2016-10-05T21:02:49.228Z"
    },
    "eventTime" : "2015-10-05T21:02:49.228Z"
@@ -87,14 +89,13 @@ To attach properties to items use a `"$set"` event like this:
       "genres":["suspense","sci-fi", "drama"],
       "actor":["Rami Malek", "Christian Slater"],
       "keywords":["hacker"],
-      "first_air_at":["2015"]
+      "first_aired":["2015"]
    }
    "eventTime" : "2016-10-05T21:02:49.228Z"
 }
 ```
 
-
-Unless a property has a special meaning specified in engine instances JSON conifg, like date values, the property is assumed to be an array of strings, which act as categorical tags. 
+Unless a property has a special meaning specified in engine instances JSON conifg, like date values, the property is assumed to be an array of strings, which act like categorical tags. 
 
 ## Brief Intro to "Rules"
 

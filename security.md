@@ -1,6 +1,6 @@
 # Security
 
-Harness optionally uses TLS (formerly called SSL) and OAuth2 "bearer token" Server to Server Authentication to secure both ends of the API. Through TLS the client can trust the server and through OAuth2 the Harness server can authenticate and check for authorization of the client.
+Harness optionally uses TLS (formerly called SSL) and OAuth2 "bearer token" Server to Server Authentication and Authorization to secure both ends of the REST API. Through TLS the client can trust the server and through OAuth2 the Harness server can authenticate and check for authorization of the client.
 
 ## TLS Support
 
@@ -43,42 +43,106 @@ To create Users the CLI is used and so this is run on the Harness Server. A `cli
 
 Client users can access only the engine-id they have access to. In this way a multi-tenant setup of Harness will protect one Engine from access by other users. All users (except the admins) are blocked from all Engines unless expressly granted permission when the user-id is created or a later grant of permission is made.
 
-# Auth Setup for Server-side
+# Setup Security
 
-Creating an `admin` user right after installation can be done with the following steps:
+The default Harness install runs out of the box but is without any security, which may be fine for your deployment. Many will choose to put Harness behind a firewall so that no connections can be made except for the app-server using Harness. In this case no-Auth and HTTP may be fine.
 
-1. Make sure the python-sdk, the auth-server’s, and the Harness server’s auth is disabled (it is disabled by default after installation)
+If you need to connect over the internet to Harness you will need the Authentication/Authorization Server (Auth-server for short) and TLS/SSL:
 
-1. Build both Harness and the Auth Server distributions and make sure that the path to both build's `bin/` directories are in the path.
-1. **`harness-auth start`** This starts the Auth Server, but does not enable auth. By default the Auth Server runs without auth required. The Auth Server manages users and so can be useful without auth enabled. See instructions below for enabling auth.
-2. **`harness start`** This will run harness without auth enabled.
-1. **`harness user-add admin`** # this returns user-id and a secret for an `admin` user who can run the CLI when auth is enabled. **Make note of the user-id and secret** they are not stored anywhere by this command and are needed in setup below.
-1. **`harness stop`** and **`harness-auth stop`** stop the servers running without auth.
-1. Enable auth for the python-sdk, Harness, and the Auth Server by editing `harness-env` in the distribution build and `harness-auth-env/bin/auth-server-env` in the location of your Auth Server build. The auth enabling variable is documented in both files.
- - **Auth Server Auth Enable**: In `harness-auth-env` set the env variable: 
-  `export HARNESS_AUTH_SERVER_PROTECTED=true`
-  
- - **Harness Auth Enable**: in `harness-env` set:
-  `export HARNESS_AUTH_ENABLED=true`
-  `export ADMIN_USER_ID=<user-id-returned-when-creating-the-admin-user>`
-  `export ADMIN_USER_SECRET_LOCATION=/path/to/admin.secret`
-  
-      The file referenced by `ADMIN_USER_SECRET_LOCATION` should contain the secret returned when the admin user was created. Best practice is to add this file to the CLI user's `.ssh/` directory and give it the same permission as the ssh private key.
-      
- - **CLI Auth Usage**: the CLI uses the Python SDK to access Harness and reads the ENV variables setup above to find credentials to run. No other setup is required.
+ - **TLS/SSL** encrypts all traffic and allows the client to trust the Harness connection 
+ - **Authentication** allows Harness to recognize the User by the Secret token presented. 
+ - **Authorization** protects all resources from access by a User without permission to access.
 
-2. TLS (formerly known as SSL) should be configured for the Harness Server. Instructions TBD.
-1. **`harness start`** and **`harness-auth start`** The Harness Server will now require the `admin` user's id and credentials setup in `harness-env`.
+Together these provide all that is needed for secure communication even in insecure networks like the internet.
 
-## Auth and the SDKs
+## TLS/SSL
 
-The SDKs construct `client` objects like `EventsClient` etc. In their constructors each of these objects takes optional credentials. See examples provided with the libraries for specifics.
+Harness needs a certificate, like any HTTP/HTTPS server. The Harness SDKs and CLI need to have a trust chain or a self-signed certificate to de-crypt and therefore trust that they are connecting to the instance of Harness they expect.
 
-If the credentials (user-id and secret) are not provided the SDK will communicate without Auth, if they are provided they will send the user-id and secret when needed according to the OAuth2 protocol implemented in the diagram above.
+ - **Harness** these are in `harness-env` but may be overridden in the host env or docker-comose.yml:
 
-Unlike User Auth from a browser, there is no session to keep the user "logged-in". Every request sent by the client will contain the credentials. In order to increase performance an internal cache of the access token is created so no round trip from Harness to the Auth Server is required for most access. Refreshing the access token is done automatically whenever required since the credentials are always provided with every request.
+    ```
+    export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
+export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+    export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-changeit}
+    export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/conf/harness.jks}
+    ```
+    
+    To apply changes:
+    
+    ```
+    harness stop
+    harness start
+    ```
+        
+    Harness is now using HTTPS. The certificate should be tied to the `REST_SERVER_HOST` address or the external address that routed to Harness so it will change from `localhost`. For instance if Harness is using `REST_SERVER_HOST=0.0.0.0` the external address will be a DNS name or fixed IP address.
+    
+    For instructions to create a `.jks`, which is a special format for the JVM certificates, see instructions [here](https://www.wissel.net/blog/2018/03/letsencrypt-java-keystore.html) The provided default `harness.jks` will work for `localhost`
 
-## TLS/SSL for the Client-side
+ - **Harness-cli** these are in `harness-cli-env` but may be overridden in the host env or `docker-comose.yml` (if you are using one):
 
-Setting the Harness Server and SDK to use SSL requires changing an Akka .conf file and rebuilding, since by default no SSL is used. Further instructions can be found in [Installation](install.md) instructions.
+    ```
+    export HARNESS_SERVER_ADDRESS=${HARNESS_SERVER_ADDRESS:-localhost}
+    export HARNESS_CLI_SSL_ENABLED${HARNESS_CLI_SSL_ENABLED:-false}
+    export HARNESS_CLI_CERT_PATH=${HARNESS_CLI_CERT_PATH:-$HARNESS_CLI_HOME/harness.pem}
+    ```
 
+In order to communicate with Harness using TLS, the CLI uses the Python SDK and this will need the above config.
+
+## Authentication/Authorization (Auth)
+
+Auth starts by creating users see [Commands](commands.md) for User and Role Management. At minimum you must have an `admin` user to use the CLI. This user can also be used to send test events but typically you will create `client` users for sending input and queries.
+
+### Create a User
+
+In order to do anything with Users, or Permissions you must start the harness authentication micro-service (this should be running already of using docker-compose).
+
+```
+harness-auth start # already running in docker-compose
+```
+
+With all services runnng and the cli functioning properly (try `harness-cli status`) creates a User with an `admin` Role.
+    
+```
+harness-cli user-add admin
+```
+
+This will report back a user-id and secret, make note of them. To use the default setup in `bin/harness-env` copy the secret to a file, here named with the user-id:
+
+```
+echo <user-secret> > path/to/secret/file
+```
+
+When the `admin` user is created a hash of the secret is stored in the Auth-Server DB so the secret is never stored on the server and no reference needs to be made to it. 
+
+    
+At this point the Admin User is created and exists in the Auth-server's DB. But Auth is not enabled for Harness or the Harness-cli. 
+
+### Configure
+
+ - **Harness**: turn on auth, by setting the following in `harness-env` or the in the host env (or wherever docker-compose requires)
+ 
+    ```
+    export HARNESS_AUTH_ENABLED=true
+    ```
+    
+    You may now restart Harness and it will enforce Auth.
+    
+ - **Harness-cli** To use any REST endpoint you will need either and Admin or Client User with access. For the CLI this means the Admin User created above must be setup
+
+    In the env or by changing `hanress-cli-env` set these env variables
+    
+    ```
+    export HARNESS_CLI_AUTH_ENABLED=true
+    export ADMIN_USER_ID=<id-returned-from-user-add>
+    export ADMIN_USER_SECRET_LOCATION=/path/to/secret/file
+
+    ```
+
+The CLI does not have a running process so as soon as you make these changes, the CLI will immediately start using the Admin User ID and Secret.
+
+```
+harness-cli status engines
+```
+    
+This should return a list of any engines in the system.    

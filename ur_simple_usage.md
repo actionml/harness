@@ -18,8 +18,7 @@ The algorithm, called Correlated Cross-Occurrence (CCO), allows many indicators 
 
 ## Business Rules
 
-The CCO algorithm is implemented in a way that opens up a robust and flexible set of Business Rules to augment recommendations. These rules allow applications to include, exclude, or boost recommendations by user defined properties. The rules support "anding" and "oring" of rulesets. Boosting can be seen as "favoring" or "disfavoring" certain recommendations based on their properties. These are useful to express things like: "give me recommendations personalized for User-1 but only ones that are in-stock and boost/favor recommendations that are from the electronics category". Combining rules and tuning them to the context of recommendations is required in most application settings.
-
+The CCO algorithm is implemented in a way that opens up a robust and flexible set of Business Rules to augment recommendations. These rules allow applications to include, exclude, or boost recommendations by user defined properties. The rules support "ANDing" and "ORing" of Rules. Boosting can be seen as "favoring" or "disfavoring" certain recommendations based on their properties. These are useful to express things like: "give me recommendations personalized for User-1 but only ones that are in-stock and boost/favor recommendations that are from the electronics category". Combining rules and tuning them to the context of recommendations is required in most application settings.
 
 # Configuration
 
@@ -72,11 +71,15 @@ These setting can be changed to fit the dataset:
     - **indicators**: (required) named indicator events, the first is considered the "primary" others are considered "secondary"
         - **name**: this is expected to be the value supplied in the JSON input `"event": "<some-event-name>"` for the rest of the input event format see Input in this document.
 
+See [Advanced UR Config](ur_advanced_config.md) for more details including tuning params.
+
 # Input
 
 Input comes in events of 2 general types, indicators and property change events. Indicators are named in the config JSON, property changes are made with reserved event names like `$set` and `unset`.
 
 The easiest way to send input (and make queries) is to use one of the Harness client libs (Java, Scala, Python) but for illustration purposes we will demo using `curl` to send small JSON payloads to the server.
+
+See [UR Input](ur_input.md) for more details.
 
 ## Indicator Events
 

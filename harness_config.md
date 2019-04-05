@@ -77,9 +77,17 @@ export HARNESS_AUTH_ENABLED=${HARNESS_AUTH_ENABLED:-false}
 # export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
 ```
 
-## Advanced Settings
+## Security
 
-See [Advanced Settings](advanced_settings.md) for allowing external connections, using Auth, and TLS/SSL.
+See [Secrity](security.md) Auth and TLS/SSL.
+
+## Remote Connections
+
+By default Harness listens on `http://localhost:9090` To have harness listen for connections from outside change the appropriate settings, most importantly:
+
+```
+export REST_SERVER_HOST=0.0.0.0 # to listen for external connections
+```
 
 ## Harness Common Engine Instance Parameters
 
