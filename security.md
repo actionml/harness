@@ -63,7 +63,7 @@ Harness needs a certificate, like any HTTP/HTTPS server. The Harness SDKs and CL
 
     ```
     export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
-export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+    export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
     export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-changeit}
     export HARNESS_KEYSTORE_PATH=${HARNESS_KEYSTORE_PATH:-$HARNESS_HOME/conf/harness.jks}
     ```
