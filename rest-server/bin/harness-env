@@ -35,7 +35,8 @@ export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
 # =============================================================
 
 # export HARNESS_SSL_ENABLED=true # to enable TLS/SSL using the rest below for "localhost" keys passwords and certs
-export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+#export HARNESS_SSL_ENABLED=${HARNESS_SSL_ENABLED:-false}
+export HARNESS_SSL_ENABLED=true
 
 # Harness TLS/SSL server support. A file needs to be provided even if TLS is not used, one is supplied for "localhost"
 export HARNESS_KEYSTORE_PASSWORD=${HARNESS_KEYSTORE_PASSWORD:-changeit}

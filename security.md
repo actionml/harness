@@ -24,7 +24,7 @@ Here is the OAuth2 Access Token Protocol mapped onto Harness, the microservice A
 
 ![](https://docs.google.com/drawings/d/e/2PACX-1vSu_7RpWjYZhhxPfZIvzLfMoCL0traBHs_ATWsEQXeGpYZE6taMMqYFfO-ahcyOQ52Me5zLrTt_tJPM/pub?w=1741&h=2415) 
 
-# Users and Permissions
+# Users and Roles
 
 There are 2 role types. In typical use the `client` user-id and secret are used by the SDK on client machines and the admin user-id is used where the CLI is run. Clients have permission to send Events and Queries to specific Engines. Admins have access to all and this is needed to run the CLI.
 
@@ -70,11 +70,9 @@ Creating an `admin` user right after installation can be done with the following
 2. TLS (formerly known as SSL) should be configured for the Harness Server. Instructions TBD.
 1. **`harness start`** and **`harness-auth start`** The Harness Server will now require the `admin` user's id and credentials setup in `harness-env`.
 
-**&dagger;**The above process will be wrapped in a shell script that will run all the steps and report user-id and credentials while also configuring the ENV and doing all the start/stop of servers to make it functional. This is not yet available.
+## Auth and the SDKs
 
-## Auth Usage of the Java and Python SDK
-
-The SDK construct `Client` objects like `EventClient` etc. In their constructors each of these objects takes optional credentials. See examples provided with the libraries for specifics.
+The SDKs construct `client` objects like `EventsClient` etc. In their constructors each of these objects takes optional credentials. See examples provided with the libraries for specifics.
 
 If the credentials (user-id and secret) are not provided the SDK will communicate without Auth, if they are provided they will send the user-id and secret when needed according to the OAuth2 protocol implemented in the diagram above.
 

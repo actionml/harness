@@ -2,7 +2,21 @@
 
 Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and all Engines in source form and is released only as source from it's GitHub repository. This integrated build makes it easy to use with a debugger to create new Engines or modify in other ways.
 
-## v0.2.0-RC2 (work in progress, in develop branch)
+## 0.4.0-SNAPSHOT (current WIP, develop branch)
+
+- Add the Universal Recommender ported from PredictionIO
+- greater client support for Elasticsearch 
+- refactor the cli into its own repo with the Python SDK
+- Creating containers for all services and the CLI
+- Support for docker-compose and Kubernetes container orchestration.
+
+## 0.3.0
+
+ - Add URNavHintingEngine based on the CCO algorithm and the Universal Recommender
+ - refactoring into separate repos for the Java SDK and Harness Auth-server
+ - CLI for Lambda Engine, like `harness train`
+
+## v0.2.0
 
  - Refactoring causes the Engine factory names to be of the form `com.actionml.engines...` changing from `org.actionml.templates...`. **NOTE**: this requires that all engine jSON config files to update this factory name or adding the Engine will result in a `timeout` error.
  - Migration to new Mongo Scala Client complete. **NOTE**: a schema change will make the existing DB unusable so they will need to be recreated. Data import compatibility is maintained so if a mirror was kept simply import the saved events to re-create the DB and model.
