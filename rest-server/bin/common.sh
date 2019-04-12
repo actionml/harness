@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # harness common env initialization script (meant to be sourced)
 
 # Reset
