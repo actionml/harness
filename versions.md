@@ -1,14 +1,17 @@
 # Versions
 
-Harness, in it's early versions, includes SDKs, Auth-Server, REST-Server, and all Engines in source form and is released only as source from it's GitHub repository. This integrated build makes it easy to use with a debugger to create new Engines or modify in other ways.
+Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines including, most notably, The Universal Recommender. It is built to allow custom Engines employing flexible learning styles.
 
-## 0.4.0-SNAPSHOT (current WIP, develop branch)
+## 0.4.0 (current stable)
 
 - Add the Universal Recommender ported from PredictionIO
+- Minor Universal Recommender feature enhancements
+    - Business Rules now called `rules` in queries
+    - Event aliases supported to group event types and rearrange via config, requiring no data changes
 - greater client support for Elasticsearch 
 - refactor the cli into its own repo with the Python SDK
 - Creating containers for all services and the CLI
-- Support for docker-compose and Kubernetes container orchestration.
+- Support for docker-compose and Kubernetes container orchestration
 
 ## 0.3.0
 
