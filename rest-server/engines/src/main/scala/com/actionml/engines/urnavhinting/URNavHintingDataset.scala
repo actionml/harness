@@ -112,14 +112,28 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
               indicatorsDao.insertMany(taggedConvertedJourneys)
               activeJourneysDao.removeMany("entityId" === event.entityId)
             }
+            Valid(event)
           } else {
             // save in journeys until a conversion happens
-            activeJourneysDao.saveOne(event)
+            try {
+              activeJourneysDao.saveOne(event)
+              Valid(event)
+            } catch {
+              case e: Throwable =>
+                logger.error(s"Can't save input $jsonEvent", e)
+                Invalid(ValidRequestExecutionError(e.getMessage))
+            }
           }
         } else { // must be secondary indicator so no conversion, but accumulate in journeys
-          activeJourneysDao.saveOne(event)
+          try {
+            activeJourneysDao.saveOne(event)
+            Valid(event)
+          } catch {
+            case e: Throwable =>
+              logger.error(s"Can't save input $jsonEvent", e)
+              Invalid(ValidRequestExecutionError(e.getMessage))
+          }
         }
-        Valid(event)
       } else { // not an indicator so check for reserved events the dataset cares about
         event.event match {
           case "$delete" =>

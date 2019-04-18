@@ -86,8 +86,14 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       } // should be either aliases for an event name, defaulting to the event name itself
 
       if(aliases.contains(event.event)) { // only store the indicator events here
-        eventsDao.saveOne(event)
-        Valid(event)
+        try {
+          eventsDao.saveOne(event)
+          Valid(event)
+        } catch {
+          case e: Throwable =>
+            logger.error(s"Can't save input $jsonEvent", e)
+            Invalid(ValidRequestExecutionError(e.getMessage))
+        }
       } else { // not an indicator so check for reserved events the dataset cares about
         event.event match {
           case "$delete" =>

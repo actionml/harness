@@ -91,5 +91,14 @@ elif args.action == 'status':
     except HttpError as err:
         print_failure(err, 'Error getting status.\n')
 
+elif args.action == 'cancel':
+    engine_id = args.engineid
+    job_id = args.jobid
+    try:
+        res = engine_client.cancel_job(engine_id=engine_id, job_id=job_id)
+        print_success_string('Cancelled job {}, engine-id: {} \n'.format(job_id, engine_id))
+    except HttpError as err:
+        print_failure(err, 'Error canceling job {}, engine-id: {}\n'.format(job_id, engine_id))
+
 else:
     print_warning("Unknown action: %{}".format(args.action))

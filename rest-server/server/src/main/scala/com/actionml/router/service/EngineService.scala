@@ -72,6 +72,10 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
     case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
       sender() ! admin.removeEngine(engineId)
+
+    case CancelJob(engineId, jobId) =>
+      log.info(s"Cancel job $jobId for engine $engineId")
+      sender() ! admin.cancelJob(engineId = engineId, jobId = jobId)
   }
 }
 
@@ -82,6 +86,7 @@ case class CreateEngine(engineJson: String) extends EngineAction
 case class UpdateEngine(engineJson: String) extends EngineAction
 case class UpdateEngineWithTrain(engineId: String) extends EngineAction
 case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
+case class CancelJob(engineId: String, jobId: String) extends EngineAction
 
 // keeping update simple, only allow sending new json config
 //case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction

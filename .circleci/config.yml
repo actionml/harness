@@ -4,8 +4,29 @@ jobs:
     docker:
     - image: actionml/harness-sdk:0.1
       entrypoint: /entrypoint.sh
+    environment:
+    - SDK_VERBOSE: true
+    - JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
     steps:
     - checkout
+    - restore_cache:
+        keys:
+        - rest-api-{{ checksum "rest-server/build.sbt" }}
+    - run:
+        name: Build environment details
+        command: /details.sh
+    - run:
+        name: Build rest-server dist
+        command: make dist
+    - save_cache:
+        key: rest-api-{{ checksum "rest-server/build.sbt" }}
+        paths:
+        - /root/.sbt
+        - /root/.ivy2
+    - persist_to_workspace:
+        root: /root/project/dist
+        paths:
+        - ./
   publish:
     docker:
     - image: docker:stable
