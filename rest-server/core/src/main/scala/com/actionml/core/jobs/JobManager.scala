@@ -19,6 +19,7 @@ package com.actionml.core.jobs
 
 import java.util.UUID
 
+import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.typesafe.scalalogging.LazyLogging
 
@@ -49,7 +50,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   /** Index by the engineId for Engine status reporting purposes */
   override def addJob(engineId: String, cmnt: String = ""): JobDescription = {
     val jobId = createUUID
-    val newJobDescription = JobDescription(jobId, status = JobStatus.queued, comment = cmnt)
+    val newJobDescription = JobDescription(jobId, status = JobStatuses.queued, comment = cmnt)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) + (jobId -> newJobDescription)
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     newJobDescription
@@ -58,15 +59,15 @@ object JobManager extends JobManagerInterface with LazyLogging {
   override def startJob(jobId: String): Unit = {
     jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
       jds.get(jobId).fold(engineId -> jds) { d =>
-        engineId -> (jds + (jobId -> d.copy(status = JobStatus.executing)))
+        engineId -> (jds + (jobId -> d.copy(status = JobStatuses.executing)))
       }
     }
   }
 
   override def startNewJob(engineId: String, f: Future[_], comment: String): JobDescription = {
-    val description = JobDescription(createUUID, JobStatus.executing, comment)
+    val description = JobDescription(createUUID, JobStatuses.executing, comment)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (description.jobId -> description.copy(status = JobStatus.executing))
+      (description.jobId -> description.copy(status = JobStatuses.executing))
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     f.onComplete {
       case Success(_) =>
@@ -94,13 +95,13 @@ object JobManager extends JobManagerInterface with LazyLogging {
 
 }
 
-case class JobDescription(
-  jobId: String,
-  status: String = JobStatus.queued,
-  comment: String = "") extends Response
+case class JobDescription(jobId: String,
+                          status: JobStatus = JobStatuses.queued,
+                          comment: String = "") extends Response
 
-object JobStatus {
-  val queued = "queued"
-  val executing = "executing"
+object JobStatuses extends Enumeration {
+  type JobStatus = Value
+  val queued = Value("queued")
+  val executing = Value("executing")
 }
 

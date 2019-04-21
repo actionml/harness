@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.actionml.core.jobs.{JobDescription, JobManager, JobManagerInterface}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerJobEnd, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -144,8 +144,8 @@ object SparkContextSupport extends LazyLogging {
   }
 
   private def configParams: Map[String, String] = {
-    import net.ceedubs.ficus.Ficus._
     import com.typesafe.config.ConfigFactory
+    import net.ceedubs.ficus.Ficus._
     Try {
       val config: Config = ConfigFactory.load()
       Map("spark.eventLog.dir" -> config.as[String]("spark.eventLog.dir"))

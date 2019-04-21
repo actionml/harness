@@ -29,7 +29,7 @@ import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError}
@@ -63,6 +63,7 @@ class URAlgorithm private (
   with LambdaAlgorithm[UREvent]
   with SparkMongoSupport
   with JsonSupport {
+  this: SparkJobServerSupport =>
 
   import URAlgorithm._
 
@@ -259,8 +260,7 @@ class URAlgorithm private (
 
   override def train(): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, "Spark job")
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
-    f.map { implicit sc =>
+    submit(initParams, engineId, jobDescription, { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
@@ -311,7 +311,7 @@ class URAlgorithm private (
       } finally {
         SparkContextSupport.stopAndClean(sc)
       }
-    }
+    })
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
@@ -681,7 +681,7 @@ object URAlgorithm extends JsonSupport {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URAlgorithm(engine, initParams, params, dataset.getIndicatorsDao, dataset.getItemsDao)
+    new URAlgorithm(engine, initParams, params, dataset.getIndicatorsDao, dataset.getItemsDao) with LivyJobServerSupport
   }
 
   /** Available value for algorithm param "RecsModel" */

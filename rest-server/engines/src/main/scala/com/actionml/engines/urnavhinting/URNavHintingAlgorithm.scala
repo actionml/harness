@@ -27,7 +27,7 @@ import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
@@ -63,6 +63,7 @@ class URNavHintingAlgorithm private (
   with LambdaAlgorithm[URNavHintingEvent]
   with SparkMongoSupport
   with JsonSupport {
+  this: SparkJobServerSupport =>
 
   import URNavHintingAlgorithm._
 
@@ -257,9 +258,7 @@ class URNavHintingAlgorithm private (
 
   override def train(): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, "Spark job")
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[URNavHintingEvent]))
-    f.map { implicit sc =>
-      try {
+    submit(initParams, engineId, jobDescription, { implicit sc =>
         val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
         // todo: this should work but not tested and not used in any case
@@ -306,15 +305,7 @@ class URNavHintingAlgorithm private (
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
 
         //sc.stop() // no more use of sc will be tolerated ;-)
-      } catch {
-        case e: Throwable =>
-          logger.error(s"Spark computation failed for job $jobDescription", e)
-          sc.cancelJobGroup(jobDescription.jobId)
-          throw e
-      } finally {
-        SparkContextSupport.stopAndClean(sc)
-      }
-    }
+    })
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
@@ -490,7 +481,7 @@ object URNavHintingAlgorithm extends JsonSupport {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URNavHintingAlgorithm(engine, initParams, dataset, params, eventsDao)
+    new URNavHintingAlgorithm(engine, initParams, dataset, params, eventsDao) with LivyJobServerSupport
   }
 
   /** Available value for algorithm param "RecsModel" */
