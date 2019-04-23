@@ -39,4 +39,5 @@ abstract class Administrator extends LazyLogging {
   def status(resourceId: String): Validated[ValidateError, Response]
   def statuses(): Validated[ValidateError, List[Response]]
   def init(): Administrator = this
+  def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response]
 }

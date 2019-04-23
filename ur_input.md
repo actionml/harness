@@ -42,7 +42,7 @@ Rules for Indicators are:
  - **targetEntityType**: This is **always** "item", do not use any other type for indicators.
  - **targetEntityId**: The id for items that correspond to the indicator name. May be a product-id, category-id, a tag-id, search term, location,  anything that the event represents.
  - **properties**: always empty and can be omitted.
- - **eventTime**: the ISO8601 formatted string for the time the event occurred
+ - **eventTime**: the ISO8601 formatted string for the time the event occurred. Any datetime should be absolute, with a time zone or in UTC format as explained [here](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_DATE_TIME). Basically use a time zone or offset from GMT. The popular "Zulu" encoding for UTC is often used. Any truncated datetime is not supported since the Harness and the UR can accept events from all over the globe and so the datetimes must be applicable to anywhere.
 
 This is what a "purchase" event looks like. Note that a usage event **always** is from a user and has a user id. Also the "targetEntityType" is **always** "item". The actual target entity is implied by the event's `"event"` attribute. So to create a `"category-preference"` event you would send something like this:
 

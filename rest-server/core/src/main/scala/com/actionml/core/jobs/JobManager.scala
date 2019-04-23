@@ -29,11 +29,12 @@ import scala.util.{Failure, Success}
 
 
 trait JobManagerInterface {
-  def addJob(engineId: String, comment: String = ""): JobDescription
+  def addJob(engineId: String, cancellable: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
   def startJob(jobId: String): Unit
-  def startNewJob(engineId: String, f: Future[_], comment: String = ""): JobDescription
+  def startNewJob(engineId: String, f: Future[_], c: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
   def getActiveJobDescriptions(engineId: String): Map[String, JobDescription]
   def removeJob(harnessJobId: String): Unit
+  def cancelJob(jobId: String): Future[Unit]
 }
 
 /** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
@@ -45,13 +46,13 @@ trait JobManagerInterface {
 object JobManager extends JobManagerInterface with LazyLogging {
 
   // first key is engineId, second is the harness specific Job id
-  private var jobDescriptions: Map[String, Map[String, JobDescription]] = Map.empty
+  private var jobDescriptions: Map[String, Map[String, (Cancellable, JobDescription)]] = Map.empty
 
   /** Index by the engineId for Engine status reporting purposes */
-  override def addJob(engineId: String, cmnt: String = ""): JobDescription = {
+  override def addJob(engineId: String, cancellable: Cancellable, cmnt: String = ""): JobDescription = {
     val jobId = createUUID
     val newJobDescription = JobDescription(jobId, status = JobStatuses.queued, comment = cmnt)
-    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) + (jobId -> newJobDescription)
+    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) + (jobId -> (cancellable -> newJobDescription))
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     newJobDescription
   }
@@ -59,15 +60,15 @@ object JobManager extends JobManagerInterface with LazyLogging {
   override def startJob(jobId: String): Unit = {
     jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
       jds.get(jobId).fold(engineId -> jds) { d =>
-        engineId -> (jds + (jobId -> d.copy(status = JobStatuses.executing)))
+        engineId -> (jds + (jobId -> (d._1 -> d._2.copy(status = JobStatuses.executing))))
       }
     }
   }
 
-  override def startNewJob(engineId: String, f: Future[_], comment: String): JobDescription = {
+  override def startNewJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
     val description = JobDescription(createUUID, JobStatuses.executing, comment)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (description.jobId -> description.copy(status = JobStatuses.executing))
+      (description.jobId -> (c -> description.copy(status = JobStatuses.executing)))
     jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
     f.onComplete {
       case Success(_) =>
@@ -84,7 +85,9 @@ object JobManager extends JobManagerInterface with LazyLogging {
 
   /** Gets any active Jobs for the specified Engine */
   override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
-    jobDescriptions.getOrElse(engineId, Map.empty)
+    jobDescriptions.getOrElse(engineId, Map.empty).map {
+      case Tuple2(id, Tuple2(c, d)) => id -> d
+    }
   }
 
   override def removeJob(harnessJobId: String): Unit = {
@@ -93,6 +96,28 @@ object JobManager extends JobManagerInterface with LazyLogging {
     }
   }
 
+  override def cancelJob(jobId: String): Future[Unit] = {
+    jobDescriptions.foreach {
+      case (_, jds) if jds.contains(jobId) =>
+        jds.get(jobId).foreach {
+          case (cancellable, _) =>
+            removeJob(jobId)
+            cancellable.cancel()
+        }
+    }
+    Future.successful(())
+  }
+
+}
+
+
+trait Cancellable {
+  def cancel(): Future[Unit]
+}
+object Cancellable {
+  val noop: Cancellable = new Cancellable {
+    override def cancel() = Future.successful(())
+  }
 }
 
 case class JobDescription(jobId: String,

@@ -21,6 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
 import com.actionml.core.engine.Engine
+import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
@@ -155,6 +156,15 @@ class MongoAdministrator extends Administrator with JsonSupport {
     } else {
       logger.error(s"Non-existent engine-id: $resourceId")
       Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $resourceId")))
+    }
+  }
+
+  override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
+    engines.get(engineId).map { engine =>
+      engine.cancelJob(engineId, jobId)
+    }.getOrElse {
+      logger.error(s"Non-existent engine-id: $engineId")
+      Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
     }
   }
 

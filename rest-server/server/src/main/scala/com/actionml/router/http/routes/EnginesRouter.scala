@@ -80,10 +80,15 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
           getEngine(engineId)
         } ~
         hasAccess(engine.modify, engineId).apply {
-          delete(deleteEngine(engineId)) ~
-          (post & path("imports"))(updateEngineWithImport(engineId)) ~
-          (post & path("configs"))(updateEngineWithConfig(engineId)) ~
-          (post & path("jobs"))(updateEngineWithTrain(engineId))
+          (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
+          (path("imports") & post) (updateEngineWithImport(engineId)) ~
+          (path("configs") & post) (updateEngineWithConfig(engineId)) ~
+          pathPrefix("jobs") {
+            (pathEndOrSingleSlash & post)(updateEngineWithTrain(engineId)) ~
+            (path(Segment) & delete) { jobId =>
+              cancelJob(engineId, jobId)
+            }
+          }
         }
       }
     }
@@ -137,6 +142,13 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
     log.info("Delete engine: {}", engineId)
     completeByValidated(StatusCodes.OK) {
       (engineService ? DeleteEngine(engineId)).mapTo[Validated[ValidateError, Response]]
+    }
+  }
+
+  private def cancelJob(engineId: String, jobId: String)(implicit log: LoggingAdapter): Route = {
+    log.info(s"Cancel job $jobId")
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? CancelJob(engineId, jobId)).mapTo[Validated[ValidateError, Response]]
     }
   }
 }
