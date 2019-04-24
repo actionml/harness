@@ -65,16 +65,6 @@ class URAlgorithm private (
 
   import URAlgorithm._
 
-  /*
-  case class BoostableCorrelators(actionName: String, itemIDs: Seq[String], boost: Option[Float] = None) {
-    def toFilterCorrelators: FilterCorrelators = {
-      FilterCorrelators(actionName, itemIDs)
-    }
-  }
-  case class FilterCorrelators(actionName: String, itemIDs: Seq[String])
-  case class ExclusionFields(propertyName: String, values: Seq[String])
-  */
-
   // internal settings, these are setup from init and may be changed by a `harness update <engine-id>` command
   private var recsModel: String = _
   private var userBias: Float = _
