@@ -257,7 +257,7 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, "Spark job")
+    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
     submit(initParams, engineId, jobDescription, { implicit sc =>
         val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 

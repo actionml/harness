@@ -258,7 +258,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, "Spark job")
+    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
     submit(initParams, engineId, jobDescription, { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
