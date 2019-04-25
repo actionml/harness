@@ -23,6 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -33,6 +34,7 @@ import org.json4s.{JArray, JObject}
 
 import scala.concurrent.duration.Duration
 import scala.language.reflectiveCalls
+import scala.util.Try
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
   * Extend with the store of choice, like Mongo or other Store trait.
@@ -68,9 +70,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       transform = _ \ "algorithm"
     ).andThen { p =>
       params = p
-
       indicatorNames = params.indicators.map(_.name)
-
       Valid(p)
     }.andThen { p =>
       parseAndValidate[URDatasetParams](
@@ -79,12 +79,14 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           s"$jsonConfig",
         transform = _ \ "dataset"
       ).andThen { p =>
-        // this sets the TTL to max int if it is not set in the config, IS THIS CORRECT ???
-        val ttlSeconds = Duration(p.ttl.getOrElse(s"${Integer.MAX_VALUE} seconds")).toSeconds.toInt
-        // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-        // p.ttl.map(eventsDao.setTTL(p.ttl)) //set the collection ttl
-        logger.info(s"Got a dataset.ttl in seconds = ${ttlSeconds}")
-        Valid(p)
+        p.ttl.fold(Valid(p)) { ttlString =>
+          Try(Duration(ttlString)).toOption.map { ttl =>
+            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
+            eventsDao.createIndexes(Seq(("_id", Indexed(ttl = ttl))))
+            logger.debug(s"Got a dataset.ttl = $ttl")
+            Valid(p)
+          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
+        }
       }.andThen(_ => Valid(Comment("URDataset initialized")))
     }
   }
