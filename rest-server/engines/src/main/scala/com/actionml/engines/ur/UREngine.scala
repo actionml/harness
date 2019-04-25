@@ -141,7 +141,9 @@ object UREngine extends JsonSupport {
       mirrorType: Option[String] = None,
       mirrorContainer: Option[String] = None,
       sharedDBName: Option[String] = None,
-      sparkConf: Map[String, JValue])
+      sparkConf: Map[String, JValue],
+      algorithm: URAlgorithmParams,
+      dataset: Option[URDataset])
     extends EngineParams {
 
     import org.json4s.jackson.Serialization.write
@@ -222,26 +224,6 @@ object UREngine extends JsonSupport {
       import org.json4s.jackson.Serialization.write
 
       write(this)
-
-      /*
-      val jsonStart =
-        s"""
-           |{
-           |  "result": [
-        """.stripMargin
-      val jsonMiddle = result.map{ score =>
-        s"""
-           |   {${score.item}, ${score.score}},
-       """.stripMargin
-      }.mkString
-      val jsonEnd =
-        s"""
-           |  ]
-           |}
-        """.stripMargin
-      val retVal = jsonStart + jsonMiddle + jsonEnd
-      retVal
-      */
     }
   }
 
