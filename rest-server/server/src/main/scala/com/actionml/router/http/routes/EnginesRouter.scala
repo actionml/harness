@@ -80,11 +80,9 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
           getEngine(engineId)
         } ~
         hasAccess(engine.modify, engineId).apply {
-          pathEndOrSingleSlash {
-            delete(deleteEngine(engineId)) ~
-            (post & path("imports")) (updateEngineWithImport(engineId)) ~
-            (post & path("configs")) (updateEngineWithConfig(engineId))
-          } ~
+          (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
+          (path("imports") & post) (updateEngineWithImport(engineId)) ~
+          (path("configs") & post) (updateEngineWithConfig(engineId)) ~
           pathPrefix("jobs") {
             (pathEndOrSingleSlash & post)(updateEngineWithTrain(engineId)) ~
             (path(Segment) & delete) { jobId =>
