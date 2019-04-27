@@ -82,7 +82,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         p.ttl.fold[Validated[ValidateError, _]](Valid(p)) { ttlString =>
           Try(Duration(ttlString)).toOption.map { ttl =>
             // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(Seq(("_id", Indexed(ttl = ttl))))
+            eventsDao.createIndexes(Seq(("ttl_index", Indexed(ttl = ttl))))
             logger.debug(s"Got a dataset.ttl = $ttl")
             Valid(p)
           }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
@@ -108,7 +108,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
       if (aliases.contains(event.event)) { // only store the indicator events here
         try {
-          eventsDao.saveOne(event)
+          eventsDao.insert(event)
           Valid(event)
         } catch {
           case e: Throwable =>

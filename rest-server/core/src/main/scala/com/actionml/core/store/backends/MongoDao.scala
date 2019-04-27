@@ -118,17 +118,15 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
       .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
-  // todo: Andrey, isn't this just an alias for insertAsync ???
-  override def saveOneAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    val id = new ObjectId()
-    val filter = mkFilter(Seq("_id" === id))
+  override def saveOneAsync(query: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    val filter = mkFilter(Seq(query))
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.info(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
+    } yield ()).map(_ => logger.info(s"Object $o (filter: $filter) saved successfully into $name"))
+      .recover { case e => logger.error(s"Can't saveOne object $o (filter $filter) into $name", e)}
   }
 
   override def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T] = {
@@ -160,24 +158,37 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   // compare actual and required indexes and create missing ones
   override def createIndexes(indexesDescription: Seq[(String, Indexed)]): Future[Unit] = {
     // get information about indexes from mongo db
-    def getActualIndexesInfo(col: MongoCollection[T]): Future[Seq[(String, Indexed)]] = {
-      col.listIndexes().map { i =>
-        val keyInfo = i.get("key").get.asDocument()
-        val iName = keyInfo.getFirstKey
-        (iName, Indexed())
-      }.toFuture
+    def toPair(i: Document) = {
+      val keyInfo = i.get("key").get.asDocument()
+      val iName = keyInfo.getFirstKey
+      (iName, Indexed())
     }
-    getActualIndexesInfo(collection)
-      .map(actualIndexesInfo => indexesDescription diff actualIndexesInfo.toList)
-      .flatMap { absentIndexes =>
+    collection.listIndexes.toFuture
+      .map(actualIndexesInfo => (indexesDescription, indexesDescription diff actualIndexesInfo.toList.map(toPair)))
+      .flatMap { case (currentIndexes, absentIndexes) =>
         val newIndexes = absentIndexes.map { case (iName, Indexed(iOrder, ttl)) =>
-          val options = new IndexOptions()
+          val options = new IndexOptions().name(iName)
           if (ttl.isFinite()) options.expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
           IndexModel(Document(iName -> 1), options)
         }
         if (newIndexes.nonEmpty) {
-          logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
-          collection.createIndexes(newIndexes).toFuture
+          for {
+            actualIndexes <- collection.listIndexes.toFuture
+            _ <- Future.traverse(newIndexes.filter(i => actualIndexes.exists { d =>
+              d.get("name").forall(_.asString.getValue == i.getOptions.getName)
+            })) { i =>
+              collection.dropIndex(i.getOptions.getName).toFuture
+                .fallbackTo {
+                  collection.dropIndex(i.getKeys).toFuture
+                }
+                .recover {
+                  case e: Exception =>
+                    logger.warn(s"Can't drop index ${i}", e)
+                }
+            }
+            _ = logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
+            _ <- collection.createIndexes(newIndexes).toFuture
+          } yield ()
         } else Future.successful(())
       }.recover {
       case e: Exception =>

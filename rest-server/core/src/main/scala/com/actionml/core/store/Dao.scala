@@ -39,7 +39,7 @@ trait AsyncDao[T] {
   def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit]
   def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T]
   def saveOneByIdAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
-  def saveOneAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
+  def saveOneAsync(filter: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit]
   def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
   def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T]
   def removeManyAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Unit]
@@ -65,7 +65,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   def update(filter: (String, QueryCondition)*)(o: T): T = sync(updateAsync(filter: _*)(o))
   def saveOneById(id: String, o: T): Unit = sync(saveOneByIdAsync(id, o))
   // saveOne will overwrite an object if the primary key already exists, like a Mongo upsert
-  def saveOne(o: T): Unit = sync(saveOneAsync(o)) // saveOneById but create the primary key
+  def saveOne(filter: (String, QueryCondition), o: T): Unit = sync(saveOneAsync(filter, o)) // saveOneById but create the primary key
   def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
   def removeOne(filter: (String, QueryCondition)*): T = sync(removeOneAsync(filter: _*))
   def removeMany(filter: (String, QueryCondition)*): Unit = sync(removeManyAsync(filter: _*))

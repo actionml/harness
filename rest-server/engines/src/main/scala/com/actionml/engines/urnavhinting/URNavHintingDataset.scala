@@ -116,7 +116,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
           } else {
             // save in journeys until a conversion happens
             try {
-              activeJourneysDao.saveOne(event)
+              activeJourneysDao.insert(event)
               Valid(event)
             } catch {
               case e: Throwable =>
@@ -126,7 +126,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
           }
         } else { // must be secondary indicator so no conversion, but accumulate in journeys
           try {
-            activeJourneysDao.saveOne(event)
+            activeJourneysDao.insert(event)
             Valid(event)
           } catch {
             case e: Throwable =>
