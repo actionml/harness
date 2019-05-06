@@ -197,7 +197,7 @@ object UREngine extends JsonSupport {
     extends Query
 
   /** Used to specify how Fields are represented in engine.json */
-  case class Rule( // no optional values for rules, whne specified
+  case class Rule( // no optional values for rules, when specified
     name: String, // name of metadata field
     values: Seq[String], // rules can have multiple values like tags of a single value as when using hierarchical
     // taxonomies
