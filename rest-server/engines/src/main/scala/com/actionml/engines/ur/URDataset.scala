@@ -23,14 +23,18 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
+import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
+import scala.concurrent.duration.Duration
 import scala.language.reflectiveCalls
+import scala.util.Try
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
   * Extend with the store of choice, like Mongo or other Store trait.
@@ -44,10 +48,13 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val eventsDao = store.createDao[UREvent](getEventsCollectionName)
   private val itemsDao = store.createDao[URItemProperties](getItemsCollectionName)
+
   def getItemsDao = itemsDao
+
   def getIndicatorsDao = eventsDao
 
   private def getItemsCollectionName = "items"
+
   def getEventsCollectionName = "events"
 
   // Engine Params from the JSON config plus defaults
@@ -60,14 +67,28 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       jsonConfig,
       errorMsg = s"Error in the Algorithm part of the JSON config for engineId: $engineId, which is: " +
         s"$jsonConfig",
-      transform = _ \ "algorithm").andThen { p =>
+      transform = _ \ "algorithm"
+    ).andThen { p =>
       params = p
-
       indicatorNames = params.indicators.map(_.name)
-
       Valid(p)
+    }.andThen { p =>
+      parseAndValidate[URDatasetParams](
+        jsonConfig,
+        errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
+          s"$jsonConfig",
+        transform = _ \ "dataset"
+      ).andThen { p =>
+        p.ttl.fold[Validated[ValidateError, _]](Valid(p)) { ttlString =>
+          Try(Duration(ttlString)).toOption.map { ttl =>
+            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
+            eventsDao.createIndexes(ttl)
+            logger.debug(s"Got a dataset.ttl = $ttl")
+            Valid(p)
+          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
+        }
+      }.andThen(_ => Valid(Comment("URDataset initialized")))
     }
-    Valid(Comment("URDataset initialized"))
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */
@@ -85,9 +106,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         ip.aliases.getOrElse(Seq(ip.name))
       } // should be either aliases for an event name, defaulting to the event name itself
 
-      if(aliases.contains(event.event)) { // only store the indicator events here
+      if (aliases.contains(event.event)) { // only store the indicator events here
         try {
-          eventsDao.saveOne(event)
+          eventsDao.insert(event)
           Valid(event)
         } catch {
           case e: Throwable =>
@@ -143,6 +164,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
+
   private def parseProps(j: JObject): (Map[String, Date], Map[String, Seq[String]], Map[String, Float], Map[String, Boolean]) = {
     j.foldField(emptyProps) {
       case ((d, s, f, b), field) => field._2 match {
@@ -176,4 +198,12 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         Invalid(ParseError(s"Can't parse $j as UREvent"))
     }
   }
+}
+
+object URDataset {
+
+  case class URDatasetParams(
+    ttl: Option[String] = None
+  ) // used for Events collection ttl
+
 }

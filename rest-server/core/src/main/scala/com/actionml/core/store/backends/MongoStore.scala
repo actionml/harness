@@ -42,59 +42,11 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T: TypeTag](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
-    // get information about indexes from annotations of DAO's type
-    def getRequiredIndexesInfo: List[(String, Indexed)] = {
-      val symbol = symbolOf[T]
-      if (symbol.isClass) {
-        symbol.asClass.primaryConstructor.typeSignature.paramLists.head
-          .collect {
-            case f if f.annotations.nonEmpty && f.annotations.forall(_.tree.tpe =:= typeOf[Indexed]) =>
-              val i = f.annotations.head.tree.children.tail.foldLeft(Indexed()) {
-                case (acc, Select(t, n)) if t.tpe <:< typeOf[DurationConversions] =>
-                  t match {
-                    case Apply(_, args) =>
-                      acc.copy(ttl = Duration(s"${args.head} ${n.decodedName}"))
-                  }
-                case (acc, a@Select(t, n)) if a.tpe =:= typeOf[com.actionml.core.store.Ordering.Value] =>
-                  util.Try(Ordering.withName(a.name.toString)).toOption.fold(acc)(o => acc.copy(order = o))
-                case (acc, a@Select(t, n)) if a.tpe =:= typeOf[Duration] =>
-                  acc
-                case (acc, _) =>
-                  acc
-              }
-              (f.name.toString, i)
-          }
-      } else List.empty
-    }
-    // get information about indexes from mongo db
-    def getActualIndexesInfo(col: MongoCollection[T]): Future[Seq[(String, Indexed)]] = {
-      col.listIndexes().map { i =>
-        val keyInfo = i.get("key").get.asDocument()
-        val iName = keyInfo.getFirstKey
-        (iName, Indexed())
-      }.toFuture
-    }
-
+  override def createDao[T: TypeTag](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T]): DAO[T] = {
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
-    // compare actual and required indexes and create missing ones
-    getActualIndexesInfo(collection)
-      .map(actualIndexesInfo => getRequiredIndexesInfo diff actualIndexesInfo.toList)
-      .flatMap { absentIndexes =>
-        val newIndexes = absentIndexes.map { case (iName, Indexed(iOrder, ttl)) =>
-          val options = new IndexOptions()
-          if (ttl.isFinite()) options.expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
-          IndexModel(Document(iName -> 1), options)
-        }
-        if (newIndexes.nonEmpty) {
-          logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
-          collection.createIndexes(newIndexes).toFuture
-        } else Future.successful(())
-      }.recover {
-      case e: Exception =>
-        logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
-    }
-    new MongoDao[T](collection)
+    val dao = new MongoDao[T](collection)
+    ttl.foreach(dao.createIndexes)
+    dao
   }
 
   override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))
@@ -135,7 +87,6 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 object MongoStorage extends LazyLogging {
   lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
   private lazy val mongoClient = MongoClient(uri)
-
 
   def close = {
     logger.info(s"Closing mongo client $mongoClient")
