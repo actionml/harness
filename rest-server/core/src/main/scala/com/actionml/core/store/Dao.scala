@@ -18,7 +18,6 @@
 package com.actionml.core.store
 
 import com.actionml.core.store.DaoQuery.QueryCondition
-import com.actionml.core.store.indexes.annotations.Indexed
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -43,7 +42,7 @@ trait AsyncDao[T] {
   def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
   def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T]
   def removeManyAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Unit]
-  def createIndexes(indexesDescription: Seq[(String, Indexed)]): Future[Unit]
+  def createIndexesAsync(ttl: Duration): Future[Unit]
 }
 
 trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
@@ -52,7 +51,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   private def sync[A](f: => Future[A]): A = try {
     Await.result(f, timeout)
   } catch {
-    case e: Throwable =>
+    case e: Exception =>
       logger.error("Sync DAO error", e)
       throw e
   }
@@ -69,4 +68,5 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
   def removeOne(filter: (String, QueryCondition)*): T = sync(removeOneAsync(filter: _*))
   def removeMany(filter: (String, QueryCondition)*): Unit = sync(removeManyAsync(filter: _*))
+  def createIndexes(ttl: Duration): Unit = sync(createIndexesAsync(ttl))
 }
