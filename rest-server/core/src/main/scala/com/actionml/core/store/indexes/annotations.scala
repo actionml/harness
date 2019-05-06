@@ -24,5 +24,5 @@ import scala.concurrent.duration.Duration
 
 object annotations {
 
-  case class Indexed(order: Ordering = default, ttl: Duration = Duration.Inf) extends scala.annotation.StaticAnnotation
+  case class Indexed(order: Ordering, isTtl: Boolean) extends scala.annotation.StaticAnnotation
 }

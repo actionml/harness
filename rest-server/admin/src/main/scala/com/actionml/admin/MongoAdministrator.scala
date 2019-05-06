@@ -84,13 +84,13 @@ class MongoAdministrator extends Administrator with JsonSupport {
       if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" === params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
+        enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
         Valid(Comment(params.engineId))
       } else if (newEngine != null) {
         //add new
         logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
+        enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
         logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
@@ -103,10 +103,11 @@ class MongoAdministrator extends Administrator with JsonSupport {
   }
 
   override def updateEngine(json: String): Validated[ValidateError, Response] = {
+    import DaoQuery.syntax._
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       engines.get(params.engineId).map { existingEngine =>
         logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        enginesCollection.saveOne(EngineMetadata(params.engineId, params.engineFactory, json))
+        enginesCollection.saveOne("engineId" === existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json))
         existingEngine.init(json, update = true)
       }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
     }

@@ -65,16 +65,6 @@ class URAlgorithm private (
 
   import URAlgorithm._
 
-  /*
-  case class BoostableCorrelators(actionName: String, itemIDs: Seq[String], boost: Option[Float] = None) {
-    def toFilterCorrelators: FilterCorrelators = {
-      FilterCorrelators(actionName, itemIDs)
-    }
-  }
-  case class FilterCorrelators(actionName: String, itemIDs: Seq[String])
-  case class ExclusionFields(propertyName: String, values: Seq[String])
-  */
-
   // internal settings, these are setup from init and may be changed by a `harness update <engine-id>` command
   private var recsModel: String = _
   private var userBias: Float = _
@@ -137,7 +127,7 @@ class URAlgorithm private (
     // continue validating if all is ok so far
     err.andThen { isOK =>
       // create a Map of alias -> indicator name or indicator name -> indicator name if no aliases
-      queryEventNames = indicatorParams.flatMap { case i =>
+      queryEventNames = indicatorParams.flatMap { i =>
         val aliases = i.aliases.getOrElse(Seq(i.name))
         if(i.name == aliases.head && aliases.size == 1) {
           Map(i.name -> i.name)
