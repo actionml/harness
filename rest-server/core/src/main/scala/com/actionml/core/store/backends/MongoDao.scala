@@ -19,7 +19,9 @@ package com.actionml.core.store.backends
 
 import java.util.concurrent.TimeUnit
 
+import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
+import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.mongodb.client.model.IndexOptions
@@ -58,7 +60,7 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
     val find = collection.find(mkFilter(query.filter))
     query.orderBy.fold(find) { order =>
-      find.sort(mkOrder(order))
+      find.sort(order2Bson(order))
     }.skip(query.offset)
      .limit(query.limit)
      .toFuture
@@ -147,27 +149,41 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
 
   // compare actual and required indexes and create missing ones
   override def createIndexesAsync(ttl: Duration): Future[Unit] = {
-    getActualIndexesInfo(collection)
-      .map { actualIndexesInfo =>
-        val required = getRequiredIndexesInfo[T].map { case (a, b) => (a, b, Option(ttl).filter(_ => b.isTtl))}
-        required diff actualIndexesInfo
-      }.flatMap { absentIndexes =>
-      val newIndexes = absentIndexes.collect {
-        case (iName, Indexed(_, isTtl), actualTtl) if isTtl && actualTtl.forall(_.compareTo(ttl) != 0) =>
-          val options = new IndexOptions()
-            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
-          IndexModel(Document(iName -> 1), options)
-        case (iName, _, _)=>
-          IndexModel(Document(iName -> 1), new IndexOptions())
-      }
-      if (newIndexes.nonEmpty) {
-        logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
-        collection.createIndexes(newIndexes).toFuture.map(_ => ())
-      } else Future.successful(())
-    }.recover {
-      case e: Exception =>
-        logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
+    def actualTtl(indexName: String, indexes: Seq[(String, annotations.Indexed, Option[Duration])]): Option[Duration] = {
+      indexes.find {
+        case (i, Indexed(_, true), duration) if i == indexName => duration.isDefined
+        case _ => false
+      }.flatMap(_._3)
     }
+    (for {
+      actualIndexesInfo <- getActualIndexesInfo(collection)
+      required = getRequiredIndexesInfo[T].map { case (a, b) => (a, b, Option(ttl).filter(_ => b.isTtl))}
+      absentIndexes = required diff actualIndexesInfo
+      newIndexes = absentIndexes.collect {
+        case (iName, Indexed(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
+          val options = new IndexOptions().name(iName)
+            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+          (iName, IndexModel(Document(iName -> order2Int(o)), options))
+        case (iName, Indexed(o, _), _)=>
+          (iName, IndexModel(Document(iName -> order2Int(o)), new IndexOptions().name(iName)))
+      }
+      _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
+        logger.info(s"Drop index $iname")
+        collection.dropIndex(iname).toFuture
+          .recover {
+            case e: Exception =>
+              logger.error(s"Can't drop index $iname", e)
+          }
+      }
+      _ <- if (newIndexes.nonEmpty) {
+        logger.info(s"Create indexes ${newIndexes.map(i => s"${i._2.getKeys} - ${i._2.getOptions}")} for collection ${collection.namespace.getFullName}")
+        collection.createIndexes(newIndexes.map(_._2)).toFuture.map(_ => ())
+      } else Future.successful(())
+    } yield ())
+      .recover {
+        case e: Exception =>
+          logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
+      }
   }
 
 
@@ -183,10 +199,17 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
     }.toArray[Bson]: _*)
   }
 
-  private def mkOrder(order: OrderBy): Bson = {
+  private def order2Bson(order: OrderBy): Bson = {
     order.ordering match {
       case com.actionml.core.store.Ordering.asc => Sorts.ascending(order.fieldNames: _*)
       case com.actionml.core.store.Ordering.desc => Sorts.descending(order.fieldNames: _*)
+    }
+  }
+
+  private def order2Int(ordering: store.Ordering.Ordering): Int = {
+    ordering match {
+      case com.actionml.core.store.Ordering.asc => 1
+      case com.actionml.core.store.Ordering.desc => -1
     }
   }
 }

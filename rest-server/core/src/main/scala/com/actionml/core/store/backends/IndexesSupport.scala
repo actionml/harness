@@ -20,6 +20,7 @@ package com.actionml.core.store.backends
 
 import com.actionml.core.store.Ordering
 import com.actionml.core.store.indexes.annotations.Indexed
+import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 
 import scala.concurrent.Future
@@ -29,6 +30,8 @@ import scala.reflect.runtime.universe._
 
 
 trait IndexesSupport {
+  this: LazyLogging =>
+
   def getRequiredIndexesInfo[T: TypeTag](implicit ct: ClassTag[T]): List[(String, Indexed)] = {
     val symbol = symbolOf[T]
     if (symbol.isClass) {
@@ -57,10 +60,13 @@ trait IndexesSupport {
       val ttlValue = ttlInfo.map { ttl =>
         Duration(ttl.asInt64().getValue, SECONDS)
       }
-      val orderingValue: Ordering.Ordering = i.get("v").map { _.asInt32().getValue match {
+      val orderingValue: Ordering.Ordering = keyInfo.getInt32(iName).getValue match {
         case 1 => Ordering.asc
-        case 2 => Ordering.desc
-      }}.getOrElse(Ordering.default)
+        case -1 => Ordering.desc
+        case something =>
+          logger.warn(s"Got ordering $something instead of '1' or '-1'")
+          Ordering.default
+      }
       (iName, Indexed(order = orderingValue, isTtl = ttlInfo.isDefined), ttlValue)
     }.toFuture
   }
