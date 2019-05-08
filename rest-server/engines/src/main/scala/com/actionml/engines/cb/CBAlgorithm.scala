@@ -302,8 +302,10 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
 
     try{ Await.result(
       actors.terminate().andThen { case _ =>
+        logger.debug("Closing VW learner")
         if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
       }.map { _ =>
+        logger.debug(s"Attempting to delete old model file: $modelPath")
         if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
           while (!Files.deleteIfExists(Paths.get(modelPath))) {
             logger.info(s"Could not delete the model: $modelPath, trying again.")

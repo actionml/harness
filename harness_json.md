@@ -1,4 +1,5 @@
 # Harness JSON
+***Harness 0.5.0+***
 
 Every Engine in Harness has a way to configure its parameters via a JSON file. Another way to say this is that in Harness an Engine + JSON Config = an Engine Instance.
 
