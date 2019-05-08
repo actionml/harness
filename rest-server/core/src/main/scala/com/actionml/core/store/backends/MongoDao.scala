@@ -17,11 +17,16 @@
 
 package com.actionml.core.store.backends
 
+import java.util.concurrent.TimeUnit
+
+import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
+import com.actionml.core.store.indexes.annotations
+import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
+import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.bson.ObjectId
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.{Filters, Sorts}
@@ -44,13 +49,21 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
+import org.mongodb.scala.model.{Filters, IndexModel, Sorts}
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 
-class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) extends DAO[T] with LazyLogging {
+class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
+  extends DAO[T]
+    with LazyLogging
+    with IndexesSupport {
   import DaoQuery.syntax._
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   import scala.concurrent.ExecutionContext.Implicits.global
 
   override def name = collection.namespace.getFullName
@@ -68,7 +81,7 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   override def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
     val find = collection.find(mkFilter(query.filter))
     query.orderBy.fold(find) { order =>
-      find.sort(mkOrder(order))
+      find.sort(order2Bson(order))
     }.skip(query.offset)
      .limit(query.limit)
      .toFuture
@@ -118,17 +131,15 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
       .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
-  // todo: Andrey, isn't this just an alias for insertAsync ???
-  override def saveOneAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
-    val id = new ObjectId()
-    val filter = mkFilter(Seq("_id" === id))
+  override def saveOneAsync(query: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit] = {
+    val filter = mkFilter(Seq(query))
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.info(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
+    } yield ()).map(_ => logger.info(s"Object $o (filter: $filter) saved successfully into $name"))
+      .recover { case e => logger.error(s"Can't saveOne object $o (filter $filter) into $name", e)}
   }
 
   override def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T] = {
@@ -158,31 +169,42 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
   }
 
   // compare actual and required indexes and create missing ones
-  override def createIndexes(indexesDescription: Seq[(String, Indexed)]): Future[Unit] = {
-    // get information about indexes from mongo db
-    def getActualIndexesInfo(col: MongoCollection[T]): Future[Seq[(String, Indexed)]] = {
-      col.listIndexes().map { i =>
-        val keyInfo = i.get("key").get.asDocument()
-        val iName = keyInfo.getFirstKey
-        (iName, Indexed())
-      }.toFuture
+  override def createIndexesAsync(ttl: Duration): Future[Unit] = {
+    def actualTtl(indexName: String, indexes: Seq[(String, annotations.Indexed, Option[Duration])]): Option[Duration] = {
+      indexes.find {
+        case (i, Indexed(_, true), duration) if i == indexName => duration.isDefined
+        case _ => false
+      }.flatMap(_._3)
     }
-    getActualIndexesInfo(collection)
-      .map(actualIndexesInfo => indexesDescription diff actualIndexesInfo.toList)
-      .flatMap { absentIndexes =>
-        val newIndexes = absentIndexes.map { case (iName, Indexed(iOrder, ttl)) =>
-          val options = new IndexOptions()
-          if (ttl.isFinite()) options.expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
-          IndexModel(Document(iName -> 1), options)
-        }
-        if (newIndexes.nonEmpty) {
-          logger.info(s"Creating indexes ${newIndexes.map(i => s"${i.getKeys} - ${i.getOptions}")} for collection ${collection.namespace.getFullName}")
-          collection.createIndexes(newIndexes).toFuture
-        } else Future.successful(())
-      }.recover {
-      case e: Exception =>
-        logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
-    }.map(_ => ())
+    (for {
+      actualIndexesInfo <- getActualIndexesInfo(collection)
+      required = getRequiredIndexesInfo[T].map { case (a, b) => (a, b, Option(ttl).filter(_ => b.isTtl))}
+      absentIndexes = required diff actualIndexesInfo
+      newIndexes = absentIndexes.collect {
+        case (iName, Indexed(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
+          val options = new IndexOptions().name(iName)
+            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+          (iName, IndexModel(Document(iName -> order2Int(o)), options))
+        case (iName, Indexed(o, _), _)=>
+          (iName, IndexModel(Document(iName -> order2Int(o)), new IndexOptions().name(iName)))
+      }
+      _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
+        logger.info(s"Drop index $iname")
+        collection.dropIndex(iname).toFuture
+          .recover {
+            case e: Exception =>
+              logger.error(s"Can't drop index $iname", e)
+          }
+      }
+      _ <- if (newIndexes.nonEmpty) {
+        logger.info(s"Create indexes ${newIndexes.map(i => s"${i._2.getKeys} - ${i._2.getOptions}")} for collection ${collection.namespace.getFullName}")
+        collection.createIndexes(newIndexes.map(_._2)).toFuture.map(_ => ())
+      } else Future.successful(())
+    } yield ())
+      .recover {
+        case e: Exception =>
+          logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
+      }
   }
 
 
@@ -198,10 +220,17 @@ class MongoDao[T](val collection: MongoCollection[T])(implicit ct: ClassTag[T]) 
     }.toArray[Bson]: _*)
   }
 
-  private def mkOrder(order: OrderBy): Bson = {
+  private def order2Bson(order: OrderBy): Bson = {
     order.ordering match {
       case com.actionml.core.store.Ordering.asc => Sorts.ascending(order.fieldNames: _*)
       case com.actionml.core.store.Ordering.desc => Sorts.descending(order.fieldNames: _*)
+    }
+  }
+
+  private def order2Int(ordering: store.Ordering.Ordering): Int = {
+    ordering match {
+      case com.actionml.core.store.Ordering.asc => 1
+      case com.actionml.core.store.Ordering.desc => -1
     }
   }
 }

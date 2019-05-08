@@ -161,17 +161,17 @@ object UREngine extends JsonSupport {
       eventId: Option[String], // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      @Indexed(order = asc) entityId: String,
+      @Indexed(order = asc, isTtl = false) entityId: String,
       targetEntityId: Option[String] = None,
       dateProps: Map[String, Date] = Map.empty,
       categoricalProps: Map[String, Seq[String]] = Map.empty,
       floatProps: Map[String, Float] = Map.empty,
       booleanProps: Map[String, Boolean] = Map.empty,
-      @Indexed(order = desc) eventTime: Date)
+      @Indexed(order = desc, isTtl = true) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
-      @Indexed(order = asc) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+      @Indexed(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
       dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
       categoricalProps: Map[String, Seq[String]] = Map.empty,
       floatProps: Map[String, Float] = Map.empty,

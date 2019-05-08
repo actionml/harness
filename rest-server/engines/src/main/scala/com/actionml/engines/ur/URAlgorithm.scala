@@ -128,7 +128,7 @@ class URAlgorithm private (
     // continue validating if all is ok so far
     err.andThen { isOK =>
       // create a Map of alias -> indicator name or indicator name -> indicator name if no aliases
-      queryEventNames = indicatorParams.flatMap { case i =>
+      queryEventNames = indicatorParams.flatMap { i =>
         val aliases = i.aliases.getOrElse(Seq(i.name))
         if(i.name == aliases.head && aliases.size == 1) {
           Map(i.name -> i.name)
