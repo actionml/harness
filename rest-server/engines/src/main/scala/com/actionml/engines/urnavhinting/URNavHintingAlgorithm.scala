@@ -63,7 +63,6 @@ class URNavHintingAlgorithm private (
   with LambdaAlgorithm[URNavHintingEvent]
   with SparkMongoSupport
   with JsonSupport {
-  this: SparkJobServerSupport =>
 
   import URNavHintingAlgorithm._
 
@@ -257,8 +256,8 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
-    submit(initParams, engineId, jobDescription, { implicit sc =>
+    val jobDescription = JobManager.addJob(engineId, comment = "Spark job")
+    LivyJobServerSupport.submit(initParams, engineId, jobDescription, { implicit sc =>
         val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
         // todo: this should work but not tested and not used in any case
@@ -481,7 +480,7 @@ object URNavHintingAlgorithm extends JsonSupport {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URNavHintingAlgorithm(engine, initParams, dataset, params, eventsDao) with LivyJobServerSupport
+    new URNavHintingAlgorithm(engine, initParams, dataset, params, eventsDao)
   }
 
   /** Available value for algorithm param "RecsModel" */

@@ -62,7 +62,6 @@ class URAlgorithm private (
   with LambdaAlgorithm[UREvent]
   with SparkMongoSupport
   with JsonSupport {
-  this: SparkJobServerSupport =>
 
   import URAlgorithm._
 
@@ -248,8 +247,8 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
-    submit(initParams, engineId, jobDescription, { implicit sc =>
+    val jobDescription = JobManager.addJob(engineId, comment = "Spark job")
+    LivyJobServerSupport.submit(initParams, engineId, jobDescription, { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
@@ -684,7 +683,7 @@ object URAlgorithm extends JsonSupport {
     val params = parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm").andThen { params =>
       Valid(true, params)
     }.map(_._2).getOrElse(null.asInstanceOf[URAlgorithmParams])
-    new URAlgorithm(engine, initParams, params, dataset.getIndicatorsDao, dataset.getItemsDao) with LivyJobServerSupport
+    new URAlgorithm(engine, initParams, params, dataset.getIndicatorsDao, dataset.getItemsDao)
   }
 
   /** Available value for algorithm param "RecsModel" */

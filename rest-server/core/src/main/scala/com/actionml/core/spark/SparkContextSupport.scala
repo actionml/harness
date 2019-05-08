@@ -125,13 +125,7 @@ object SparkContextSupport extends LazyLogging {
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
-      override def cancel(): Future[Unit] = {
-        logger.debug(s"Cancel job $jobId")
-        f.map(_.cancelJobGroup(jobId))
-      }
-    }
-    JobManager.startNewJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
+    JobManager.addJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
     f.onComplete {
       case Success(sc) =>
         sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
@@ -181,4 +175,11 @@ object SparkContextSupport extends LazyLogging {
                              currentPromise: Promise[SparkContext],
                              otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
   private case object Idle extends SparkContextState
+
+  class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
+    override def cancel(): Future[Unit] = {
+      logger.info(s"Cancel job $jobId")
+      f.map(_.cancelJobGroup(jobId))
+    }
+  }
 }

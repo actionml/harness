@@ -39,7 +39,7 @@ trait SparkJobServerSupport {
   def status(engineId: String): Iterable[JobDescription]
 }
 
-trait LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
+object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   private case class ContextId(initParams: String, engineId: String, jobId: String)
   private case class ContextApi(client: LivyClient, handlers: List[JobHandle[_]])
   private val contexts = TrieMap.empty[ContextId, ContextApi]
