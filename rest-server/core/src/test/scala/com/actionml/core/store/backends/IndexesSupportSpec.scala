@@ -20,6 +20,7 @@ package com.actionml.core.store.backends
 import com.actionml.core.model.Event
 import com.actionml.core.store
 import com.actionml.core.store.indexes.annotations.Indexed
+import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{FlatSpec, Matchers}
 
 
@@ -30,7 +31,7 @@ case class EGClass(ni: String,
 
 class IndexesSupportSpec extends FlatSpec with Matchers {
   "getRequiredIndexesInfo" should "return correct indexes" in {
-    val indexesSupport = new IndexesSupport {}
+    val indexesSupport = new IndexesSupport with LazyLogging {}
     val egIndexes = List(
       "i" -> Indexed(store.Ordering.asc, isTtl = false),
       "ittl" -> Indexed(store.Ordering.desc, isTtl = true)
