@@ -29,12 +29,10 @@ RUN cd /tmp && \
 	echo "${CONFD_SHA256}  /usr/local/bin/confd" | sha256sum -c && chmod 755 /usr/local/bin/confd
 
 RUN apk add --no-cache --update cmake git perl && \
-    cd /tmp && \
-    git clone $VW_GITURL vw && cd vw && git checkout $VW_GITREV && \
-    make java && \
-    cp java/target/* /usr/lib/jvm/java-1.8-openjdk/jre/lib/amd64 && \
-    rm -rf /tmp/* && \
-    apk del .deps
+  cd /tmp && \
+  git clone $VW_GITURL vw && cd vw && git checkout $VW_GITREV && \
+  make java && \
+  cp java/target/* /usr/lib/jvm/java-1.8-openjdk/jre/lib/amd64/
 
 
 WORKDIR /harness
