@@ -24,7 +24,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
@@ -247,8 +247,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, comment = "Spark job")
-    LivyJobServerSupport.submit(initParams, engineId, jobDescription, { implicit sc =>
+    val jobDescription = LivyJobServerSupport.submit(initParams, engineId, { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
@@ -290,20 +289,13 @@ class URAlgorithm private (
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
 
-        //sc.stop() // no more use of sc will be tolerated ;-)
       } catch {
         case e: Throwable =>
-          logger.error(s"Spark computation failed for job $jobDescription", e)
-          sc.cancelJobGroup(jobDescription.jobId)
-          throw e
-      } finally {
-        SparkContextSupport.stopAndClean(sc)
+          logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       }
     })
-
-    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
-    Valid(Comment("Started train Job on Spark"))
+    Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
   /*
@@ -807,5 +799,6 @@ object URAlgorithm extends JsonSupport {
     fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
     minEventsPerUser: Option[Int] = Some(1)) extends Serializable
 
+  case class TrainResponse(description: JobDescription, comment: String) extends Response
 }
 

@@ -21,9 +21,10 @@ import java.io.File
 import java.net.URI
 
 import com.actionml.core.jobs.JobStatuses.JobStatus
-import com.actionml.core.jobs.{JobDescription, JobStatuses}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.actionml.core.jobs.{Cancellable, JobDescription, JobStatuses}
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.livy.JobHandle.Listener
 import org.apache.livy._
 import org.apache.spark.SparkContext
 import org.json4s.JValue
@@ -32,11 +33,16 @@ import org.json4s.jackson.JsonMethods._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 trait SparkJobServerSupport {
-  def submit[T](initParams: String, engineId: String, jobDescription: JobDescription, sc: SparkContext => T): Unit
+  def submit[T](initParams: String, engineId: String, sc: SparkContext => T): JobDescription
   def status(engineId: String): Iterable[JobDescription]
+  def cancel(jobId: String): Future[Unit]
+}
+
+class SparkJobCancellable(jobId: String) extends Cancellable {
+  override def cancel(): Future[Unit] = LivyJobServerSupport.cancel(jobId)
 }
 
 object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
@@ -46,19 +52,30 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   private val config = ConfigFactory.load()
   private val livyUrl = config.getString("spark.job-server-url")
 
-  override def submit[T](initParams: String, engineId: String, jobDescription: JobDescription, job: SparkContext => T): Unit = {
+  override def submit[T](initParams: String, engineId: String, job: SparkContext => T): JobDescription = {
+    val jobDescription = JobDescription.create
     val id = ContextId(initParams = initParams, engineId = engineId, jobId = jobDescription.jobId)
-    val ContextApi(client, handlers) =
-      contexts.getOrElseUpdate(id, ContextApi(mkNewClient(initParams, engineId, jobDescription.jobId), List.empty))
-    val lib: Iterable[File] = new File("lib").listFiles
     try {
-      lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
-        .foreach(jar => client.uploadJar(jar).get)
+      val ContextApi(client, handlers) =
+        contexts.getOrElseUpdate(id, ContextApi(mkNewClient(initParams, engineId, jobDescription.jobId), List.empty))
+      // assumes that jars are already available to livy (via livy.conf)
+      // val lib: Iterable[File] = new File("lib").listFiles
+      // lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
+      //   .foreach(jar => client.addJar(jar.toURI).get)
       val handler = client.submit(new LivyJob(job))
       contexts.update(id, ContextApi(client, handler :: handlers))
+      handler.addListener(new Listener[T] {
+        override def onJobQueued(jobHandle: JobHandle[T]) = logger.info(s"Spark job $jobDescription queued")
+        override def onJobStarted(jobHandle: JobHandle[T]) = logger.info(s"Spark job $jobDescription started")
+        override def onJobCancelled(jobHandle: JobHandle[T]) = logger.info(s"Spark job $jobDescription cancelled")
+        override def onJobFailed(jobHandle: JobHandle[T], throwable: Throwable) = logger.error(s"Spark job $jobDescription failed with error $throwable", throwable)
+        override def onJobSucceeded(jobHandle: JobHandle[T], t: T) = logger.info(s"Spark job $jobDescription completed successfully")
+      })
+      jobDescription
     } catch {
       case e: Exception =>
         logger.error("Jars upload problem", e)
+        throw e
     }
   }
 
@@ -69,10 +86,19 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
     }
   }
 
+  override def cancel(jobId: String): Future[Unit] = {
+    contexts.find {
+      case (ContextId(_, _, jid), _) => jid == jobId
+    }.map { case (_, api) =>
+      Future(api.handlers.foreach(_.cancel(true)))
+    }.getOrElse(Future.successful(()))
+  }
+
 
   private def state2Status(state: JobHandle.State): Option[JobStatus] = {
-    if (state == JobHandle.State.QUEUED) Some(JobStatuses.queued)
-    else if (state == JobHandle.State.STARTED) Some(JobStatuses.executing)
+    import JobHandle.State._
+    if (state == QUEUED || state == SENT) Some(JobStatuses.queued)
+    else if (state == STARTED) Some(JobStatuses.executing)
     else None
   }
 

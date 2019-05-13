@@ -107,6 +107,10 @@ case class JobDescription(jobId: String,
                           status: JobStatus = JobStatuses.queued,
                           comment: String = "") extends Response
 
+object JobDescription {
+  def create: JobDescription = JobDescription(UUID.randomUUID().toString)
+}
+
 object JobStatuses extends Enumeration {
   type JobStatus = Value
   val queued = Value("queued")

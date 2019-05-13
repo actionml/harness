@@ -48,13 +48,13 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-
 import org.mongodb.scala.model.{Filters, IndexModel, Sorts}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success}
 
 
 class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
