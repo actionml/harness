@@ -32,7 +32,8 @@ RUN apk add --no-cache --update cmake git perl && \
   cd /tmp && \
   git clone $VW_GITURL vw && cd vw && git checkout $VW_GITREV && \
   make java && \
-  cp java/target/* /usr/lib/jvm/java-1.8-openjdk/jre/lib/amd64/
+  cp java/target/* /usr/lib/jvm/java-1.8-openjdk/jre/lib/amd64/ && \
+  rm -rf /tmp/*
 
 
 WORKDIR /harness
