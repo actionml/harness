@@ -500,7 +500,7 @@ class URAlgorithm private (
     val userHistory = eventsDao.findMany(
       DaoQuery(
         orderBy = Some(OrderBy(ordering = Ordering.desc, fieldNames = "eventTime")),
-        limit= maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
+        limit = maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
         // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
         // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
         filter = Seq("entityId" === query.user.getOrElse(""))))

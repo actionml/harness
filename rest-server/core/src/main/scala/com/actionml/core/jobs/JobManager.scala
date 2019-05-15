@@ -78,15 +78,19 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 
   override def cancelJob(jobId: String): Future[Unit] = {
-    jobDescriptions.foreach {
+    Future.sequence(jobDescriptions.flatMap {
       case (_, jds) if jds.contains(jobId) =>
-        jds.get(jobId).foreach {
+        jds.get(jobId).map {
           case (cancellable, _) =>
             removeJob(jobId)
             cancellable.cancel()
         }
-    }
-    Future.successful(())
+    } ++ Seq(LivyJobServerSupport.cancel(jobId)))
+      .map(_ => ())
+      .recover {
+        case e: Exception =>
+          logger.error("Cancel job error", e)
+      }
   }
 
 
