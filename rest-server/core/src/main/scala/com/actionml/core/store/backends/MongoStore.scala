@@ -20,7 +20,7 @@ package com.actionml.core.store.backends
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.store.{DAO, Ordering, Store}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
