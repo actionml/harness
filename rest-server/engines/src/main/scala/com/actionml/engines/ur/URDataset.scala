@@ -23,7 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams

@@ -18,25 +18,40 @@
 package com.actionml.core.store.backends
 
 import com.actionml.core.model.Event
-import com.actionml.core.store
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.Ordering._
+import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{FlatSpec, Matchers}
 
 
+@CompoundIndex(List("entityId" -> asc, "eventTime" -> desc))
 case class EGClass(ni: String,
-                   @Indexed(store.Ordering.asc, isTtl = false) i: Int,
-                   @Indexed(store.Ordering.default, isTtl = true) ittl: String)
+                   @SingleIndex(asc, isTtl = false) i: Int,
+                   @SingleIndex(default, isTtl = true) ittl: String)
   extends Event with Serializable
 
 class IndexesSupportSpec extends FlatSpec with Matchers {
   "getRequiredIndexesInfo" should "return correct indexes" in {
     val indexesSupport = new IndexesSupport with LazyLogging {}
-    val egIndexes = List(
-      "i" -> Indexed(store.Ordering.asc, isTtl = false),
-      "ittl" -> Indexed(store.Ordering.desc, isTtl = true)
-    )
 
-    indexesSupport.getRequiredIndexesInfo[EGClass] should contain theSameElementsAs egIndexes
+    val requiredIndexes = List(
+      "i" -> SingleIndex(asc, isTtl = false),
+      "ittl" -> SingleIndex(desc, isTtl = true),
+      "" -> CompoundIndex(List("eventTime" -> desc, "entityId" -> asc))
+    )
+    val actualIndexes = indexesSupport.getRequiredIndexesInfo[EGClass]
+
+    actualIndexes.size should equal(requiredIndexes.size)
+    actualIndexes.filter(_._2.isInstanceOf[SingleIndex]) should contain theSameElementsAs requiredIndexes.filter(_._2.isInstanceOf[SingleIndex])
+    val requiredCompound = actualIndexes.flatMap {
+      case (_, CompoundIndex(fields)) => fields
+      case _ => List.empty
+    }
+    val expectedCompound = requiredIndexes.flatMap {
+      case (_, CompoundIndex(fields)) => fields
+      case _ => List.empty
+    }
+    println(requiredCompound)
+    requiredCompound should contain theSameElementsAs expectedCompound
   }
 }
