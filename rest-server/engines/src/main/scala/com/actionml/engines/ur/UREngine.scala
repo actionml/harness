@@ -159,24 +159,24 @@ object UREngine extends JsonSupport {
 
   @CompoundIndex(List("entityId" -> asc, "eventTime" -> desc))
   case class UREvent (
-                       eventId: Option[String], // not used in Harness, but allowed for PIO compatibility
-                       event: String,
-                       entityType: String,
-                       @SingleIndex(order = asc, isTtl = false) entityId: String,
-                       targetEntityId: Option[String] = None,
-                       dateProps: Map[String, Date] = Map.empty,
-                       categoricalProps: Map[String, Seq[String]] = Map.empty,
-                       floatProps: Map[String, Float] = Map.empty,
-                       booleanProps: Map[String, Boolean] = Map.empty,
-                       @SingleIndex(order = desc, isTtl = true) eventTime: Date)
+      eventId: Option[String], // not used in Harness, but allowed for PIO compatibility
+      event: String,
+      entityType: String,
+      @SingleIndex(order = asc, isTtl = false) entityId: String,
+      targetEntityId: Option[String] = None,
+      dateProps: Map[String, Date] = Map.empty,
+      categoricalProps: Map[String, Seq[String]] = Map.empty,
+      floatProps: Map[String, Float] = Map.empty,
+      booleanProps: Map[String, Boolean] = Map.empty,
+      @SingleIndex(order = desc, isTtl = true) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
-                                @SingleIndex(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
-                                dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
-                                categoricalProps: Map[String, Seq[String]] = Map.empty,
-                                floatProps: Map[String, Float] = Map.empty,
-                                booleanProps: Map[String, Boolean] = Map.empty
+    @SingleIndex(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+    dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
+    categoricalProps: Map[String, Seq[String]] = Map.empty,
+    floatProps: Map[String, Float] = Map.empty,
+    booleanProps: Map[String, Boolean] = Map.empty
   ) extends Serializable
 
   case class URQuery(
