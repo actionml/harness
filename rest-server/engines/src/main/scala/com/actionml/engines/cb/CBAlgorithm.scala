@@ -84,6 +84,8 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
 
   var vw: VWMulticlassLearner = _
   var events = 0
+  var cache_path: String = _
+
 
   override def init(engine: Engine): Validated[ValidateError, Response] = {
     super.init(engine).andThen { _ =>
@@ -93,6 +95,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
         val groupEvents: Map[String, DAO[UsageEvent]] = dataset.usageEventGroups
         logger.trace(s"Init algorithm for ${groupEvents.size} groups. ${groupEvents.mkString(", ")}")
         val exists = trainers.keys.toList
+        cache_path = s"${modelPath}_cache"
         vw = createVW(params) // sets up the parameters for the model and names the file for store of the\\
 
         groupEvents.foreach(groupName => add(groupName._1))
@@ -133,18 +136,18 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {
     val regressorType = s" --csoaa 10 "
     val reg = s" --l2 ${params.regParam} "
-    val iters = s" -c -k --passes ${params.maxIter} "
+    val iters = s" -k --passes ${params.maxIter} " // must have -c OR specify a cache_file
     val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW decide how to do caching
+    val cacheFile = s" --cache_file ${cache_path} " // not used, let VW decide how to do caching
     val bitPrecision = s" -b ${params.bitPrecision.toString} "
     val checkpointing = " --save_resume "
     val newModel = s" -f ${modelPath} "
     val trainedModel = s" -i ${modelPath} "
 
-    // if the modelName already exists, use ot to initialize VW otherwise, create a new model
+    // if the modelName already exists, use it to initialize VW otherwise, create a new model
     // the difference is -i for initial model, or -f for new model (I think)
     val initVWConfig = trainedModel + checkpointing
-    val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing
+    val createVWConfig = regressorType + bitPrecision + reg + lrate + iters + newModel + checkpointing + cacheFile
     val newVW: VWMulticlassLearner = if (fileExists(modelPath)) {
       logger.info(s"VW: config: \n$initVWConfig\n")
       VWLearners.create(initVWConfig)
@@ -156,23 +159,6 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   }
 
   def checkpointVW(params: CBAlgoParams): Unit = {
-
-    /*
-    val regressorType = s" --csoaa 10 "
-    val reg = s" --l2 ${params.regParam} "
-    val iters = s" -c -k --passes ${params.maxIter} "
-    val lrate = s" -l ${params.stepSize} "
-    val cacheFile = s" --cache_file ${modelPath}_cache " // not used, let VW manage cahce files
-    val bitPrecision = s" -b ${params.bitPrecision.toString} "
-    val checkpointing = " --save_resume "
-    val newModel = s" -f ${modelPath} "
-    val trainedModel = s" -i ${modelPath} "
-    */
-
-    // holly crap this is the only way to get a model saved??????????
-    // val initVWConfig = trainedModel + checkpointing
-    // vw.close() // should checkpoint
-    // vw = VWLearners.create(initVWConfig).asInstanceOf[VWMulticlassLearner] // should open the checkpointed file
     logger.info(s"Checkpointing model")
     vw.saveModel(new File(modelPath))
   }
@@ -302,13 +288,22 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
 
     try{ Await.result(
       actors.terminate().andThen { case _ =>
+        logger.debug("Closing VW learner")
         if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
       }.map { _ =>
+        logger.debug(s"Attempting to delete old model file: $modelPath")
         if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
           while (!Files.deleteIfExists(Paths.get(modelPath))) {
             logger.info(s"Could not delete the model: $modelPath, trying again.")
           }
           logger.info(s"Success deleting model: $modelPath")
+        }
+        logger.debug(s"Attempting to delete old cache file: $cache_path")
+        if (Files.exists(Paths.get(cache_path)) && !Files.isDirectory(Paths.get(cache_path))) {
+          while (!Files.deleteIfExists(Paths.get(cache_path))) {
+            logger.info(s"Could not delete the cache: $cache_path, trying again.")
+          }
+          logger.info(s"Success deleting cache: $cache_path")
         }
       }, 5 seconds)
     } catch {

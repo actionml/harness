@@ -22,18 +22,19 @@ import java.util.concurrent.TimeUnit
 import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
+import org.bson.conversions.Bson
 import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.{BsonInt32, BsonValue}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.{Filters, Sorts}
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
-import com.actionml.core.store.indexes.annotations.Indexed
 import com.actionml.core.store.{DAO, Ordering, Store}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
@@ -170,23 +171,34 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
 
   // compare actual and required indexes and create missing ones
   override def createIndexesAsync(ttl: Duration): Future[Unit] = {
-    def actualTtl(indexName: String, indexes: Seq[(String, annotations.Indexed, Option[Duration])]): Option[Duration] = {
+    def actualTtl(indexName: String, indexes: Seq[(String, annotations.Index, Option[Duration])]): Option[Duration] = {
       indexes.find {
-        case (i, Indexed(_, true), duration) if i == indexName => duration.isDefined
+        case (i, SingleIndex(_, true), duration) if i == indexName => duration.isDefined
         case _ => false
       }.flatMap(_._3)
     }
     (for {
       actualIndexesInfo <- getActualIndexesInfo(collection)
-      required = getRequiredIndexesInfo[T].map { case (a, b) => (a, b, Option(ttl).filter(_ => b.isTtl))}
+      required = getRequiredIndexesInfo[T].map {
+        case (name, index: SingleIndex) => (name, index, Option(ttl).filter(_ => index.isTtl))
+        case (name, index: CompoundIndex) => (name, index, None)
+      }
       absentIndexes = required diff actualIndexesInfo
       newIndexes = absentIndexes.collect {
-        case (iName, Indexed(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
+        case (iName, SingleIndex(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
           val options = new IndexOptions().name(iName)
             .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
           (iName, IndexModel(Document(iName -> order2Int(o)), options))
-        case (iName, Indexed(o, _), _)=>
+        case (iName, SingleIndex(o, _), _)=>
           (iName, IndexModel(Document(iName -> order2Int(o)), new IndexOptions().name(iName)))
+        case (_, CompoundIndex(fields), _) =>
+          val indexName: String = fields.map(_._1).mkString("_")
+          val builder = Document.builder
+          fields.foreach {
+            case (name, o) =>
+              builder += name -> ordering2BsonValue(o)
+          }
+          (indexName, IndexModel(builder.result(), new IndexOptions().name(indexName)))
       }
       _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
         logger.info(s"Drop index $iname")
@@ -222,15 +234,20 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
 
   private def order2Bson(order: OrderBy): Bson = {
     order.ordering match {
-      case com.actionml.core.store.Ordering.asc => Sorts.ascending(order.fieldNames: _*)
-      case com.actionml.core.store.Ordering.desc => Sorts.descending(order.fieldNames: _*)
+      case store.Ordering.asc => Sorts.ascending(order.fieldNames: _*)
+      case store.Ordering.desc => Sorts.descending(order.fieldNames: _*)
     }
+  }
+
+  private def ordering2BsonValue: store.Ordering.Ordering => BsonValue = {
+      case store.Ordering.asc => new BsonInt32(1)
+      case store.Ordering.desc => new BsonInt32(-1)
   }
 
   private def order2Int(ordering: store.Ordering.Ordering): Int = {
     ordering match {
-      case com.actionml.core.store.Ordering.asc => 1
-      case com.actionml.core.store.Ordering.desc => -1
+      case store.Ordering.asc => 1
+      case store.Ordering.desc => -1
     }
   }
 }

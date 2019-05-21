@@ -25,7 +25,7 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
@@ -155,11 +155,11 @@ object URNavHintingEngine {
       //eventId: String, // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      @Indexed(order = asc, isTtl = false) entityId: String,
+      @SingleIndex(order = asc, isTtl = false) entityId: String,
       targetEntityId: Option[String] = None,
       properties: Map[String, Boolean] = Map.empty,
       conversionId: Option[String] = None, // only set when copying converted journey's where event = nav-event
-      @Indexed(order = desc, isTtl = true) eventTime: String) // ISO8601 date
+      @SingleIndex(order = desc, isTtl = true) eventTime: String) // ISO8601 date
     extends Event with Serializable
 
   case class ItemProperties (

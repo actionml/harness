@@ -27,7 +27,7 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.store.indexes.annotations.Indexed
+import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
@@ -157,25 +157,26 @@ object UREngine extends JsonSupport {
 
   }
 
+  @CompoundIndex(List("entityId" -> asc, "eventTime" -> desc))
   case class UREvent (
       eventId: Option[String], // not used in Harness, but allowed for PIO compatibility
       event: String,
       entityType: String,
-      @Indexed(order = asc, isTtl = false) entityId: String,
+      @SingleIndex(order = asc, isTtl = false) entityId: String,
       targetEntityId: Option[String] = None,
       dateProps: Map[String, Date] = Map.empty,
       categoricalProps: Map[String, Seq[String]] = Map.empty,
       floatProps: Map[String, Float] = Map.empty,
       booleanProps: Map[String, Boolean] = Map.empty,
-      @Indexed(order = desc, isTtl = true) eventTime: Date)
+      @SingleIndex(order = desc, isTtl = true) eventTime: Date)
     extends Event with Serializable
 
   case class URItemProperties (
-      @Indexed(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
-      dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
-      categoricalProps: Map[String, Seq[String]] = Map.empty,
-      floatProps: Map[String, Float] = Map.empty,
-      booleanProps: Map[String, Boolean] = Map.empty
+    @SingleIndex(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
+    dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
+    categoricalProps: Map[String, Seq[String]] = Map.empty,
+    floatProps: Map[String, Float] = Map.empty,
+    booleanProps: Map[String, Boolean] = Map.empty
   ) extends Serializable
 
   case class URQuery(
@@ -199,7 +200,7 @@ object UREngine extends JsonSupport {
     extends Query
 
   /** Used to specify how Fields are represented in engine.json */
-  case class Rule( // no optional values for rules, whne specified
+  case class Rule( // no optional values for rules, when specified
     name: String, // name of metadata field
     values: Seq[String], // rules can have multiple values like tags of a single value as when using hierarchical
     // taxonomies

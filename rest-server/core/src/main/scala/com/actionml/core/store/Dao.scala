@@ -18,7 +18,6 @@
 package com.actionml.core.store
 
 import com.actionml.core.store.DaoQuery.QueryCondition
-import com.actionml.core.store.indexes.annotations.Indexed
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._

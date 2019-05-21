@@ -92,6 +92,7 @@ class URAlgorithm private (
   private var expireDateName: Option[String] = _
   private var itemDateName: Option[String] = _
   private var queryEventNames: Map[String, String] = _
+  private var indicatorsMap: Map[String, IndicatorParams] = _
 
 
   // setting that cannot change with config
@@ -111,18 +112,21 @@ class URAlgorithm private (
     // this assumes one event doesn't happen more than 10 times more often than another
     // not ideal but avoids one query to the event store per event type
     maxQueryEvents = params.indicators.foldLeft[Int](0) { (previous, indicator) =>
-        previous + indicator.maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxQueryEvents)
-    } * 10
+        previous + (indicator.maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents) * DefaultURAlgoParams.FudgeFactor)
+    }
 
 
     indicators = params.indicators
+
     seed = params.seed
     rules = params.rules
     availableDateName = params.availableDateName
     expireDateName = params.expireDateName
     itemDateName = params.dateName
     indicatorParams = params.indicators
-
+    indicatorsMap = indicators.map{ i =>
+      (i.name, i)
+    }.toMap
 
     // continue validating if all is ok so far
     err.andThen { isOK =>
@@ -334,7 +338,7 @@ class URAlgorithm private (
         case (iD, i) =>
           DownsamplableCrossOccurrenceDataset(
             iD,
-            indicators(i).maxItemsPerUser.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
+            indicators(i).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType),
             indicators(i).maxCorrelatorsPerItem.getOrElse(DefaultURAlgoParams.MaxCorrelatorsPerEventType),
             indicators(i).minLLR)
       }.toList
@@ -377,9 +381,8 @@ class URAlgorithm private (
 
 
   override def query(query: URQuery): URQueryResult = {
-    // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
+    // todo: need to have an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
-    // todo: order by date
     /*
         queryEventNames = query.indicatorParams.getOrElse(modelEventNames) // indicatorParams in query take precedence
 
@@ -497,26 +500,34 @@ class URAlgorithm private (
     val userHistBias = query.userBias.getOrElse(userBias)
     val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
+    implicit val ordering = Ordering.desc
     val userHistory = eventsDao.findMany(
       DaoQuery(
-        orderBy = Some(OrderBy(ordering = Ordering.desc, fieldNames = "eventTime")),
-        limit = maxQueryEvents * 100, // * 100 is a WAG since each event type should have maxQueryEvents todo: should set per indicator
-        // todo: should get most recent events per eventType since some may be sent only once to indicate user properties
-        // and these may have very old timestamps, ALSO DO NOT TTL THESE, create a user property DAO to avoid event TTLs ????
+        orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
+        limit = maxQueryEvents,
         filter = Seq("entityId" === query.user.getOrElse(""))))
       .toSeq
-      .distinct
+      // .distinct // these will be distinct so this is redundant
       .filter { event =>
         queryEventNamesFilter.contains(event.event)
       }
-      .map { event =>
+      .map { event => // rename aliased events to the group name
+        // logger.info(s"History: ${event}")
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
       }
+      .groupBy(_.event)
+      .flatMap{ case (name, events) =>
+        events.sortBy(_.eventTime) // implicit ordering
+          .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+      }.toSeq
 
     val userEvents = modelEventNames.map { name =>
-      (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).toSeq.distinct)
+      (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
     }
+
+    // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
+    // logger.info(s"Indicators in ES query: ${userEvents}")
 
     val userHistMatchers = userEvents.map { case(name, hist) => Matcher(name, hist, userEventsBoost) }
     (userHistMatchers, userHistory)
@@ -691,10 +702,10 @@ object URAlgorithm extends JsonSupport {
     */
   object DefaultURAlgoParams {
     val ModelType = "items"
-    val MaxEventsPerEventType = 500
+    val MaxEventsPerEventType = 500 // downsample to this amount of raw data randomly before model creation
     val NumResults = 20
-    val MaxCorrelatorsPerEventType = 50
-    val MaxQueryEvents = 100 // default number of user history events to use in recs query
+    val MaxCorrelatorsPerEventType = 50 // number of correlated indicators to store in the model per type
+    val MaxQueryEvents = 100 // default number of user history events to use in recs query for each indicator type
 
     val ExpireDateName = "expireDate" // default name for the expire date property of an item
     val AvailableDateName = "availableDate" //defualt name for and item's available after date
@@ -707,6 +718,8 @@ object URAlgorithm extends JsonSupport {
 
     val ReturnSelf = false
     val NumESWriteConnections: Option[Int] = None
+    val FudgeFactor = 10 // due to limitations with the DB query for user history we get n * FudgeFactor so we can
+    // filter down to the best number per indicator type
   }
 
   case class RankingParams(
@@ -731,17 +744,17 @@ object URAlgorithm extends JsonSupport {
 
   case class DefaultIndicatorParams(
     aliases: Option[Seq[String]] = None,
-    maxItemsPerUser: Int = DefaultURAlgoParams.MaxQueryEvents, // defaults to maxEventsPerEventType
+    maxIndicatorsPerQuery: Int = DefaultURAlgoParams.MaxQueryEvents, // defaults to MaxQueryEvents == 100
     maxCorrelatorsPerItem: Int = DefaultURAlgoParams.MaxCorrelatorsPerEventType,
       // defaults to maxCorrelatorsPerEventType
-    minLLR: Option[Double] = None) // defaults to none, takes precendence over maxCorrelatorsPerItem
+    minLLR: Option[Double] = None) // defaults to none, used as a threshold, used with but takes precedence over maxCorrelatorsPerItem
 
   case class IndicatorParams(
     name: String, // must match one in indicatorParams
     aliases: Option[Seq[String]] = None,
-    maxItemsPerUser: Option[Int], // defaults to maxEventsPerEventType
-    maxCorrelatorsPerItem: Option[Int], // defaults to maxCorrelatorsPerEventType
-    minLLR: Option[Double]) // defaults to none, takes precendence over maxCorrelatorsPerItem
+    maxIndicatorsPerQuery: Option[Int], // used to limit query
+    maxCorrelatorsPerItem: Option[Int], // used to limit model
+    minLLR: Option[Double])
 
   case class URAlgorithmParams(
     indexName: Option[String], // can optionally be used to specify the elasticsearch index name

@@ -58,7 +58,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
     try {
       val ContextApi(client, handlers) =
         contexts.getOrElseUpdate(id, ContextApi(mkNewClient(initParams, engineId, jobDescription.jobId), List.empty))
-      // assumes that jars are already available to livy (via livy.conf)
+      // assumes that jars are already available to livy (via livy.conf) or:
       // val lib: Iterable[File] = new File("lib").listFiles
       // lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
       //   .foreach(jar => client.addJar(jar.toURI).get)
