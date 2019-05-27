@@ -55,6 +55,7 @@ trait JsonSearchResultTransformation[T] {
   def transform(j: JValue): Seq[T]
 }
 
+
 trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[Hit] {
   override implicit val manifest: Manifest[Hit] = ManifestFactory.classType(classOf[Hit])
   override implicit val reader: Reader[Hit] =  new Reader[Hit] {
@@ -493,7 +494,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
         ("from" -> query.from) ~
         ("query" ->
           ("bool" ->
-            ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
+            ("should" -> clausesToJson(query.should.map(x => ("term", Seq(x))).toMap)) ~
             ("must" -> matcherToJson(query.must)) ~
             ("must_not" -> matcherToJson(query.mustNot)) ~
             ("filter" -> filterToJson(query.filters)) ~
@@ -504,19 +505,27 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
           query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
         ))
       }
-    // logger.info(s"Query to search engine:\n${pretty(json)}")
     compact(render(json))
+  }
+
+  private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
+    clauses.flatMap { case (clause, matchers) =>
+      matchers.flatMap { m =>
+        m.values.map { v =>
+          clause -> (m.name -> v) ~ m.boost.fold(JObject())("boost" -> _)
+        }
+      }
+    }.toList ++ others.toList
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
     clauses.map { case (clause, matchers) =>
       matchers.map { m =>
-        clause ->
-          (m.name -> m.values) ~
-            m.boost.fold(JObject())("boost" -> _)
+        clause -> (m.name -> m.values) ~ m.boost.fold(JObject())("boost" -> _)
       }
     }.flatten.toList ++ others.toList
   }
+
 
   private[elasticsearch] def filterToJson(filters: Seq[Filter]): JArray = {
     implicit val _ = CustomFormats

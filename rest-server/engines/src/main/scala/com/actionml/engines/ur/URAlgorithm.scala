@@ -460,10 +460,11 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
-    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
+    val shouldMatchers =
+      userHistoryMatchers ++
       getSimilarItemsMatchers(query) ++
       getItemSetMatchers(query) ++
-      getBoostedRulesMatchers(aggregatedRules)))
+      getBoostedRulesMatchers(aggregatedRules)
 
     val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
 
