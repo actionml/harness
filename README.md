@@ -167,11 +167,11 @@ For specifics of the format and use of events and queries see the Engine specifi
 
     Harness optionally supports SSL and token based Authentication. See the [Security](security.md) section for more details.
     
- - [Java SDK](https://github.com/actionml/harness-java-sdk/blob/master/README.md)
+ - [Java Client SDK](https://github.com/actionml/harness-java-sdk/blob/master/README.md)
 
     The Java SDK is currently source and build instructions. You must include the source and required Java artifacts as shown in the examples then build them into your Java application.
 
-- [Python SDK](docs/commands.md)
+- Python Client SDK
 
     The CLI is implemented using the Python SDK and is packaged along with the [CLI here](https://github.com/actionml/harness-cli) 
   
