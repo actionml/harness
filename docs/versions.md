@@ -2,9 +2,18 @@
 
 Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines including, most notably, The Universal Recommender. It is built to allow custom Engines employing flexible learning styles.
 
+## 0.5.0-SNAPSHOT (work in progress)
+
+ - UR-0.9.0
+     - Elasticsearch 6.x and 7 support
+ - Export implemented for the UR
+ - Faster Import using Spark and HDFS
+ - Extended JSON for Engine Instance Config files, which pulls values from env
+ - ...
+
 ## 0.4.0 (current stable)
 
-- Add the Universal Recommender ported from PredictionIO
+- Add the Universal Recommender (UR-0.8.0) ported from PredictionIO's UR-0.7.3
 - Minor Universal Recommender feature enhancements
     - Business Rules now called `rules` in queries
     - Event aliases supported to group event types and rearrange via config, requiring no data changes
