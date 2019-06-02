@@ -1,12 +1,14 @@
 # The Harness REST Specification
 
-REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations for be preformed on them by combining URIs with HTTP/HTTPS verbs. For instance an HTTP POST corresponds to the C and U in CRUD (**C**reate, **R**ead, **U**pdate, **D**elete). So by combining the HTTP verb with a resource identifying URI most desired operations can be constructed. 
+REST stands for [REpresentational State Transfer](https://en.wikipedia.org/wiki/Representational_state_transfer) and is a method for identifying resources and operations to be preformed on them. By combining the HTTP verb with a URI most desired operations can be constructed. 
 
 # Harness REST
 
-From the outside Harness looks like a single server that fields all REST APIs, but behind this are serval more heavy-weight services (like databases or compute engines). In cases where Harness needs to define a service we use a ***microservices*** architecture, meaning the service is itself invoked via HTTP and REST APIs and encapsulates some clear function, like the Harness Auth-server. All of these Services and Microservices are invisible to the outside and only used by Harness to accomplish some task.
+From the outside Harness looks like a single server that fields all REST APIs, but behind this are serval more heavy-weight services (like databases or compute engines). In cases where Harness needs to define a service we use a ***microservices*** architecture, meaning the service is itself invoked via HTTP APIs and encapsulates some clear function, like the Harness Auth-server. All of these Services and Microservices are invisible to the outside and used only by Harness.
 
-The Harness CLI (`harnessctl`) is implemented in Python as calls to the REST API so this separation of client to Harness Server is absolute. See [Commands](commands.md) for more about the CLI.
+The Harness CLI (`harnessctl`) is implemented in Python as calls to the Harness REST API. See [Commands](commands.md) for more about the CLI.
+
+All input, query, and admin operations are implemented through the REST API. The client application may use one of the provided client SDKs or may use HTTP/HTTPS directly.
 
 # Harness HTTP Response Codes
 
@@ -35,31 +37,23 @@ APIs that are administrative in nature.
 
 # JSON 
 
-Harness uses JSON for all POST and response bodies. The format of these bodies are under the control of the Specific Engines with some information layered on by Harness itself. See Harness Responses for admin type API and the specific Engine Docs for Responses made by Engine Instances (like query responses, or status).
+Harness uses JSON for all request and response bodies. The format of these bodies are under the control of the Specific Engines with some information layered on by Harness itself.
 
-Harness enforces certain conventions, for instance all JSON types are allowed but are validated for their specific use case. Dates are supported as Strings of ISO8601 defined by Java's [`ISO_DATE_FORMAT`](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_DATE_TIME) for input strings. This includes most common formats with time zones, and what is called the "Zulu" format.
+See the Engine docs for request/response formats. For administrative REST see Harness docs for formats. 
 
-Some JSON follows extended conventions to allow values to be retrieved from the server `env` variables. Specifically Engine Instance configurations may need values from `env`. See [Harness Json](harness_json.md) for the specification.
-
-## Requests
-
-REST defines the nature of the request and for those that have a body, it is in JSON and must be formatted to fit the spec in each Engine type or Harness, depending on the target. See the Engine docs for Request formats. For administrative REST see Harness docs for Request formats. 
-
-## Responses
-
-These are optional if the Response code enough but may also include information, parsable as JSON, that gives further information. For instance a `DELETE /engines/engine-id` may return an error HTTP code AND a JSON comment with a human readable error description. This is also and example of an administrative REST call.
+Response and Error codes are defined below.
 
 # Harness REST Types
 
-The Resource-id or type in the REST API follows this model, where Harness owns all resources and each level in the ownership defines what collection maintains resource management.
+The Resource-id or type in the REST API follows this model, where Harness owns all resources and each level in the ownership defines which resource own a sub-resource.
 
 ![](https://docs.google.com/drawings/d/e/2PACX-1vToTQAtggzYIupQMN6emdlKyqmtXSv1DSM-ZMl2hiAxzxLNAXy3vXCSDrnGoWYZD_YXr2DOc6GIQ6Tg/pub?w=915&h=1007)
 
-Whether the resource definition is sent programmatically or comes from a file (as with an engine's config and params) the actual resource is persisted in a shared store like a DB. Harness itself is stateless.
+Whether the resource definition is sent programmatically or comes from a file (as with an engine's config and params) the actual resource is ALWAYS persisted in a shared store like a DB. Harness itself and all Engines can be expected to be stateless.
 
 ## Engines
 
-Each engine-id is used to reference an Engine Instance defined by configuration JSON. This is defined by each Engine type but must alway contain an id and a factory class to call in creating an Engine Instance. There are other generic params defined in [Harness Config](harness_config.md) but many are Engine specific Algorithm Parameters, which are defined by the Engine (the [Universal Recommender](ur_configuration.md) for instance)
+Each Engine Intance has defining configuration JSON (usually in some file). This config must contain the engine-id. There are other generic params defined in [Harness Config](harness_config.md) but many are Engine specific Algorithm parameters, which are defined by the Engine (the [Universal Recommender](ur_configuration.md) for instance)
 
 ## Events
 
