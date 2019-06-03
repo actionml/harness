@@ -1,33 +1,29 @@
 # Harness Installation
 
-This guide shows how to build and install Harness server, Java SDK, and Python SDK examples from source. This is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
+This guide shows how to build and install the Harness server and examples from source. This is targeted at macOS (BSD Unix based) and Debian/Ubuntu (16.04 or later).
 
-# Requirements
+The project targets automated container builds as the primary release mechanism but some may prefer an OS level installation or wish to use a debugger in modifying code, which is much easier with an OS level install. For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md).
 
-These projects are related and should be built together when installing from source (tarball and jar build TBD):
+# Related Projects
 
- 1. The Harness Rest-Server (ActionML repo)
- 2. The Harness Auth-Server (ActionML repo) **This is not required and is not described here, see this [README](https://github.com/actionml/harness-auth-server) if you want the harness-auth-server**
- 3. Engines' dependencies (external tarball, apt-get, yum, or brew installs)
- 4. Java-sdk (ActionML repo) **Optional: no need for this if you are using raw REST or the CLI to communicate with Harness**
- 5. Python sdk (included with the Harness Server AML repo)
+These projects are related and can be used together:
 
-## Repositories
-For Harness 0.4.0+ These are split into 2 GitHub repositories.
+ 1. The [Harness Rest-Server](https://github.com/actionml/harness)
+ 2. Engines' dependencies (external tarball, apt-get, yum, or brew installs). These are described below.
+ 3. Harness [CLI and SDK](https://github.com/actionml/harness-cli)
+ 4. Harness [Java/Scala Client SDK](https://github.com/actionml/harness-java-sdk) **Optional: no need for this if you are using raw HTTP REST or the CLI to communicate with Harness**
+ 5. The [Harness Auth-Server](https://github.com/actionml/harness-auth-server) **This is not required and is not described here, see this [README](https://github.com/actionml/harness-auth-server) if you want the harness-auth-server**
 
- 1. [Harness-Rest-Server](https://github.com/actionml/harness): rest-server + Engines + Python CLI + Python SDK
- 2. The [Harness Java-SDK](https://github.com/actionml/harness-java-sdk) **Optional**: only supports Events and Queries and so is also stable and not very likely to change. The project is not needed if you are not using the Java SDK.
 
 For a guide to using IntelliJ for debugging see [Debugging with IntelliJ](debugging_with_intellij.md).
 
 ## General Requirements
 
- - **Java 8:** this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
- - **Scala 2.11:** (optional), the Harness build is done by `sbt`, which will download the correct version of Scala if needed. If you plan to run the Scala REPL for experimenting with Scala, install using `apt-get`, `yum`, or `brew`
+ - **Java 8+:** this should be installed as a dependency of Scala 2.11 but install it if needed, make sure to get the "JDK" version not just the "JRE". Also add your JAVA_HOME to the environment
  - **Git**
- - **MongoDB 3.6 to 4+:** this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These instructions [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
- - **Spark 2.3.3++**: Used by the Universal Recommender and URNavHintingEngine. Can be run locally in the Harness process via linked in code or setup remotely.
- - **Elasticsearch 5.x**: Used by the UREngine and URNavHinting.
+ - **MongoDB 3.6 to 4+:** this may require a newer version than in the distro package repos, so check MongoDB docs for installation. These, for example, [install Mongo 4.0 on Ubuntu 14.04 thru 18.04](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+ - **Spark 2.3.3++**: Used by all pre-packaged Engines except the Contextual Bandit. Can be run locally in the Harness process via linked in code or setup on a remote cluster.
+ - **Elasticsearch 5.x**: Used by Engines. Harness 0.5.0+ will support ES 6 & 7, but use 5.x currently.
  - **Other:** Each Engine or component may have its own requirements, see each below.
 
 ## Install Requirements on Ubuntu 18.04
@@ -101,16 +97,16 @@ cd harness/rest-server
 git checkout -b develop
 git pull origin develop
 ./make-harness-distribution.sh
-tar xvf Harness-0.4.0-SNAPSHOT.tar.gz # use the version number in the tarball name, if different
-nano Harness-0.4.0-SNAPSHOT/bin/harness-env # config the env for Harness
+tar xvf Harness-0.5.0-SNAPSHOT.tar.gz # use the version number in the tarball name, if different
+nano Harness-0.5.0-SNAPSHOT/bin/harness-env # config the env for Harness
 ```
 
-The default config in `harness-env` is usually sufficient for testing locally. You can also copy the file from earlier builds, little has changed in it.
+The default config in `harness-env` is usually sufficient for testing locally on a development machine.
 
-Add the Harness CLI (located the `bin/` directory of the distribution tarball) to your PATH by including something like the following in `~/.profile` or wherever you OS requires it.
+Add the Harness Start/Stop scripts, located int he `bin/` directory of the distribution tarball to your PATH by including something like the following in `~/.profile` or wherever your OS requires it.
     
 ```
-export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.4.0-SNAPSHOT/bin/
+export PATH=$PATH:/home/<your-user-name>/harness/rest-server/Harness-0.5.0-SNAPSHOT/bin/
 # substitute your path to the distribution's "bin" directory
 # the dir should contain the .../bin/main file and other CLI scripts
 ```
@@ -121,7 +117,7 @@ Then source the `.profile` with
 . ~/.profile
 ```
 
-## Python SDK
+## Harness CLI
 
 The Python SDK is needed for virtually all Harness CLI since Harness only responds to the REST API and therefore the CLI does this through the Python SDK.
 
@@ -129,14 +125,7 @@ The Python SDK is needed for virtually all Harness CLI since Harness only respon
 
  - **Python3**: This can usually be installed from the distribution's repos using `apt-get`, `brew`, or `yum`.
  - **Pip3**: This is required to run the setup script that installs the Harness Python SDK and can be installed through your platform's distribution repos.
- - **Harness Python SDK** for local use:
-
-    ```
-    cd harness/python-sdk # wherever the source is installed
-    python3 setup.py install # you may need to add "sudo" to this
-    ```
-
-You are now ready to launch and run the Harness CLI but you will need more services for included engines so read on.
+ - **Harness Python SDK** for local use see instructions in the [Harness-CLI](https://github.com/actionml/harness-cli) repo.
 
 # Elasticsearch 5.x
 
@@ -146,12 +135,11 @@ Elasticsearch can be installed from supported Debian apt-get repos, Fedora yum r
 
 ## macOS
 
-    $ brew update
-    $ brew install elasticsearch
+    $ brew install elasticsearch@5
 
 ## Ubuntu
 
-The repo to use should match the version of Ubuntu. For Ubuntu 16.06 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
+The repo to use should match the version of Ubuntu. For Ubuntu 18.04 LTS your have already installed Java 8 so see the rest here: [Elasticsearch on Ubuntu](https://www.howtoforge.com/tutorial/how-to-install-elastic-stack-on-ubuntu-16-04/#step-install-and-configure-elasticsearch). You only need to perform step #2.
 
 Your instructions will look SOMETHING like this:
 
@@ -163,17 +151,25 @@ sudo apt-get install elasticsearch
 sudo systemctl start elasticsearch.service
 ```
 
+# Spark 2.3.3
+
+To run Harness on localhost, there is not need to install Spark. It may be run on a cluster to by changing the `harness-env` described below.
+
+# MongoDB 4.x+
+
+Harness requires a MongoDB server, which may be installed on localhost. It may be run on a remote node or cluster by changing the `harness-env` described below.
+
 # Launching Harness  
 
- - **Setup Harness config:** To configure Harness for localhost connections you should not need to change the default configuration in `harness/Harness-0.4.0-SNAPSHOT/bin/harness-env`. Look there to see examples for changing global Harness config.
- - **Set the `path`** in your env to include the `bin` directory of both Harness and optionally the Harness Auth server: 
+ - **Setup Harness config:** for localhost connections you should not need to change the default configuration in `harness/Harness-0.5.0-SNAPSHOT/bin/harness-env`. If MongoDB, Spark, or Elasticsearch are not on localhost, change this in `harness-env`
+
+ - **Set the `path`** in your `env` to include the `bin` directory of both Harness and optionally the Harness Auth server: 
 
     ```
-    export PATH=/path/to/harness/bin:/path/to/harness-auth/bin:$PATH`
+    export PATH=/path/to/harness/bin:$PATH`
     ```
-    
- - **Start Other Services:** Harness and its Engines should have their dependent services started on boot or start them before Harness.
- 
+ - **Start Other Services:** Harness and its Engines should have any services they depend on started on boot or start them before Harness. For instance if you are using the Contextual Bandit, start its Vowpal Wabbit dependency first. All other services are covered above.
+
  - **Start Harness:**
 
     ```
@@ -189,15 +185,13 @@ See [Advanced Settings](advanced_settings.md) for allowing external connections,
 
 # Addendum for Special Uses
 
-To use the CBEngine you will also need:
-
- - **Boost 1.55.0:** (only needed for the Contextual Bandit "CBEngine". 1.55.0 or higher is fine. This needed for Vowpal Wabbit/CBEngine runtime.
+Stop here if you are using the Universal Recommender and do not need Auth or TLS. 
 
 ## The Contextual Bandit (optional)
  
-The Contextual Bandit is a sample Engine, which can be ignored if not being used.
+The Contextual Bandit is an included Engine, which can be ignored if not being used.
 
-The Contextual Bandit is a Kappa style online learning Engine based on the Vowpal Wabbit ML compute engine. To use this Engine (ignore if you are not using it), will require that you first build and install VW:
+The Contextual Bandit is a Kappa style online learning Engine based on the Vowpal Wabbit ML compute engine. Install VW:
 
 **For macOS** get dependencies:
 
@@ -255,14 +249,4 @@ The Contextual Bandit is a Kappa style online learning Engine based on the Vowpa
 
 ## Harness Auth-Server (Optional)
 
-Get and build from source. The Auth-Server is stable and has very few changes since testing was completed.
-
-```
-git clone https://github.com/actionml/harness-auth-server.git harness-auth-server
-cd harness-auth-server
-./make-auth-server-distribution.sh
-tar xvf AuthServer-0.3.x.ab.tar.gz # use the version in the tarball name
-```
-
-This creates the AuthServer but it is not needed for local testing or when auth is not being used.
-
+See the [Harness Auth-server](https://github.com/actionml/harness-auth-server) docs for setup instructions.
