@@ -107,7 +107,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
           case e: Exception =>
-            logger.error(s"Can't upsert $doc with id $id and type $typeName", e)
+            logger.error(s"Can't upsert $doc with id $id", e)
             false
         }
       case _ => false
@@ -261,7 +261,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           client.performRequest(new Request("HEAD", s"/$oldIndexName")) // Does the old index exist?
             .getStatusLine.getStatusCode match {
               case 200 => {
-                val deleteOldIndexQuery = s""",{ "remove_index": { "index": "${oldIndexName}"}}"""
+                val deleteOldIndexQuery = s""",{ "remove_index": { "index": "$oldIndexName"}}"""
                 (oldIndexSet, deleteOldIndexQuery)
               }
               case _ => (Set(), "")
@@ -274,8 +274,8 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       s"""
         |{
         |    "actions" : [
-        |        { "add":  { "index": "${newIndex}", "alias": "${alias}" } }
-        |        ${deleteOldIndexQuery}
+        |        { "add":  { "index": "$newIndex", "alias": "$alias" } }
+        |        $deleteOldIndexQuery
         |    ]
         |}
       """.stripMargin.replace("\n", "")
@@ -327,7 +327,6 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           var mappings =
             s"""
                |"mappings": {
-               |  "$indexType": {
                |    "properties": {
             """.stripMargin.replace("\n", "")
 
@@ -345,7 +344,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
              |    "last": {
              |      "type": "keyword"
              |    }
-             |}}}
+             |}}
             """.stripMargin.replace("\n", "")
 
         fieldNames.foreach { fieldName =>
@@ -424,6 +423,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
 
   def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
 
+
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
@@ -486,7 +486,6 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
       }
     }.flatten.toList ++ others.toList
   }
-
 
   private[elasticsearch] def filterToJson(filters: Seq[Filter]): JArray = {
     implicit val _ = CustomFormats
