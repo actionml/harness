@@ -509,10 +509,10 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   }
 
   private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
-    clauses.flatMap { case (clause, matchers) =>
+    clauses.toList.flatMap { case (clause, matchers) =>
       matchers.flatMap { m =>
         m.values.map { v =>
-          clause -> (m.name -> v) ~ m.boost.fold(JObject())("boost" -> _)
+          clause -> JObject(m.name -> JString(v))
         }
       }
     }.toList ++ others.toList
