@@ -23,11 +23,11 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
+import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
@@ -256,7 +256,8 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    LivyJobServerSupport.submit(initParams, engineId, { implicit sc =>
+    val f = SparkContextSupport.getSparkContext(initParams, engineId, JobManager.addJob(engineId, comment = "Spark job"), kryoClasses = Array(classOf[URNavHintingEvent]))
+    f.map { implicit sc =>
       val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
       // todo: this should work but not tested and not used in any case
@@ -303,7 +304,7 @@ class URNavHintingAlgorithm private (
       calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
 
       //sc.stop() // no more use of sc will be tolerated ;-)
-    })
+    }
 
     // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")

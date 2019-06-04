@@ -251,7 +251,9 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = LivyJobServerSupport.submit(initParams, engineId, { implicit sc =>
+    val jobDescription: JobDescription = JobManager.addJob(engineId, comment = "Spark job")
+    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
+    f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
@@ -292,12 +294,13 @@ class URAlgorithm private (
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-
       } catch {
-        case e: Throwable =>
+        case e: Exception =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+      } finally {
+        SparkContextSupport.stopAndClean(sc)
       }
-    })
+    }
     logger.debug(s"Starting train $this with spark")
     Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
