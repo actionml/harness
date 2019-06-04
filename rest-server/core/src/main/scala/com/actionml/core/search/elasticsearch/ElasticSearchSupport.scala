@@ -45,6 +45,7 @@ import org.json4s.{DefaultFormats, JValue, _}
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
+import scala.util.Try
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
   override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
@@ -75,12 +76,13 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
 class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[T] =>
   import ElasticSearchClient._
+  import ElasticSearchClient.ESVersions._
   implicit val _ = DefaultFormats
+  private val indexType = if (esVersion == v5) "items" else "_doc"
 
   override def close: Unit = client.close()
 
   override def createIndex(
-    indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean): Boolean = {
@@ -88,7 +90,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
-  override def saveOneById(id: String, typeName: String, doc: T): Boolean = {
+  override def saveOneById(id: String, doc: T): Boolean = {
     client.performRequest(new Request(
       "HEAD",
       s"/_alias/$alias"))
@@ -96,7 +98,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       .getStatusCode match {
       case 200 =>
         try {
-          val request = new Request("POST", s"/$alias/$typeName/${encodeURIFragment(id)}/_update")
+          val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
           request.setJsonEntity(
             JsonMethods.compact(JObject(
               "doc" -> JsonMethods.asJValue(doc),
@@ -158,7 +160,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
 
   }
 
-  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]]) = {
+  def findDocById(id: String): (String, Map[String, Seq[String]]) = {
     var rjv: Option[JValue] = Some(JString(""))
     try {
       client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
@@ -169,7 +171,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
           rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
-            val url = s"/$actualIndexName/$typeName/${encodeURIFragment(id)}"
+            val url = s"/$actualIndexName/$indexType/${encodeURIFragment(id)}"
             logger.info(s"find doc by id using URL: $url")
             val response = client.performRequest(new Request("GET", url))
             logger.info(s"got response: $response")
@@ -222,7 +224,6 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
   }
 
   override def hotSwap(
-    typeName: String,
     indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
@@ -230,10 +231,10 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     import org.elasticsearch.spark._
     val newIndex = createIndexName(alias)
 
-    logger.info(s"Create new index: $newIndex, $typeName, $fieldNames, $typeMappings")
+    logger.info(s"Create new index: $newIndex, $fieldNames, $typeMappings")
     // todo: this should have a typeMappings that is Map[String, (String, Boolean)] with the Boolean saying to use norms
     // taken out for now since there is no client.admin in the REST client. Have to construct REST call directly
-    createIndexByName(newIndex, typeName, fieldNames, typeMappings, refresh = false, doNotLinkAlias = true)
+    createIndexByName(newIndex, indexType, fieldNames, typeMappings, refresh = false, doNotLinkAlias = true)
 
     // throttle writing to the max bulk-write connections, which is one per ES core.
     // todo: can we find this from the cluster itself?
@@ -247,7 +248,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       indexRDD
     }
 
-    val newIndexURI = "/" + newIndex + "/" + typeName
+    val newIndexURI = "/" + newIndex + "/" + indexType
     val esConfig = Map("es.mapping.id" -> "id")
     repartitionedIndexRDD.saveToEs(newIndexURI, esConfig)
 
@@ -365,6 +366,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
 //        val entity = new NStringEntity(s"{$mappings$aliases}", ContentType.APPLICATION_JSON)
 
         val request = new Request("PUT", s"/$indexName")
+        if (esVersion == v7) request.addParameter("include_type_name", "true")
         request.setJsonEntity(JsonMethods.compact(body))
         client.performRequest(request)
           .getStatusLine.
@@ -443,6 +445,26 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
       ))
     }
     builder.build
+  }
+
+  private lazy val esVersion: ESVersions.Value = {
+    import ESVersions._
+    Try(client.performRequest(new Request("GET", "/"))).toOption
+      .flatMap { r =>
+        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
+        if (version.startsWith("5.")) Some(v5)
+        else if (version.startsWith("6.")) Some(v6)
+        else if (version.startsWith("7.")) Some(v7)
+        else {
+          logger.warn("Unsupported Elastic Search version: $version")
+          Option.empty
+        }
+      }.getOrElse(v5)
+  }
+  private object ESVersions extends Enumeration {
+    val v5 = Value(5)
+    val v6 = Value(6)
+    val v7 = Value(7)
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {

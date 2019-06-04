@@ -78,12 +78,11 @@ case class Hit(id: String, score: Float)
 trait SearchClient[T] {
   def close(): Unit
   def createIndex(
-    indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
-  def saveOneById(id: String, typeName: String, doc: T): Boolean
+  def saveOneById(id: String, doc: T): Boolean
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[T]
-  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]])
+  def findDocById(id: String): (String, Map[String, Seq[String]])
 }
