@@ -26,29 +26,10 @@ import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
-import org.bson.conversions.Bson
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.bson.{BsonInt32, BsonValue}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.model.{Filters, Sorts}
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.concurrent.TimeUnit
-
-import com.actionml.core.store.{DAO, Ordering, Store}
-import com.mongodb.client.model.IndexOptions
-import com.typesafe.scalalogging.LazyLogging
-import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
-import org.bson.{BsonReader, BsonWriter}
-import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
-
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
+import org.mongodb.scala.bson.{BsonInt32, BsonValue}
 import org.mongodb.scala.model.{Filters, IndexModel, Sorts}
 
 import scala.concurrent.duration._
@@ -56,7 +37,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
 
 
 class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
@@ -64,7 +44,6 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
     with LazyLogging
     with IndexesSupport {
   import DaoQuery.syntax._
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
