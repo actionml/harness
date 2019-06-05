@@ -146,7 +146,7 @@ class URAlgorithm private (
 
       modelEventNames = params.indicators.map(_.name)
 
-      blacklistEvents = params.blacklistEvents.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
+      blacklistEvents = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
       fields = params.rules.getOrElse(Seq.empty[Rule])
 
@@ -163,7 +163,7 @@ class URAlgorithm private (
       rankingsParams = params.rankings.getOrElse(Seq(RankingParams(
         name = Some(DefaultURAlgoParams.BackfillFieldName),
         `type` = Some(DefaultURAlgoParams.BackfillType),
-        eventNames = Some(modelEventNames.take(1)),
+        indicatorNames = Some(modelEventNames.take(1)),
         offsetDate = None,
         endDate = None,
         duration = Some(DefaultURAlgoParams.BackfillDuration)))).groupBy(_.`type`).map(_._2.head).toSeq
@@ -455,10 +455,11 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
-    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
+    val shouldMatchers =
+      userHistoryMatchers ++
       getSimilarItemsMatchers(query) ++
       getItemSetMatchers(query) ++
-      getBoostedRulesMatchers(aggregatedRules)))
+      getBoostedRulesMatchers(aggregatedRules)
 
     val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
 
@@ -497,7 +498,7 @@ class URAlgorithm private (
 
     import DaoQuery.syntax._
 
-    val queryEventNamesFilter = query.eventNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
+    val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
     // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
     // strength. DO NOT document, only for tests
 
@@ -542,19 +543,17 @@ class URAlgorithm private (
     val activeItemBias = query.itemBias.getOrElse(itemBias)
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
-    if (query.item.nonEmpty) {
+    query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
       logger.info(s"using item ${query.item.get}")
-      val (item, itemProperties) = es.findDocById(query.item.get, esType)
+      val (_, itemProperties) = es.findDocById(i)
 
-      logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
+      logger.info(s"getBiasedSimilarItems for item $i, bias value ${itemBias}")
       modelEventNames.map { eventName => // get items that are similar by eventName
         val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
         val rItems = items.take(maxQueryEvents)
         Matcher(eventName, rItems, similarItemsBoost)
       }
-    } else {
-      Seq.empty
-    } // no item specified
+    }
   }
 
   private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
@@ -650,7 +649,7 @@ class URAlgorithm private (
       val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
       val durationAsString = rankingParams.duration.getOrElse(DefaultURAlgoParams.BackfillDuration)
       val duration = Duration(durationAsString).toSeconds.toInt
-      val backfillEvents = rankingParams.eventNames.getOrElse(modelEventNames.take(1))
+      val backfillEvents = rankingParams.indicatorNames.getOrElse(modelEventNames.take(1))
       val offsetDate = rankingParams.offsetDate
       val rankRdd = popModel.calc(rankingType, eventsRdd, backfillEvents, duration, offsetDate)
       rankingFieldName -> rankRdd
@@ -729,7 +728,7 @@ object URAlgorithm extends JsonSupport {
   case class RankingParams(
       name: Option[String] = None,
       `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
+      indicatorNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
@@ -738,7 +737,7 @@ object URAlgorithm extends JsonSupport {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |indicatorParams: $eventNames,
+         |indicatorParams: $indicatorNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
@@ -765,7 +764,7 @@ object URAlgorithm extends JsonSupport {
     typeName: Option[String], // can optionally be used to specify the elasticsearch type name
     recsModel: Option[String] = None, // "all", "collabFiltering", "backfill"
     // indicatorParams: Option[Seq[String]], // names used to ID all user indicatorRDDs
-    blacklistEvents: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
+    blacklistIndicators: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
     // number of events in user-based recs query
     maxQueryEvents: Option[Int] = None,
     maxEventsPerEventType: Option[Int] = None,

@@ -135,9 +135,9 @@ class URNavHintingAlgorithm private (
           minLLR = indicatorParams.minLLR)
       }.toMap
     } else {
-      logger.error("Must have either \"eventNames\" or \"indicators\" in algorithm parameters, which are: " +
+      logger.error("Must have either \"indicatorNames\" or \"indicators\" in algorithm parameters, which are: " +
         s"$params")
-      err = Invalid(MissingParams(jsonComment("Must have either eventNames or indicators in algorithm parameters, which are: " +
+      err = Invalid(MissingParams(jsonComment("Must have either indicatorNames or indicators in algorithm parameters, which are: " +
         s"$params")))
     }
 
@@ -412,7 +412,7 @@ class URNavHintingAlgorithm private (
     val shouldMatchers = userEvents.map { case(n, hist) => Matcher(n, hist) }
     val mustMatcher = Matcher("values", query.eligibleNavIds)
     val esQuery = SearchQuery(
-      should = Map("terms" -> shouldMatchers),
+      should = shouldMatchers,
       must = Map("ids" -> Seq(mustMatcher)),
       sortBy = "popRank",
       size = limit
@@ -526,7 +526,7 @@ object URNavHintingAlgorithm extends JsonSupport {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |eventNames: $eventNames,
+         |indicatorNames: $eventNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration

@@ -97,7 +97,7 @@ The use of scalable Compute Engines allow Big Data to be used in Algorithms. The
 
 # Streaming Online Kappa Learning
 
-The Kappa style learning algorithm take in unbounded streams of data and incrementally updates the model without the need for a background batch operation. See the discussion of how this works in Harness Templates in [Kappa Learning](kappa-learning.md)
+The Kappa style learning algorithm take in unbounded streams of data and incrementally updates the model without the need for a background batch operation. See the discussion of how this works in Harness Templates in [Kappa Learning](docs/kappa-learning.md)
 
 # Batch Offline Lambda Learning
 
@@ -105,7 +105,7 @@ Many algorithms learn by processing a large batch of data and modifying some mod
 
 # Hybrid Learning
 
-The [Universal Recommender (UR)](ur_simple_usage.md) is an example of a hybrid learner. It calculates the largest part of its model in the background using Spark and Apache Mahout. This model can itself be modified in realtime by some input, for instance item properties, but the entire is meant to be re-calculated periodically. The UR is also able to use realtime user behavior to make personalized recommendations. 
+The [Universal Recommender (UR)](docs/ur_simple_usage.md) is an example of a hybrid learner. It calculates the largest part of its model in the background using Spark and Apache Mahout. This model can itself be modified in realtime by some input, for instance item properties, but the entire is meant to be re-calculated periodically. The UR is also able to use realtime user behavior to make personalized recommendations. 
  
 # Server REST API
 
@@ -121,7 +121,7 @@ Integral to REST is the notion of a "resource", which is an item that can be add
      - **queries**: queries are created so engines can return information based on their models. See the Engine documentation for their formats.
      - **jobs**: creates a long lived task such as a training task for a Lambda Engine.
 
-For the full Harness REST API and response codes, see the [Harness REST Specification](rest_spec.md)
+For the full Harness REST API and response codes, see the [Harness REST Specification](docs/rest_spec.md)
 
 ## Input and Query
 
@@ -155,30 +155,30 @@ The result of the query will be in the response body and looks like this:
     }
 
 
-For specifics of the format and use of events and queries see the Engine specific documentation&mdash;for example [The Universal Recommender](ur_simple_usage.md). 
+For specifics of the format and use of events and queries see the Engine specific documentation&mdash;for example [The Universal Recommender](docs/ur_simple_usage.md). 
 
 # Controlling and Communicating with Harness
 
- - [The Harness CLI](commands.md)
+ - [The Harness CLI](docs/commands.md)
 
     The Harness server has admin type commands which are used to create and control the workflow of Engines and perform other admin tasks. This CLI acts as a client to the REST API and so may be run remotely. The project lives in its own [repo here](https://github.com/actionml/harness-cli) See [Commands](commands.md) for a more detailed description.
      
- - [Security](security.md)  
+ - [Security](docs/security.md)  
 
     Harness optionally supports SSL and token based Authentication. See the [Security](security.md) section for more details.
     
- - [Java SDK](java-sdk.md)
+ - [Java Client SDK](https://github.com/actionml/harness-java-sdk/blob/master/README.md)
 
     The Java SDK is currently source and build instructions. You must include the source and required Java artifacts as shown in the examples then build them into your Java application.
 
-- [Python SDK](commands.md)
+- Python Client SDK
 
     The CLI is implemented using the Python SDK and is packaged along with the [CLI here](https://github.com/actionml/harness-cli) 
   
-- [Config](harness_config.md)
+- [Config](docs/harness_config.md)
 
-    Out of the box Harness runs on localhost and does not mirror events. To change this and other global behavior (not engine specific) read the [Config Page](harness_config.md)
+    Out of the box Harness runs on localhost and does not mirror events. To change this and other global behavior (not engine specific) read the [Config Page](docs/harness_config.md)
     
 # Installation
 
-There are several ways to install and run Harness. The most common, which may not be the easiest, is described in the [Install section](intall.md). This is a guide to installation on the OS of a server. 
+There are several ways to install and run Harness. The most common, which may not be the easiest, is described in the [Install section](docs/install.md). This is a guide to installation on the OS of a server. 
