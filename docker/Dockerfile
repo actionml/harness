@@ -22,7 +22,7 @@ RUN cd /tmp && \
 	apk add boost-dev  && \
 	python3 -m ensurepip && \
 	rm -r /usr/lib/python*/ensurepip && \
-	pip3 install --upgrade pip setuptools && \
+	# pip3 install --upgrade pip setuptools && \
 	rm -r /root/.cache && \
 	pip install /harness/wheel/*.whl && \
 	curl -#SL -o /usr/local/bin/confd https://github.com/kelseyhightower/confd/releases/download/${CONFD_VERSION}/confd-${CONFD_VERSION#v}-linux-amd64 && \
