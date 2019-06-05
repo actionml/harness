@@ -78,7 +78,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
   import ElasticSearchClient._
   import ElasticSearchClient.ESVersions._
   implicit val _ = DefaultFormats
-  private val indexType = if (esVersion == v5) "items" else "_doc"
+  private val indexType = if (esVersion != v7) "items" else "_doc"
 
   override def close: Unit = client.close()
 
