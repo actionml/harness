@@ -8,16 +8,16 @@ shift
 case ${command} in
   start) ${HARNESS_HOME}/bin/harness-start -d "$@" ;;
   stop) ${HARNESS_HOME}/bin/harness-stop "$@" ;;
-  status) ${HARNESS_HOME}/bin/harness-status "$@" ;;
-  add) ${HARNESS_HOME}/bin/harness-engine-add "$@" ;;
-  update) ${HARNESS_HOME}/bin/harness-engine-update "$@" ;;
-  delete) ${HARNESS_HOME}/bin/harness-engine-delete "$@" ;;
-  import) ${HARNESS_HOME}/bin/harness-engine-import "$@" ;;
-  user-add) ${HARNESS_HOME}/bin/harness-user-add "$@" ;;
-  user-delete) ${HARNESS_HOME}/bin/harness-user-delete "$@" ;;
-  grant) ${HARNESS_HOME}/bin/harness-grant "$@" ;;
-  revoke) ${HARNESS_HOME}/bin/harness-revoke "$@" ;;
-  train) ${HARNESS_HOME}/bin/harness-engine-train "$@" ;;
-  cancel) ${HARNESS_HOME}/bin/harness-engine-cancel-job "$@" ;;
+#  status) ${HARNESS_HOME}/bin/harness-status "$@" ;;
+#  add) ${HARNESS_HOME}/bin/harness-engine-add "$@" ;;
+#  update) ${HARNESS_HOME}/bin/harness-engine-update "$@" ;;
+#  delete) ${HARNESS_HOME}/bin/harness-engine-delete "$@" ;;
+#  import) ${HARNESS_HOME}/bin/harness-engine-import "$@" ;;
+#  user-add) ${HARNESS_HOME}/bin/harness-user-add "$@" ;;
+#  user-delete) ${HARNESS_HOME}/bin/harness-user-delete "$@" ;;
+#  grant) ${HARNESS_HOME}/bin/harness-grant "$@" ;;
+#  revoke) ${HARNESS_HOME}/bin/harness-revoke "$@" ;;
+#  train) ${HARNESS_HOME}/bin/harness-engine-train "$@" ;;
+#  cancel) ${HARNESS_HOME}/bin/harness-engine-cancel-job "$@" ;;
   *) ${HARNESS_HOME}/bin/harness-help ;;
 esac
