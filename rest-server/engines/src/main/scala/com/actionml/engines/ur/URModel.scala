@@ -84,7 +84,7 @@ class URModel(
 
     // todo:
     //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
-    es.hotSwap(esType, esRDD, esFields, typeMappings, numESWriteConnections)
+    es.hotSwap(esRDD, esFields, typeMappings, numESWriteConnections)
     true
   }
 

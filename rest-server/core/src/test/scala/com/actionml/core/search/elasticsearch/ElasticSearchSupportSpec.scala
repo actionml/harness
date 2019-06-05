@@ -17,14 +17,15 @@
 
 package com.actionml.core.search.elasticsearch
 
-import org.apache.spark.rdd.RDD
+import com.actionml.core.search.{Matcher, SearchQuery}
+import org.scalatest.{FlatSpec, Matchers}
 
+class ElasticSearchSupportSpec extends FlatSpec with Matchers {
 
-trait WriteToEsSupport {
+  "mkElasticQueryString" should "return flat should matchers" in {
+    val query = SearchQuery(should = Seq(Matcher("purchase", Seq("A", "B"))))
+    println(ElasticSearchClient.mkElasticQueryString(query))
+    ElasticSearchClient.mkElasticQueryString(query).split("""\{"term":""").length should equal(3)
+  }
 
-  def hotSwap(
-    indexRDD: RDD[Map[String, Any]],
-    fieldNames: List[String],
-    typeMappings: Map[String, (String, Boolean)] = Map.empty,
-    numESWriteConnections: Option[Int] = None): Unit
 }

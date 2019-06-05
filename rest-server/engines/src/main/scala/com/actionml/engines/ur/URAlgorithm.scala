@@ -460,10 +460,11 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
-    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
+    val shouldMatchers =
+      userHistoryMatchers ++
       getSimilarItemsMatchers(query) ++
       getItemSetMatchers(query) ++
-      getBoostedRulesMatchers(aggregatedRules)))
+      getBoostedRulesMatchers(aggregatedRules)
 
     val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
 
@@ -547,19 +548,17 @@ class URAlgorithm private (
     val activeItemBias = query.itemBias.getOrElse(itemBias)
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
-    if (query.item.nonEmpty) {
+    query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
       logger.info(s"using item ${query.item.get}")
-      val (item, itemProperties) = es.findDocById(query.item.get, esType)
+      val (_, itemProperties) = es.findDocById(i)
 
-      logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
+      logger.info(s"getBiasedSimilarItems for item $i, bias value ${itemBias}")
       modelEventNames.map { eventName => // get items that are similar by eventName
         val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
         val rItems = items.take(maxQueryEvents)
         Matcher(eventName, rItems, similarItemsBoost)
       }
-    } else {
-      Seq.empty
-    } // no item specified
+    }
   }
 
   private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
