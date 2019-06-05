@@ -55,6 +55,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 
@@ -204,7 +205,7 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
         logger.info(s"Drop index $iname")
         collection.dropIndex(iname).toFuture
           .recover {
-            case e: Exception =>
+            case NonFatal(e) =>
               logger.error(s"Can't drop index $iname", e)
           }
       }
@@ -214,7 +215,7 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
       } else Future.successful(())
     } yield ())
       .recover {
-        case e: Exception =>
+        case NonFatal(e) =>
           logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
       }
   }

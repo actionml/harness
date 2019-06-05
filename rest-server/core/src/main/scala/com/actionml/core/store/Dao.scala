@@ -22,6 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 
 trait DAO[T] extends AsyncDao[T] with SyncDao[T] {
@@ -51,7 +52,7 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   private def sync[A](f: => Future[A]): A = try {
     Await.result(f, timeout)
   } catch {
-    case e: Exception =>
+    case NonFatal(e) =>
       logger.error("Sync DAO error", e)
       throw e
   }

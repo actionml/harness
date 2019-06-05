@@ -43,6 +43,7 @@ import org.apache.spark.rdd.RDD
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -295,7 +296,7 @@ class URAlgorithm private (
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
       } catch {
-        case e: Exception =>
+        case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       } finally {
         SparkContextSupport.stopAndClean(sc)
@@ -437,7 +438,7 @@ class URAlgorithm private (
         Valid(Comment(s"Job $jobId aborted successfully"))
       }
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Job $jobId abort error", e)
         Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
     }

@@ -27,6 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 
@@ -88,7 +89,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
     } ++ Seq(LivyJobServerSupport.cancel(jobId)))
       .map(_ => ())
       .recover {
-        case e: Exception =>
+        case NonFatal(e) =>
           logger.error("Cancel job error", e)
       }
   }
@@ -107,9 +108,11 @@ object Cancellable {
   }
 }
 
-case class JobDescription(jobId: String,
-                          status: JobStatus = JobStatuses.queued,
-                          comment: String = "") extends Response
+case class JobDescription(
+  jobId: String,
+  status: JobStatus = JobStatuses.queued,
+  comment: String = ""
+) extends Response
 
 object JobDescription {
   def create: JobDescription = JobDescription(UUID.randomUUID().toString)

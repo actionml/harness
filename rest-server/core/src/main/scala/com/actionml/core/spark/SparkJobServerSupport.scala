@@ -34,6 +34,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
+import scala.util.control.NonFatal
 
 trait SparkJobServerSupport {
   def submit[T](initParams: String, engineId: String, sc: SparkContext => T): JobDescription
@@ -73,7 +74,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
       })
       jobDescription
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error("Jars upload problem", e)
         throw e
     }
