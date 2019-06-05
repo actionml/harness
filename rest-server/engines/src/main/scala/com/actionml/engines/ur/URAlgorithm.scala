@@ -24,11 +24,11 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.SparkContextSupport
+import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
@@ -43,6 +43,7 @@ import org.apache.spark.rdd.RDD
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -251,7 +252,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
+    val jobDescription: JobDescription = JobManager.addJob(engineId, comment = "Spark job")
     val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -294,21 +295,15 @@ class URAlgorithm private (
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-
-        //sc.stop() // no more use of sc will be tolerated ;-)
       } catch {
-        case e: Throwable =>
-          logger.error(s"Spark computation failed for job $jobDescription", e)
-          sc.cancelJobGroup(jobDescription.jobId)
-          throw e
+        case NonFatal(e) =>
+          logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       } finally {
         SparkContextSupport.stopAndClean(sc)
       }
     }
-
-    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
     logger.debug(s"Starting train $this with spark")
-    Valid(Comment("Started train Job on Spark"))
+    Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
   /*
@@ -443,7 +438,7 @@ class URAlgorithm private (
         Valid(Comment(s"Job $jobId aborted successfully"))
       }
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Job $jobId abort error", e)
         Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
     }
@@ -460,10 +455,11 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
-    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
+    val shouldMatchers =
+      userHistoryMatchers ++
       getSimilarItemsMatchers(query) ++
       getItemSetMatchers(query) ++
-      getBoostedRulesMatchers(aggregatedRules)))
+      getBoostedRulesMatchers(aggregatedRules)
 
     val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
 
@@ -547,19 +543,17 @@ class URAlgorithm private (
     val activeItemBias = query.itemBias.getOrElse(itemBias)
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
-    if (query.item.nonEmpty) {
+    query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
       logger.info(s"using item ${query.item.get}")
-      val (item, itemProperties) = es.findDocById(query.item.get, esType)
+      val (_, itemProperties) = es.findDocById(i)
 
-      logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
+      logger.info(s"getBiasedSimilarItems for item $i, bias value ${itemBias}")
       modelEventNames.map { eventName => // get items that are similar by eventName
         val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
         val rItems = items.take(maxQueryEvents)
         Matcher(eventName, rItems, similarItemsBoost)
       }
-    } else {
-      Seq.empty
-    } // no item specified
+    }
   }
 
   private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
@@ -821,5 +815,6 @@ object URAlgorithm extends JsonSupport {
     fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
     minEventsPerUser: Option[Int] = Some(1)) extends Serializable
 
+  case class TrainResponse(description: JobDescription, comment: String) extends Response
 }
 

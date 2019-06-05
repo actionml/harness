@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerJobEnd, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -125,13 +125,7 @@ object SparkContextSupport extends LazyLogging {
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
-      override def cancel(): Future[Unit] = {
-        logger.debug(s"Cancel job $jobId")
-        f.map(_.cancelJobGroup(jobId))
-      }
-    }
-    JobManager.startNewJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
+    JobManager.addJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
     f.onComplete {
       case Success(sc) =>
         sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
@@ -150,8 +144,8 @@ object SparkContextSupport extends LazyLogging {
   }
 
   private def configParams: Map[String, String] = {
-    import net.ceedubs.ficus.Ficus._
     import com.typesafe.config.ConfigFactory
+    import net.ceedubs.ficus.Ficus._
     Try {
       val config: Config = ConfigFactory.load()
       Map("spark.eventLog.dir" -> config.as[String]("spark.eventLog.dir"))
@@ -181,4 +175,11 @@ object SparkContextSupport extends LazyLogging {
                              currentPromise: Promise[SparkContext],
                              otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
   private case object Idle extends SparkContextState
+
+  class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
+    override def cancel(): Future[Unit] = {
+      logger.info(s"Cancel job $jobId")
+      f.map(_.cancelJobGroup(jobId))
+    }
+  }
 }
