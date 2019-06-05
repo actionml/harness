@@ -20,11 +20,11 @@ RUN cd /tmp && \
 	apk add --no-cache --update python3 && \
 	apk add --virtual build-dependencies build-base gcc zlib-dev openssl-dev libffi-dev python3-dev && \
 	apk add boost-dev  && \
-	python3 -m ensurepip && \
-	rm -r /usr/lib/python*/ensurepip && \
+	# python3 -m ensurepip && \
+	# rm -r /usr/lib/python*/ensurepip && \
 	# pip3 install --upgrade pip setuptools && \
-	rm -r /root/.cache && \
-	pip install /harness/wheel/*.whl && \
+	# rm -r /root/.cache && \
+	# pip install /harness/wheel/*.whl && \
 	curl -#SL -o /usr/local/bin/confd https://github.com/kelseyhightower/confd/releases/download/${CONFD_VERSION}/confd-${CONFD_VERSION#v}-linux-amd64 && \
 	echo "${CONFD_SHA256}  /usr/local/bin/confd" | sha256sum -c && chmod 755 /usr/local/bin/confd
 
