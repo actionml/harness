@@ -32,6 +32,7 @@ resolvers += Resolver.mavenLocal
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
@@ -76,12 +77,11 @@ lazy val core = (project in file("core")).
       "org.apache.spark" %% "spark-yarn" % sparkVersion,
       "org.apache.spark" %% "spark-mllib" % sparkVersion,
       "org.xerial.snappy" % "snappy-java" % "1.1.1.7",
-      //"org.apache.hbase" % "hbase" % "2.1.0",
-      //"org.apache.hbase" % "hbase-common" % "2.1.0",
-      //"org.apache.hbase" % "hbase-client" % "2.1.0",
 
       "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnecterVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
+
+      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,

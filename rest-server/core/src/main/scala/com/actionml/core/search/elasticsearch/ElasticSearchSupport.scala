@@ -45,6 +45,7 @@ import org.json4s.{DefaultFormats, JValue, _}
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
+import scala.util.control.NonFatal
 import scala.util.Try
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
@@ -108,7 +109,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             logger.error(s"Can't upsert $doc with id $id", e)
             false
         }
@@ -203,7 +204,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
         logger.error("got no data for the item", e)
         rjv = None
       }
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error("got unknown exception and so no data for the item", e)
         rjv = None
     }
