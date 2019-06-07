@@ -130,7 +130,10 @@ trait JsonSupport extends LazyLogging {
 
   private val env = s"system.env.(.*)".r
   private def enrichViaSystemEnv: String => String = {
-    case env(value) => sys.env.getOrElse(value, throw new RuntimeException)
+    case env(value) => sys.env.getOrElse(value, {
+      logger.warn(s"No ENV VAR for $value")
+      value
+    })
     case s => s
   }
 }
