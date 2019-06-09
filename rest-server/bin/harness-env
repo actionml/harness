@@ -64,3 +64,10 @@ export ADMIN_USER_ID=${ADMIN_USER_ID:-some-user-id}
 # The Python CLI needs to pass the user-id and user-secret to the Python SDK so when using Auth supply a pointer to
 # the user-secret here.
 export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
+
+# =============================================================
+# Only needed if you use the Spark Job Server with Apache Livy
+# =============================================================
+
+# Spark Job Server (Apache Livy) setup
+# export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}
