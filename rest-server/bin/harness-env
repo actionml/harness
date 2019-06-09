@@ -66,7 +66,7 @@ export ADMIN_USER_ID=${ADMIN_USER_ID:-some-user-id}
 export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
 
 # =============================================================
-# Only needed if you use the optional Spark Job Server with Apache Livy
+# Only needed if you use the Spark Job Server with Apache Livy
 # =============================================================
 
 # Spark Job Server (Apache Livy) setup
