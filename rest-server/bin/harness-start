@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 . "$(cd "`dirname "$0"`"; pwd)/common.sh"
+. "$(cd "`dirname "$0"`"; pwd)/harness-env"
 
 # cli args parse :)
 ( echo "$*" | grep -sqwi "\-d" ) && detached=yes
-( echo "$*" | grep -sqwi "\-f" ) && force=yes
 
 # Correct class identifier is required (check with main)!!!
 HARNESS_CLASS=com.actionml.HarnessServer
@@ -28,35 +28,24 @@ fi
 
 # Locate harness PID
 pid=$(java_pid $HARNESS_CLASS)
-harness_running && running=yes
 
-if [ -n "${running}" -a -n "${pid}" -a -z "${force}" ]; then
+if [ -n "${pid}" ]; then
   # harness seems to be running
-  >&2 echo -e "${RED}Harness server seems to be running, pid: ${pid}${NC}"
-  >&2 echo -e "${YELLOW}Use -f option to forcefully restart Harness server${NC}"
+  echo -e "${RED}Harness server has a pid: ${pid} you must stop Harness before starting.${NC}"
   exit 1
-elif [ -n "${running}" -a -n "${pid}" -a -n "${force}" ]; then
-  # force restart
-  echo -e "${CYAN}Force Harness server restart${NC}"
-  "${HARNESS_HOME}"/bin/harness-stop
-  exec "${HARNESS_HOME}"/bin/harness-start "$@"
 else
   # start
-  [ -z "${detached}" ] || echo -e "${CYAN}Starting Harness server...${NC}"
-
   if [ -z "${detached}" ]; then
+    echo -e "${CYAN}Starting Harness server in the foreground, to run as a daemon use with \"-d\"${NC}"
     exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS}
   else
     # stderr/stdout log when bin/harness used only
     # below wites continual logs to /tmp eventually filling the disk
     # HARNESS_CLILOG="${HARNESS_CLILOG:-/tmp/harness.log}"
+    echo -e "${CYAN}Starting Harness server as a daemon${NC}"
     HARNESS_CLILOG="${HARNESS_CLILOG:-/dev/null}" # these will be written to logs and STDOUT/STDERR so do not need in tmp file also
     exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" &
   fi
 
-  if ( waitfor_harness ); then
-    "${HARNESS_HOME}"/bin/harness-stettings
-  else
-    >&2 echo -e "${RED}Harness server startup failed${NC}"
-  fi
+  echo -e "${CYAN}Run \"harnessctl status\" to get server status${NC}"
 fi

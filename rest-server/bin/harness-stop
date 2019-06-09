@@ -5,24 +5,13 @@
 # Correct class identifier is required (check with main)!!!
 HARNESS_CLASS=com.actionml.HarnessServer
 
-# Stop/kill settings
-delay=2
-kill_timeout=30
-
 pid=$(java_pid "${HARNESS_CLASS}")
-[ -z "${pid}" ] || echo -e "${GREEN}Stopping Harness Server...${NC}"
 
-# Gracefull kill loop
-while ( harness_running && [ -n $(java_pid "${HARNESS_CLASS}") ] ); do
-  kill $pid
-  sleep $delay
-  kill_timeout=$((kill_timeout - delay))
-  [ "${kill_timeout}" -le 0 ] && break
-done
-
-if ( harness_running ); then
-  echo -e "${RED}Harness Server is still running, killing the process${NC}"
-  kill -9 $pid
+if [ -n "${pid}" ]
+then
+    echo -e "${CYAN}Trying to stop Harness Server${NC}"
+    kill $pid
+    echo -e "${CYAN}Harness may take some time to gracefully halt, check before proceeding.${NC}"
+else
+    echo -e "${YELLOW}No Harness server is running${NC}"
 fi
-
-echo -e "${GREEN}Harness Server is stopped${NC}"
