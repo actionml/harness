@@ -21,7 +21,7 @@ HARNESS_OPTS="\
 
 if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
   echo -e "${RED}Main file '${HARNESS_HOME}/bin/main' not found!${NC}"
-  echo -e "${RED}The Harness server must be run after doing a distribution build${NC}"
+  echo -e "${RED}The Harness server must be run after doing \"make dist\"${NC}"
   exit 1
 fi
 
@@ -55,7 +55,7 @@ else
   fi
 
   if ( waitfor_harness ); then
-    "${HARNESS_HOME}"/bin/harness-status
+    "${HARNESS_HOME}"/bin/harness-stettings
   else
     >&2 echo -e "${RED}Harness server startup failed${NC}"
   fi
