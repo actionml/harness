@@ -34,7 +34,7 @@ clean: sbt
 		$(SBT) ++$(SCALA_VERSION) -batch server/clean
 	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \; || true
 
-dist: clean clean-dist build wheel
+dist: clean clean-dist build
 	mkdir -p $(DIST) && cd $(DIST) && mkdir bin conf logs project lib
 	cp $(RESTSRV_DIR)/bin/* $(DIST)/bin/
 	cp $(RESTSRV_DIR)/conf/* $(DIST)/conf/
