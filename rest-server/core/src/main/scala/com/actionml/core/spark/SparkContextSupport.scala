@@ -21,6 +21,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
+import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
@@ -33,7 +34,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 
-object SparkContextSupport extends LazyLogging {
+object SparkContextSupport extends LazyLogging with JsonSupport {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
@@ -109,7 +110,7 @@ object SparkContextSupport extends LazyLogging {
 
   private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
     val f = Future {
-      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf").getOrElse(Map.empty)
       val conf = new SparkConf()
       configMap.get("master").foreach(conf.setMaster)
       conf.setAppName(params.engineId)
@@ -160,11 +161,6 @@ object SparkContextSupport extends LazyLogging {
           f.getAbsolutePath
       }
     } else Seq.empty
-  }
-
-  private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
-    implicit val _ = org.json4s.DefaultFormats
-    transform(parse(jsonStr)).extract[T]
   }
 
   private case class SparkContextParams(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]])
