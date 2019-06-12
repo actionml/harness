@@ -35,6 +35,7 @@ import org.json4s.{JArray, JObject}
 import scala.concurrent.duration.Duration
 import scala.language.reflectiveCalls
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
   * Extend with the store of choice, like Mongo or other Store trait.
@@ -193,7 +194,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       val eventTime = (j \ "eventTime").as[Date]
       Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, eventTime))
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Can't parse UREvent from $j", e)
         Invalid(ParseError(s"Can't parse $j as UREvent"))
     }

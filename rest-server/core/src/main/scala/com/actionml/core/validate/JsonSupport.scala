@@ -34,6 +34,7 @@ import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Formats, JObjec
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 
 
 trait JsonSupport extends LazyLogging {
@@ -62,7 +63,7 @@ trait JsonSupport extends LazyLogging {
         try {
           Option(Date.from(Instant.from(readFormat.parse(s))))
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             logger.error(s"Can't parse date $s", e)
             None
         }
