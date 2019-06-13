@@ -31,20 +31,18 @@ This project implements a microservice based Machine Learning Server. It provide
     - **Containerized** containerized provisioning using Docker and Docker-compose for easy installs or scalable container orchestration
     - **Container Orchestration** ask us about Kubernetes support.
     - **Instance Creation** optional compute and storage resource creation using cloud platform neutral tools like KOPs (Kubernetes for Ops)
-
-See [version history](versions.md)  for specifics
- 
+    
 # Pre-requisites
 
 In its simplest form Harness has few external pre-requisites. To run it on one machine the requirements are:
 
- - The Docker daemon for Docker installation
+ - The Docker host tools for use with `docker-compose` or run it in a single container, dependent services installed separately.
 
 For installation on a host OS such as an AWS instance without Docker, the minimum requirements are
  
  - Python 3 for CLI and Harness Python SDK
  - Pip 3 to add the SDK to the Python CLI
- - MongoDB 3.x (pluggable via a clean DAO/DAL interface with injected DAOImpl for any DB)
+ - MongoDB 3.x
  - Some recent `nix OS
  - Services used by the Engine of your choice. For instance the UR requires Elasticsearch
 
@@ -52,48 +50,46 @@ Each Engine has its own requirements driven by decisions like what compute engin
 
 # Architecture
 
-At its core Harness is a fast lightweight Server that supplies 2 very flexible APIs and manages Engines. Each type of engines can be used together or as a single solution. 
+At its core Harness is a fast lightweight Server that supplies 2 very flexible APIs and manages Engines. Engines can be used together or as a single solution. 
 
-![Harness with Multiple Engines](https://docs.google.com/drawings/d/e/2PACX-1vRVo8cgkxpZGk3LctYttEdTTe0joKIEuFGqlNaZsTExbLmaqPDr7a4jwodHtPKOCgaM7mhhyeLF2H_T/pub?w=1121&h=762)
+![Harness with Multiple Engines](https://docs.google.com/drawings/d/e/2PACX-1vTsEtxnVUKnZ6UCoQd9CE7ZSKXqp59Uf9fEtkXJZKtXPFZ1kRrYDnFC-K1y46HTLl5uvXXA-pCZ-ZED/pub?w=1250&h=818)
 
 ## Harness Core
 
-Harness is a REST server with an API for Engines, Events, Queries, Users, and Permissions. Events and Queries end-points handle input and queries to Engine instances. The rest of the API is used for administration type functions and is generally used by the CLI or a future GUI.
+Harness is a REST server with an API for Engines, Events, Queries, Users, and Permissions. Events and Queries end-points handle input and queries to Engine instances. The rest of the API is used for administrative functions and is generally accessed through the CLI.
 
-The Harness Server core is small and fast and so is appropriate in single Algorithm solutions&mdash;an instance of The Universal Recommender is a good example. By adding the Harness Auth-server and scalable Engine backend services Harness can also become a full features Multi-tenant SaaS System.  
+The Harness Server core is small and fast and so is appropriate in single Algorithm solutions&mdash;an instance of The Universal Recommender is a good example. By adding the Harness Auth-server and scalable Engine backend services Harness can also become a full featured multi-tenant SaaS System.  
 
 ## Router
 
-The Harness core is made from a component called a Router, which maintains REST endpoints for the various object collections. It is meant as a core piece for HTTP microservices to use in presenting a REST interface and also supports SSL, OAuth2 signature based authentication, and REST route authorization.
+The Harness core is made from a component called a Router, which maintains REST endpoints for the various object collections. It routes all requests and responses to/from Engine Instances. It also supports SSL, OAuth2 signature based authentication, and REST route authorization where these are optional.
 
 Algorithm specific Engines can be implemented without the need to deal REST APIs. Engines start by plugging into the abstract Engine API and inherit all server features including administration, input, and query APIs.
 
-The Router has a admin API to create instances of Engines and attach them to REST endpoints.
-
 ## Administrator
 
-The Administrator executes CRUD type operations on Engines. It will also (optionally) deals with administration type CLI extensions, which create Users, and assign Permissions based on a simple role-set.
+The Administrator manages Engine Instances (and optionally Users and Permissions).
 
 ## Engines
 
-An Engine is the implementation of a particular algorithm. They are seen in `com.actionml.core.engines` module. Each Engine must supply required APIs but what they do when invoked is entirely up to the Engine. The format of input and queries is also Engine specific so see the Engine's docs for more info.
+An Engine is the implementation of a particular algorithm. They are seen in `com.actionml.core.engines` module. Each Engine must supply required APIs but what they do when invoked is up to the Engine. The format of input and queries is also Engine specific so see the Engine's docs for more info. The inteface for Engines is designed based on years of implementing production worthy ML/AI algorithms and follows patterns that fit about all of the categories of algorithm types.
 
 The common things about all Engines:
 
  - input is received as JSON "events" from REST POST requests.
  - queries are JSON from REST POST requests.
- - query results are returned in the response for the request
+ - query results are returned in the response for the request and is defined by the Engine type.
  - have JSON configuration files with generic Engine control params as well as Algorithm params. See the Engine docs for Algorithm params and Harness docs for generic Engine params.
 
 ## Scaling
 
-Harness is a stateless service. It does very little work itself. It delegates most work to the Engines, which are scaled in their own manner. Harness provides a toolbox of scalable services that can be used for state, datasets, and computing.
+Harness is a stateless service. It does very little work itself. It delegates most work to the Engines and other Services that is depends on. These services are all best-in-class made to scale from a shared single machine to massive clusters seemlessly. Harness provides a toolbox of these scalable services that can be used by Engines for state, datasets, and computing.
 
-Harness is scaled by scaling the services it and the various Engines use. For example The Universal Recommender will scale by using more Spark nodes for training, more Mongo nodes for storing input, and more Elasticsearch nodes for larger models. This scaling allows  virtually unlimited resources to be applied to an Engine Instance.
+Harness is scaled by scaling the services it and the various Engines use. For example The Universal Recommender will scale by using more or larger nodes for training (Spark), input storage (MongoDB), and models (Elasticsearch). In this manner Harness can be scaled either horizontally (for high availability) or vertically (for cost savings) to supply virtually unlimited resources to an Engine Instance.
 
 ## Compute Engines
 
-The use of scalable Compute Engines allow Big Data to be used in Algorithms. The most obvious and common Compute Engine is Apache Spark, which along with the Hadoop Distributed File System (HDFS) form a massively scalable platform. Spark and HDFS support are provided (along with Elasticsearch) in the Harness Toolbox.
+The use of scalable Compute Engines allow Big Data to be used in Algorithms. For instance one common Compute Engine is Apache Spark, which along with the Hadoop Distributed File System (HDFS) form a massively scalable platform. Spark and HDFS support are provided in the Harness Toolbox.
 
 # Streaming Online Kappa Learning
 
@@ -113,10 +109,7 @@ Harness REST is optionally secured by TLS and Authentication. This requires exte
 
 Integral to REST is the notion of a "resource", which is an item that can be addressed by a resource-id. POSTing to a resource type creates a single resource. The resource types defined in Harness are:
 
- - **engines**: the engine is the instance of a Template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries.
-
- sub-types representing child collections are:
- 
+ - **engines**: the engine is the instance of a Template, with associated knowledge of dataset, parameters, algorithms, models and all needed knowledge to Learn from the dataset to produce a model that will allow the engine to respond to queries. 
      - **events**: sub-collections that make up a particular dataset used a specific Engine. To send data to an Engine simply `POST /engines/<engine-id>/events/` a JSON Event whose format is defined by the Engine. Non-reserved events (no $ in the name) can be thought of as a unending stream. Reserved eventa like $set may cause properties of mutable objects to be changed immediately upon being received and may even alter properties of the model. See the Engine description for how events are formatted, validated, and processed. 
      - **queries**: queries are created so engines can return information based on their models. See the Engine documentation for their formats.
      - **jobs**: creates a long lived task such as a training task for a Lambda Engine.
