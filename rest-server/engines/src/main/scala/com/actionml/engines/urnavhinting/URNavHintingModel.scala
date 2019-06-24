@@ -84,7 +84,7 @@ class URNavHintingModel(
 
     // todo:
     //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
-    es.hotSwap(esType, esRDD, esFields)
+    es.hotSwap(esRDD, esFields)
     true
   }
 

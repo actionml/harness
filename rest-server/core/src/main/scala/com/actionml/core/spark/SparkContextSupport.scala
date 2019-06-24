@@ -21,9 +21,10 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
+import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerJobEnd, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -33,7 +34,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 
-object SparkContextSupport extends LazyLogging {
+object SparkContextSupport extends LazyLogging with JsonSupport {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
@@ -109,7 +110,7 @@ object SparkContextSupport extends LazyLogging {
 
   private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
     val f = Future {
-      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf")
+      val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf").getOrElse(Map.empty)
       val conf = new SparkConf()
       configMap.get("master").foreach(conf.setMaster)
       conf.setAppName(params.engineId)
@@ -125,13 +126,7 @@ object SparkContextSupport extends LazyLogging {
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
-      override def cancel(): Future[Unit] = {
-        logger.debug(s"Cancel job $jobId")
-        f.map(_.cancelJobGroup(jobId))
-      }
-    }
-    JobManager.startNewJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
+    JobManager.addJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
     f.onComplete {
       case Success(sc) =>
         sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
@@ -150,8 +145,8 @@ object SparkContextSupport extends LazyLogging {
   }
 
   private def configParams: Map[String, String] = {
-    import net.ceedubs.ficus.Ficus._
     import com.typesafe.config.ConfigFactory
+    import net.ceedubs.ficus.Ficus._
     Try {
       val config: Config = ConfigFactory.load()
       Map("spark.eventLog.dir" -> config.as[String]("spark.eventLog.dir"))
@@ -168,11 +163,6 @@ object SparkContextSupport extends LazyLogging {
     } else Seq.empty
   }
 
-  private def parseAndValidate[T](jsonStr: String, transform: JValue => JValue = a => a)(implicit mf: Manifest[T]): T = {
-    implicit val _ = org.json4s.DefaultFormats
-    transform(parse(jsonStr)).extract[T]
-  }
-
   private case class SparkContextParams(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]])
 
   private sealed trait SparkContextState
@@ -181,4 +171,11 @@ object SparkContextSupport extends LazyLogging {
                              currentPromise: Promise[SparkContext],
                              otherPromises: Map[SparkContextParams, Promise[SparkContext]]) extends SparkContextState
   private case object Idle extends SparkContextState
+
+  class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
+    override def cancel(): Future[Unit] = {
+      logger.info(s"Cancel job $jobId")
+      f.map(_.cancelJobGroup(jobId))
+    }
+  }
 }

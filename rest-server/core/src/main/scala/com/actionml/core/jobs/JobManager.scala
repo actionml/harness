@@ -19,20 +19,22 @@ package com.actionml.core.jobs
 
 import java.util.UUID
 
+import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
+import com.actionml.core.spark.LivyJobServerSupport
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 
 trait JobManagerInterface {
-  def addJob(engineId: String, cancellable: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
-  def startJob(jobId: String): Unit
-  def startNewJob(engineId: String, f: Future[_], c: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
+  def addJob(engineId: String, f: Future[_] = Future.successful(()), c: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
   def getActiveJobDescriptions(engineId: String): Map[String, JobDescription]
-  def removeJob(harnessJobId: String): Unit
+  def removeJob(jobId: String): Unit
   def cancelJob(jobId: String): Future[Unit]
 }
 
@@ -45,74 +47,61 @@ trait JobManagerInterface {
 object JobManager extends JobManagerInterface with LazyLogging {
 
   // first key is engineId, second is the harness specific Job id
-  private var jobDescriptions: Map[String, Map[String, (Cancellable, JobDescription)]] = Map.empty
+  private val jobDescriptions: TrieMap[String, Map[String, (Cancellable, JobDescription)]] = TrieMap.empty
 
-  /** Index by the engineId for Engine status reporting purposes */
-  override def addJob(engineId: String, cancellable: Cancellable, cmnt: String = ""): JobDescription = {
-    val jobId = createUUID
-    val newJobDescription = JobDescription(jobId, status = JobStatus.queued, comment = cmnt)
-    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) + (jobId -> (cancellable -> newJobDescription))
-    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
-    newJobDescription
-  }
-
-  override def startJob(jobId: String): Unit = {
-    jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
-      jds.get(jobId).fold(engineId -> jds) { d =>
-        engineId -> (jds + (jobId -> (d._1 -> d._2.copy(status = JobStatus.executing))))
-      }
-    }
-  }
-
-  override def startNewJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
-    val description = JobDescription(createUUID, JobStatus.executing, comment)
+  override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
+    val description = JobDescription(createUUID, JobStatuses.executing, comment)
     val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (description.jobId -> (c -> description.copy(status = JobStatus.executing)))
-    jobDescriptions = jobDescriptions + (engineId -> newJobDescriptions)
+      (description.jobId -> (c -> description.copy(status = JobStatuses.executing)))
+    jobDescriptions.put(engineId, newJobDescriptions)
     f.onComplete {
       case Success(_) =>
         logger.info(s"Job ${description.jobId} completed successfully [engine $engineId]")
         removeJob(description.jobId)
       case Failure(e) =>
         logger.error(s"Job $description failed [engine $engineId]", e)
-        removeJob(description.jobId)
+        cancelJob(description.jobId)
     }
     description
   }
 
-  private def createUUID: String = UUID.randomUUID().toString
-
   /** Gets any active Jobs for the specified Engine */
   override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
-    jobDescriptions.getOrElse(engineId, Map.empty).map {
-      case Tuple2(id, Tuple2(c, d)) => id -> d
-    }
+    (jobDescriptions.getOrElse(engineId, Map.empty).map {
+      case Tuple2(id, Tuple2(_, d)) => d
+    } ++ LivyJobServerSupport.status(engineId)).map(d => d.jobId -> d).toMap
   }
 
   override def removeJob(harnessJobId: String): Unit = {
-    jobDescriptions = jobDescriptions.map { case (engineId, jds) =>
+    jobDescriptions.map { case (engineId, jds) =>
       engineId -> (jds - harnessJobId)
     }
   }
 
   override def cancelJob(jobId: String): Future[Unit] = {
-    jobDescriptions.foreach {
+    Future.sequence(jobDescriptions.flatMap {
       case (_, jds) if jds.contains(jobId) =>
-        jds.get(jobId).foreach {
+        jds.get(jobId).map {
           case (cancellable, _) =>
             removeJob(jobId)
             cancellable.cancel()
         }
-    }
-    Future.successful(())
+    } ++ Seq(LivyJobServerSupport.cancel(jobId)))
+      .map(_ => ())
+      .recover {
+        case NonFatal(e) =>
+          logger.error("Cancel job error", e)
+      }
   }
 
-}
 
+  private def createUUID: String = UUID.randomUUID().toString
+}
 
 trait Cancellable {
   def cancel(): Future[Unit]
 }
+
 object Cancellable {
   val noop: Cancellable = new Cancellable {
     override def cancel() = Future.successful(())
@@ -121,11 +110,17 @@ object Cancellable {
 
 case class JobDescription(
   jobId: String,
-  status: String = JobStatus.queued,
-  comment: String = "") extends Response
+  status: JobStatus = JobStatuses.queued,
+  comment: String = ""
+) extends Response
 
-object JobStatus {
-  val queued = "queued"
-  val executing = "executing"
+object JobDescription {
+  def create: JobDescription = JobDescription(UUID.randomUUID().toString)
+}
+
+object JobStatuses extends Enumeration {
+  type JobStatus = Value
+  val queued = Value("queued")
+  val executing = Value("executing")
 }
 

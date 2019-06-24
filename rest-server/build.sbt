@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.4.0"
+version := "0.5.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
@@ -23,6 +23,7 @@ lazy val sparkVersion = "2.3.3"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
+lazy val elasticSearchVersion = "7.1.1"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
 
@@ -31,6 +32,7 @@ resolvers += Resolver.mavenLocal
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
@@ -75,12 +77,11 @@ lazy val core = (project in file("core")).
       "org.apache.spark" %% "spark-yarn" % sparkVersion,
       "org.apache.spark" %% "spark-mllib" % sparkVersion,
       "org.xerial.snappy" % "snappy-java" % "1.1.1.7",
-      //"org.apache.hbase" % "hbase" % "2.1.0",
-      //"org.apache.hbase" % "hbase-common" % "2.1.0",
-      //"org.apache.hbase" % "hbase-client" % "2.1.0",
 
       "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnecterVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
+
+      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,
@@ -93,8 +94,8 @@ lazy val core = (project in file("core")).
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
       "de.heikoseeberger" %% "akka-http-json4s" % "1.16.0",
 
-      "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.4.0",
-      "org.elasticsearch" %% "elasticsearch-spark-20" % "6.4.0",
+      "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
+      "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
