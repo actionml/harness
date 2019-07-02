@@ -470,26 +470,29 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
-    val json =
-      if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
-        JObject()
-      else {
-        ("size" -> query.size) ~
-        ("from" -> query.from) ~
-        ("query" ->
-          ("bool" ->
-            ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
-            ("must" -> matcherToJson(query.must)) ~
-            ("must_not" -> matcherToJson(query.mustNot)) ~
-            ("filter" -> filterToJson(query.filters)) ~
-            ("minimum_should_match" -> 1)
-        )) ~
-        ("sort" -> Seq(
-          "_score" -> JObject("order" -> JString("desc")),
-          query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
-        ))
-      }
-    compact(render(json))
+    var clauses = JObject()
+    if (esVersion != ESVersions.v5) {
+      if (query.must.nonEmpty) clauses = clauses ~ ("must" -> clausesToJson(Map("term" -> query.must)))
+      if (query.mustNot.nonEmpty) clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
+      if (query.filters.nonEmpty) clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      if (query.should.nonEmpty) clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should))) ~ ("minimum_should_match" -> 1)
+    } else {
+      if (query.must.nonEmpty) clauses = clauses ~ ("must" -> matcherToJson(Map("terms" -> query.must)))
+      if (query.mustNot.nonEmpty) clauses = clauses ~ ("must_not" -> matcherToJson(Map("terms" -> query.mustNot)))
+      if (query.filters.nonEmpty) clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      if (query.should.nonEmpty) clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~ ("minimum_should_match" -> 1)
+    }
+    val jQuery =
+      ("size" -> query.size) ~
+      ("from" -> query.from) ~
+      ("query" -> ("bool" -> clauses )) ~
+      ("sort" -> Seq(
+        "_score" -> JObject("order" -> JString("desc")),
+        query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
+      ))
+    val query_string = compact(render(jQuery))
+    logger.info(s"qqqqq: $query_string")
+    query_string
   }
 
   private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
