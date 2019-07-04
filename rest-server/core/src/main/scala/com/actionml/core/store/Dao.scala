@@ -68,5 +68,5 @@ trait SyncDao[T] extends LazyLogging { self: AsyncDao[T] =>
   def removeOneById(id: String): T = sync(removeOneByIdAsync(id))
   def removeOne(filter: (String, QueryCondition)*): T = sync(removeOneAsync(filter: _*))
   def removeMany(filter: (String, QueryCondition)*): Unit = sync(removeManyAsync(filter: _*))
-  def createIndexes(ttl: Duration): Unit = sync(createIndexesAsync(ttl))
+  def createIndexes(ttl: Duration = 365.days): Unit = sync(createIndexesAsync(ttl))
 }
