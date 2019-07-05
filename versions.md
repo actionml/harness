@@ -1,8 +1,17 @@
 # Versions
 
-Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines including, most notably, The Universal Recommender. It is built to allow custom Engines employing flexible learning styles.
+Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines, most notably The Universal Recommender. It is designed to allow custom Engines employing flexible learning styles.
+
+## Compatibility Notes
+
+Use the embedded CLI OR the CLI from [actionml/harness-cli](https://github.com/actionml/harness-cli) For the foreseeable future `harness-cli` will be backward compatible with harness-0.4.0+ It is advised to use the separate project in it's latest stable form since the embedded cli will is deprecating and be removed in harness-0.5.0.
 
 ## 0.4.1 (current stable)
+
+| Tag Type                 | Tag Value
+|:-------------------------|:---------------------------|
+| Git tag | `0.4.1` |
+| Docker Hub Image tag |`actionml/harness:latest` |
 
 Bug fix release.
 

@@ -34,7 +34,6 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  // version := "0.3.0-RC2",
   scalaVersion := "2.11.12",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
