@@ -322,56 +322,24 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val body = JObject(
             JField("mappings",
               JObject(indexType ->
-                JObject("properties" -> JObject(typeMappings.map(fieldToJson).toList))
+                JObject("properties" -> {
+                  fieldNames.map { fieldName =>
+                    if (typeMappings.contains(fieldName))
+                      JObject(fieldName -> JObject("type" -> JString(typeMappings(fieldName)._1)))
+                    else // unspecified fields are treated as not_analyzed strings
+                      JObject(fieldName -> JObject("type" -> JString("keyword")))
+                  }.reduce(_ ~ _)
+                })
               )
             ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
           )
-          var mappings =
-            s"""
-               |"mappings": {
-               |    "properties": {
-            """.stripMargin.replace("\n", "")
 
-          def mappingsField(`type`: String) = {
-            s"""
-               |    : {
-               |      "type": "${`type`}"
-               |    },
-            """.stripMargin.replace("\n", "")
-          }
-
-        val mappingsTail =
-        // unused mapping forces the last element to have no comma, fuck JSON
-          s"""
-             |    "last": {
-             |      "type": "keyword"
-             |    }
-             |}}
-            """.stripMargin.replace("\n", "")
-
-        fieldNames.foreach { fieldName =>
-          if (typeMappings.contains(fieldName))
-            mappings +=
-              (s""""$fieldName"""" + mappingsField(typeMappings(
-                fieldName)._1))
-          else // unspecified fields are treated as not_analyzed strings
-            mappings += (s""""$fieldName"""" + mappingsField(
-              "keyword"))
-        }
-
-        mappings += mappingsTail
-        val aliases = if (doNotLinkAlias) "" else s""","aliases":{"$alias":{}}"""
-        // "id" string is not_analyzed and does not use norms
-        // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
-        //logger.info(s"Create index with:\n$indexName\n$mappings\n")
-//        val entity = new NStringEntity(s"{$mappings$aliases}", ContentType.APPLICATION_JSON)
-
-        val request = new Request("PUT", s"/$indexName")
-        if (esVersion == v7) request.addParameter("include_type_name", "true")
-        request.setJsonEntity(JsonMethods.compact(body))
-        client.performRequest(request)
-          .getStatusLine.
-          getStatusCode match {
+          val request = new Request("PUT", s"/$indexName")
+          if (esVersion == v7) request.addParameter("include_type_name", "true")
+          request.setJsonEntity(JsonMethods.compact(body))
+          client.performRequest(request)
+            .getStatusLine.
+            getStatusCode match {
             case 200 =>
               // now refresh to get it 'committed'
               // todo: should do this after the new index is created so no index downtime
