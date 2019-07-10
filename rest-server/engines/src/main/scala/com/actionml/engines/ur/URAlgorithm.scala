@@ -446,8 +446,6 @@ class URAlgorithm private (
 
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    def values2lowercase: Matcher => Matcher = m => m.copy(values = m.values.map(_.toLowerCase))
-
     logger.info(s"Got query: \n$query")
 
     val aggregatedRules = aggregateRules(rules, query.rules)
@@ -468,9 +466,9 @@ class URAlgorithm private (
 
     val sq = SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
-      should = shouldMatchers.map(values2lowercase),
-      must = mustMatchers.map(values2lowercase),
-      mustNot = mustNotMatchers.map(values2lowercase),
+      should = shouldMatchers,
+      must = mustMatchers,
+      mustNot = mustNotMatchers,
       filters = getDateFilters(query),
       size = numResults,
       from = startPos
