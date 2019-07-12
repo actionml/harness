@@ -439,29 +439,45 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
     var clauses = JObject()
-    val bool = if (esVersion == ESVersions.v5) {
+    if (esVersion == ESVersions.v5) {
       if (query.must.nonEmpty) clauses = clauses ~ ("must" -> matcherToJson(Map("terms" -> query.must)))
       if (query.mustNot.nonEmpty) clauses = clauses ~ ("must_not" -> matcherToJson(Map("terms" -> query.mustNot)))
       if (query.filters.nonEmpty) clauses = clauses ~ ("filter" -> filterToJson(query.filters))
-      if (query.should.nonEmpty) clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0)))
-      JObject("bool" -> clauses ~ ("minimum_should_match" -> 1))
+      if (query.should.nonEmpty) clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~ ("minimum_should_match" -> 1)
     } else {
-      if (query.must.nonEmpty) clauses = clauses ~ ("must" -> clausesToJson(Map("term" -> query.must)))
-      if (query.mustNot.nonEmpty) clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
+      clauses = clauses ~ ("must" -> mustToJson(query.must))
+      if (query.mustNot.flatMap(_.values).nonEmpty) clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
       if (query.filters.nonEmpty) clauses = clauses ~ ("filter" -> filterToJson(query.filters))
-      if (query.should.nonEmpty) clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should)))
-      JObject(("bool" -> clauses ~ ("minimum_should_match" -> 1)))
+      if (query.should.flatMap(_.values).nonEmpty) clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should))) ~ ("minimum_should_match" -> 1)
     }
     val esQuery =
       ("size" -> query.size) ~
       ("from" -> query.from) ~
-      ("query" -> bool) ~
+      ("query" -> JObject("bool" -> clauses)) ~
       ("sort" -> Seq(
         "_score" -> JObject("order" -> JString("desc")),
         query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
       ))
     compact(render(esQuery))
   }
+
+  private def mustToJson(clauses: Seq[Matcher]): JObject =
+    if (clauses.nonEmpty) JObject {
+      "dis_max" -> JObject(
+        "boost" -> 0,
+        "queries" -> JArray(clauses.flatMap { m =>
+          m.values.map { v =>
+            JObject {
+              "term" -> JObject {
+                m.name -> JString(v)
+              }
+            }
+          }
+        }.toList)
+      )
+    } else JObject {
+      "match_all" -> JObject("boost" -> JDouble(0))
+    }
 
   private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
     clauses.toList.flatMap { case (clause, matchers) =>
@@ -470,7 +486,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
           clause -> JObject(m.name -> JString(v))
         }
       }
-    }.toList ++ others.toList
+    } ++ others.toList
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
