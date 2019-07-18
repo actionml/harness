@@ -18,9 +18,10 @@
 package com.actionml.core.validate
 
 import java.io.IOException
-import java.time.Instant
+import java.time.{Instant, ZoneId, ZoneOffset}
 import java.time.format.DateTimeFormatter
-import java.util.{Date, TimeZone}
+import java.time.temporal.ChronoField
+import java.util.{Date, GregorianCalendar, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -71,7 +72,7 @@ trait JsonSupport extends LazyLogging {
 
       override def format(d: Date): String = writeFormat.format(Instant.ofEpochMilli(d.getTime).atZone(timezone.toZoneId))
 
-      override def timezone: TimeZone = TimeZone.getDefault
+      override def timezone: TimeZone = TimeZone.getTimeZone("UTC")
     }
   }
   class StringSystemEnvSerializer extends CustomSerializer[String](format => (
