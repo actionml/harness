@@ -413,7 +413,7 @@ class URNavHintingAlgorithm private (
     val mustMatcher = Matcher("values", query.eligibleNavIds)
     val esQuery = SearchQuery(
       should = shouldMatchers,
-//      must = Map("ids" -> Seq(mustMatcher)),
+      must = Seq(mustMatcher),
       sortBy = "popRank",
       size = limit
     )
