@@ -44,7 +44,7 @@ class URModel(
     *  @return always returns true since most other reasons to not save cause exceptions
     */
   def save(
-    dateNames: Set[String],
+    dateNames: Seq[String],
     esIndex: String,
     esType: String,
     numESWriteConnections: Option[Int] = None): Boolean = {
@@ -114,7 +114,7 @@ class URModel(
 
 object URModel {
 
-  def extractJvalue(dateNames: Set[String], key: String, value: Any): Any = value match {
+  def extractJvalue(dateNames: Seq[String], key: String, value: Any): Any = value match {
     case JArray(list) => list.map(extractJvalue(dateNames, key, _))
     case JString(s) =>
       if (dateNames.contains(key)) {

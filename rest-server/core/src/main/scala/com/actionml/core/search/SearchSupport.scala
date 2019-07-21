@@ -66,8 +66,8 @@ object Filter {
 case class SearchQuery(
   sortBy: String = "popRank", // todo: make it optional and changeable
   should: Seq[Matcher] = Seq.empty,
-  must: Seq[Matcher] = Seq.empty,
-  mustNot: Seq[Matcher] = Seq.empty,
+  must: Map[String, Seq[Matcher]] = Map.empty,
+  mustNot: Map[String, Seq[Matcher]] = Map.empty,
   filters: Seq[Filter] = Seq.empty,
   size: Int = 20,
   from: Int = 0 // todo: technically should be optional and changeable, but not sure sending 0 is bad in any way
