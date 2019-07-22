@@ -23,7 +23,7 @@ import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, SyncDao}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
@@ -39,19 +39,17 @@ import scala.reflect.runtime.universe._
 import scala.util.control.NonFatal
 
 
-class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
-  extends DAO[T]
+class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
+  extends SyncDao[T]
     with LazyLogging
     with IndexesSupport {
   import DaoQuery.syntax._
-
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def name = collection.namespace.getFullName
   override def dbName = collection.namespace.getDatabaseName
   override def collectionName: String = collection.namespace.getCollectionName
 
-  override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = {
+  override def findOneByIdAsync(id: String): Future[Option[T]] = {
     findOneAsync("_id" === id)
   }
 
@@ -82,11 +80,11 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertMany(c).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"Successfully inserted many into $name with result $t")
+        logger.info(s"Successfully inserted ${c.size} items into $name with result $t")
         Future.successful ()
       case None =>
-        logger.error(s"Can't insert many into collection ${collection.namespace}")
-        Future.failed(new RuntimeException(s"Can't insert many to collection ${collection.namespace}"))
+        logger.error(s"Can't insert $c into collection ${collection.namespace}")
+        Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))
     }
   }
 

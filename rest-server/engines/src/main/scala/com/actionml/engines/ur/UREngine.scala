@@ -24,7 +24,7 @@ import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{EngineParams, Event, Query, Response}
+import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
@@ -96,6 +96,8 @@ class UREngine extends Engine with JsonSupport {
     if(response.isInvalid) logger.info(s"Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
   }
+
+  override def inputMany: Seq[String] => Unit = dataset.inputMany
 
   // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, Response] = {

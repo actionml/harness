@@ -44,7 +44,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   override def createDao[T: TypeTag](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T]): DAO[T] = {
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
-    val dao = new MongoDao[T](collection)
+    val dao = new MongoAsyncDao[T](collection)
     ttl.foreach(dao.createIndexes)
     dao
   }
