@@ -19,6 +19,7 @@ package com.actionml.core.store
 
 import com.actionml.core.spark.GenericMongoConnector
 import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
+import com.mongodb.MongoClientURI
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkContext
@@ -32,7 +33,7 @@ trait SparkMongoSupport extends SparkStoreSupport {
 
   override private[store] def readRdd[T: ClassTag](
     sc: SparkContext,
-    dbHost: String = "localhost",
+    dbUri: MongoClientURI = new MongoClientURI("mongodb://localhost"),
     codecs: List[CodecProvider] = List.empty,
     dbName: Option[String] = None,
     colName: Option[String] = None): RDD[T] = {
@@ -44,14 +45,14 @@ trait SparkMongoSupport extends SparkStoreSupport {
         .builder()
         .sparkContext(sc)
         .readConfig(rc)
-        .connector(new GenericMongoConnector(dbHost, codecs, ct))
+        .connector(new GenericMongoConnector(dbUri, codecs, ct))
         .build
         .toRDD()
     } else {
       MongoSpark
         .builder()
         .sparkContext(sc)
-        .connector(new GenericMongoConnector(dbHost, codecs, ct))
+        .connector(new GenericMongoConnector(dbUri, codecs, ct))
         .build
         .toRDD()
     }
@@ -68,7 +69,7 @@ object SparkMongoSupport {
           .builder()
           .sparkContext(sc)
           .readConfig(rc)
-          .connector(new GenericMongoConnector(MongoConfig.mongo.host, codecs, ct))
+          .connector(new GenericMongoConnector(MongoConfig.mongo.URI, codecs, ct))
           .build
           .toRDD()
       }
@@ -79,7 +80,7 @@ object SparkMongoSupport {
         val writeConfig = WriteConfig(
           databaseName = dao.dbName,
           collectionName = dao.collectionName,
-          connectionString = Some(MongoStorage.uri),
+          connectionString = Some(MongoConfig.mongo.URI.toString),
           replaceDocument = true,
           forceInsert = true
         )

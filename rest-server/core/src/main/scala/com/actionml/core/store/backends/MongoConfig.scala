@@ -17,13 +17,16 @@
 
 package com.actionml.core.store.backends
 
+import com.mongodb.MongoClientURI
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
 
-case class MongoConfig(host: String, port: Int)
+case class MongoConfig(private val uri: String) {
+  val URI = new MongoClientURI(uri)
+}
 
 object MongoConfig {
   private lazy val config = ConfigFactory.load

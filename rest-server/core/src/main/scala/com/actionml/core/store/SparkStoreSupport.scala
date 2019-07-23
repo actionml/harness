@@ -17,6 +17,7 @@
 
 package com.actionml.core.store
 
+import com.mongodb.MongoClientURI
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
@@ -26,7 +27,7 @@ import scala.reflect.ClassTag
 trait SparkStoreSupport {
   private[store] def readRdd[T: ClassTag](
     sc: SparkContext,
-    dbHost: String,
+    dbUri: MongoClientURI,
     codecs: List[CodecProvider],
     dbName: Option[String] = None,
     collectionName: Option[String] = None): RDD[T]
