@@ -69,7 +69,7 @@ object SparkMongoSupport {
           .builder()
           .sparkContext(sc)
           .readConfig(rc)
-          .connector(new GenericMongoConnector(MongoConfig.mongo.URI, codecs, ct))
+          .connector(new GenericMongoConnector(MongoConfig.mongo.uri, codecs, ct))
           .build
           .toRDD()
       }
@@ -80,7 +80,7 @@ object SparkMongoSupport {
         val writeConfig = WriteConfig(
           databaseName = dao.dbName,
           collectionName = dao.collectionName,
-          connectionString = Some(MongoConfig.mongo.URI.toString),
+          connectionString = Some(MongoConfig.mongo.uri.toString),
           replaceDocument = true,
           forceInsert = true
         )

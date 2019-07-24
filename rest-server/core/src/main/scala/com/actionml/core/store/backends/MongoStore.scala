@@ -85,7 +85,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 }
 
 object MongoStorage extends LazyLogging {
-  private lazy val mongoClient = MongoClient(MongoConfig.mongo.URI.toString)
+  private lazy val mongoClient = MongoClient(MongoConfig.mongo.uri.toString)
 
   def close = {
     logger.info(s"Closing mongo client $mongoClient")
