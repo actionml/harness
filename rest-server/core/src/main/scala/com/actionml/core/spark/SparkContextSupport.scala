@@ -73,7 +73,8 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
   /*
   Creates one context per jvm and one parameters set and gives promises for future contexts.
    */
-  def getSparkContext(config: String, engineId: String, jobDescription: JobDescription, kryoClasses: Array[Class[_]] = Array.empty): Future[SparkContext] = {
+  def getSparkContext(config: String, engineId: String, kryoClasses: Array[Class[_]] = Array.empty): (Future[SparkContext], JobDescription) = {
+    val jobDescription = JobManager.addJob(engineId, comment = "Spark job")
     val params = SparkContextParams(config, engineId, jobDescription, kryoClasses = kryoClasses)
     state.get match {
       case Idle =>
@@ -84,26 +85,28 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
           } else {
             state.get match {
               case r: Running => state.compareAndSet(r, r.copy(otherPromises = r.otherPromises + (params -> p)))
-              case _ => getSparkContext(config, engineId, jobDescription, kryoClasses)
+              case _ => getSparkContext(config, engineId, kryoClasses)
             }
           }
         }
-        p.future
+        val f = p.future
+        val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job")
+        (f, desc)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
-        p.future
-      case s@Running(_, sc, _, promises) if !sc.exists(_.isStopped) =>
-        promises.getOrElse(params, {
+        (p.future, currentParams.jobDescription)
+      case s@Running(currentParams, sc, _, promises) if !sc.exists(_.isStopped) =>
+        (promises.getOrElse(params, {
           val p = Promise[SparkContext]()
           state.compareAndSet(s, s.copy(otherPromises = promises + (params -> p)))
           p
-        }).future
-      case s@Running(_, sc, p, promises) if sc.forall(_.isStopped) =>
+        }).future, currentParams.jobDescription)
+      case s@Running(currentParams, sc, p, promises) if sc.forall(_.isStopped) =>
         p.tryFailure(new IllegalStateException())
         promises.foreach(_._2.tryFailure(new IllegalStateException()))
-        createSparkContext(params).map { sc =>
+        (createSparkContext(params).map { sc =>
           state.compareAndSet(s, Running(params, Some(sc), Promise.successful(sc), Map.empty))
           sc
-        }
+        }, currentParams.jobDescription)
     }
   }
 
@@ -123,16 +126,15 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
       // rest through on the hope they are correct
       if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
       val sc = new SparkContext(conf)
+      sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment, interruptOnCancel = true)
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    JobManager.addJob(params.jobDescription.jobId, f, new SparkCancellable(params.jobDescription.jobId, f))
     f.onComplete {
-      case Success(sc) =>
-        sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment)
       case Failure(e) =>
         logger.error(s"Spark context failed for job ${params.jobDescription}", e)
         JobManager.removeJob(params.jobDescription.jobId)
+      case _ =>
     }
     f
   }
