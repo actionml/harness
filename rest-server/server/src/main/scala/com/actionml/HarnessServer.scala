@@ -58,16 +58,9 @@ class BaseModule extends Module with LazyLogging {
   val config = AppConfig.apply
   bind[AppConfig] to config
 
-  bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(terminateActorSystem)
-  private def terminateActorSystem(system: ActorSystem): Unit = {
-    logger.info("Terminating actor system in the Harness Server...")
-    system.whenTerminated.onComplete { t =>
-      logger.info(s"Actor system terminated: $t")
-    }
-    system.terminate
-  }
+  implicit lazy val system = ActorSystem(inject[AppConfig].actorSystem.name)
+  bind[ActorSystem] to system destroyWith(terminateActorSystem)
 
-  implicit lazy val system: ActorSystem = inject [ActorSystem]
   bind[ExecutionContext] to system.dispatcher
   bind[ActorMaterializer] to ActorMaterializer()
 
@@ -87,10 +80,18 @@ class BaseModule extends Module with LazyLogging {
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService
 
+  bind[Administrator] identifiedBy 'Administrator to new MongoAdministrator initWith(_.init())
+
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
   binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
-  bind[Administrator] identifiedBy 'Administrator to new MongoAdministrator initWith(_.init())
 
+  private def terminateActorSystem(system: ActorSystem): Unit = {
+    logger.info("Terminating actor system in the Harness Server...")
+    system.whenTerminated.onComplete { t =>
+      logger.info(s"Actor system terminated: $t")
+    }
+    system.terminate
+  }
 }

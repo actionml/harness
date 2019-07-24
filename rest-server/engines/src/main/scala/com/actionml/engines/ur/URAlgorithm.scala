@@ -85,7 +85,7 @@ class URAlgorithm private (
   private var maxEventsPerEventType: Int = _
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
-  private var dateNames: Seq[String] = _
+  private var dateNames: Set[String] = _
   private var es: ElasticSearchClient[Hit] = _
   private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
@@ -175,10 +175,10 @@ class URAlgorithm private (
         rankingFieldName
       }
 
-      dateNames = Seq(
+      dateNames = Set(
         params.dateName,
         params.availableDateName,
-        params.expireDateName).collect { case Some(date) => date } distinct
+        params.expireDateName).flatten
 
 
       es = ElasticSearchClient(engineId)
@@ -447,9 +447,9 @@ class URAlgorithm private (
 
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    val aggregatedRules = aggregateRules(rules, query.rules)
-
     logger.info(s"Got query: \n$query")
+
+    val aggregatedRules = aggregateRules(rules, query.rules)
 
     val startPos = query.from.getOrElse(0)
     val numResults = query.num.getOrElse(limit)
@@ -462,10 +462,8 @@ class URAlgorithm private (
       getItemSetMatchers(query) ++
       getBoostedRulesMatchers(aggregatedRules)
 
-    val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
-
-    val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
-      getBlacklistedItemsMatchers(query, userEvents)))
+    val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
+    val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
 
     val sq = SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
@@ -677,7 +675,7 @@ class URAlgorithm private (
       }.toMap ++
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
-      }
+      }.toMap ++ Map("id" -> ("keyword", true))
     logger.info(s"Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
