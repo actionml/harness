@@ -51,17 +51,10 @@ object JobManager extends JobManagerInterface with LazyLogging {
 
   override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
     val description = JobDescription(createUUID, JobStatuses.executing, comment)
-    val newJobDescriptions = jobDescriptions.getOrElse(engineId, Map.empty) +
-      (description.jobId -> (c -> description.copy(status = JobStatuses.executing)))
-    jobDescriptions.put(engineId, newJobDescriptions)
-    f.onComplete {
-      case Success(_) =>
-        logger.info(s"Job ${description.jobId} completed successfully [engine $engineId]")
-        removeJob(description.jobId)
-      case Failure(e) =>
-        logger.error(s"Job $description failed [engine $engineId]", e)
-        cancelJob(description.jobId)
-    }
+    jobDescriptions.put(engineId,
+      jobDescriptions.getOrElse(engineId, Map.empty) +
+        (description.jobId -> (c -> description.copy(status = JobStatuses.executing)))
+    )
     description
   }
 
@@ -73,20 +66,20 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 
   override def removeJob(harnessJobId: String): Unit = {
-    jobDescriptions.map { case (engineId, jds) =>
-      engineId -> (jds - harnessJobId)
+    jobDescriptions.collectFirst { case (engineId, jds) =>
+      jobDescriptions.update(engineId, jds - harnessJobId)
     }
   }
 
   override def cancelJob(jobId: String): Future[Unit] = {
-    Future.sequence(jobDescriptions.flatMap {
+    Future.sequence(jobDescriptions.collect {
       case (_, jds) if jds.contains(jobId) =>
         jds.get(jobId).map {
           case (cancellable, _) =>
             removeJob(jobId)
             cancellable.cancel()
         }
-    } ++ Seq(LivyJobServerSupport.cancel(jobId)))
+    }.flatten ++ Seq(LivyJobServerSupport.cancel(jobId)))
       .map(_ => ())
       .recover {
         case NonFatal(e) =>

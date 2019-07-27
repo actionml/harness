@@ -43,6 +43,7 @@ import org.apache.spark.rdd.RDD
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 
@@ -252,8 +253,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription: JobDescription = JobManager.addJob(engineId, comment = "Spark job")
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
+    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
@@ -299,6 +299,7 @@ class URAlgorithm private (
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       } finally {
+        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
     }
