@@ -256,7 +256,7 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, JobManager.addJob(engineId, comment = "Spark job"), kryoClasses = Array(classOf[URNavHintingEvent]))
+    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[URNavHintingEvent]))
     f.map { implicit sc =>
       val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
@@ -413,7 +413,7 @@ class URNavHintingAlgorithm private (
     val mustMatcher = Matcher("values", query.eligibleNavIds)
     val esQuery = SearchQuery(
       should = shouldMatchers,
-      must = Map("ids" -> Seq(mustMatcher)),
+      must = Seq(mustMatcher),
       sortBy = "popRank",
       size = limit
     )
