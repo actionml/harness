@@ -142,6 +142,14 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
+  override def systemInfo(): Validated[ValidateError, Response] = {
+    logger.trace("Getting Harness system info")
+    case class sysInfo(version: String = "0.5.0-SNAPSHOT")
+    val info = this.getClass.getPackage
+    val ver = this.getClass.getPackage.getImplementationVersion
+    Valid(Comment(s"Version: ${com.actionml.harness.BuildInfo.version}"))
+  }
+
   override def statuses(): Validated[ValidateError, List[Response]] = {
     logger.trace("Getting status for all Engines")
     val empty = List.empty
