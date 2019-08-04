@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.5.0-SNAPSHOT"
+version in ThisBuild := "0.5.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
@@ -164,6 +164,7 @@ lazy val admin = (project in file("admin")).dependsOn(core).
 
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
+  generateBuildInfo,
   libraryDependencies ++= Seq(
     "com.actionml" %% "harness-auth-common" % harnessAuthLibVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
@@ -174,3 +175,16 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     SbtExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
+
+def generateBuildInfo: Setting[_] =
+  sourceGenerators in Compile += Def.task {
+    val file = (sourceManaged in Compile).value / "com" / "actionml" / "harness" / "BuildInfo.scala"
+    IO.write(
+      file,
+      s"""package com.actionml.harness
+         |object BuildInfo {
+         |  val version = "${version.value}"
+         |}""".stripMargin
+    )
+    Seq(file)
+  }.taskValue
