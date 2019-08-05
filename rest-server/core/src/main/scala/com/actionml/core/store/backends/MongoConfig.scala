@@ -26,5 +26,5 @@ case class MongoConfig(private val uriString: String) {
 
 object MongoConfig {
 
-  val mongo = MongoConfig(sys.env.getOrElse("MONGO_URI", "mongodb://localhost:27017"))
+  val mongo = MongoConfig(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set")))
 }
