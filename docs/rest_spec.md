@@ -73,11 +73,16 @@ For example `POST /engines/<some-ur-instance>/jobs` will cause the Universal Rec
 
 Users can be created (with the help of the Auth-server) for roles of "client" or "admin". Client Users have CRU access to one or more Engine Instance (only an admin can delete). An admin User has access to all resources and all CRUD. Users are only needed when using the Auth-server's Authentication and Authorization to control access to resources.
 
+## System
+
+A special case reserved for system wide information is `GET /system` which retrieves information about build versions and server status.
+
 # REST API
 
 | HTTP Verb | URL | Request Body | Response Code | Response Body | Function |
 | --- | --- | :---  | :---  | :---  | :--- |
-| GET | / | none  | See Collection responses | JSON describing Harness server status  | Used to get server config information, currently defined Engines, and other pertinent information about the ML/AI operations **minimally implemented** |
+| GET | `/` | none  | See Item responses | OK | Used to get server status or for a heartbeat ping |
+| GET | `/system` | none  | See Item responses | JSON describing Harness server status, build versions and misc other info  | Used to get Harness system information including build version |
 | POST | `/engines/` | JSON Engine config | See Collection responses | Engine description | Defines an Engine with a resource-id in the Request Body config, uses Harness and Engine specific config and parameters. See Config for Harness settings, and the Template for Engine params. Optionally depending on the JSON some Engine parts may be modified in place such as Algorithm params modified **(partial update not implemented)** |
 | GET | `/engines/` | none | See Collection responses | Engine descriptions for Engines the user has Read access to | This works like a list command to show all resources the user can read. For the Admin this would show all Engines in the system. **(not implemented)** |
 | POST | `/engines/<engine-id>` | JSON Engine config | See Item responses | hint about how to know what was changed | Modify any params that the Engine allows |

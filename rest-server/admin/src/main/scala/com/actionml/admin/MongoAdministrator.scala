@@ -144,10 +144,11 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   override def systemInfo(): Validated[ValidateError, Response] = {
     logger.trace("Getting Harness system info")
-    case class sysInfo(version: String = "0.5.0-SNAPSHOT")
-    val info = com.actionml.admin.BuildInfo
-    val ver = info.version
-    Valid(Comment(s"Version: ${com.actionml.admin.BuildInfo.version}"))
+    Valid(SystemInfo(
+      buildVersion = com.actionml.admin.BuildInfo.version,
+      harnessHost = "",
+      mongoURI = "",
+      elasticsearchURI = ""))
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
@@ -186,10 +187,9 @@ case class EngineMetadata(
   engineFactory: String,
   params: String)
 
-// not sure how to bring this in scope since it is defined during the compile step
-// of build.sbt
-/*
-object BuildInfo {
-  val version = "${version.value}"
-}
-*/
+case class SystemInfo(
+    buildVersion: String,
+    harnessHost: String,
+    mongoURI: String,
+    elasticsearchURI: String)
+  extends Response
