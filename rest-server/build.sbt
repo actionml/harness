@@ -157,12 +157,12 @@ lazy val engines = (project in file("engines")).dependsOn(core).
 
 lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
+    generateBuildInfo,
     commonSettings
   )
 
 lazy val server = (project in file("server")).dependsOn(core, common, engines, admin).settings(
   commonSettings,
-  generateBuildInfo,
   libraryDependencies ++= Seq(
     "com.actionml" %% "harness-auth-common" % harnessAuthLibVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
