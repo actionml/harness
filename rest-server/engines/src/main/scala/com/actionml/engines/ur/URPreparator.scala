@@ -17,7 +17,6 @@
 
 package com.actionml.engines.ur
 
-import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.ur.URAlgorithm.{IndicatorParams, PreparedData, TrainingData}
 import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import com.typesafe.scalalogging.LazyLogging
@@ -29,7 +28,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 /** Creation of Mahout data structures from stored data in a DB */
-object URPreparator extends LazyLogging with SparkMongoSupport {
+object URPreparator extends LazyLogging {
 
   /** Reads events from Events RDD and create an RDD for each */
   def mkTraining(

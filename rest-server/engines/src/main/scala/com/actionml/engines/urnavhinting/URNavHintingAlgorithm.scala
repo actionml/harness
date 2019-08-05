@@ -28,8 +28,8 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
-import com.actionml.core.store.SparkMongoSupport.syntax._
-import com.actionml.core.store.{DAO, DaoQuery, SparkMongoSupport}
+import com.actionml.core.store.sparkmongo.syntax._
+import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
@@ -40,8 +40,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-//import com.actionml.engines.urnavhinting.{ItemID, UserID, PropertyMap}
 
 import scala.concurrent.duration.Duration
 
@@ -61,7 +59,6 @@ class URNavHintingAlgorithm private (
         eventsDao: DAO[URNavHintingEvent])
   extends Algorithm[URNavHintingQuery, URNavHintingQueryResult]
   with LambdaAlgorithm[URNavHintingEvent]
-  with SparkMongoSupport
   with JsonSupport {
 
   import URNavHintingAlgorithm._

@@ -18,8 +18,8 @@
 package com.actionml.core.store
 
 import com.actionml.core.spark.GenericMongoConnector
-import com.actionml.core.store.backends.{MongoConfig, MongoStorage}
-import com.mongodb.MongoClientURI
+import com.actionml.core.store.backends.MongoConfig
+import com.mongodb.{ConnectionString, MongoClientSettings}
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkContext
@@ -29,46 +29,15 @@ import org.bson.codecs.configuration.CodecProvider
 import scala.reflect.ClassTag
 
 
-trait SparkMongoSupport extends SparkStoreSupport {
-
-  override private[store] def readRdd[T: ClassTag](
-    sc: SparkContext,
-    dbUri: MongoClientURI = new MongoClientURI("mongodb://localhost"),
-    codecs: List[CodecProvider] = List.empty,
-    dbName: Option[String] = None,
-    colName: Option[String] = None): RDD[T] = {
-    val ct = implicitly[ClassTag[T]]
-    if (dbName.isDefined && colName.isDefined) {
-      // not sure if the codecs are understood here--I bet not
-      val rc = ReadConfig(databaseName = dbName.get, collectionName = colName.get)
-      MongoSpark
-        .builder()
-        .sparkContext(sc)
-        .readConfig(rc)
-        .connector(new GenericMongoConnector(dbUri, codecs, ct))
-        .build
-        .toRDD()
-    } else {
-      MongoSpark
-        .builder()
-        .sparkContext(sc)
-        .connector(new GenericMongoConnector(dbUri, codecs, ct))
-        .build
-        .toRDD()
-    }
-  }
-}
-
-object SparkMongoSupport {
+object sparkmongo {
   object syntax {
     implicit class DaoSparkOps[D <: DAO[_]](dao: D) {
       def readRdd[T: ClassTag](codecs: List[CodecProvider] = List.empty)(implicit sc: SparkContext): RDD[T] = {
         val ct = implicitly[ClassTag[T]]
-        val rc = ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName)
         MongoSpark
           .builder()
           .sparkContext(sc)
-          .readConfig(rc)
+          .readConfig(ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName))
           .connector(new GenericMongoConnector(MongoConfig.mongo.uri, codecs, ct))
           .build
           .toRDD()
