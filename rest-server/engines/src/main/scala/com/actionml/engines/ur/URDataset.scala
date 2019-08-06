@@ -80,7 +80,10 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           s"$jsonConfig",
         transform = _ \ "dataset"
       ).andThen { p =>
-        p.ttl.fold[Validated[ValidateError, _]](Valid(p)) { ttlString =>
+        p.ttl.fold[Validated[ValidateError, _]] {
+          eventsDao.createIndexes()
+          Valid(p)
+        } { ttlString =>
           Try(Duration(ttlString)).toOption.map { ttl =>
             // We assume the DAO will check to see if this is a change and no do the reindex if not needed
             eventsDao.createIndexes(ttl)
