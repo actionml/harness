@@ -29,8 +29,8 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
-import com.actionml.core.store.SparkMongoSupport.syntax._
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
+import com.actionml.core.store.sparkmongo.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
@@ -62,7 +62,6 @@ class URAlgorithm private (
     itemsDao: DAO[URItemProperties])
   extends Algorithm[URQuery, URQueryResult]
   with LambdaAlgorithm[UREvent]
-  with SparkMongoSupport
   with JsonSupport {
 
   import URAlgorithm._
@@ -805,7 +804,7 @@ object URAlgorithm extends JsonSupport {
   case class DateRange(
       name: String, // name of item property for the date comparison
       before: Option[String], // empty strings means no filter
-      after: Option[String]) // both empty should be ignored
+      after: Option[String]) // both empty should be ignoredgit
     extends Serializable
 
   case class PreparedData(
