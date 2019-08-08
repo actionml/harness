@@ -26,6 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
+import scala.util.Properties
 
 
 class MongoAdministrator extends Administrator with JsonSupport {
@@ -140,6 +141,15 @@ class MongoAdministrator extends Administrator with JsonSupport {
       logger.warn(s"Cannot removeOne non-existent engine for engineId: $engineId")
       Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     }
+  }
+
+  override def systemInfo(): Validated[ValidateError, Response] = {
+    logger.trace("Getting Harness system info")
+    Valid(SystemInfo(
+      buildVersion = com.actionml.admin.BuildInfo.version,
+      harnessHost = Properties.envOrElse("HARNESS_URI", "ERROR: no URI set" ),
+      mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: no URI set" ),
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "ERROR: no URI set" )))
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
