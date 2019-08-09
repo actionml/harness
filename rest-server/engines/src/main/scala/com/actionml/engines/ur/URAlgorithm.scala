@@ -517,9 +517,11 @@ class URAlgorithm private (
         filter = Seq("entityId" === query.user.getOrElse(""))))
       .toSeq
       // .distinct // these will be distinct so this is redundant
+      .filter(event => queryEventNames.get(event.event).isEmpty)
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")
-        val queryEventName = queryEventNames(event.event)
+        val queryEventName = queryEventNames.get(event.event).getOrElse("")
+        //val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
       }
       .filter { event =>
