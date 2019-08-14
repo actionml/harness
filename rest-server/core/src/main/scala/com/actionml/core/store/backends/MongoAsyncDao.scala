@@ -39,17 +39,18 @@ import scala.reflect.runtime.universe._
 import scala.util.control.NonFatal
 
 
-class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
-  extends SyncDao[T]
+class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
+  extends DAO[T]
     with LazyLogging
     with IndexesSupport {
   import DaoQuery.syntax._
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def name = collection.namespace.getFullName
   override def dbName = collection.namespace.getDatabaseName
   override def collectionName: String = collection.namespace.getCollectionName
 
-  override def findOneByIdAsync(id: String): Future[Option[T]] = {
+  override def findOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[Option[T]] = {
     findOneAsync("_id" === id)
   }
 
