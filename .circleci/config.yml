@@ -49,6 +49,9 @@ jobs:
             "develop")
               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
+            "devops")
+              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+            ;;
             "ci")
               docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
@@ -63,6 +66,9 @@ jobs:
               docker image push actionml/harness:latest
             ;;
             "develop")
+              docker image push actionml/harness:${CIRCLE_BRANCH}
+            ;;
+            "devops")
               docker image push actionml/harness:${CIRCLE_BRANCH}
             ;;
             "ci")
