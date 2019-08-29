@@ -20,16 +20,21 @@ package com.actionml.core.store.backends
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
+import com.actionml.core.spark.GenericMongoClient
 import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.store.{DAO, Ordering, Store}
+import com.mongodb.ConnectionString
+import com.mongodb.client.MongoClients
 import com.mongodb.client.model.IndexOptions
+import com.mongodb.connection.netty.NettyStreamFactoryFactory
 import com.typesafe.scalalogging.LazyLogging
+import io.netty.channel.nio.NioEventLoopGroup
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
+import org.mongodb.scala.{MongoClient, MongoClientSettings, MongoCollection, MongoDatabase}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -42,10 +47,10 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T: TypeTag](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T]): DAO[T] = {
+  override def createDao[T: TypeTag](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
     val dao = new MongoDao[T](collection)
-    ttl.foreach(dao.createIndexes)
+    dao.createIndexes()
     dao
   }
 
@@ -85,8 +90,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 }
 
 object MongoStorage extends LazyLogging {
-  lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
-  private lazy val mongoClient = MongoClient(uri)
+  private lazy val mongoClient = MongoClient(MongoConfig.mongo.uri.toString)
 
   def close = {
     logger.info(s"Closing mongo client $mongoClient")
