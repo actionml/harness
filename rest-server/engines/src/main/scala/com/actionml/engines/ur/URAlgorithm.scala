@@ -374,13 +374,16 @@ class URAlgorithm private (
       sc.emptyRDD
     }
 
-    //val collectedProps = propertiesRDD.collect()
+    //val collectedProps = propertiesRDD.flatMap(_._2.keys).distinct().collect()
+    val propertiesMappings = data.fieldsRdd.flatMap(_._2.keys).distinct().collect().map(_ -> ("keyword" -> true)) ++ Map("id" -> ("keyword" -> true))
+
+    val allMappings = getMappings ++ propertiesMappings
 
     logger.info("Correlators created now putting into URModel")
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings)(sc, es)
+      typeMappings = allMappings)(sc, es)
   }
 
 

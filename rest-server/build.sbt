@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.5.0-SNAPSHOT"
+version in ThisBuild := "0.5.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
@@ -32,11 +32,9 @@ resolvers += Resolver.mavenLocal
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  // version := "0.3.0-RC2",
   scalaVersion := "2.11.12",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
@@ -159,6 +157,7 @@ lazy val engines = (project in file("engines")).dependsOn(core).
 
 lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
+    generateBuildInfo,
     commonSettings
   )
 
@@ -174,3 +173,16 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     SbtExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
+
+def generateBuildInfo: Setting[_] =
+  sourceGenerators in Compile += Def.task {
+    val file = (sourceManaged in Compile).value / "com" / "actionml" / "admin" / "BuildInfo.scala"
+    IO.write(
+      file,
+      s"""package com.actionml.admin
+         |object BuildInfo {
+         |  val version = "${version.value}"
+         |}""".stripMargin
+    )
+    Seq(file)
+  }.taskValue
