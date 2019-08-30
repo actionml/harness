@@ -32,9 +32,10 @@ import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.reflectiveCalls
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -140,18 +141,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
               case "user" =>
                 logger.info(s"User properties not supported, send as named indicator event.")
                 Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
-              case "item" =>
-                val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
-                itemsDao.saveOneById(
-                  event.entityId,
-                  URItemProperties(
-                    _id = updateItem._id,
-                    dateProps = updateItem.dateProps ++ event.dateProps,
-                    categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
-                    floatProps = updateItem.floatProps ++ event.floatProps,
-                    booleanProps = updateItem.booleanProps ++ event.booleanProps
-                  )
-                )
+              case "item" => insertProperty(event)
               case _ =>
                 logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
@@ -166,6 +156,44 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     }
   }
 
+  override def inputMany(data: Seq[String]): Unit = {
+    val aliases = params.indicators.flatMap { ip =>
+      ip.aliases.getOrElse(Seq(ip.name))
+    }
+    val (events, items) = data.view.foldLeft[(List[UREvent], List[UREvent])]((List.empty, List.empty)) { case (acc@(el, il), jsonEvent) =>
+      try {
+        parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent")
+          .andThen(toUrEvent)
+          .toOption.fold(acc) { e =>
+            if (aliases.contains(e.event)) {
+              (e :: el, il)
+            } else if (e.event == "$set" && e.entityType == "item") {
+              (el, e :: il)
+            } else acc
+          }
+      } catch {
+        case NonFatal(e) =>
+          logger.error(s"Can't save input $jsonEvent", e)
+          acc
+      }
+    }
+    eventsDao.insertMany(events)
+    items.foreach(insertProperty)
+  }
+
+  private def insertProperty(event: UREvent): Unit = {
+    val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
+    itemsDao.saveOneById(
+      event.entityId,
+      URItemProperties(
+        _id = updateItem._id,
+        dateProps = updateItem.dateProps ++ event.dateProps,
+        categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+        floatProps = updateItem.floatProps ++ event.floatProps,
+        booleanProps = updateItem.booleanProps ++ event.booleanProps
+      )
+    )
+  }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
 

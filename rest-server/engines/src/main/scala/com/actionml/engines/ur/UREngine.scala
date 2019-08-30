@@ -97,6 +97,8 @@ class UREngine extends Engine with JsonSupport {
     response
   }
 
+  override def inputMany: Seq[String] => Unit = dataset.inputMany
+
   // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, Response] = {
     logStatus(params)

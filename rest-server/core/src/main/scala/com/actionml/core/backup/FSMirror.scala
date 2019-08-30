@@ -83,34 +83,19 @@ class FSMirror(mirrorContainer: String, engineId: String)
           val flist = new java.io.File(location).listFiles.filterNot(_.getName.startsWith(".")) // importing files that do not start with a dot like .DStore on Mac
           logger.info(s"Reading files from directory: ${location}")
           var filesRead = 0
-          var eventsProcessed = 0
+          var eventsProcessed = 0L
           for (file <- flist) {
             filesRead += 1
             logger.info(s"Importing from file: ${file.getName}")
-            try {
-              Source.fromFile(file).getLines().foreach { line =>
-                eventsProcessed += 1
-                try {
-                  engine.input(line)
-                } catch {
-                  case e: IOException =>
-                    logger.error(s"Bad event being ignored: $line exception ${e.printStackTrace()}")
-                }
-              }
-            } catch {
-            case e: IOException =>
-              logger.error(s"Error reading file: ${file.getName} exception ${e.printStackTrace()}")
-            }
+            eventsProcessed = eventsProcessed + importFromFile(file, engine)
           }
           if(filesRead == 0 || eventsProcessed == 0)
             logger.warn(s"No events were processed, did you mean to import JSON events from directory $location ?")
           else
             logger.info(s"Import read $filesRead files and processed $eventsProcessed events.")
         } else if (resourceCollection.exists()) { // single file
-          logger.info(s"Reading events from single file: ${location}")
-          Source.fromFile(location).getLines().foreach { line =>
-            engine.input(line)
-          }
+          val eventsProcessed = importFromFile(new File(location), engine)
+          logger.info(s"Import processed $eventsProcessed events.")
         }
       } else {
         val errMsg =
@@ -128,5 +113,28 @@ class FSMirror(mirrorContainer: String, engineId: String)
       logger.info("Completed importing. Check logs for any data errors.")
     }
     Valid(jsonComment("Job created to import events in the background."))
+  }
+
+  private def importFromFile(file: File, engine: Engine): Long = {
+    var eventsProcessed = 0
+    val src = Source.fromFile(file)
+    try {
+      src.getLines().sliding(512, 512).foreach { lines =>
+        eventsProcessed += lines.size
+        try {
+          engine.inputMany(lines)
+        } catch {
+          case e: IOException =>
+            logger.error(s"Bad event being ignored: $lines exception ${e.printStackTrace()}")
+        }
+      }
+      eventsProcessed
+    } catch {
+      case e: IOException =>
+        logger.error(s"Error reading file: ${file.getName} exception ${e.printStackTrace()}")
+        eventsProcessed
+    } finally {
+      src.close
+    }
   }
 }
