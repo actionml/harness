@@ -42,7 +42,7 @@ trait DAO[T] extends AsyncDao[T] {
   def removeOneById(id: String): T
   def removeOne(filter: (String, QueryCondition)*): T
   def removeMany(filter: (String, QueryCondition)*): Unit
-  def createIndexes(ttl: Duration): Unit
+  def createIndexes(ttl: Duration = 365.days): Unit
 }
 
 trait AsyncDao[T] {
