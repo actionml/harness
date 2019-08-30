@@ -322,56 +322,24 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val body = JObject(
             JField("mappings",
               JObject(indexType ->
-                JObject("properties" -> JObject(typeMappings.map(fieldToJson).toList))
+                JObject("properties" -> {
+                  fieldNames.map { fieldName =>
+                    if (typeMappings.contains(fieldName))
+                      JObject(fieldName -> JObject("type" -> JString(typeMappings(fieldName)._1)))
+                    else // unspecified fields are treated as not_analyzed strings
+                      JObject(fieldName -> JObject("type" -> JString("keyword")))
+                  }.reduce(_ ~ _)
+                })
               )
             ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
           )
-          var mappings =
-            s"""
-               |"mappings": {
-               |    "properties": {
-            """.stripMargin.replace("\n", "")
 
-          def mappingsField(`type`: String) = {
-            s"""
-               |    : {
-               |      "type": "${`type`}"
-               |    },
-            """.stripMargin.replace("\n", "")
-          }
-
-        val mappingsTail =
-        // unused mapping forces the last element to have no comma, fuck JSON
-          s"""
-             |    "last": {
-             |      "type": "keyword"
-             |    }
-             |}}
-            """.stripMargin.replace("\n", "")
-
-        fieldNames.foreach { fieldName =>
-          if (typeMappings.contains(fieldName))
-            mappings +=
-              (s""""$fieldName"""" + mappingsField(typeMappings(
-                fieldName)._1))
-          else // unspecified fields are treated as not_analyzed strings
-            mappings += (s""""$fieldName"""" + mappingsField(
-              "keyword"))
-        }
-
-        mappings += mappingsTail
-        val aliases = if (doNotLinkAlias) "" else s""","aliases":{"$alias":{}}"""
-        // "id" string is not_analyzed and does not use norms
-        // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
-        //logger.info(s"Create index with:\n$indexName\n$mappings\n")
-//        val entity = new NStringEntity(s"{$mappings$aliases}", ContentType.APPLICATION_JSON)
-
-        val request = new Request("PUT", s"/$indexName")
-        if (esVersion == v7) request.addParameter("include_type_name", "true")
-        request.setJsonEntity(JsonMethods.compact(body))
-        client.performRequest(request)
-          .getStatusLine.
-          getStatusCode match {
+          val request = new Request("PUT", s"/$indexName")
+          if (esVersion == v7) request.addParameter("include_type_name", "true")
+          request.setJsonEntity(JsonMethods.compact(body))
+          client.performRequest(request)
+            .getStatusLine.
+            getStatusCode match {
             case 200 =>
               // now refresh to get it 'committed'
               // todo: should do this after the new index is created so no index downtime
@@ -470,36 +438,52 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
-    val json =
-      if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
-        JObject()
-      else {
-        ("size" -> query.size) ~
-        ("from" -> query.from) ~
-        ("query" ->
-          ("bool" ->
-            ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
-            ("must" -> matcherToJson(query.must)) ~
-            ("must_not" -> matcherToJson(query.mustNot)) ~
-            ("filter" -> filterToJson(query.filters)) ~
-            ("minimum_should_match" -> 1)
-        )) ~
-        ("sort" -> Seq(
-          "_score" -> JObject("order" -> JString("desc")),
-          query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
-        ))
+    var clauses = JObject()
+    if (esVersion == ESVersions.v5) {
+      clauses = clauses ~ ("must" -> matcherToJson(Map("terms" -> query.must)))
+      clauses = clauses ~ ("must_not" -> matcherToJson(Map("terms" -> query.mustNot)))
+      clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0)))
+      if (query.must.flatMap(_.values).isEmpty) clauses = clauses ~ ("minimum_should_match" -> 1)
+    } else {
+      clauses = clauses ~ ("must" -> mustToJson(query.must))
+      clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
+      clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should)))
+      if (query.must.flatMap(_.values).nonEmpty) clauses = clauses ~ ("minimum_should_match" -> JInt(1))
+    }
+    val esQuery =
+      ("size" -> query.size) ~
+      ("from" -> query.from) ~
+      ("query" -> JObject("bool" -> clauses)) ~
+      ("sort" -> Seq(
+        "_score" -> JObject("order" -> JString("desc")),
+        query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
+      ))
+    compact(render(esQuery))
+  }
+
+  private def mustToJson: Seq[Matcher] => JValue = {
+    case Nil =>
+      JObject {
+        "match_all" -> JObject("boost" -> JDouble(0))
       }
-    compact(render(json))
+    case clauses =>
+      clausesToJson(Map("term" -> clauses))
   }
 
   private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
     clauses.toList.flatMap { case (clause, matchers) =>
       matchers.flatMap { m =>
         m.values.map { v =>
-          clause -> JObject(m.name -> JString(v))
+          clause -> JObject {
+            m.name ->
+              ("value" -> JString(v)) ~
+              m.boost.fold[JObject](JObject())(b => JObject("boost" -> JDouble(b)))
+          }
         }
       }
-    }.toList ++ others.toList
+    } ++ others.toList
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {

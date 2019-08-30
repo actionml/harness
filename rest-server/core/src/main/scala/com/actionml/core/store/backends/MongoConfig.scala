@@ -17,16 +17,14 @@
 
 package com.actionml.core.store.backends
 
-import com.typesafe.config.ConfigFactory
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+import com.mongodb.MongoClientURI
 
 
-case class MongoConfig(host: String, port: Int)
+case class MongoConfig(private val uriString: String) {
+  val uri = new MongoClientURI(uriString)
+}
 
 object MongoConfig {
-  private lazy val config = ConfigFactory.load
 
-  lazy val mongo = config.as[MongoConfig]("mongo")
+  val mongo = MongoConfig(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set")))
 }

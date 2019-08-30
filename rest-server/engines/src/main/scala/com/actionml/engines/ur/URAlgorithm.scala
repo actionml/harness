@@ -29,8 +29,8 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
-import com.actionml.core.store.SparkMongoSupport.syntax._
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
+import com.actionml.core.store.sparkmongo.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
@@ -43,6 +43,7 @@ import org.apache.spark.rdd.RDD
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 
@@ -61,7 +62,6 @@ class URAlgorithm private (
     itemsDao: DAO[URItemProperties])
   extends Algorithm[URQuery, URQueryResult]
   with LambdaAlgorithm[UREvent]
-  with SparkMongoSupport
   with JsonSupport {
 
   import URAlgorithm._
@@ -84,7 +84,7 @@ class URAlgorithm private (
   private var maxEventsPerEventType: Int = _
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
-  private var dateNames: Seq[String] = _
+  private var dateNames: Set[String] = _
   private var es: ElasticSearchClient[Hit] = _
   private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
@@ -174,10 +174,10 @@ class URAlgorithm private (
         rankingFieldName
       }
 
-      dateNames = Seq(
+      dateNames = Set(
         params.dateName,
         params.availableDateName,
-        params.expireDateName).collect { case Some(date) => date } distinct
+        params.expireDateName).flatten
 
 
       es = ElasticSearchClient(engineId)
@@ -252,8 +252,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription: JobDescription = JobManager.addJob(engineId, comment = "Spark job")
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
+    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
@@ -299,6 +298,7 @@ class URAlgorithm private (
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       } finally {
+        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
     }
@@ -446,9 +446,9 @@ class URAlgorithm private (
 
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    val aggregatedRules = aggregateRules(rules, query.rules)
-
     logger.info(s"Got query: \n$query")
+
+    val aggregatedRules = aggregateRules(rules, query.rules)
 
     val startPos = query.from.getOrElse(0)
     val numResults = query.num.getOrElse(limit)
@@ -461,10 +461,8 @@ class URAlgorithm private (
       getItemSetMatchers(query) ++
       getBoostedRulesMatchers(aggregatedRules)
 
-    val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
-
-    val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
-      getBlacklistedItemsMatchers(query, userEvents)))
+    val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
+    val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
 
     val sq = SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
@@ -513,13 +511,13 @@ class URAlgorithm private (
         filter = Seq("entityId" === query.user.getOrElse(""))))
       .toSeq
       // .distinct // these will be distinct so this is redundant
-      .filter { event =>
-        queryEventNamesFilter.contains(event.event)
-      }
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
+      }
+      .filter { event =>
+        queryEventNamesFilter.contains(event.event)
       }
       .groupBy(_.event)
       .flatMap{ case (name, events) =>
@@ -676,7 +674,7 @@ class URAlgorithm private (
       }.toMap ++
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
-      }
+      }.toMap ++ Map("id" -> ("keyword", true))
     logger.info(s"Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
