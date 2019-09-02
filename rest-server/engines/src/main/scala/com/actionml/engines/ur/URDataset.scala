@@ -23,12 +23,10 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
-import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
-import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
@@ -83,7 +81,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         p.ttl.fold[Validated[ValidateError, _]](Valid(p)) { ttlString =>
           Try(Duration(ttlString)).toOption.map { ttl =>
             // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(ttl)
+//            eventsDao.createIndexes(ttl)
             logger.debug(s"Got a dataset.ttl = $ttl")
             Valid(p)
           }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))

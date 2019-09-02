@@ -25,7 +25,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
-abstract class Administrator extends LazyLogging {
+abstract class Administrator {
 
   lazy val config: Config = ConfigFactory.load()
 

@@ -25,7 +25,6 @@ import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy}
 import com.mongodb.client.model.IndexOptions
-import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
@@ -41,7 +40,6 @@ import scala.util.control.NonFatal
 
 class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: ClassTag[T])
   extends DAO[T]
-    with LazyLogging
     with IndexesSupport {
   import DaoQuery.syntax._
 
@@ -71,10 +69,10 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertOne(o).headOption.flatMap {
       case Some(t) =>
-        logger.info(s"Successfully inserted $o into $name with result $t")
+        println(s"Successfully inserted $o into $name with result $t")
         Future.successful ()
       case None =>
-        logger.error(s"Can't insert value $o to collection ${collection.namespace}")
+        println(s"Can't insert value $o to collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
     }
   }
@@ -82,10 +80,10 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertMany(c).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"Successfully inserted many into $name with result $t")
+        println(s"Successfully inserted many into $name with result $t")
         Future.successful ()
       case None =>
-        logger.error(s"Can't insert many into collection ${collection.namespace}")
+        println(s"Can't insert many into collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert many to collection ${collection.namespace}"))
     }
   }
@@ -93,10 +91,10 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"Successfully updated object $o with the filter $filter")
+        println(s"Successfully updated object $o with the filter $filter")
         Future.successful(t)
       case None =>
-        logger.error(s"Can't update collection ${collection.namespace} with filter $filter and value $o")
+        println(s"Can't update collection ${collection.namespace} with filter $filter and value $o")
         Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
     }
   }
@@ -106,10 +104,10 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
-        case e => logger.error(s"Can't replace object $o", e)
+        case e => println(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
+    } yield ()).map(_ => println(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
+      .recover { case e => println(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
   override def saveOneAsync(query: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit] = {
@@ -117,19 +115,19 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
     (for {
       opt <- collection.find(filter).headOption
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
-        case e => logger.error(s"Can't replace object $o", e)
+        case e => println(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.info(s"Object $o (filter: $filter) saved successfully into $name"))
-      .recover { case e => logger.error(s"Can't saveOne object $o (filter $filter) into $name", e)}
+    } yield ()).map(_ => println(s"Object $o (filter: $filter) saved successfully into $name"))
+      .recover { case e => println(s"Can't saveOne object $o (filter $filter) into $name", e)}
   }
 
   override def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndDelete(mkFilter(filter)).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
+        println(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
         Future.successful(t)
       case None =>
-        logger.error(s"Can't removeOne from collection ${collection.namespace} with filter $filter")
+        println(s"Can't removeOne from collection ${collection.namespace} with filter $filter")
         Future.failed(new RuntimeException(s"Can't removeOne from collection ${collection.namespace} with filter $filter"))
     }
   }
@@ -141,10 +139,10 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
   override def removeManyAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.deleteMany(mkFilter(filter)).headOption().flatMap {
       case Some(t) =>
-        logger.debug(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
+        println(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
         Future.successful[Unit]()
       case None =>
-        logger.error(s"Can't removeMany from collection ${collection.namespace} with filter $filter")
+        println(s"Can't removeMany from collection ${collection.namespace} with filter $filter")
         Future.failed(new RuntimeException(s"Can't removeMany from collection ${collection.namespace} with filter $filter"))
     }
   }
@@ -181,21 +179,21 @@ class MongoDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct: Clas
           (indexName, IndexModel(builder.result(), new IndexOptions().name(indexName)))
       }
       _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
-        logger.info(s"Drop index $iname")
+        println(s"Drop index $iname")
         collection.dropIndex(iname).toFuture
           .recover {
             case NonFatal(e) =>
-              logger.error(s"Can't drop index $iname", e)
+              println(s"Can't drop index $iname", e)
           }
       }
       _ <- if (newIndexes.nonEmpty) {
-        logger.info(s"Create indexes ${newIndexes.map(i => s"${i._2.getKeys} - ${i._2.getOptions}")} for collection ${collection.namespace.getFullName}")
+        println(s"Create indexes ${newIndexes.map(i => s"${i._2.getKeys} - ${i._2.getOptions}")} for collection ${collection.namespace.getFullName}")
         collection.createIndexes(newIndexes.map(_._2)).toFuture.map(_ => ())
       } else Future.successful(())
     } yield ())
       .recover {
         case NonFatal(e) =>
-          logger.error(s"Can't create indexes for ${collection.namespace.getFullName}", e)
+          println(s"Can't create indexes for ${collection.namespace.getFullName}", e)
       }
   }
 

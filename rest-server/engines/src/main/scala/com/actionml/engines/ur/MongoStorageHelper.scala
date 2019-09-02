@@ -17,7 +17,7 @@
 
 package com.actionml.engines.ur
 
-import com.actionml.engines.ur.UREngine.{URItemProperties, UREvent}
+import com.actionml.engines.ur.{ UREvent, URItemProperties }
 import org.bson.codecs.configuration.CodecProvider
 
 object MongoStorageHelper {

@@ -25,7 +25,7 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.store.{DAO, DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URDataset
-import com.actionml.engines.ur.UREngine.UREvent
+import com.actionml.engines.ur.UREvent
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent}
 

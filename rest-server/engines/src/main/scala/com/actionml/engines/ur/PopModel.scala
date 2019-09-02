@@ -17,7 +17,7 @@
 
 package com.actionml.engines.ur
 
-import com.actionml.engines.ur.UREngine.UREvent
+import com.actionml.engines.ur.UREvent
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD

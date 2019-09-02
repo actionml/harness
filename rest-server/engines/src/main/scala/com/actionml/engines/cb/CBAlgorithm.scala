@@ -178,9 +178,9 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
 
   def remove(groupName: String): Unit = {
     try {
-      logger.info("Stop trainer {}", groupName)
+      logger.info(s"Stop trainer $groupName")
       actors stop trainers(groupName)
-      logger.info("Remove trainer {}", groupName)
+      logger.info("Remove trainer $groupName")
       trainers -= groupName
     } catch {
       case e: NoSuchElementException =>
@@ -189,7 +189,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
   }
 
   def add(groupName: String): Unit = {
-    logger.info("Create trainer {}", groupName)
+    logger.info("Create trainer $groupName")
     if (!trainers.contains(groupName) && dataset.groupsDao.findOneById(groupName).nonEmpty) {
       val actor = actors.actorOf(
         SingleGroupTrainer.props(

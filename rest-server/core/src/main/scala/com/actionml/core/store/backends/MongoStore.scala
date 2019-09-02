@@ -18,23 +18,18 @@
 package com.actionml.core.store.backends
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.concurrent.TimeUnit
 
-import com.actionml.core.store.indexes.annotations.SingleIndex
-import com.actionml.core.store.{DAO, Ordering, Store}
-import com.mongodb.client.model.IndexOptions
+import com.actionml.core.store.{DAO, Store}
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
-import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
+import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
+import scala.reflect.runtime.{universe => ru}
 
 
 class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
@@ -42,7 +37,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T: TypeTag](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T]): DAO[T] = {
+  override def createDao[T](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T], tt: ru.TypeTag[T]): DAO[T] = {
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
     val dao = new MongoDao[T](collection)
     ttl.foreach(dao.createIndexes)
@@ -86,7 +81,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
 object MongoStorage extends LazyLogging {
   lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
-  private lazy val mongoClient = MongoClient(uri)
+  val mongoClient = MongoClient(uri)
 
   def close = {
     logger.info(s"Closing mongo client $mongoClient")

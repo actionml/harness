@@ -27,14 +27,13 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 
-object SparkContextSupport extends LazyLogging with JsonSupport {
+object SparkContextSupport extends JsonSupport {
 
   private val state: AtomicReference[SparkContextState] = new AtomicReference(Idle)
 
@@ -132,7 +131,6 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
     }
     f.onComplete {
       case Failure(e) =>
-        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
         JobManager.removeJob(params.jobDescription.jobId)
       case _ =>
     }
@@ -141,7 +139,6 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
     override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
-      logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
       jobManager.removeJob(jobId)
     }
   }
@@ -176,7 +173,6 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
 
   class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
     override def cancel(): Future[Unit] = {
-      logger.info(s"Cancel job $jobId")
       f.map(_.cancelJobGroup(jobId))
     }
   }

@@ -7,21 +7,6 @@
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${HARNESS_LOG_PATH}/harness.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <!-- rollover daily -->
-            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <!-- each file should be at most 1GB, keep 60 days worth of history, but at most 10GB -->
-            <maxFileSize>1GB</maxFileSize>
-            <maxHistory>60</maxHistory>
-            <totalSizeCap>10GB</totalSizeCap>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
     <logger name="com.actionml" level="INFO"/>
     <logger name="com.mongodb" level="INFO"/>
     <logger name="org.mongodb" level="INFO"/>
@@ -29,6 +14,5 @@
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
     </root>
 </configuration>

@@ -20,12 +20,11 @@ import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
 
 /** Adds a method for train, which is expected to update the model through some potentially long lived task,
   *  usually in a batch or background mode.
   */
-trait LambdaAlgorithm[T] extends LazyLogging {
+trait LambdaAlgorithm[T] {
 
   /** May be ignored by Lambda Algorithms if they do not update portions of the model in real-time.
     * @param datum The input Event type defined by the parmeterized type

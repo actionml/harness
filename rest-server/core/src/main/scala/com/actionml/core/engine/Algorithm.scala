@@ -21,14 +21,13 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError}
-import com.typesafe.scalalogging.LazyLogging
 
 /**
   * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
   * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
   * which differ in how they get data and update models
   */
-abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
+abstract class Algorithm[Q, R] extends JsonSupport {
   var engineId: String = _
   var modelPath: String = _  // optional place in some filesystem to persist the model, a file path
 

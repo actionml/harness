@@ -19,7 +19,6 @@ package com.actionml.engines.ur
 
 import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.ur.URAlgorithm.{IndicatorParams, PreparedData, TrainingData}
-import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.RandomAccessSparseVector
 import org.apache.mahout.math.indexeddataset.BiDictionary

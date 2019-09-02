@@ -1,3 +1,4 @@
+import sbt._
 import sbt.Keys.resolvers
 
 name := "harness"
@@ -20,10 +21,10 @@ lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
 //lazy val sparkVersion = "2.1.3"
 //lazy val json4sVersion = "3.6.0"
-lazy val json4sVersion = "3.5.1"
+lazy val json4sVersion = "3.5.3"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
-lazy val elasticSearchVersion = "7.1.1"
+lazy val elasticSearchVersion = "7.3.1"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
 
@@ -32,7 +33,7 @@ resolvers += Resolver.mavenLocal
 resolvers += Resolver.bintrayRepo("hseeberger", "maven")
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
+resolvers += "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases"
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
@@ -43,6 +44,7 @@ lazy val commonSettings = Seq(
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
   resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
+    "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     "org.apache.hadoop" % "hadoop-hdfs" % hdfsVersion,
     "org.apache.hadoop" % "hadoop-common" % hdfsVersion,
     "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -81,7 +83,8 @@ lazy val core = (project in file("core")).
       "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnecterVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
-      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
+      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating" % Compile,
+      "org.apache.livy" %% "livy-scala-api" % "0.6.0-incubating" % Compile,
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,

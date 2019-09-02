@@ -25,7 +25,7 @@ import scala.reflect.runtime.universe._
 
 trait Store {
   def dbName: String
-  def createDao[T: TypeTag](collectionName: String, ttl: Option[Duration] = None)(implicit ct: ClassTag[T]): DAO[T]
+  def createDao[T](collectionName: String, ttl: Option[Duration] = None)(implicit ct: ClassTag[T], tt: TypeTag[T]): DAO[T]
   def removeCollection(name: String): Unit
   def drop(): Unit
   def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit]

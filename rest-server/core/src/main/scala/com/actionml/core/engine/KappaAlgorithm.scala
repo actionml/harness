@@ -24,7 +24,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 /** Adds a method for input, which is expected to update the model immediately. */
 //trait KappaAlgorithm[T <: AlgorithmInput] extends LazyLogging {
-trait KappaAlgorithm[T] extends LazyLogging {
+trait KappaAlgorithm[T] {
 
   def input(datum: T): Validated[ValidateError, String]
 
