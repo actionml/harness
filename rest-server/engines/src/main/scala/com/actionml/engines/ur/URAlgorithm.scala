@@ -320,8 +320,8 @@ class URAlgorithm private (
           rankingFieldName
         }
         val model = recsModel match {
-          case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams)(sc)
-          case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, calcPopular = false)(sc)
+          case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
+          case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
           // todo: no support for pure popular model
           // case RecsModels.BF  => calcPop(data)(sc)
           // error, throw an exception
@@ -347,7 +347,7 @@ class URAlgorithm private (
         logger.info("======================================== done ========================================")
 
         // todo: for now ignore properties and only calc popularity, then save to ES
-        calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams).save(dateNames, esIndex, esType, numESWriteConnections)
+        calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
       } catch {
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
@@ -630,6 +630,7 @@ object URAlgorithm extends JsonSupport {
                        data: PreparedData,
                        eventsRdd: RDD[UREvent],
                        indicators: Seq[IndicatorParams],
+                       logger: Logger,
                        calcPopular: Boolean = true)(implicit sc: SparkContext): URModel = {
     /*logger.info("Indicators read now creating correlators")
     val cooccurrenceIDSs = SimilarityAnalysis.cooccurrencesIDSs(
@@ -640,12 +641,12 @@ object URAlgorithm extends JsonSupport {
 
     //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
-    println(s"Indicator names: ${modelEventNames}")
-    println(s"Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
+    logger.debug(s"Indicator names: ${modelEventNames}")
+    logger.debug(s"Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
     val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
-    println("Actions read now creating correlators")
+    logger.debug("Actions read now creating correlators")
     val cooccurrenceIDSs = {
       val iDs = data.indicatorRDDs.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
@@ -687,12 +688,12 @@ object URAlgorithm extends JsonSupport {
 
     //val collectedProps = propertiesRDD.collect()
 
-    println("Correlators created now putting into URModel")
+    logger.debug("Correlators created now putting into URModel")
     val es = ElasticSearchClient("test_ur")
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings(rankingFieldNames, modelEventNames, dateNames))(sc, es)
+      typeMappings = getMappings(rankingFieldNames, modelEventNames, dateNames, logger))(sc, es)
   }
 
   /** Calculate all rules and items needed for ranking.
@@ -733,7 +734,7 @@ object URAlgorithm extends JsonSupport {
       }.filter { case (itemId, props) => convertedItems.contains(itemId) }
   }
 
-  def getMappings(rankingFieldNames: Seq[String], modelEventNames: Seq[String], dateNames: Set[String]): Map[String, (String, Boolean)] = {
+  def getMappings(rankingFieldNames: Seq[String], modelEventNames: Seq[String], dateNames: Set[String], logger: Logger): Map[String, (String, Boolean)] = {
     val mappings = rankingFieldNames.map { fieldName =>
       fieldName -> ("float", false)
     }.toMap ++ // create mappings for correlators, where the Boolean says to not use norms
@@ -743,7 +744,7 @@ object URAlgorithm extends JsonSupport {
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
       }.toMap ++ Map("id" -> ("keyword", true))
-    println(s"Index mappings for the Elasticsearch URModel: $mappings")
+    logger.debug(s"Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
 
