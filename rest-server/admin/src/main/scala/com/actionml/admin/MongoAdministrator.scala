@@ -142,6 +142,14 @@ class MongoAdministrator extends Administrator with JsonSupport {
     }
   }
 
+  override def systemInfo(): Validated[ValidateError, Response] = {
+    logger.trace("Getting Harness system info")
+    case class sysInfo(version: String = "0.5.0-SNAPSHOT")
+    val info = com.actionml.admin.BuildInfo
+    val ver = info.version
+    Valid(Comment(s"Version: ${com.actionml.admin.BuildInfo.version}"))
+  }
+
   override def statuses(): Validated[ValidateError, List[Response]] = {
     logger.trace("Getting status for all Engines")
     val empty = List.empty
@@ -177,3 +185,11 @@ case class EngineMetadata(
   engineId: String,
   engineFactory: String,
   params: String)
+
+// not sure how to bring this in scope since it is defined during the compile step
+// of build.sbt
+/*
+object BuildInfo {
+  val version = "${version.value}"
+}
+*/

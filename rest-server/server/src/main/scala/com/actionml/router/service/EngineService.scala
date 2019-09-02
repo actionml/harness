@@ -35,6 +35,9 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
   private val admin = inject[Administrator]('Administrator)
 
   override def receive: Receive = {
+    case GetSystemInfo() =>
+      sender() ! admin.systemInfo()
+
     case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)
       sender() ! admin.status(engineId)
@@ -59,16 +62,6 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
       log.info(s"Update existing engine by importing, $inputPath")
       sender() ! admin.updateEngineWithImport(engineId, inputPath)
 
-    /*
-    case UpdateEngineWithConfig(engineId, engineJson, dataDelete, force, input) =>
-      log.info(s"Update existing engine, ${engineId}, ${engineJson}, ${dataDelete}, ${dataDelete}, ${force}, ${input}")
-      sender() ! admin.updateEngine(engineId, Some(engineJson), dataDelete, force, Some(input)).map(_.asJson)
-
-    case UpdateEngineWithId(engineId, dataDelete, force, input) =>
-      log.info("Update existing engine, {}, {}, {}, {}", engineId, dataDelete, force, input)
-      sender() ! admin.updateEngine(engineId, None, dataDelete, force, Some(input)).map(_.asJson)
-    */
-
     case DeleteEngine(engineId) =>
       log.info("Delete existing engine, {}", engineId)
       sender() ! admin.removeEngine(engineId)
@@ -80,6 +73,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 }
 
 sealed trait EngineAction
+case class GetSystemInfo() extends EngineAction
 case class GetEngine(engineId: String) extends EngineAction
 case object GetEngines extends EngineAction
 case class CreateEngine(engineJson: String) extends EngineAction
