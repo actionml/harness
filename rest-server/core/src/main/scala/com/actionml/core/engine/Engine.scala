@@ -70,6 +70,7 @@ abstract class Engine extends JsonSupport {
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
+      logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
@@ -113,6 +114,7 @@ abstract class Engine extends JsonSupport {
     * manages and the extending Engine adds json to give stats about the data it manages?
     */
   def status(): Validated[ValidateError, Response] = {
+    logger.trace(s"Status of base Engine with engineId:$engineId")
     Valid(EngineStatus(engineId, "This Engine does not implement the status API"))
   }
 
@@ -142,6 +144,7 @@ abstract class Engine extends JsonSupport {
 
 
   private def notImplemented(message: String) = {
+    logger.warn(message)
     Invalid(NotImplemented(jsonComment(message)))
   }
 }

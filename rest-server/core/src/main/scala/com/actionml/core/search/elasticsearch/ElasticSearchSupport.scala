@@ -106,7 +106,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
               "doc_as_upsert" -> JBool(true)
             )))
           val aliasResponse = client.performRequest(request)
-          val responseJValue = parse(StringInput(EntityUtils.toString(aliasResponse.getEntity)), false)
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
           case NonFatal(e) =>
@@ -126,7 +126,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       .getStatusCode match {
       case 200 =>
         val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
-        val responseJValue = parse(StringInput(EntityUtils.toString(aliasResponse.getEntity)), false)
+        val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
         val indexSet = responseJValue.extract[Map[String, JValue]].keys
         indexSet.forall(deleteIndexByName(_, refresh))
       case _ => false
@@ -140,7 +140,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       case 200 =>
         // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
         val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
-        val responseJValue = parse(StringInput(EntityUtils.toString(aliasResponse.getEntity)), false)
+        val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
         val indexSet = responseJValue.extract[Map[String, JValue]].keys
         indexSet.headOption.fold(Seq.empty[T]) { actualIndexName =>
           logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
@@ -150,7 +150,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           response.getStatusLine.getStatusCode match {
             case 200 =>
               logger.info(s"Got source from query: $query")
-              transform(parse(StringInput(EntityUtils.toString(response.getEntity)), false))
+              transform(parse(EntityUtils.toString(response.getEntity)))
             case _ =>
               logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
               Seq.empty[T]
@@ -169,7 +169,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
         .getStatusCode match {
         case 200 =>
           val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
-          val responseJValue = parse(StringInput(EntityUtils.toString(aliasResponse.getEntity)), false)
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
           rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
             val url = s"/$actualIndexName/$indexType/${encodeURIFragment(id)}"
@@ -185,13 +185,13 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
                   None
                 } else {
                   logger.info(s"About to parse: $entity")
-                  val result = parse(StringInput(entity), false)
+                  val result = parse(entity)
                   logger.info(s"getSource for $url result: $result")
                   Some(result)
                 }
               case 404 =>
                 logger.info(s"got status code: 404")
-                Some(parse(StringInput("""{"notFound": "true"}"""), false))
+                Some(parse("""{"notFound": "true"}"""))
               case _ =>
                 logger.info(s"got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
                 None
@@ -257,7 +257,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       .getStatusLine.getStatusCode match {
         case 200 => {
           val response = client.performRequest(new Request("GET", s"/_alias/$alias"))
-          val responseJValue = parse(StringInput(EntityUtils.toString(response.getEntity)), false)
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
           val oldIndexSet = responseJValue.extract[Map[String, JValue]].keys
           val oldIndexName = oldIndexSet.head
           client.performRequest(new Request("HEAD", s"/$oldIndexName")) // Does the old index exist?
@@ -460,7 +460,8 @@ object ElasticSearchClient extends JsonSupport {
         "_score" -> JObject("order" -> JString("desc")),
         query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
       ))
-    compact(render(esQuery)) }
+    compact(render(esQuery))
+  }
 
   private def mustToJson: Seq[Matcher] => JValue = {
     case Nil =>
