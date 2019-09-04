@@ -42,18 +42,21 @@ jobs:
     - run:
         name: Build rest-server docker image
         command: |
+          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+          DATE_BUILD=$(date +'%d-%m-%Y')
+
           case "${CIRCLE_BRANCH}" in
             "master")
-              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:latest ./
+              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD -t actionml/harness:latest ./
             ;;
             "develop")
-              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
             "devops")
-              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
             "ci")
-              docker image build -f docker/Dockerfile --build-arg version=ci -t actionml/harness:${CIRCLE_BRANCH} ./
+              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
             *)
             ;;
@@ -61,6 +64,9 @@ jobs:
     - run:
         name: Publish docker image
         command: |
+          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+          DATE_BUILD=$(date +'%d-%m-%Y')
+          
           case "${CIRCLE_BRANCH}" in
             "master")
               docker image push actionml/harness:latest
@@ -70,6 +76,12 @@ jobs:
             ;;
             "devops")
               docker image push actionml/harness:${CIRCLE_BRANCH}
+              
+              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:$SHORT_GIT_HASH
+              docker image push actionml/harness:$SHORT_GIT_HASH
+              
+              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:$DATE_BUILD
+              docker image push actionml/harness:$DATE_BUILD
             ;;
             "ci")
               docker image push actionml/harness:${CIRCLE_BRANCH}

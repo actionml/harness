@@ -1,6 +1,11 @@
 FROM openjdk:8-jre-alpine3.8
 
 ARG version
+ARG GIT_HASH
+ARG DATE_BUILD
+ENV GIT_HASH=${GIT_HASH}
+ENV DATE_BUILD=${DATE_BUILD}
+
 LABEL com.actionml.harness.vendor=ActionML \
       com.actionml.harness.service=rest-api \
       com.actionml.harness.version=$version
