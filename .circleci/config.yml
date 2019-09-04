@@ -77,10 +77,10 @@ jobs:
             "devops")
               docker image push actionml/harness:${CIRCLE_BRANCH}
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:$SHORT_GIT_HASH
+              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
               docker image push actionml/harness:$SHORT_GIT_HASH
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:$DATE_BUILD
+              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
               docker image push actionml/harness:$DATE_BUILD
             ;;
             "ci")
