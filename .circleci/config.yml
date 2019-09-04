@@ -65,7 +65,7 @@ jobs:
         name: Publish docker image
         command: |
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%d-%m-%Y')
+          DATE_BUILD=$(date +'%Y-%m-%d')
           
           case "${CIRCLE_BRANCH}" in
             "master")
