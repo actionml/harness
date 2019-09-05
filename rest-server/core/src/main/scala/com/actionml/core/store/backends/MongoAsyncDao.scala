@@ -23,7 +23,7 @@ import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy, SyncDao}
+import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
 import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
@@ -78,13 +78,18 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   }
 
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {
-    collection.insertMany(c).headOption.flatMap {
-      case Some(t) =>
-        logger.info(s"Successfully inserted ${c.size} items into $name with result $t")
-        Future.successful ()
-      case None =>
-        logger.error(s"Can't insert $c into collection ${collection.namespace}")
-        Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))
+    if (c.nonEmpty) {
+      collection.insertMany(c).headOption.flatMap {
+        case Some(t) =>
+          logger.info(s"Successfully inserted ${c.size} items into $name with result $t")
+          Future.successful()
+        case None =>
+          logger.error(s"Can't insert $c into collection ${collection.namespace}")
+          Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))
+      }
+    } else {
+      logger.warn(s"No items inserted - $c")
+      Future.successful ()
     }
   }
 
