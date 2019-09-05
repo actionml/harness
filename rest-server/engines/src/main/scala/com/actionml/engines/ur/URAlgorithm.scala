@@ -734,18 +734,18 @@ object URAlgorithm extends JsonSupport {
   }
 
   case class RankingParams(
-      name: Option[String] = None,
-      `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
+      name: Option[String] = Some(DefaultURAlgoParams.BackfillFieldName),
+      `type`: Option[String] = Some(DefaultURAlgoParams.BackfillType), // See [[com.actionml.BackfillType]]
+      indicatorNames: Option[Seq[String]] = None, // None means an error, events must be specified.
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
-      duration: Option[String] = None) { // duration worth of events to use in calculation of backfill
+      duration: Option[String] = Some(DefaultURAlgoParams.BackfillDuration)) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |indicatorParams: $eventNames,
+         |indicatorParams: $indicatorNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
