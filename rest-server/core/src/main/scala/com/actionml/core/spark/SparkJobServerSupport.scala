@@ -25,7 +25,7 @@ import com.actionml.core.jobs.{Cancellable, JobDescription, JobStatuses}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.livy._
-import org.apache.livy.scalaapi.{LivyScalaClient, ScalaJobHandle}
+import org.apache.livy.scalaapi.{LivyScalaClient, ScalaJobContext, ScalaJobHandle}
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.json4s.JValue
@@ -35,15 +35,12 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.reflect.ClassTag
 import scala.util.Try
 import scala.util.control.NonFatal
 import scala.reflect.runtime.universe._
 
 trait SparkJobServerSupport {
-  def submit[T: TypeTag](initParams: String,
-                         engineId: String,
-                         job: (SparkContext, Seq[Broadcast[AnyRef]]) => T,
-                         sharedObjects: Seq[AnyRef]): JobDescription
   def status(engineId: String): Iterable[JobDescription]
   def cancel(jobId: String): Future[Unit]
 }
@@ -52,45 +49,16 @@ class SparkJobCancellable(jobId: String) extends Cancellable {
   override def cancel(): Future[Unit] = LivyJobServerSupport.cancel(jobId)
 }
 
+abstract class SubmitFunction[A, B](tta: TypeTag[A], cta: ClassTag[A], ttb: TypeTag[B], ctb: ClassTag[B]) {
+  def apply(s: SparkContext, bc: Seq[Broadcast[_]]): Any
+}
+
 object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   private case class ContextId(initParams: String, engineId: String, jobId: String)
   private case class ContextApi(client: LivyScalaClient, handlers: List[ScalaJobHandle[_]])
   private val contexts = TrieMap.empty[ContextId, ContextApi]
   private val config = ConfigFactory.load()
   private val livyUrl = config.getString("spark.job-server-url")
-
-  override def submit[T: TypeTag](initParams: String, engineId: String, job: (SparkContext, Seq[Broadcast[AnyRef]]) => T, sharedObjects: Seq[AnyRef]): JobDescription = {
-    val jobDescription = JobDescription.create
-    val id = ContextId(initParams = initParams, engineId = engineId, jobId = jobDescription.jobId)
-    try {
-      val ContextApi(client, handlers) =
-        contexts.getOrElseUpdate(id, ContextApi(mkNewClient(initParams, engineId, jobDescription.jobId), List.empty))
-      // assumes that jars are already available to livy (via livy.conf)
-      val lib: Iterable[File] = new File("lib").listFiles
-      Await.result(Future.sequence(lib.filter(f => f.isFile && f.getName.endsWith(".jar") && !(f.getName.startsWith("org.json4s.json4s")))
-        .map(jar => client.uploadJar(jar))
-      ), Duration.Inf)
-      val handler = client.submit(jc => {
-        import scala.reflect.runtime.universe._
-        typeTag[Int]
-        typeTag[Float]
-        typeTag[Boolean]
-        typeTag[T]
-        job(jc.sc, sharedObjects.map(jc.sc.broadcast))
-      })
-      contexts.update(id, ContextApi(client, handler :: handlers))
-      handler.onJobQueued(logger.info(s"Spark job $jobDescription queued"))
-      handler.onJobStarted(logger.info(s"Spark job $jobDescription started"))
-      handler.onJobCancelled(_ => logger.info(s"Spark job $jobDescription cancelled"))
-      handler.onFailure { case throwable => logger.error(s"Spark job $jobDescription failed with error $throwable", throwable) }
-      handler.onSuccess { case _ => logger.info(s"Spark job $jobDescription completed successfully") }
-      jobDescription
-    } catch {
-      case NonFatal(e) =>
-        logger.error("Jars upload problem", e)
-        throw e
-    }
-  }
 
   override def status(engineId: String): Iterable[JobDescription] = {
     contexts.flatMap {
@@ -101,24 +69,39 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
 
   override def cancel(jobId: String): Future[Unit] = Future.successful ()
 
-
-  private def state2Status(state: JobHandle.State): Option[JobStatus] = {
-    import JobHandle.State._
-    if (state == QUEUED || state == SENT) Some(JobStatuses.queued)
-    else if (state == STARTED) Some(JobStatuses.executing)
-    else None
-  }
-
-  def mkNewClient(initParams: String, engineId: String, jobId: String): LivyScalaClient = {
+  def mkNewClient(initParams: String, engineId: String): (LivyScalaClient, JobDescription) = {
     import scala.collection.JavaConversions._
+    val jd = JobDescription.create
     val configMap = configParams ++ parseAndValidate[Map[String, String]](initParams, transform = _ \ "sparkConf")
     val master = configMap.getOrElse("master", "local") // "spark://172.17.0.3:7077"
     val builder = new LivyClientBuilder()
       .setURI(new URI(livyUrl))
       .setAll(configMap - "master")
       .setConf("spark.master", master)
-      .setConf("spark.app.name", jobId)
-    new LivyScalaClient(builder.build)
+      .setConf("spark.app.name", jd.jobId)
+    val client = try {
+      val id = ContextId(initParams = initParams, engineId = engineId, jobId = jd.jobId)
+      val ContextApi(client, handlers) =
+        contexts.getOrElseUpdate(id, ContextApi(new LivyScalaClient(builder.build), List.empty))
+      val lib: Iterable[File] = new File("lib").listFiles
+      Await.result(Future.sequence(lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
+        .map(jar => client.uploadJar(jar))), Duration.Inf)
+      contexts.update(id, ContextApi(client, handlers))
+      client
+    } catch {
+      case NonFatal(e) =>
+        logger.error("Jars upload problem", e)
+        throw e
+    }
+    (client, jd)
+  }
+
+
+  private def state2Status(state: JobHandle.State): Option[JobStatus] = {
+    import JobHandle.State._
+    if (state == QUEUED || state == SENT) Some(JobStatuses.queued)
+    else if (state == STARTED) Some(JobStatuses.executing)
+    else None
   }
 
   private lazy val configParams: Map[String, String] = {

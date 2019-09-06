@@ -29,7 +29,7 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.LivyJobServerSupport
+import com.actionml.core.spark.{LivyJobServerSupport, SubmitFunction}
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
@@ -42,6 +42,7 @@ import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, Similarit
 import org.apache.mahout.math.indexeddataset.IndexedDataset
 import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
 
@@ -259,40 +260,21 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val lib: Iterable[File] = new File("lib").listFiles
-    import scala.concurrent.ExecutionContext.Implicits.global
-    val jobDescription = JobDescription("job-id")
-//    val sb = StringBuilder.newBuilder
-    val client = LivyJobServerSupport.mkNewClient(initParams, engineId, jobDescription.jobId)
-    Await.result(Future.sequence(lib.filter(f => f.isFile && f.getName.endsWith(".jar")// &&
-//      !(f.getName.startsWith("org.json4j.json4s") ||
-//        f.getName.startsWith("com.fasterxml.jackson") //||
-//        f.getName.startsWith("org.apache.livy.livy-api") ||
-//        f.getName.startsWith("org.apache.livy.livy-client")
-//      // || f.getName.startsWith("org.elasticsearch.elasticsearch-spark")
-//    ).map { jar => sb.append(s"hdfs://localhost:9000/jars/${jar.getName},"); Future.successful () }
-//    ).map(jar => client.addJar(new URI(s"hdfs://localhost:9000/jars/${jar.getName}")))
-    ).map(jar => client.uploadJar(jar))
-    ), Duration.Inf)
-//    val client = LivyJobServerSupport.mkNewClient(initParams, engineId, jobDescription.jobId, Some(sb.mkString.dropRight(1)))
+    val (client, jobDescription) = LivyJobServerSupport.mkNewClient(initParams, engineId)
     client.submit { jc =>
       val logger = Logger.getLogger("spark_job")
       implicit val sc = jc.sc
-//    val jobDescription = LivyJobServerSupport.submit(initParams, engineId, (sc, broadcasts) => {
-      import scala.reflect.runtime.universe._
-      val tt = typeTag[URItemProperties]
-      val ct = ClassTag[URItemProperties](tt.mirror.runtimeClass(tt.tpe))
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
       val engineId = "test_UR"
       val esIndex = engineId
       val esType = "items"
       val numESWriteConnections = None
       try {
-//        val codecs = broadcasts(1).value.asInstanceOf[List[CodecProvider]]
+        //        val codecs = broadcasts(1).value.asInstanceOf[List[CodecProvider]]
         val codecs = MongoStorageHelper.codecs
         // we don't have eventsDao on cluster:
         val store = MongoStorage.getStorage("test_ur", codecs)
-        val itemsDao = store.createDao[URItemProperties]("items")(ct, tt)
+        val itemsDao = store.createDao[URItemProperties]("items")
         val eventsDao = store.createDao[UREvent]("events")
         val eventsRdd = eventsDao.readRdd[UREvent](codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](codecs)
@@ -350,7 +332,7 @@ class URAlgorithm private (
         calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
       } catch {
         case NonFatal(e) =>
-          logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+          logger.error(s"Spark computation failed for engine $engineId", e)
       }
     }
     logger.debug(s"Starting train $this with spark")

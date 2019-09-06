@@ -420,7 +420,7 @@ object ElasticSearchClient extends JsonSupport {
     import ESVersions._
     Try(client.performRequest(new Request("GET", "/"))).toOption
       .flatMap { r =>
-        val version = (JsonMethods.parse(StreamInput(r.getEntity.getContent), false) \ "version" \ "number").as[String]
+        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
         if (version.startsWith("5.")) Some(v5)
         else if (version.startsWith("6.")) Some(v6)
         else if (version.startsWith("7.")) Some(v7)
