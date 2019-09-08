@@ -7,6 +7,7 @@
         </encoder>
     </appender>
 
+    <!--
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HARNESS_LOG_PATH}/harness.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
@@ -22,21 +23,20 @@
             <pattern>%date - [%level] - from %logger in %thread %n%message%n%xException%n</pattern>
         </encoder>
     </appender>
+    -->
 
-    <!--
-<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${HARNESS_LOG_PATH}/harness.log</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-        <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-        <maxFileSize>1GB</maxFileSize>
-        <maxHistory>60</maxHistory>
-        <totalSizeCap>10GB</totalSizeCap>
-    </rollingPolicy>
-    <encoder>
-        <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
-    </encoder>
-</appender>
--->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HARNESS_LOG_PATH}/harness.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>1GB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>20GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %-17logger{0} - %msg%n</pattern>
+        </encoder>
+    </appender>
 
     <logger name="com.actionml" level="INFO"/>
     <logger name="com.mongodb" level="INFO"/>
