@@ -177,23 +177,30 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           acc
       }
     }
-    eventsDao.insertMany(events)
+    try {
+      eventsDao.insertMany(events)
+    } catch {
+      case NonFatal(e) => logger.error(s"Can't insert events $data", e)
+    }
     items.foreach(insertProperty)
   }
 
-  private def insertProperty(event: UREvent): Unit = {
-    val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
-    itemsDao.saveOneById(
-      event.entityId,
-      URItemProperties(
-        _id = updateItem._id,
-        dateProps = updateItem.dateProps ++ event.dateProps,
-        categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
-        floatProps = updateItem.floatProps ++ event.floatProps,
-        booleanProps = updateItem.booleanProps ++ event.booleanProps
+  private def insertProperty(event: UREvent): Unit =
+    try {
+      val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
+      itemsDao.saveOneById(
+        event.entityId,
+        URItemProperties(
+          _id = updateItem._id,
+          dateProps = updateItem.dateProps ++ event.dateProps,
+          categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+          floatProps = updateItem.floatProps ++ event.floatProps,
+          booleanProps = updateItem.booleanProps ++ event.booleanProps
+        )
       )
-    )
-  }
+    } catch {
+      case NonFatal(e) => logger.error(s"Can't insert item $event")
+    }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
 
