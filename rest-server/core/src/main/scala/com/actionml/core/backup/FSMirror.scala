@@ -125,13 +125,13 @@ class FSMirror(mirrorContainer: String, engineId: String)
           engine.inputMany(lines)
         } catch {
           case e: IOException =>
-            logger.error(s"Bad event being ignored: $lines exception ${e.printStackTrace()}")
+            logger.error(s"Engine ID: ${engine.engineId} found a bad event and is ignoring it: $lines exception ${e.printStackTrace()}")
         }
       }
       eventsProcessed
     } catch {
       case e: IOException =>
-        logger.error(s"Error reading file: ${file.getName} exception ${e.printStackTrace()}")
+        logger.error(s"Engine ID: ${engine.engineId} reading file: ${file.getName} exception ${e.printStackTrace()}")
         eventsProcessed
     } finally {
       src.close
