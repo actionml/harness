@@ -28,7 +28,7 @@
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HARNESS_LOG_PATH}/harness.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${HARNESS_LOG_PATH}/harness-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>1GB</maxFileSize>
             <maxHistory>60</maxHistory>
             <totalSizeCap>20GB</totalSizeCap>
