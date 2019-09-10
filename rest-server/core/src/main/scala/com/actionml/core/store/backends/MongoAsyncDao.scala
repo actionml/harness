@@ -69,7 +69,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   override def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.insertOne(o).headOption.flatMap {
       case Some(t) =>
-        logger.info(s"Successfully inserted $o into $name with result $t")
+        logger.trace(s"Successfully inserted $o into $name with result $t")
         Future.successful ()
       case None =>
         logger.error(s"Can't insert value $o to collection ${collection.namespace}")
@@ -81,7 +81,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
     if (c.nonEmpty) {
       collection.insertMany(c).headOption.flatMap {
         case Some(t) =>
-          logger.info(s"Successfully inserted ${c.size} items into $name with result $t")
+          logger.trace(s"Successfully inserted ${c.size} items into $name with result $t")
           Future.successful()
         case None =>
           logger.error(s"Can't insert $c into collection ${collection.namespace}")
@@ -96,7 +96,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   override def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"Successfully updated object $o with the filter $filter")
+        logger.trace(s"Successfully updated object $o with the filter $filter")
         Future.successful(t)
       case None =>
         logger.error(s"Can't update collection ${collection.namespace} with filter $filter and value $o")
@@ -111,7 +111,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.debug(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
+    } yield ()).map(_ => logger.trace(s"Object $o with id $id (filter: $filter) saved successfully into $name"))
       .recover { case e => logger.error(s"Can't saveOneById object $o with id $id (filter $filter) into $name", e)}
   }
 
@@ -122,14 +122,14 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       _ <- if (opt.isDefined) collection.replaceOne(filter, o).headOption.recover {
         case e => logger.error(s"Can't replace object $o", e)
       } else insertAsync(o)
-    } yield ()).map(_ => logger.info(s"Object $o (filter: $filter) saved successfully into $name"))
+    } yield ()).map(_ => logger.trace(s"Object $o (filter: $filter) saved successfully into $name"))
       .recover { case e => logger.error(s"Can't saveOne object $o (filter $filter) into $name", e)}
   }
 
   override def removeOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[T] = {
     collection.findOneAndDelete(mkFilter(filter)).headOption.flatMap {
       case Some(t) =>
-        logger.debug(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
+        logger.trace(s"$filter was successfully removed from collection $collection with namespace ${collection.namespace}. Result: $t")
         Future.successful(t)
       case None =>
         logger.error(s"Can't removeOne from collection ${collection.namespace} with filter $filter")
@@ -144,7 +144,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   override def removeManyAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Unit] = {
     collection.deleteMany(mkFilter(filter)).headOption().flatMap {
       case Some(t) =>
-        logger.debug(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
+        logger.trace(s"$filter objects successfully removed from collection $collection with namespace ${collection.namespace}. Delete Result: $t")
         Future.successful[Unit]()
       case None =>
         logger.error(s"Can't removeMany from collection ${collection.namespace} with filter $filter")

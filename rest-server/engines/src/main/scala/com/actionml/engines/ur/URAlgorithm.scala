@@ -141,7 +141,7 @@ class URAlgorithm private (
         }.toMap
       }.toMap
 
-      logger.info(s"Events to alias mapping: ${queryEventNames}")
+      logger.info(s"Engine-id: ${engineId}. Events to alias mapping: ${queryEventNames}")
       limit = params.num.getOrElse(DefaultURAlgoParams.NumResults)
 
       modelEventNames = params.indicators.map(_.name)
@@ -254,7 +254,7 @@ class URAlgorithm private (
   override def train(): Validated[ValidateError, Response] = {
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
-      logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
+      logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
@@ -284,11 +284,11 @@ class URAlgorithm private (
         logger.info("======================================== Contents of Indicators ========================================")
         data.indicatorRDDs.foreach { case (name, id) =>
           val ids = id.asInstanceOf[IndexedDatasetSpark]
-          logger.info(s"Event name: $name")
-          logger.info(s"Num users/rows = ${ids.matrix.nrow}")
-          logger.info(s"Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+          logger.info(s"Engine-id: ${engineId}. Event name: $name")
+          logger.info(s"Engine-id: ${engineId}. Num users/rows = ${ids.matrix.nrow}")
+          logger.info(s"Engine-id: ${engineId}. Num items/columns = ${ids.matrix.ncol}")
+          logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
+          logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
         }
         logger.info("======================================== done ========================================")
 
@@ -302,7 +302,7 @@ class URAlgorithm private (
         SparkContextSupport.stopAndClean(sc)
       }
     }
-    logger.debug(s"Starting train $this with spark")
+    logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
     Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
@@ -330,12 +330,12 @@ class URAlgorithm private (
 
     //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
-    logger.info(s"Indicator names: ${modelEventNames}")
-    logger.info(s"Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
+    logger.info(s"Engine-id: ${engineId}. Indicator names: ${modelEventNames}")
+    logger.info(s"Engine-id: ${engineId}. Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
     val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
-    logger.info("Actions read now creating correlators")
+    logger.trace("Engine-id: ${engineId}. Actions read now creating correlators")
     val cooccurrenceIDSs = {
       val iDs = data.indicatorRDDs.map(_._2).toSeq
       val datasets = iDs.zipWithIndex.map {
@@ -379,7 +379,7 @@ class URAlgorithm private (
 
     val allMappings = getMappings ++ propertiesMappings
 
-    logger.info("Correlators created now putting into URModel")
+    logger.trace(s"Engine-id: ${engineId}. Correlators created now putting into URModel")
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
@@ -442,14 +442,14 @@ class URAlgorithm private (
       }
     } catch {
       case NonFatal(e) =>
-        logger.error(s"Job $jobId abort error", e)
-        Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
+        logger.error(s"Engine-id: ${engineId}. Cannot abort job: $jobId abort error", e)
+        Invalid(ValidRequestExecutionError(s"Cannot abort job: $jobId"))
     }
   }
 
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    logger.info(s"Got query: \n$query")
+    logger.info(s"Engine-id: ${engineId}. Got query: \n${query}")
 
     val aggregatedRules = aggregateRules(rules, query.rules)
 
@@ -488,7 +488,7 @@ class URAlgorithm private (
     val validConfigRules = configRules.getOrElse(Seq.empty).filterNot(r => qRuleNames.contains(r.name)) // filter out dup rule names
 
     if(configRules.nonEmpty && queryRules.nonEmpty)
-      logger.info(s"Warning: duplicate rule names from the Query take precedence." +
+      logger.info(s"Engine-id: ${engineId}. Warning: duplicate rule names from the Query take precedence over config rules." +
         s"\n    Config rules: ${configRules.get}\n    Query rules: ${queryRules.get}\n")
 
     qRules ++ validConfigRules
@@ -545,10 +545,10 @@ class URAlgorithm private (
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
     query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
-      logger.info(s"using item ${query.item.get}")
+      logger.trace(s"Engine-id: ${engineId}. using item ${query.item.get}")
       val (_, itemProperties) = es.findDocById(i)
 
-      logger.info(s"getBiasedSimilarItems for item $i, bias value ${itemBias}")
+      logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
       modelEventNames.map { eventName => // get items that are similar by eventName
         val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
         val rItems = items.take(maxQueryEvents)
@@ -678,7 +678,7 @@ class URAlgorithm private (
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
       }.toMap ++ Map("id" -> ("keyword", true))
-    logger.info(s"Index mappings for the Elasticsearch URModel: $mappings")
+    logger.trace(s"Engine-id: ${engineId}. Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
 

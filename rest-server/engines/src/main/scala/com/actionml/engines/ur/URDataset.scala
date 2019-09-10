@@ -88,7 +88,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           Try(Duration(ttlString)).toOption.map { ttl =>
             // We assume the DAO will check to see if this is a change and no do the reindex if not needed
             eventsDao.createIndexes(ttl)
-            logger.debug(s"Got a dataset.ttl = $ttl")
+            logger.debug(s"Engine-id: ${engineId}. Got a dataset.ttl = $ttl")
             Valid(p)
           }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
         }
@@ -117,7 +117,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           Valid(event)
         } catch {
           case e: Throwable =>
-            logger.error(s"Can't save input $jsonEvent", e)
+            logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
             Invalid(ValidRequestExecutionError(e.getMessage))
         }
       } else { // not an indicator so check for reserved events the dataset cares about
@@ -126,20 +126,20 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
             event.entityType match {
               case "user" =>
                 eventsDao.removeMany("entityId" === event.entityId)
-                logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                logger.trace(s"Engine-id: ${engineId}. Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
                 Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
               case "item" =>
                 itemsDao.removeOneById(event.entityId)
-                logger.info(s"Deleted properties for item: ${event.entityId}")
+                logger.trace(s"Engine-id: ${engineId}. Deleted properties for item: ${event.entityId}")
               case _ =>
-                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                logger.error(s"Engine-id: ${engineId}. Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
           case "$set" => // only item properties as allowed here and used for business rules once they are reflected in
             // the model, which should be immediately but done by the URAlgorithm, which manages the model
             event.entityType match {
               case "user" =>
-                logger.info(s"User properties not supported, send as named indicator event.")
+                logger.warn(s"Engine-id: ${engineId}. User properties not supported, send as named indicator event.")
                 Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
               case "item" => insertProperty(event)
               case _ =>
@@ -147,7 +147,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
           case _ =>
-            logger.warn(s"Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
+            logger.warn(s"Engine-id: ${engineId}. Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
 
         }
 
@@ -173,14 +173,14 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           }
       } catch {
         case NonFatal(e) =>
-          logger.error(s"Can't save input $jsonEvent", e)
+          logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
           acc
       }
     }
     try {
       eventsDao.insertMany(events)
     } catch {
-      case NonFatal(e) => logger.error(s"Can't insert events $data", e)
+      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert events $data", e)
     }
     items.foreach(insertProperty)
   }
@@ -199,7 +199,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         )
       )
     } catch {
-      case NonFatal(e) => logger.error(s"Can't insert item $event")
+      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event")
     }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
@@ -234,7 +234,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     } catch {
       case NonFatal(e) =>
         logger.error(s"Can't parse UREvent from $j", e)
-        Invalid(ParseError(s"Can't parse $j as UREvent"))
+        Invalid(ParseError(s"Engine-id: ${engineId}. Can't parse $j as UREvent"))
     }
   }
 }
