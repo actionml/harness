@@ -89,11 +89,11 @@ class MongoAdministrator extends Administrator with JsonSupport {
         Valid(Comment(params.engineId))
       } else if (newEngine != null) {
         //add new
-        logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
+        logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
         enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
-        logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
+        logger.trace(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
         Valid(Comment(s"EngineId: ${params.engineId} created"))
       } else {
         // ignores case of too many engine with the same engineId
@@ -137,7 +137,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
       deadEngine.destroy()
       Valid(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
     } else {
-      logger.warn(s"Cannot removeOne non-existent engine for engineId: $engineId")
+      logger.warn(s"Cannot removeOne, non-existent engine for engineId: $engineId")
       Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     }
   }

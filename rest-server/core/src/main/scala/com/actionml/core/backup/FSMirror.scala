@@ -34,7 +34,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
   extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
   private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
-  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Mirror raw un-validated events to $mirrorContainer")
+  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $mirrorContainer")
 
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(json: String): Validated[ValidateError, String] = {
@@ -81,36 +81,36 @@ class FSMirror(mirrorContainer: String, engineId: String)
           // not mirrored with Spark, but may import from some source that creates a spark-like directory of part files
           // Todo: update for Spark
           val flist = new java.io.File(location).listFiles.filterNot(_.getName.startsWith(".")) // importing files that do not start with a dot like .DStore on Mac
-          logger.info(s"Reading files from directory: ${location}")
+          logger.trace(s"Engine-id: ${engineId}. Reading files from directory: ${location}")
           var filesRead = 0
           var eventsProcessed = 0L
           for (file <- flist) {
             filesRead += 1
-            logger.info(s"Importing from file: ${file.getName}")
+            logger.trace(s"Engine-id: ${engineId}. Importing from file: ${file.getName}")
             eventsProcessed = eventsProcessed + importFromFile(file, engine)
           }
           if(filesRead == 0 || eventsProcessed == 0)
-            logger.warn(s"No events were processed, did you mean to import JSON events from directory $location ?")
+            logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $location ?")
           else
-            logger.info(s"Import read $filesRead files and processed $eventsProcessed events.")
+            logger.trace(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
         } else if (resourceCollection.exists()) { // single file
           val eventsProcessed = importFromFile(new File(location), engine)
-          logger.info(s"Import processed $eventsProcessed events.")
+          logger.info(s"Engine-id: ${engineId}. Import processed $eventsProcessed events.")
         }
       } else {
         val errMsg =
-          s"""Cannot import from mirroring location: $location since imported files are also
+          s"""Engine-id: ${engineId}. Cannot import from mirroring location: $location since imported files are also
              |mirrored causing an infinite loop. Copy or move them first.""".stripMargin
         logger.error(errMsg)
         importEventsError(errMsg)
       }
     } catch {
       case e: IOException =>
-        val errMsg = s"Problem while importing saved events from $location, exception ${e.printStackTrace()}"
+        val errMsg = s"Engine-id: ${engineId}. Problem while importing saved events from $location, exception ${e.printStackTrace()}"
         logger.error(errMsg)
         importEventsError(errMsg)
     } finally {
-      logger.info("Completed importing. Check logs for any data errors.")
+      logger.info(s"Engine-id: ${engineId}. Completed importing. Check logs for any data errors.")
     }
     Valid(jsonComment("Job created to import events in the background."))
   }
@@ -125,13 +125,13 @@ class FSMirror(mirrorContainer: String, engineId: String)
           engine.inputMany(lines)
         } catch {
           case e: IOException =>
-            logger.error(s"Engine ID: ${engine.engineId} found a bad event and is ignoring it: $lines exception ${e.printStackTrace()}")
+            logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.printStackTrace()}")
         }
       }
       eventsProcessed
     } catch {
       case e: IOException =>
-        logger.error(s"Engine ID: ${engine.engineId} reading file: ${file.getName} exception ${e.printStackTrace()}")
+        logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.printStackTrace()}")
         eventsProcessed
     } finally {
       src.close
