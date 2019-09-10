@@ -46,17 +46,8 @@ jobs:
           DATE_BUILD=$(date +'%Y-%m-%d')
 
           case "${CIRCLE_BRANCH}" in
-            "master")
+            master|develop|devops)
               docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            "develop")
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:${CIRCLE_BRANCH} ./
-            ;;
-            "devops")
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:${CIRCLE_BRANCH} ./
-            ;;
-            "ci")
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:${CIRCLE_BRANCH} ./
             ;;
             *)
             ;;
@@ -72,30 +63,23 @@ jobs:
               docker image push actionml/harness:latest
             ;;
             "develop")
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}
               docker image push actionml/harness:${CIRCLE_BRANCH}
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
               docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
               docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
             ;;
             "devops")
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}
               docker image push actionml/harness:${CIRCLE_BRANCH}
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
               docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
               
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-            ;;
-            "ci")
-              docker image push actionml/harness:${CIRCLE_BRANCH}
-              
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              
-              docker tag actionml/harness:${CIRCLE_BRANCH} actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
+              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
               docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
             ;;
             *)
