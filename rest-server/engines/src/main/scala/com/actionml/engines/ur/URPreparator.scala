@@ -36,56 +36,27 @@ object URPreparator extends LazyLogging {
     eventsRDD: RDD[UREvent],
     itemsRDD: RDD[URItemProperties])(implicit sc: SparkContext): TrainingData = {
 
-    //val indicatorParams = dsp.indicatorParams
-
-    // beware! the following call most likely will alter the event stream in the DB!
-    //cleanPersistedPEvents(sc) // broken in apache-pio v0.10.0-incubating it erases all data!!!!!!
-
-    /*
-    val eventsRDD = PEventStore.find(
-      appName = dsp.appName,
-      entityType = Some("user"),
-      indicatorParams = Some(indicatorParams),
-      targetEntityType = Some(Some("item")))(sc).repartition(sc.defaultParallelism)
-    */
-
     // now separate the events by event name
     val indicatorNames = indicatorParams.map(_.name)
 
     logger.info(s"Indicators: ${indicatorNames}")
 
-    //val collectedEventsRDD = eventsRDD.collect()
+    //val debug = eventsRDD.collect()
 
     val eventRDDs: Seq[(String, RDD[(UserID, ItemID)])] = indicatorParams.map { i =>
       val aliases = i.aliases.getOrElse(Seq(i.name))
 
-        //.getOrElse(
-        //indicatorName,
-        //URAlgorithm.DefaultIndicatorParams(aliases = Some(Seq(indicatorName))))
-        //.aliases.get
       val singleEventRDD = eventsRDD
         .filter( e => aliases.contains(e.event) )
         .map { e =>
           (e.entityId, e.targetEntityId.getOrElse(""))
         }
 
-      //val collectedRdd = singleEventRDD.collect()
+      //val debug = singleEventRDD.collect()
 
       (i.name, singleEventRDD)
     }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
-    //val collectedRdds = eventRDDs.map(_._2.collect())
-    //logger.info(s"WARNING WARNING WARNING: REMOVE THIS WHEN NOT DEBUGGIING\nReceived events ${eventRDDs.map( e => s" ${e._1}: ${e._2.count().toString}")}")
-
-    /*
-    // aggregating all $set/$unsets for metadata rules, which are attached to items
-    val fieldsRDD: RDD[(ItemID, PropertyMap)] = PEventStore.aggregateProperties(
-      appName = dsp.appName,
-      entityType = "item")(sc).repartition(sc.defaultParallelism)
-    //    logger.debug(s"FieldsRDD\n${fieldsRDD.take(25).mkString("\n")}")
-    */
-
-   //val fieldsRDD: RDD[(ItemID, PropertyMap)] = sc.emptyRDD[(ItemID, PropertyMap)]
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.dateProps ++ item.categoricalProps ++ item.floatProps ++ item.booleanProps))
 
     // Have a list of (actionName, RDD), for each eventName

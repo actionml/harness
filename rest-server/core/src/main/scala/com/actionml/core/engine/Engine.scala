@@ -70,7 +70,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
-      logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
+      logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {

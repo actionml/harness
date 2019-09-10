@@ -77,10 +77,10 @@ class UREngine extends Engine with JsonSupport {
   override def initAndGet(jsonConfig: String): UREngine = {
     val response = init(jsonConfig)
     if (response.isValid) {
-      logger.trace(s"Initialized with JSON: $jsonConfig")
+      logger.info(s"Engine-id: ${engineId}. Initialized with JSON: $jsonConfig")
       this
     } else {
-      logger.error(s"Parse error with JSON: $jsonConfig")
+      logger.error(s"Engine-id: ${engineId}. Parse error with JSON: $jsonConfig")
       null.asInstanceOf[UREngine] // todo: ugly, replace
     }
   }
@@ -93,7 +93,7 @@ class UREngine extends Engine with JsonSupport {
       parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
     }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
-    if(response.isInvalid) logger.info(s"Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
+    if(response.isInvalid) logger.info(s"Engine-id: ${engineId}. Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
   }
 
@@ -111,7 +111,7 @@ class UREngine extends Engine with JsonSupport {
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
   def query(jsonQuery: String): Validated[ValidateError, Response] = {
-    logger.trace(s"Got a query JSON string: $jsonQuery")
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
     parseAndValidate[URQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
       Valid(result)
@@ -120,7 +120,7 @@ class UREngine extends Engine with JsonSupport {
 
   // todo: should kill any pending Spark jobs
   override def destroy(): Unit = {
-    logger.info(s"Dropping persisted data for id: $engineId")
+    logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
   }

@@ -36,7 +36,7 @@ abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport
     }
 
   // start and stop may be ignored by Engines if not applicable
-  def start(): Dataset[T] = {logger.trace(s"Starting base Dataset"); this}
+  def start(): Dataset[T] = {logger.trace(s"Engine-id: ${engineId}. Starting base Dataset"); this}
   def stop(): Unit = {logger.trace(s"Stopping base Dataset")}
 
 }
