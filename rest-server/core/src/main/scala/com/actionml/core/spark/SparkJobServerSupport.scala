@@ -49,10 +49,6 @@ class SparkJobCancellable(jobId: String) extends Cancellable {
   override def cancel(): Future[Unit] = LivyJobServerSupport.cancel(jobId)
 }
 
-abstract class SubmitFunction[A, B](tta: TypeTag[A], cta: ClassTag[A], ttb: TypeTag[B], ctb: ClassTag[B]) {
-  def apply(s: SparkContext, bc: Seq[Broadcast[_]]): Any
-}
-
 object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   private case class ContextId(initParams: String, engineId: String, jobId: String)
   private case class ContextApi(client: LivyScalaClient, handlers: List[ScalaJobHandle[_]])

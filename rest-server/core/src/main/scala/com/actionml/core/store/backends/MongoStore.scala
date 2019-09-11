@@ -37,8 +37,8 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T](name: String, ttl: Option[Duration])(implicit ct: ClassTag[T], tt: ru.TypeTag[T]): DAO[T] = {
-    val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
+  override def createDao[T: ClassTag : ru.TypeTag](name: String, ttl: Option[Duration]): DAO[T] = {
+    val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs))
     val dao = new MongoDao[T](collection)
     ttl.foreach(dao.createIndexes)
     dao
@@ -81,7 +81,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
 object MongoStorage extends LazyLogging {
   lazy val uri = s"mongodb://${MongoConfig.mongo.host}:${MongoConfig.mongo.port}"
-  val mongoClient = MongoClient(uri)
+  private val mongoClient = MongoClient(uri)
 
   def close = {
     logger.info(s"Closing mongo client $mongoClient")

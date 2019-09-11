@@ -29,7 +29,7 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.{LivyJobServerSupport, SubmitFunction}
+import com.actionml.core.spark.LivyJobServerSupport
 import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}

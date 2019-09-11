@@ -26,8 +26,7 @@ import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 case class MongoConfig(host: String, port: Int)
 
 object MongoConfig {
-//  private lazy val config = ConfigFactory.load
-//
-//  lazy val mongo = config.as[MongoConfig]("mongo")
-  val mongo = MongoConfig("localhost", 27017)
+  private lazy val config = ConfigFactory.load
+
+  lazy val mongo = config.as[MongoConfig]("mongo")
 }

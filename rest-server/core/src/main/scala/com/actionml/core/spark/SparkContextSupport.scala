@@ -131,6 +131,7 @@ object SparkContextSupport extends JsonSupport {
     }
     f.onComplete {
       case Failure(e) =>
+        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
         JobManager.removeJob(params.jobDescription.jobId)
       case _ =>
     }
@@ -139,6 +140,7 @@ object SparkContextSupport extends JsonSupport {
 
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
     override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
+      logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
       jobManager.removeJob(jobId)
     }
   }
@@ -173,6 +175,7 @@ object SparkContextSupport extends JsonSupport {
 
   class SparkCancellable(jobId: String, f: Future[SparkContext]) extends Cancellable {
     override def cancel(): Future[Unit] = {
+      logger.info(s"Cancel job $jobId")
       f.map(_.cancelJobGroup(jobId))
     }
   }

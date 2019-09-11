@@ -53,6 +53,7 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
     parseAndValidate[GenericEvent](json).andThen { event =>
       event.event match {
         case _ => // Based on attributes in the event one can parseAndVaidate more specific types here
+          logger.trace(s"Dataset: ${engineId} parsing a usage event: ${event.event}")
           parseAndValidate[GenericEvent](json)
       }
     }.andThen(Valid(_)) // may persist or otherwise react to the parsed and validated event
