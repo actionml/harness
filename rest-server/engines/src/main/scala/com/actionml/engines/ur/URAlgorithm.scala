@@ -260,33 +260,39 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
+    mkTrain(engineId,
+      indiParams = indicatorParams,
+      recsModel = recsModel)
+  }
+
+  private def mkTrain(engineId: String,
+                      indiParams: Seq[IndicatorParams],
+                      recsModel: String): Validated[ValidateError, Response] = {
     val (client, jobDescription) = LivyJobServerSupport.mkNewClient(initParams, engineId)
+    val indis = indiParams.map(_.name).toArray
     client.submit { jc =>
       val logger = Logger.getLogger("spark_job")
       implicit val sc = jc.sc
       logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
-      val engineId = "test_UR"
+      val indiParams = indis.toList.map(_.toString).map(IndicatorParams(_))
       val esIndex = engineId
       val esType = "items"
       val numESWriteConnections = None
       try {
-        //        val codecs = broadcasts(1).value.asInstanceOf[List[CodecProvider]]
-        val codecs = MongoStorageHelper.codecs
+        import MongoStorageHelper.codecs
         // we don't have eventsDao on cluster:
-        val store = MongoStorage.getStorage("test_ur", codecs)
+        val store = MongoStorage.getStorage(engineId, codecs)
         val itemsDao = store.createDao[URItemProperties]("items")
         val eventsDao = store.createDao[UREvent]("events")
         val eventsRdd = eventsDao.readRdd[UREvent](codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](codecs)
 
-        val indiParams = Seq(IndicatorParams("purchase"), IndicatorParams("view"), IndicatorParams("category-pref"))
         val trainingData = URPreparator.mkTraining(indiParams, eventsRdd, itemsRdd)
 
         //val collectedActions = trainingData.indicatorRDDs.map { case (en, rdd) => (en, rdd.collect()) }
         //val collectedFields = trainingData.fieldsRDD.collect()
         val data = URPreparator.prepareData(trainingData)
 
-        val recsModel = RecsModels.All
         val modelEventNames = indiParams.map(_.name)
         val rankingsParams = Seq(RankingParams(
           name = Some(DefaultURAlgoParams.BackfillFieldName),
@@ -301,7 +307,7 @@ class URAlgorithm private (
           val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
           rankingFieldName
         }
-        val model = recsModel match {
+        recsModel match {
           case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
           case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
           // todo: no support for pure popular model
@@ -789,13 +795,6 @@ object URAlgorithm extends JsonSupport {
     maxCorrelatorsPerItem: Int = DefaultURAlgoParams.MaxCorrelatorsPerEventType,
       // defaults to maxCorrelatorsPerEventType
     minLLR: Option[Double] = None) // defaults to none, used as a threshold, used with but takes precedence over maxCorrelatorsPerItem
-
-  case class IndicatorParams(
-    name: String, // must match one in indicatorParams
-    aliases: Option[Seq[String]] = None,
-    maxIndicatorsPerQuery: Option[Int] = None, // used to limit query
-    maxCorrelatorsPerItem: Option[Int] = None, // used to limit model
-    minLLR: Option[Double] = None)
 
   case class URAlgorithmParams(
     indexName: Option[String], // can optionally be used to specify the elasticsearch index name

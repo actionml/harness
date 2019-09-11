@@ -74,15 +74,16 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
     val jd = JobDescription.create
     val configMap = configParams ++ parseAndValidate[Map[String, String]](initParams, transform = _ \ "sparkConf")
     val master = configMap.getOrElse("master", "local") // "spark://172.17.0.3:7077"
-    val builder = new LivyClientBuilder()
+    val conf = new LivyClientBuilder()
       .setURI(new URI(livyUrl))
       .setAll(configMap - "master")
       .setConf("spark.master", master)
       .setConf("spark.app.name", jd.jobId)
+      .build
     val client = try {
       val id = ContextId(initParams = initParams, engineId = engineId, jobId = jd.jobId)
       val ContextApi(client, handlers) =
-        contexts.getOrElseUpdate(id, ContextApi(new LivyScalaClient(builder.build), List.empty))
+        contexts.getOrElseUpdate(id, ContextApi(new LivyScalaClient(conf), List.empty))
       val lib: Iterable[File] = new File("lib").listFiles
       Await.result(Future.sequence(lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
         .map(jar => client.uploadJar(jar))), Duration.Inf)

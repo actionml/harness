@@ -180,6 +180,14 @@ case class URItemProperties (
                               booleanProps: Map[String, Boolean] = Map.empty
                             ) extends Serializable
 
+case class IndicatorParams(
+                            name: String, // must match one in indicatorParams
+                            aliases: Option[Seq[String]] = None,
+                            maxIndicatorsPerQuery: Option[Int] = None, // used to limit query
+                            maxCorrelatorsPerItem: Option[Int] = None, // used to limit model
+                            minLLR: Option[Double] = None
+                          ) extends Serializable
+
 case class URQuery(
                     user: Option[String] = None, // must be a user or item id
                     userBias: Option[Float] = None, // default: whatever is in algorithm params or 1
