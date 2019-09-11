@@ -26,7 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-
+import scala.util.Properties
 
 class MongoAdministrator extends Administrator with JsonSupport {
   import DaoQuery.syntax._
@@ -144,10 +144,20 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   override def systemInfo(): Validated[ValidateError, Response] = {
     logger.trace("Getting Harness system info")
-    case class sysInfo(version: String = "0.5.0-SNAPSHOT")
-    val info = com.actionml.admin.BuildInfo
-    val ver = info.version
-    Valid(Comment(s"Version: ${com.actionml.admin.BuildInfo.version}"))
+    // todo: do we want to check connectons to services here?
+    Valid(SystemInfo(
+      buildVersion = com.actionml.admin.BuildInfo.version,
+      gitBranch = Properties.envOrElse("BRANCH", "No branch detected in env." ),
+      gitHash = Properties.envOrElse("GIT_HASH", "No short commit number detected in env." ),
+      harnessURI = Properties.envOrElse("HARNESS_URI", "No URI set, using host and port" ),
+      harnessHost = Properties.envOrElse("HARNESS_HOST", "No URI set, using host and port" ),
+      harnessPort = Properties.envOrElse("HARNESS_PORT", "No URI set, using host and port" ),
+      mongoURI = Properties.envOrElse("MONGO_URI", "No URI set" ),
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" ),
+      elasticsearchHost = Properties.envOrElse("ELASTICSEARCH_REST_HOST", "No URI set,using host, port and protocol" ),
+      elasticsearchPort = Properties.envOrElse("ELASTICSEARCH_REST_PORT", "No URI set,using host, port and protocol" ),
+      elasticsearchProtocol = Properties.envOrElse("ELASTICSEARCH_REST_PROTOCOL", "No URI set,using host, port and protocol" )
+    ))
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
@@ -186,10 +196,18 @@ case class EngineMetadata(
   engineFactory: String,
   params: String)
 
-// not sure how to bring this in scope since it is defined during the compile step
-// of build.sbt
-/*
-object BuildInfo {
-  val version = "${version.value}"
-}
-*/
+case class SystemInfo(
+    buildVersion: String,
+    gitBranch: String,
+    gitHash: String,
+    harnessURI: String,
+    harnessHost: String,
+    harnessPort: String,
+    mongoURI: String,
+    elasticsearchURI: String,
+    elasticsearchHost: String,
+    elasticsearchPort: String,
+    elasticsearchProtocol: String
+
+)
+  extends Response
