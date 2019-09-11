@@ -106,11 +106,11 @@ class FSMirror(mirrorContainer: String, engineId: String)
       }
     } catch {
       case e: IOException =>
-        val errMsg = s"Engine-id: ${engineId}. Problem while importing saved events from $location, exception ${e.printStackTrace()}"
-        logger.error(errMsg)
+        val errMsg = s"Engine-id: $engineId. Problem while importing saved events from $location, exception ${e.getMessage}"
+        logger.error(errMsg, e)
         importEventsError(errMsg)
     } finally {
-      logger.info(s"Engine-id: ${engineId}. Completed importing. Check logs for any data errors.")
+      logger.info(s"Engine-id: $engineId. Completed importing. Check logs for any data errors.")
     }
     Valid(jsonComment("Job created to import events in the background."))
   }
@@ -125,13 +125,13 @@ class FSMirror(mirrorContainer: String, engineId: String)
           engine.inputMany(lines)
         } catch {
           case e: IOException =>
-            logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.printStackTrace()}")
+            logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
         }
       }
       eventsProcessed
     } catch {
       case e: IOException =>
-        logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.printStackTrace()}")
+        logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.getMessage}", e)
         eventsProcessed
     } finally {
       src.close
