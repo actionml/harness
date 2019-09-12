@@ -68,9 +68,7 @@ class StringSystemEnvSerializer extends CustomSerializer[String](format => (
   }
 ))
 
-object JsonSupport {
-  val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all + new StringSystemEnvSerializer
-}
+object JsonSupport extends JsonSupport {}
 
 object EnvSupport extends LazyLogging {
   private val env = s"system.env.(.*)".r
@@ -84,11 +82,11 @@ object EnvSupport extends LazyLogging {
 }
 
 trait JsonSupport extends LazyLogging {
-  import JsonSupport._
+  val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all + new StringSystemEnvSerializer
   implicit val df = dateFormats
   implicit object DateReader extends Reader[Date] {
     override def read(value: json4s.JValue): Date = {
-      dateFormats.dateFormat.parse(value.extract[String])
+      df.dateFormat.parse(value.extract[String])
         .getOrElse(throw new RuntimeException(s"Can't parse date $value"))
     }
   }

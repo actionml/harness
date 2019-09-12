@@ -69,7 +69,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
     import scala.collection.JavaConversions._
     val jd = JobDescription.create
     val configMap = configParams ++ parseAndValidate[Map[String, String]](initParams, transform = _ \ "sparkConf")
-    val master = configMap.getOrElse("master", "local") // "spark://172.17.0.3:7077"
+    val master = configMap.getOrElse("master", "local")
     val conf = new LivyClientBuilder()
       .setURI(new URI(livyUrl))
       .setAll(configMap - "master")

@@ -260,88 +260,93 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    mkTrain(engineId,
-      indiParams = indicatorParams,
-      recsModel = recsModel)
+    mkTrain(engineId, initParams, esIndex, esType)
   }
 
-  private def mkTrain(engineId: String,
-                      indiParams: Seq[IndicatorParams],
-                      recsModel: String): Validated[ValidateError, Response] = {
+  private def mkTrain(engineId: String, initParams: String, esIndex: String, esType: String): Validated[ValidateError, Response] = {
     val (client, jobDescription) = LivyJobServerSupport.mkNewClient(initParams, engineId)
-    val indis = indiParams.map(_.name).toArray
     client.submit { jc =>
       val logger = Logger.getLogger("spark_job")
       implicit val sc = jc.sc
-      logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
-      val indiParams = indis.toList.map(_.toString).map(IndicatorParams(_))
-      val esIndex = engineId
-      val esType = "items"
-      val numESWriteConnections = None
-      try {
-        import MongoStorageHelper.codecs
-        // we don't have eventsDao on cluster:
-        val store = MongoStorage.getStorage(engineId, codecs)
-        val itemsDao = store.createDao[URItemProperties]("items")
-        val eventsDao = store.createDao[UREvent]("events")
-        val eventsRdd = eventsDao.readRdd[UREvent](codecs).repartition(sc.defaultParallelism)
-        val itemsRdd = itemsDao.readRdd[URItemProperties](codecs)
+      JsonSupport.parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm") match {
+        case Valid(params) =>
+          val indiParams = params.indicators
+          val recsModel = params.recsModel.getOrElse(DefaultURAlgoParams.RecsModel)
+          val numESWriteConnections = params.numESWriteConnections
+          try {
+            import MongoStorageHelper.codecs
+            // we don't have eventsDao on cluster:
+            val store = MongoStorage.getStorage(engineId, codecs)
+            val itemsDao = store.createDao[URItemProperties]("items")
+            val eventsDao = store.createDao[UREvent]("events")
+            val eventsRdd = eventsDao.readRdd[UREvent](codecs).repartition(sc.defaultParallelism)
+            val itemsRdd = itemsDao.readRdd[URItemProperties](codecs)
 
-        val trainingData = URPreparator.mkTraining(indiParams, eventsRdd, itemsRdd)
+            val trainingData = URPreparator.mkTraining(indiParams, eventsRdd, itemsRdd)
 
-        //val collectedActions = trainingData.indicatorRDDs.map { case (en, rdd) => (en, rdd.collect()) }
-        //val collectedFields = trainingData.fieldsRDD.collect()
-        val data = URPreparator.prepareData(trainingData)
+            //val collectedActions = trainingData.indicatorRDDs.map { case (en, rdd) => (en, rdd.collect()) }
+            //val collectedFields = trainingData.fieldsRDD.collect()
+            val data = URPreparator.prepareData(trainingData)
 
-        val modelEventNames = indiParams.map(_.name)
-        val rankingsParams = Seq(RankingParams(
-          name = Some(DefaultURAlgoParams.BackfillFieldName),
-          `type` = Some(DefaultURAlgoParams.BackfillType),
-          indicatorNames = Some(modelEventNames.take(1)),
-          offsetDate = None,
-          endDate = None,
-          duration = Some(DefaultURAlgoParams.BackfillDuration)))
-        val dateNames = Set.empty[String]
-        val rankingFieldNames = rankingsParams map { rankingParams =>
-          val rankingType = rankingParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
-          val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
-          rankingFieldName
-        }
-        recsModel match {
-          case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
-          case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
-          // todo: no support for pure popular model
-          // case RecsModels.BF  => calcPop(data)(sc)
-          // error, throw an exception
-          case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
-            // from Spark or any part fo the UR. These were allowed in PIO--not here!
-            throw new IllegalArgumentException(
-              s"""
-                 |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
-                 |Use one of the available parameter values ($recsModel).""".stripMargin)
-        }
+            val modelEventNames = indiParams.map(_.name)
+            val rankingsParams = params.rankings.getOrElse(Seq(RankingParams(
+              name = Some(DefaultURAlgoParams.BackfillFieldName),
+              `type` = Some(DefaultURAlgoParams.BackfillType),
+              indicatorNames = Some(modelEventNames.take(1)),
+              offsetDate = None,
+              endDate = None,
+              duration = Some(DefaultURAlgoParams.BackfillDuration)))).groupBy(_.`type`).map(_._2.head).toSeq
 
-        //val data = getIndicators(modelEventNames, eventsRdd)
+            val rankingFieldNames = rankingsParams map { rankingParams =>
+              val rankingType = rankingParams.`type`.getOrElse(DefaultURAlgoParams.BackfillType)
+              val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
+              rankingFieldName
+            }
 
-        logger.info("======================================== Contents of Indicators ========================================")
-        data.indicatorRDDs.foreach { case (name, id) =>
-          val ids = id.asInstanceOf[IndexedDatasetSpark]
-          logger.info(s"Event name: $name")
-          logger.info(s"Num users/rows = ${ids.matrix.nrow}")
-          logger.info(s"Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
-        }
-        logger.info("======================================== done ========================================")
+            val dateNames = Set(
+              params.dateName,
+              params.availableDateName,
+              params.expireDateName).flatten
 
-        // todo: for now ignore properties and only calc popularity, then save to ES
-        calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
-      } catch {
-        case NonFatal(e) =>
-          logger.error(s"Spark computation failed for engine $engineId", e)
+            recsModel match {
+              case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
+              case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
+              // todo: no support for pure popular model
+              // case RecsModels.BF  => calcPop(data)(sc)
+              // error, throw an exception
+              case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
+                // from Spark or any part fo the UR. These were allowed in PIO--not here!
+                throw new IllegalArgumentException(
+                  s"""
+                     |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
+                     |Use one of the available parameter values ($recsModel).""".stripMargin)
+            }
+
+            //val data = getIndicators(modelEventNames, eventsRdd)
+
+            logger.info("======================================== Contents of Indicators ========================================")
+            data.indicatorRDDs.foreach { case (name, id) =>
+              val ids = id.asInstanceOf[IndexedDatasetSpark]
+              logger.info(s"Event name: $name")
+              logger.info(s"Num users/rows = ${ids.matrix.nrow}")
+              logger.info(s"Num items/columns = ${ids.matrix.ncol}")
+              logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
+              logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+            }
+            logger.info("======================================== done ========================================")
+
+            // todo: for now ignore properties and only calc popularity, then save to ES
+            calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
+          } catch {
+            case NonFatal(e) =>
+              logger.error(s"Spark computation failed for engine $engineId", e)
+          }
+
+        case e: ValidateError =>
+          logger.error(s"Algorithm parameters error: $e")
       }
     }
-    logger.debug(s"Starting train $this with spark")
+    logger.debug(s"Starting train job ${jobDescription.jobId} with spark")
     Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
