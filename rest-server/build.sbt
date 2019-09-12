@@ -3,7 +3,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version := "0.5.0-SNAPSHOT"
+version in ThisBuild := "0.5.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
@@ -12,11 +12,11 @@ lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
-lazy val mongoVersion = "3.6.4"
-lazy val mongoScalaDriverVersion = "2.4.2"
+lazy val mongoJavaDriverVersion = "3.10.2"
+lazy val mongoScalaDriverVersion = "2.6.0"
 //lazy val mongoScalaDriverVersion = "2.2.1"
 //lazy val mongoSparkConnecterVersion = "2.2.4"
-lazy val mongoSparkConnecterVersion = "2.3.2"
+lazy val mongoSparkConnectorVersion = "2.4.1"
 lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
 //lazy val sparkVersion = "2.1.3"
@@ -37,7 +37,6 @@ resolvers += "Sonatype OSS Releases" at "https://oss.sonatype.org/content/reposi
 
 lazy val commonSettings = Seq(
   organization := "com.actionml",
-  // version := "0.3.0-RC2",
   scalaVersion := "2.11.12",
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
@@ -69,9 +68,9 @@ lazy val core = (project in file("core")).
     libraryDependencies ++= Seq(
       "org.mongodb.scala" %% "mongo-scala-driver" % mongoScalaDriverVersion,
       "org.mongodb.scala" %% "mongo-scala-bson" % mongoScalaDriverVersion,
-      "org.mongodb" % "bson" % mongoVersion,
-      "org.mongodb" % "mongodb-driver-core" % mongoVersion,
-      "org.mongodb" % "mongodb-driver-async" % mongoVersion,
+      "org.mongodb" % "bson" % mongoJavaDriverVersion,
+      "org.mongodb" % "mongodb-driver-core" % mongoJavaDriverVersion,
+      "org.mongodb" % "mongodb-driver-async" % mongoJavaDriverVersion,
 
       "org.apache.spark" % "spark-core_2.11" %sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
@@ -80,7 +79,7 @@ lazy val core = (project in file("core")).
       "org.apache.spark" %% "spark-mllib" % sparkVersion,
       "org.xerial.snappy" % "snappy-java" % "1.1.1.7",
 
-      "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnecterVersion,
+      "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnectorVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
       "org.apache.livy" % "livy-client-http" % "0.6.0-incubating" % Compile,
@@ -162,6 +161,7 @@ lazy val engines = (project in file("engines")).dependsOn(core).
 
 lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
+    generateBuildInfo,
     commonSettings
   )
 
@@ -177,3 +177,16 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     SbtExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
+
+def generateBuildInfo: Setting[_] =
+  sourceGenerators in Compile += Def.task {
+    val file = (sourceManaged in Compile).value / "com" / "actionml" / "admin" / "BuildInfo.scala"
+    IO.write(
+      file,
+      s"""package com.actionml.admin
+         |object BuildInfo {
+         |  val version = "${version.value}"
+         |}""".stripMargin
+    )
+    Seq(file)
+  }.taskValue

@@ -30,7 +30,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response, User}
 import com.actionml.core.store._
-import com.actionml.core.store.backends.MongoDao
+import com.actionml.core.store.backends.MongoAsyncDao
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString

@@ -17,7 +17,6 @@
 
 package com.actionml.engines.urnavhinting
 
-import com.actionml.core.store.SparkMongoSupport
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{PreparedData, TrainingData}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.URNavHintingEvent
 import com.typesafe.scalalogging.LazyLogging
@@ -29,7 +28,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 /** Partitions off creation of Mahout data structures from stored data in a DB */
-object URNavHintingPreparator extends LazyLogging with SparkMongoSupport {
+object URNavHintingPreparator extends LazyLogging {
 
   /** Reads events from PEventStore and create and RDD for each */
   def mkTraining(eventNames: Seq[String], eventsRDD: RDD[URNavHintingEvent])(implicit sc: SparkContext): TrainingData = {

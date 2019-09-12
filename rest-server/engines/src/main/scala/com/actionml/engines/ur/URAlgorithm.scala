@@ -30,9 +30,10 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.SparkMongoSupport.syntax._
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
+import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
+import com.actionml.core.store.sparkmongo.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.{ItemScore, Rule, UREvent, URQuery, URQueryResult}
@@ -68,7 +69,6 @@ class URAlgorithm private (
     itemsDao: DAO[URItemProperties])
   extends Algorithm[URQuery, URQueryResult]
     with LambdaAlgorithm[UREvent]
-    with SparkMongoSupport
     with LazyLogging
     with JsonSupport {
 
@@ -149,7 +149,7 @@ class URAlgorithm private (
         }.toMap
       }.toMap
 
-      logger.info(s"Events to alias mapping: ${queryEventNames}")
+      logger.info(s"Engine-id: ${engineId}. Events to alias mapping: ${queryEventNames}")
       limit = params.num.getOrElse(DefaultURAlgoParams.NumResults)
 
       modelEventNames = params.indicators.map(_.name)
@@ -309,8 +309,8 @@ class URAlgorithm private (
               params.expireDateName).flatten
 
             recsModel match {
-              case RecsModels.All => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
-              case RecsModels.CF => calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
+              case RecsModels.All => calcAll(engineId, rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger)(sc)
+              case RecsModels.CF => calcAll(engineId, rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger, calcPopular = false)(sc)
               // todo: no support for pure popular model
               // case RecsModels.BF  => calcPop(data)(sc)
               // error, throw an exception
@@ -336,17 +336,20 @@ class URAlgorithm private (
             logger.info("======================================== done ========================================")
 
             // todo: for now ignore properties and only calc popularity, then save to ES
-            calcAll(rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
+            calcAll(engineId, rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
           } catch {
             case NonFatal(e) =>
               logger.error(s"Spark computation failed for engine $engineId", e)
+          } finally {
+            JobManager.removeJob(jobDescription.jobId)
+            SparkContextSupport.stopAndClean(sc)
           }
 
-        case e: ValidateError =>
+      case e: ValidateError =>
           logger.error(s"Algorithm parameters error: $e")
       }
     }
-    logger.debug(s"Starting train job ${jobDescription.jobId} with spark")
+    logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
     Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
@@ -414,14 +417,14 @@ class URAlgorithm private (
       }
     } catch {
       case NonFatal(e) =>
-        logger.error(s"Job $jobId abort error", e)
-        Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
+        logger.error(s"Engine-id: ${engineId}. Cannot abort job: $jobId abort error", e)
+        Invalid(ValidRequestExecutionError(s"Cannot abort job: $jobId"))
     }
   }
 
 
   private def buildModelQuery(query: URQuery): SearchQuery = {
-    logger.info(s"Got query: \n$query")
+    logger.info(s"Engine-id: ${engineId}. Got query: \n${query}")
 
     val aggregatedRules = aggregateRules(rules, query.rules)
 
@@ -460,7 +463,7 @@ class URAlgorithm private (
     val validConfigRules = configRules.getOrElse(Seq.empty).filterNot(r => qRuleNames.contains(r.name)) // filter out dup rule names
 
     if(configRules.nonEmpty && queryRules.nonEmpty)
-      logger.info(s"Warning: duplicate rule names from the Query take precedence." +
+      logger.info(s"Engine-id: ${engineId}. Warning: duplicate rule names from the Query take precedence over config rules." +
         s"\n    Config rules: ${configRules.get}\n    Query rules: ${queryRules.get}\n")
 
     qRules ++ validConfigRules
@@ -517,10 +520,10 @@ class URAlgorithm private (
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
     query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
-      logger.info(s"using item ${query.item.get}")
+      logger.trace(s"Engine-id: ${engineId}. using item ${query.item.get}")
       val (_, itemProperties) = es.findDocById(i)
 
-      logger.info(s"getBiasedSimilarItems for item $i, bias value ${itemBias}")
+      logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
       modelEventNames.map { eventName => // get items that are similar by eventName
         val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
         val rItems = items.take(maxQueryEvents)
@@ -616,6 +619,7 @@ object URAlgorithm extends JsonSupport {
 
   /** Calculates recs model as well as popularity model */
   private def calcAll(
+                       engineId: String,
                        rankingsParams: Seq[RankingParams],
                        rankingFieldNames: Seq[String],
                        modelEventNames: Seq[String],
@@ -686,7 +690,7 @@ object URAlgorithm extends JsonSupport {
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings(rankingFieldNames, modelEventNames, dateNames, logger))(sc, es)
+      typeMappings = getMappings(engineId, rankingFieldNames, modelEventNames, dateNames, logger))(sc, es)
   }
 
   /** Calculate all rules and items needed for ranking.
@@ -727,7 +731,7 @@ object URAlgorithm extends JsonSupport {
       }.filter { case (itemId, props) => convertedItems.contains(itemId) }
   }
 
-  def getMappings(rankingFieldNames: Seq[String], modelEventNames: Seq[String], dateNames: Set[String], logger: Logger): Map[String, (String, Boolean)] = {
+  def getMappings(engineId: String, rankingFieldNames: Seq[String], modelEventNames: Seq[String], dateNames: Set[String], logger: Logger): Map[String, (String, Boolean)] = {
     val mappings = rankingFieldNames.map { fieldName =>
       fieldName -> ("float", false)
     }.toMap ++ // create mappings for correlators, where the Boolean says to not use norms
@@ -737,7 +741,7 @@ object URAlgorithm extends JsonSupport {
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
       }.toMap ++ Map("id" -> ("keyword", true))
-    logger.debug(s"Index mappings for the Elasticsearch URModel: $mappings")
+    logger.trace(s"Engine-id: ${engineId}. Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
 
@@ -775,13 +779,13 @@ object URAlgorithm extends JsonSupport {
   }
 
   case class RankingParams(
-      name: Option[String] = None,
-      `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      indicatorNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
+      name: Option[String] = Some(DefaultURAlgoParams.BackfillFieldName),
+      `type`: Option[String] = Some(DefaultURAlgoParams.BackfillType), // See [[com.actionml.BackfillType]]
+      indicatorNames: Option[Seq[String]] = None, // None means an error, events must be specified.
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
-      duration: Option[String] = None) { // duration worth of events to use in calculation of backfill
+      duration: Option[String] = Some(DefaultURAlgoParams.BackfillDuration)) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
          |_id: $name,

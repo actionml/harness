@@ -91,9 +91,18 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
           }
         }
       }
+    } ~
+    (pathPrefix("system") & extractLog) { implicit log =>
+      getSystemInfo
     }
   }
 
+  private def getSystemInfo(implicit log: LoggingAdapter): Route = get {
+    log.info("Get system info")
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? GetSystemInfo()).mapTo[Validated[ValidateError, Response]]
+    }
+  }
 
   private def getEngine(engineId: String)(implicit log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)

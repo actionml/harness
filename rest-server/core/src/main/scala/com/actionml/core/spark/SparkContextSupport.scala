@@ -90,6 +90,7 @@ object SparkContextSupport extends JsonSupport {
         }
         val f = p.future
         val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job")
+        JobManager.removeJob(jobDescription.jobId)
         (f, desc)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         (p.future, currentParams.jobDescription)

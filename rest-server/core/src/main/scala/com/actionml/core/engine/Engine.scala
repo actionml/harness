@@ -70,7 +70,7 @@ abstract class Engine extends JsonSupport {
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
-      logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
+      logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
@@ -126,14 +126,15 @@ abstract class Engine extends JsonSupport {
   def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
     mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-    Valid(Comment("Input processed by base Engine"))
+      .andThen(_ => Valid(Comment("Input processed by base Engine")))
   }
 
+  def inputMany: Seq[String] => Unit = _.foreach(input)
+
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId,
-      Future(mirroring.importEvents(this, inputPath),
-      "batch import, non-Spark job")
-    )
+    val f = Future(mirroring.importEvents(this, inputPath))
+    val jobDescription = JobManager.addJob(engineId, f, comment = "batch import, non-Spark job")
+    f.onComplete(_ => JobManager.removeJob(jobDescription.jobId))
     Valid(jobDescription)
   }
 
