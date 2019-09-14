@@ -2,10 +2,15 @@
 
 # Harness Server config, should work as-id unless you are using SSL
 # to listen on the host IP address for external connections
-# export REST_SERVER_HOST=0.0.0.0 # to listen for external connections
-export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
-# to change the port used
-export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
+# export HARNESS_HOST=0.0.0.0 # to listen for external connections
+# export HARNESS_HOST=${HARNESS_HOST:-localhost}
+# export HARNESS_PORT=${HARNESS_PORT:-9090}
+# export HARNESS_PROTOCOL=${HARNESS_SERVER_PROTOCOL:-http}
+# export HARNESS_URI=${HARNESS_URI:-${HARNESS_PROTOCOL}://${HARNESS_HOST}:${HARNESS_PORT}}
+
+# deprecating old HOST/PORT config
+export HARNESS_URI=${HARNESS_URI:-http://localhost:9090}
+
 
 # MongoDB setup
 export MONGO_HOST=${MONGO_HOST:-localhost}
@@ -25,6 +30,7 @@ export MONGO_URI=${MONGO_URI:-mongodb://${MONGO_HOST}:${MONGO_PORT}}
 export ELASTICSEARCH_REST_HOST=${ELASTICSEARCH_REST_HOST:-localhost}
 export ELASTICSEARCH_REST_PORT=${ELASTICSEARCH_REST_PORT:-9200}
 export ELASTICSEARCH_REST_PROTOCOL=${ELASTICSEARCH_REST_PROTOCOL:-http}
+export ELASTICSEARCH_URI={ELASTICSEARCH_URI:-${ELASTICSEARCH_REST_PROTOCOL}://${ELASTICSEARCH_REST_HOST}:${ELASTICSEARCH_REST_PORT}}
 
 # To configure Harness logging
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"

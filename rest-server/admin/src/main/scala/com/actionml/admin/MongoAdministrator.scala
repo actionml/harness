@@ -147,16 +147,17 @@ class MongoAdministrator extends Administrator with JsonSupport {
     // todo: do we want to check connectons to services here?
     Valid(SystemInfo(
       buildVersion = com.actionml.admin.BuildInfo.version,
-      gitBranch = Properties.envOrElse("BRANCH", "No branch detected in env." ),
-      gitHash = Properties.envOrElse("GIT_HASH", "No short commit number detected in env." ),
-      harnessURI = Properties.envOrElse("HARNESS_URI", "No URI set, using host and port" ),
-      harnessHost = Properties.envOrElse("HARNESS_HOST", "No URI set, using host and port" ),
-      harnessPort = Properties.envOrElse("HARNESS_PORT", "No URI set, using host and port" ),
-      mongoURI = Properties.envOrElse("MONGO_URI", "No URI set" ),
+      gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
+      gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
+      harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
+      harnessHost = Properties.envOrElse("HARNESS_HOST", "No  HARNESS_HOST set, using URI" ),
+      harnessPort = Properties.envOrElse("HARNESS_PORT", "No HARNESS_PORT set, using URI" ),
+      harnessProtocol = Properties.envOrElse("HARNESS_PROTOCOL", "No HARNESS_PROTOCOL set, using URI" ),
+      mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
       elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" ),
-      elasticsearchHost = Properties.envOrElse("ELASTICSEARCH_REST_HOST", "No URI set,using host, port and protocol" ),
-      elasticsearchPort = Properties.envOrElse("ELASTICSEARCH_REST_PORT", "No URI set,using host, port and protocol" ),
-      elasticsearchProtocol = Properties.envOrElse("ELASTICSEARCH_REST_PROTOCOL", "No URI set,using host, port and protocol" )
+      elasticsearchHost = Properties.envOrElse("ELASTICSEARCH_REST_HOST", "No ELASTICSEARCH_REST_HOST set,using URI" ),
+      elasticsearchPort = Properties.envOrElse("ELASTICSEARCH_REST_PORT", "No ELASTICSEARCH_REST_PORT set,using URI" ),
+      elasticsearchProtocol = Properties.envOrElse("ELASTICSEARCH_REST_PROTOCOL", "No ELASTICSEARCH_REST_PROTOCOL set,using URI" )
     ))
   }
 
@@ -203,6 +204,7 @@ case class SystemInfo(
     harnessURI: String,
     harnessHost: String,
     harnessPort: String,
+    harnessProtocol: String,
     mongoURI: String,
     elasticsearchURI: String,
     elasticsearchHost: String,

@@ -13,8 +13,8 @@ HARNESS_CLASS=com.actionml.HarnessServer
 HARNESS_OPTS="\
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
 -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
--Drest-server.host=${REST_SERVER_HOST} \
--Drest-server.port=${REST_SERVER_PORT} \
+-Drest-server.host=${HARNESS_HOST} \
+-Drest-server.port=${HARNESS_PORT} \
 -Dmongo.host=${MONGO_HOST} \
 -Dmongo.port=${MONGO_PORT}"
 
