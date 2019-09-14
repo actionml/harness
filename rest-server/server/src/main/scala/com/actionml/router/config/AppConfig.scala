@@ -17,10 +17,15 @@
 
 package com.actionml.router.config
 
+import java.net.URI
+
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+
+import scala.util.Properties
+
 
 /**
   *
@@ -39,18 +44,32 @@ case class ActorSystemConfig(
 )
 
 case class AuthConfig(enabled: Boolean,
-                      serverUrl: String,
-                      clientId: String,
-                      clientSecret: String)
+  serverUrl: String,
+  clientId: String,
+  clientSecret: String)
 
 object AppConfig {
   private val config = ConfigFactory.load()
 
-  def apply: AppConfig = new AppConfig(
-    restServer = config.as[RestServerConfig]("rest-server"),
-    actorSystem = config.as[ActorSystemConfig]("actor-system"),
-    auth = config.as[AuthConfig]("auth")
-  )
+  def apply: AppConfig = {
+    val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no  HARNESS_URI set" ))
+    new AppConfig(
+      // restServer = config.as[RestServerConfig]("rest-server"), // this has bad config if not taken from env
+
+      // Since these must be set in the env, it is a hard error if they are not found
+      restServer = RestServerConfig(
+        //host = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no  HARNESS_URI set" )).getHost,
+        //host = if (uri.getHost == "localhost") "0.0.0.0" else uri.getHost,
+        host = uri.getHost,
+        port = uri.getPort,
+        sslEnabled = uri.getScheme == "https"
+      ),
+
+      // These should be removed from conf and ALWAYS read from the env
+      actorSystem = config.as[ActorSystemConfig]("actor-system"),
+      auth = config.as[AuthConfig]("auth")
+    )
+  }
 }
 
 trait ConfigurationComponent {

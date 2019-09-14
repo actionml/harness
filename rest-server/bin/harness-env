@@ -9,6 +9,7 @@
 # export HARNESS_URI=${HARNESS_URI:-${HARNESS_PROTOCOL}://${HARNESS_HOST}:${HARNESS_PORT}}
 
 # deprecating old HOST/PORT config
+# set to ...//0.0.0.0... to listen for any outside connections
 export HARNESS_URI=${HARNESS_URI:-http://localhost:9090}
 
 
