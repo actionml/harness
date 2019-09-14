@@ -13,10 +13,10 @@ HARNESS_CLASS=com.actionml.HarnessServer
 HARNESS_OPTS="\
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
 -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
--Drest-server.host=${HARNESS_HOST} \
--Drest-server.port=${HARNESS_PORT} \
--Dmongo.host=${MONGO_HOST} \
--Dmongo.port=${MONGO_PORT}"
+-Drest-server.host=${HARNESS_HOST} \ # is this needed?
+-Drest-server.port=${HARNESS_PORT} \ # is this needed? We use a URI here
+-Dmongo.host=${MONGO_HOST} \ # is this needed?
+-Dmongo.port=${MONGO_PORT}" # is this needed? We use a URI here
 
 
 if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
