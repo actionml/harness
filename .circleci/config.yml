@@ -30,6 +30,8 @@ jobs:
   publish:
     docker:
     - image: docker:stable
+    environment:
+      SHELL_ENV: /etc/profile
     steps:
     - checkout
     - setup_remote_docker
@@ -73,9 +75,10 @@ jobs:
 
           docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
 
-          echo "export RESULT=$RESULT" >> /etc/profile
-          source /etc/profile
-          cat /etc/profile
+          echo "export RESULT=$RESULT" >> $SHELL_ENV
+          source $SHELL_ENV
+          echo "Shell Env $SHELL_ENV"
+          cat $SHELL_ENV
           echo "Result is $RESULT"
           # docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
           # echo "Result is $RESULT"
@@ -85,7 +88,7 @@ jobs:
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
           DATE_BUILD=$(date +'%Y-%m-%d')
           
-          source /etc/profile
+          # source $SHELL_ENV
           echo "Result is ${RESULT}"
           echo "Result2 is $RESULT"
           # if [ $RESULT -eq 0 ]
