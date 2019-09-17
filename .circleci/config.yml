@@ -29,7 +29,7 @@ jobs:
         - ./
   publish:
     docker:
-    - image: docker/compose
+    - image: docker/compose:1.25.0-rc2-alpine
     # - image: docker:stable
     steps:
     - checkout
