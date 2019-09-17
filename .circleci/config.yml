@@ -71,12 +71,12 @@ jobs:
           mv envs .env &&\
           docker-compose up -d --build
 
-          docker-compose exec harness-cli bash -c 'harness-cli status; RESULT=$(exit $?)'
+          docker-compose exec harness-cli bash -c 'cd harness-cli &&  harness-cli status; RESULT=$(exit $?)'
           echo "Result is $RESULT"
           docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
           echo "Result is $RESULT"
 
-          if [ $RESULT == 0 ]
+          if [ $RESULT -eq 0 ]
           then
             case "${CIRCLE_BRANCH}" in
               "master")
