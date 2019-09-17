@@ -45,27 +45,36 @@ jobs:
           pip install docker-compose
           docker-compose version 
     - run:
+        name: Define Environment Variables
+        command: |
+          echo "export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)" >> $BASH_ENV
+          echo "export DATE_BUILD=$(date +'%Y-%m-%d')" >> $BASH_ENV
+
+    - run:
         name: Docker login
         command: |
           echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-    - run:
-        name: Build docker image
-        command: |
-          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%Y-%m-%d')
+    # - run:
+    #     name: Build docker image
+    #     command: |
+    #       SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+    #       DATE_BUILD=$(date +'%Y-%m-%d')
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops|feature/devops-ci)
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            *)
-            ;;
-          esac
+    #       case "${CIRCLE_BRANCH}" in
+    #         master|develop|devops|feature/devops-ci)
+    #           docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+    #         ;;
+    #         *)
+    #         ;;
+    #       esac
     - run:
         name: Publish docker image
         command: |
-          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%Y-%m-%d')
+          # SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+          # DATE_BUILD=$(date +'%Y-%m-%d')
+
+          echo "SHORT_GIT_HASH - $SHORT_GIT_HASH"
+          echo "DATE_BUILD - $DATE_BUILD"
           
           cd docker && \
           mv envs .env &&\
