@@ -29,8 +29,6 @@ jobs:
         - ./
   publish:
     docker:
-    # - image: docker/compose:1.25.0-rc2-alpine
-    # - image: circleci/python
     - image: docker:stable
     steps:
     - checkout
@@ -46,48 +44,39 @@ jobs:
           # pip install docker-compose
           docker-compose version 
     - run:
-        name: Define Environment Variables
-        command: |
-          echo "export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)" >> $BASH_ENV
-          echo "export DATE_BUILD=$(date +'%Y-%m-%d')" >> $BASH_ENV
-
-    - run:
         name: Docker login
         command: |
           echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-    # - run:
-    #     name: Build docker image
-    #     command: |
-    #       SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-    #       DATE_BUILD=$(date +'%Y-%m-%d')
+    - run:
+        name: Build docker image
+        command: |
+          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+          DATE_BUILD=$(date +'%Y-%m-%d')
 
-    #       case "${CIRCLE_BRANCH}" in
-    #         master|develop|devops|feature/devops-ci)
-    #           docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-    #         ;;
-    #         *)
-    #         ;;
-    #       esac
+          case "${CIRCLE_BRANCH}" in
+            master|develop|devops|feature/devops-ci)
+              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+            ;;
+            *)
+            ;;
+          esac
     - run:
         name: Publish docker image
         command: |
-          # SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          # DATE_BUILD=$(date +'%Y-%m-%d')
-
-          echo "SHORT_GIT_HASH - $SHORT_GIT_HASH"
-          echo "DATE_BUILD - $DATE_BUILD"
+          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+          DATE_BUILD=$(date +'%Y-%m-%d')
           
           cd docker && \
           mv envs .env &&\
           docker-compose up -d --build
           docker-compose ps
-          sleep 60
+          sleep 45
           # curl localhost:9090
 
-          docker-compose exec harness-cli bash -c 'cd harness-cli &&  harness-cli status; RESULT=$(exit $?)'
+          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=($?)
           echo "Result is $RESULT"
-          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
-          echo "Result is $RESULT"
+          # docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
+          # echo "Result is $RESULT"
 
           if [ $RESULT -eq 0 ]
           then
