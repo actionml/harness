@@ -79,6 +79,7 @@ jobs:
           cd docker && \
           mv envs .env &&\
           docker-compose up -d --build
+          docker-compose ps
 
           docker-compose exec harness-cli bash -c 'cd harness-cli &&  harness-cli status; RESULT=$(exit $?)'
           echo "Result is $RESULT"
