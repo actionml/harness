@@ -48,6 +48,7 @@ services:
     container_name: harness-cli
     environment:
         PATH: "$PATH:/harness-cli/harness-cli"
-        HARNESS_SERVER_ADDRESS: harness
+        HARNESS_SERVER_ADDRESS: localhost
+        # HARNESS_SERVER_ADDRESS: harness
     volumes:
     - ${CLI_DATA}:/harness-cli-data
