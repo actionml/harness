@@ -85,14 +85,15 @@ jobs:
                 docker image push actionml/harness:latest
               ;;
               develop|devops|feature/devops-ci)
-                docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}
-                docker image push actionml/harness:${CIRCLE_BRANCH}
+                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+                docker tag actionml/harness:latest actionml/harness:$BRANCH
+                docker image push actionml/harness:$BRANCH
                 
-                docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-                docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
+                docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
+                docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
                 
-                docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-                docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
+                docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
+                docker image push actionml/harness:$BRANCH-$DATE_BUILD
               ;;
               *)
               ;;
