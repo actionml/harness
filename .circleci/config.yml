@@ -4,11 +4,9 @@ jobs:
     docker:
     - image: actionml/harness-sdk:0.1
       entrypoint: /entrypoint.sh
-    shell: /bin/sh -leo pipefail
     environment:
       - SDK_VERBOSE: true
       - JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
-      - BASH_ENV: /etc/profile
     steps:
     - checkout
     - restore_cache:
@@ -32,6 +30,9 @@ jobs:
   publish:
     docker:
     - image: docker:stable
+    shell: /bin/sh -leo pipefail
+    environment:
+      - BASH_ENV: /etc/profile
     steps:
     - checkout
     - setup_remote_docker
@@ -49,19 +50,19 @@ jobs:
         name: Docker login
         command: |
           echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-    - run:
-        name: Build docker image
-        command: |
-          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%Y-%m-%d')
+    # - run:
+    #     name: Build docker image
+    #     command: |
+    #       SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
+    #       DATE_BUILD=$(date +'%Y-%m-%d')
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops|feature/devops-ci)
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            *)
-            ;;
-          esac
+    #       case "${CIRCLE_BRANCH}" in
+    #         master|develop|devops|feature/devops-ci)
+    #           docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+    #         ;;
+    #         *)
+    #         ;;
+    #       esac
 
     - run:
         name: Test docker image
@@ -109,18 +110,18 @@ jobs:
           #     ;;
           #   esac
           # fi
-  test:
-    docker:
-    - image: alpine
-    steps:
-    - run: echo "unit or other tests"
+  # test:
+  #   docker:
+  #   - image: alpine
+  #   steps:
+  #   - run: echo "unit or other tests"
 workflows:
   version: 2
   default:
     jobs:
     - build
-    - test
+    # - test
     - publish:
         requires:
         - build
-        - test
+        # - test
