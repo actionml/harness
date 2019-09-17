@@ -38,7 +38,7 @@ services:
       discovery.zen.ping.unicast.hosts: elasticsearch
       discovery.type: single-node
     ports:
-      - '9200:9200'
+      - "9200:9200"
     volumes:
       - ${ES_DATA}:/usr/share/elasticsearch/data
 

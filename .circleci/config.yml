@@ -42,7 +42,8 @@ jobs:
         command: |
           set -x
           apk add --no-cache --update py-pip python-dev libffi-dev openssl-dev gcc libc-dev make
-          pip install docker-compose
+          pip install docker-compose==1.12.0
+          # pip install docker-compose
           docker-compose version 
     - run:
         name: Define Environment Variables
