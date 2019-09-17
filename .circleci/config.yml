@@ -41,7 +41,7 @@ jobs:
         name: Install Docker Compose
         command: |
           set -x
-          apk add --no-cache --update py-pip python-dev libffi-dev openssl-dev gcc libc-dev make
+          apk add --no-cache --update py-pip python-dev libffi-dev openssl-dev gcc libc-dev make curl curl-dev
           pip install docker-compose==1.12.0
           # pip install docker-compose
           docker-compose version 
@@ -81,6 +81,8 @@ jobs:
           mv envs .env &&\
           docker-compose up -d --build
           docker-compose ps
+          
+          curl localhost:9090
 
           docker-compose exec harness-cli bash -c 'cd harness-cli &&  harness-cli status; RESULT=$(exit $?)'
           echo "Result is $RESULT"
