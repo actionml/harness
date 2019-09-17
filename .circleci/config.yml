@@ -81,7 +81,7 @@ jobs:
           mv envs .env &&\
           docker-compose up -d --build
           docker-compose ps
-          
+          sleep 30
           curl localhost:9090
 
           docker-compose exec harness-cli bash -c 'cd harness-cli &&  harness-cli status; RESULT=$(exit $?)'
