@@ -18,7 +18,7 @@
 package com.actionml.core.search.elasticsearch
 
 import java.io.UnsupportedEncodingException
-import java.net.URLEncoder
+import java.net.{URI, URLEncoder}
 import java.time.Instant
 
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -46,7 +46,7 @@ import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
-import scala.util.Try
+import scala.util.{Properties, Try}
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
   override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
@@ -400,11 +400,13 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private lazy val client: RestClient = {
+    val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
+
     val builder = RestClient.builder(
       new HttpHost(
-        config.getString("elasticsearch.host"),
-        config.getInt("elasticsearch.port"),
-        config.getString("elasticsearch.protocol")))
+        uri.getHost,
+        uri.getPort,
+        uri.getScheme))
 
     if (config.hasPath("elasticsearch.auth")) {
       val authConfig = config.getConfig("elasticsearch.auth")
