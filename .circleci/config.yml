@@ -73,9 +73,9 @@ jobs:
 
           docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
 
-          echo 'export RESULT=$RESULT' >> $BASH_ENV
-          source $BASH_ENV
-          cat $BASH_ENV
+          echo "export RESULT=$RESULT" >> /etc/profile
+          source /etc/profile
+          cat /etc/profile
           echo "Result is $RESULT"
           # docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
           # echo "Result is $RESULT"
@@ -85,8 +85,9 @@ jobs:
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
           DATE_BUILD=$(date +'%Y-%m-%d')
           
-          source $BASH_ENV
+          source /etc/profile
           echo "Result is ${RESULT}"
+          echo "Result2 is $RESULT"
           # if [ $RESULT -eq 0 ]
           # then
           #   case "${CIRCLE_BRANCH}" in
