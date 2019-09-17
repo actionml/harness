@@ -88,7 +88,7 @@ jobs:
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
           DATE_BUILD=$(date +'%Y-%m-%d')
           
-          # source $SHELL_ENV
+          source $SHELL_ENV
           echo "Result is ${RESULT}"
           echo "Result2 is $RESULT"
           # if [ $RESULT -eq 0 ]
