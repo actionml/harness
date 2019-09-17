@@ -52,14 +52,12 @@ object AppConfig {
   private val config = ConfigFactory.load()
 
   def apply: AppConfig = {
-    val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no  HARNESS_URI set" ))
+    val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))
     new AppConfig(
       // restServer = config.as[RestServerConfig]("rest-server"), // this has bad config if not taken from env
 
       // Since these must be set in the env, it is a hard error if they are not found
       restServer = RestServerConfig(
-        //host = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no  HARNESS_URI set" )).getHost,
-        //host = if (uri.getHost == "localhost") "0.0.0.0" else uri.getHost,
         host = uri.getHost,
         port = uri.getPort,
         sslEnabled = uri.getScheme == "https"

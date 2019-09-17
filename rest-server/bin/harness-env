@@ -1,4 +1,6 @@
 # harness environment file (sourced by scripts)
+# In URIs leave ports and protocols unchanged unless you are sure of the changes,
+#     in most cases changing the address of a service is sufficient config
 
 # Harness Server config
 # deprecated old REST_SERVER_HOST/PORT config
@@ -16,6 +18,7 @@ export MONGO_URI=${MONGO_URI:-mongodb://localhost:27017}
 # Elasticsearch setup (optional: used by UR and similar Engines)
 # todo: need to allow for multiple servers for cluster operation of ES
 export ELASTICSEARCH_URI={ELASTICSEARCH_URI:-http://localhost:9200}
+
 
 # ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
 
