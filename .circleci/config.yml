@@ -30,9 +30,6 @@ jobs:
   publish:
     docker:
     - image: docker:stable
-    shell: /bin/sh -leo pipefail
-    environment:
-      - BASH_ENV: /etc/profile
     steps:
     - checkout
     - setup_remote_docker
@@ -75,10 +72,11 @@ jobs:
           # curl localhost:9090
 
           docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
-          echo "Result is $RESULT"
 
           echo 'export RESULT=$RESULT' >> $BASH_ENV
           source $BASH_ENV
+          cat $BASH_ENV
+          echo "Result is $RESULT"
           # docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
           # echo "Result is $RESULT"
     - run:
@@ -87,7 +85,7 @@ jobs:
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
           DATE_BUILD=$(date +'%Y-%m-%d')
           
-          
+          source $BASH_ENV
           echo "Result is ${RESULT}"
           # if [ $RESULT -eq 0 ]
           # then
