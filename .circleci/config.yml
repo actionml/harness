@@ -18,13 +18,6 @@ jobs:
     - run:
         name: Build rest-server dist
         command: make dist
-    - run:
-        name: Install Docker Compose
-        command: |
-          curl -L https://github.com/docker/compose/releases/download/1.19.0/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
-          chmod +x ~/docker-compose
-          mv ~/docker-compose /usr/local/bin/docker-compose
-          docker-compose version 
     - save_cache:
         key: rest-api-{{ checksum "rest-server/build.sbt" }}
         paths:
@@ -44,14 +37,13 @@ jobs:
     - setup_remote_docker
     - attach_workspace:
         at: /root/project/dist
-    # - run:
-    #     name: Install Docker Compose
-    #     command: |
-    #       set -x
-    #       apk add --no-cache --update curl curl-dev bash 
-    #       # curl -L https://github.com/docker/compose/releases/download/1.11.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
-    #       # chmod +x /usr/local/bin/docker-compose
-    #       docker-compose version 
+    - run:
+        name: Install Docker Compose
+        command: |
+          set -x
+          apk add --no-cache --update py-pip python-dev libffi-dev openssl-dev gcc libc-dev make
+          pip install docker-compose
+          docker-compose version 
     - run:
         name: Docker login
         command: |
