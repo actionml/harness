@@ -67,7 +67,9 @@ jobs:
           SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
           DATE_BUILD=$(date +'%Y-%m-%d')
           
-          cd docker && ls -lah && docker-compose up -d --build
+          cd docker && \
+          mv envs .env &&\
+          docker-compose up -d --build
 
           docker-compose exec harness-cli bash -c 'harness-cli status; RESULT=$(exit $?)'
           echo "Result is $RESULT"
