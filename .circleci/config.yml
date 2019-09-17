@@ -73,7 +73,7 @@ jobs:
           sleep 45
           # curl localhost:9090
 
-          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=($?)
+          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
           echo "Result is $RESULT"
           # docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh; RESULT=$(exit $?)'
           # echo "Result is $RESULT"
