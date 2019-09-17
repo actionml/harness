@@ -29,7 +29,8 @@ jobs:
         - ./
   publish:
     docker:
-    - image: docker:stable
+    - image: docker/compose
+    # - image: docker:stable
     steps:
     - checkout
     - setup_remote_docker
@@ -42,7 +43,7 @@ jobs:
           apk add --no-cache --update curl curl-dev bash 
           curl -L https://github.com/docker/compose/releases/download/1.11.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
-          /usr/local/bin/docker-compose version 
+          docker-compose version 
     - run:
         name: Docker login
         command: |
