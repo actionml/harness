@@ -76,7 +76,7 @@ jobs:
 
           docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
 
-          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh'; RESULT=$?
+          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
 
           echo "export RESULT=$RESULT" >> $SHELL_ENV
           source $SHELL_ENV
