@@ -81,8 +81,11 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
       val ContextApi(client, handlers) =
         contexts.getOrElseUpdate(id, ContextApi(new LivyScalaClient(conf), List.empty))
       val lib: Iterable[File] = new File("lib").listFiles
-      Await.result(Future.sequence(lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
-        .map(jar => client.uploadJar(jar))), Duration.Inf)
+      Await.result(
+        Future.sequence {
+          lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
+            .map(jar => client.addJar(URI.create(s"file://${jar.getAbsolutePath}")))
+        } , Duration.Inf)
       contexts.update(id, ContextApi(client, handlers))
       client
     } catch {

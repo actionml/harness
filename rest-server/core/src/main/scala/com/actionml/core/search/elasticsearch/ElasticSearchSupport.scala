@@ -25,13 +25,10 @@ import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
 import com.actionml.core.validate.{CustomFormats, JsonSupport}
 import com.typesafe.config.{Config, ConfigFactory}
-import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
-import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
-import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.{Request, RestClient}

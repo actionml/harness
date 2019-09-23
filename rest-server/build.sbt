@@ -82,8 +82,8 @@ lazy val core = (project in file("core")).
       "org.mongodb.spark" %% "mongo-spark-connector" % mongoSparkConnectorVersion,
       "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
 
-      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating" % Compile,
-      "org.apache.livy" %% "livy-scala-api" % "0.6.0-incubating" % Compile,
+      "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
+      "org.apache.livy" %% "livy-scala-api" % "0.6.0-incubating",
 
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,
