@@ -26,7 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-
+import scala.util.Properties
 
 class MongoAdministrator extends Administrator with JsonSupport {
   import DaoQuery.syntax._
@@ -89,11 +89,11 @@ class MongoAdministrator extends Administrator with JsonSupport {
         Valid(Comment(params.engineId))
       } else if (newEngine != null) {
         //add new
-        logger.debug(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
+        logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
         enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
-        logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
+        logger.trace(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
         Valid(Comment(s"EngineId: ${params.engineId} created"))
       } else {
         // ignores case of too many engine with the same engineId
@@ -137,9 +137,22 @@ class MongoAdministrator extends Administrator with JsonSupport {
       deadEngine.destroy()
       Valid(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
     } else {
-      logger.warn(s"Cannot removeOne non-existent engine for engineId: $engineId")
+      logger.warn(s"Cannot removeOne, non-existent engine for engineId: $engineId")
       Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     }
+  }
+
+  override def systemInfo(): Validated[ValidateError, Response] = {
+    logger.trace("Getting Harness system info")
+    // todo: do we want to check connectons to services here?
+    Valid(SystemInfo(
+      buildVersion = com.actionml.admin.BuildInfo.version,
+      gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
+      gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
+      harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
+      mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" )
+    ))
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
@@ -177,3 +190,13 @@ case class EngineMetadata(
   engineId: String,
   engineFactory: String,
   params: String)
+
+case class SystemInfo(
+    buildVersion: String,
+    gitBranch: String,
+    gitHash: String,
+    harnessURI: String,
+    mongoURI: String,
+    elasticsearchURI: String
+)
+  extends Response

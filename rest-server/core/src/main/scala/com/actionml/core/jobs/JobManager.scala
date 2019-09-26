@@ -83,7 +83,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
       .map(_ => ())
       .recover {
         case NonFatal(e) =>
-          logger.error("Cancel job error", e)
+          logger.error(s"Cancel job error", e)
       }
   }
 

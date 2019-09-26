@@ -73,7 +73,7 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     val interval = new Interval(end.minusSeconds(duration), end)
 
     // based on type of popularity model return a set of (item-id, ranking-number) for all items
-    logger.info(s"PopModel using end: $end, and duration: $duration, interval: $interval")
+    logger.trace(s"PopModel using end: $end, and duration: $duration, interval: $interval")
 
     // if None? debatable, this is either an error or may need to default to popular, why call popModel otherwise
     modelName match {
@@ -123,10 +123,12 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     */
 
     // todo: ignores interval, need query for this
-    eventsRdd.map { e => (e.targetEntityId.getOrElse(""), e.event) }
+    val rdd = eventsRdd.map { e => (e.targetEntityId.getOrElse(""), e.event) }
       .groupByKey()
       .map { case (itemId, itEvents) => (itemId, itEvents.size.toDouble) }
       .reduceByKey(_ + _)
+    val debug = rdd.collect()
+    rdd
   }
 
   /** Creates a rank for each item by dividing the duration in two and counting named events in both buckets
@@ -138,12 +140,12 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     eventNames: Seq[String],
     interval: Interval): RDD[(ItemID, Double)] = {
 
-    logger.info(s"Current Interval: $interval, ${interval.toDurationMillis}")
+    logger.trace(s"Current Interval: $interval, ${interval.toDurationMillis}")
     val halfInterval = interval.toDurationMillis / 2
     val olderInterval = new Interval(interval.getStart, interval.getStart.plus(halfInterval))
-    logger.info(s"Older Interval: $olderInterval")
+    logger.trace(s"Older Interval: $olderInterval")
     val newerInterval = new Interval(interval.getStart.plus(halfInterval), interval.getEnd)
-    logger.info(s"Newer Interval: $newerInterval")
+    logger.trace(s"Newer Interval: $newerInterval")
 
     val olderPopRDD = calcPopular(eventsRdd, eventNames, olderInterval)
     if (!olderPopRDD.isEmpty()) {
@@ -163,13 +165,13 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     eventNames: Seq[String] = List.empty,
     interval: Interval): RDD[(ItemID, Double)] = {
 
-    logger.info(s"Current Interval: $interval, ${interval.toDurationMillis}")
+    logger.trace(s"Current Interval: $interval, ${interval.toDurationMillis}")
     val olderInterval = new Interval(interval.getStart, interval.getStart.plus(interval.toDurationMillis / 3))
-    logger.info(s"Older Interval: $olderInterval")
+    logger.trace(s"Older Interval: $olderInterval")
     val middleInterval = new Interval(olderInterval.getEnd, olderInterval.getEnd.plus(olderInterval.toDurationMillis))
-    logger.info(s"Middle Interval: $middleInterval")
+    logger.trace(s"Middle Interval: $middleInterval")
     val newerInterval = new Interval(middleInterval.getEnd, interval.getEnd)
-    logger.info(s"Newer Interval: $newerInterval")
+    logger.trace(s"Newer Interval: $newerInterval")
 
     val olderPopRDD = calcPopular(eventsRdd, eventNames, olderInterval)
     if (!olderPopRDD.isEmpty()) { // todo: may want to allow an interval with no events, give them 0 counts

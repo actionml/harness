@@ -51,6 +51,7 @@ jobs:
     - run:
         name: Build docker image
         command: |
+
           echo 'export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)' >> $SHELL_ENV
           echo 'export DATE_BUILD=$(date +'%Y-%m-%d')' >> $SHELL_ENV
           source $SHELL_ENV
@@ -107,6 +108,7 @@ jobs:
               ;;
             esac
           fi
+
 workflows:
   version: 2
   default:

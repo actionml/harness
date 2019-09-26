@@ -11,7 +11,13 @@ Harness is a complete end-to-end Machine Learning and Artificial Intelligence se
  - Extended JSON for Engine Instance Config files, which pulls values from env
  - ...
 
-## 0.4.0 (current stable)
+## 0.4.1 (current stable)
+
+Bug fix release.
+
+ - UR engine instances that have no `ttl` defined in the JSON config should get a `"ttl": "365 days"` but in 0.4.0 they get no indexes created. This means queries are relatively slow. This release fixes the problem. In all cases indexes are created and the default `ttl` is 365 days.
+ 
+## 0.4.0
 
 - Add the Universal Recommender (UR-0.8.0) ported from PredictionIO's UR-0.7.3
 - Minor Universal Recommender feature enhancements

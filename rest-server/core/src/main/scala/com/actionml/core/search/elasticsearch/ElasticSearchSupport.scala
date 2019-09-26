@@ -18,7 +18,7 @@
 package com.actionml.core.search.elasticsearch
 
 import java.io.UnsupportedEncodingException
-import java.net.URLEncoder
+import java.net.{URI, URLEncoder}
 import java.time.Instant
 
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -46,7 +46,7 @@ import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
-import scala.util.Try
+import scala.util.{Properties, Try}
 
 trait ElasticSearchSupport extends SearchSupport[Hit] {
   override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
@@ -149,10 +149,10 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val response = client.performRequest(request)
           response.getStatusLine.getStatusCode match {
             case 200 =>
-              logger.info(s"Got source from query: $query")
+              logger.trace(s"Got source from query: $query")
               transform(parse(EntityUtils.toString(response.getEntity)))
             case _ =>
-              logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+              logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
               Seq.empty[T]
           }
         }
@@ -173,27 +173,27 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
           rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
             val url = s"/$actualIndexName/$indexType/${encodeURIFragment(id)}"
-            logger.info(s"find doc by id using URL: $url")
+            logger.trace(s"Find doc by id using URL: $url")
             val response = client.performRequest(new Request("GET", url))
-            logger.info(s"got response: $response")
+            logger.trace(s"Got response: $response")
 
             response.getStatusLine.getStatusCode match {
               case 200 =>
                 val entity = EntityUtils.toString(response.getEntity)
-                logger.info(s"got status code: 200\nentity: $entity")
+                logger.trace(s"Got status code: 200\nentity: $entity")
                 if (entity.isEmpty) {
                   None
                 } else {
-                  logger.info(s"About to parse: $entity")
+                  logger.trace(s"About to parse: $entity")
                   val result = parse(entity)
-                  logger.info(s"getSource for $url result: $result")
+                  logger.trace(s"GetSource for $url result: $result")
                   Some(result)
                 }
               case 404 =>
-                logger.info(s"got status code: 404")
+                logger.trace(s"Got status code: 404")
                 Some(parse("""{"notFound": "true"}"""))
               case _ =>
-                logger.info(s"got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
+                logger.trace(s"Got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
                 None
             }
           }
@@ -219,7 +219,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           id -> Map.empty
       }
     } else {
-      logger.info(s"Non-existent item $id, but that's ok, return backfill recs")
+      logger.info(s"Non-existent item-id: $id, not an error")
       id -> Map.empty
     }
   }
@@ -345,7 +345,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
               // todo: should do this after the new index is created so no index downtime
               if (refresh) refreshIndexByName(indexName)
             case _ =>
-              logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
+              logger.warn(s"Index $indexName wasn't created, but may have quietly failed.")
           }
         true
       }
@@ -369,7 +369,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
           case 200 =>
             if (refresh) refreshIndexByName(indexName)
           case _ =>
-            logger.info(s"Index $indexName wasn't deleted, but may have quietly failed.")
+            logger.warn(s"Index $indexName wasn't deleted, but may have quietly failed.")
         }
         true
       case _ =>
@@ -400,11 +400,13 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private lazy val client: RestClient = {
+    val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
+
     val builder = RestClient.builder(
       new HttpHost(
-        config.getString("elasticsearch.host"),
-        config.getInt("elasticsearch.port"),
-        config.getString("elasticsearch.protocol")))
+        uri.getHost,
+        uri.getPort,
+        uri.getScheme))
 
     if (config.hasPath("elasticsearch.auth")) {
       val authConfig = config.getConfig("elasticsearch.auth")
