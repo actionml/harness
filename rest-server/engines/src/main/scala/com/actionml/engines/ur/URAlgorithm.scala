@@ -736,7 +736,7 @@ object URAlgorithm extends JsonSupport {
   case class RankingParams(
       name: Option[String] = Some(DefaultURAlgoParams.BackfillFieldName),
       `type`: Option[String] = Some(DefaultURAlgoParams.BackfillType), // See [[com.actionml.BackfillType]]
-      indicatorNames: Option[Seq[String]] = None, // None means an error, events must be specified.
+      eventNames: Option[Seq[String]] = None, // None means an error, events must be specified.
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
@@ -745,7 +745,7 @@ object URAlgorithm extends JsonSupport {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |indicatorParams: $indicatorNames,
+         |eventParams: $eventNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
