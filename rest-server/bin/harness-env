@@ -1,11 +1,7 @@
-# harness environment file (sourced by scripts)
-# In URIs leave ports and protocols unchanged unless you are sure of the changes,
-#     in most cases changing the address of a service is sufficient config
-
 # Harness Server config
-# deprecated old REST_SERVER_HOST/PORT config
-# set to http://0.0.0.0... to listen for any outside connections, only http supported
-# export HARNESS_URI=${HARNESS_URI:-http://0.0.0.0:9090} # for external connections
+
+# deprecated old REST_SERVER_HOST/PORT config used in Harness 0.4.x
+# export HARNESS_URI="http://0.0.0.0:9090" # for external connections
 export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 
 # To configure Harness logging
