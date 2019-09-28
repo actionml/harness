@@ -1,0 +1,53 @@
+version: '3'
+services:
+  harness:
+    restart: always
+    image: actionml/harness:latest
+    container_name: harness
+    ports:
+      - "9090:9090"
+    environment:
+      MONGO_HOST: mongo
+      REST_SERVER_HOST: 0.0.0.0
+      REST_SERVER_PORT: 9090
+      ELASTICSEARCH_REST_HOST: elasticsearch
+    depends_on:
+      - mongo
+      - elasticsearch
+    volumes:
+      - ${HARNESS_LOGS}:/harness/logs
+      - ${CLI_DATA}:/harness-cli-data
+
+  mongo:
+    restart: always
+    image: mongo:3.2
+    container_name: mongo
+    command: --logappend --logpath=/tmp/mongod.log
+    ports:
+      - "27017:27017"
+    volumes:
+      - ${MONGO_LOGS}:/logs
+      - ${MONGO_DATA}:/data/db
+
+  elasticsearch:
+    restart: always
+    image: elasticsearch:5.6.14-alpine
+    container_name: elasticsearch
+    environment:
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS}
+      discovery.zen.ping.unicast.hosts: elasticsearch
+      discovery.type: single-node
+    ports:
+      - "9200:9200"
+    volumes:
+      - ${ES_DATA}:/usr/share/elasticsearch/data
+
+  harness-cli:
+    restart: always
+    image: actionml/harness-cli:develop
+    container_name: harness-cli
+    environment:
+        PATH: "$PATH:/harness-cli/harness-cli"
+        HARNESS_SERVER_ADDRESS: harness
+    volumes:
+    - ${CLI_DATA}:/harness-cli-data

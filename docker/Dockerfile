@@ -21,7 +21,7 @@ ENV VW_GITURL=https://github.com/JohnLangford/vowpal_wabbit \
     VW_GITREV=10bd09ab06f59291e04ad7805e88fd3e693b7159
 
 COPY ./dist /harness
-
+RUN mkdir -p /data
 RUN cd /tmp && \
 	apk add --no-cache --update tini curl bash procps && \
 	apk add --no-cache --update python3 && \
