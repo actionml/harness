@@ -199,7 +199,7 @@ class URAlgorithm private (
         ("Max query events:", maxQueryEvents),
         ("Limit:", limit),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.get, x.name)))
+        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x.name)))
 
       Valid(isOK)
     }
