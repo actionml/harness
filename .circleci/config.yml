@@ -69,36 +69,32 @@ jobs:
     - run:
         name: Test docker image
         command: |
+          cd docker && \
+          mv envs .env &&\
+          docker-compose up -d --build
+          docker-compose ps
+          sleep 45
 
-          case "${CIRCLE_BRANCH}" in
-            "devops")
-              cd docker && \
-              mv envs .env &&\
+          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
+          docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
 
-              docker-compose up -d --build
-              docker-compose ps
-              sleep 45
+          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
 
-              docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
-
-              docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
-
-              echo "export RESULT=$RESULT" >> $SHELL_ENV
-              source $SHELL_ENV
-            ;;
-            *)
-            ;;
-          esac
-          
+          echo "export RESULT=$RESULT" >> $SHELL_ENV
+          source $SHELL_ENV
     - run:
         name: Publish docker image
         command: |
           source $SHELL_ENV
+          echo "Result is ${RESULT}"
+
+          if [ $RESULT -eq 0 ]
+          then
             case "${CIRCLE_BRANCH}" in
               "master")
                 docker image push actionml/harness:latest
               ;;
-              "develop")
+              develop|devops)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 docker tag actionml/harness:latest actionml/harness:$BRANCH
                 docker image push actionml/harness:$BRANCH
@@ -109,25 +105,10 @@ jobs:
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
                 docker image push actionml/harness:$BRANCH-$DATE_BUILD
               ;;
-              "devops")
-                if [ $RESULT -eq 0 ]
-                then
-                  echo "Result is ${RESULT}"
-                  BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-                  
-                  docker tag actionml/harness:latest actionml/harness:$BRANCH
-                  docker image push actionml/harness:$BRANCH
-                  
-                  docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
-                  docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
-                  
-                  docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
-                  docker image push actionml/harness:$BRANCH-$DATE_BUILD
-                fi
-              ;;
               *)
               ;;
             esac
+          fi
 
 workflows:
   version: 2
