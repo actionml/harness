@@ -94,7 +94,6 @@ jobs:
         name: Publish docker image
         command: |
           source $SHELL_ENV
-
             case "${CIRCLE_BRANCH}" in
               "master")
                 docker image push actionml/harness:latest
