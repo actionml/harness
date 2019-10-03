@@ -23,7 +23,6 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
-import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -32,7 +31,7 @@ import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 import scala.util.Try
 
@@ -78,19 +77,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
           s"$jsonConfig",
         transform = _ \ "dataset"
-      ).andThen { p =>
-        p.ttl.fold[Validated[ValidateError, _]] {
-          eventsDao.createIndexes()
-          Valid(p)
-        } { ttlString =>
-          Try(Duration(ttlString)).toOption.map { ttl =>
-            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(ttl)
-            logger.debug(s"Got a dataset.ttl = $ttl")
-            Valid(p)
-          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
-        }
-      }.andThen(_ => Valid(Comment("URDataset initialized")))
+      ).andThen(_ => Valid(Comment("URDataset initialized")))
     }
   }
 
