@@ -42,11 +42,11 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
         Some(engineEventMirrorPath)
       } catch {
         case ex: IOException =>
-          logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}")
-          logger.error("This error is non-fatal but means events will not be mirrored", ex)
+          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}")
+          logger.error(s"Engine-id: ${engineId}. This error is non-fatal but means events will not be mirrored", ex)
           None
         case unknownException: Exception =>
-          logger.error(s"Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
+          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
           throw unknownException
       }
     } else if(hdfs.isDirectory(engineEventMirrorPath)) Some(engineEventMirrorPath) else None
@@ -82,7 +82,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
         Valid(jsonComment("Event mirrored"))
       } catch {
         case ex: IOException =>
-          val errMsg = "Problem mirroring input to HDFS"
+          val errMsg = s"Engine-id: ${engineId}. Problem mirroring input to HDFS"
           logger.error(errMsg, ex)
           mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
@@ -99,16 +99,16 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
          | $errMsg""".stripMargin)))
 
     if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
-      logger.error("Reading from the mirror location will cause an infinite loop." +
+      logger.error(s"Engine-id: ${engineId}. Reading from the mirror location will cause an infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
-      importEventsError("Reading from the mirror location will cause in infinite loop." +
+      importEventsError(s"Engine-id: ${engineId}. Reading from the mirror location will cause in infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
     } else if (!location.isEmpty) {
       try {
         val filesStatuses = hdfs.listStatus(new Path(location))
         val filePaths = filesStatuses.map(_.getPath())
         if(filePaths.size > 0) {
-          logger.info(s"Number of files in dir: ${filePaths.size} values include: ${filePaths.head.getName}")
+          logger.trace(s"Engine-id: ${engineId}. Number of files in dir: ${filePaths.size} values include: ${filePaths.head.getName}")
           for (filePath <- filePaths) {
             val file = hdfs.open(filePath)
             val lineReader = new BufferedReader(new InputStreamReader(file))
@@ -121,7 +121,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
           }
           Valid(jsonComment("Event mirrored"))
         } else {
-          logger.warn(s"No event files in location $location. No Events imported")
+          logger.warn(s"Engine-id: ${engineId}. No event files in location $location. No Events imported")
           importEventsError(s"No event files in location $location. No Events imported!")
         }
       } catch {

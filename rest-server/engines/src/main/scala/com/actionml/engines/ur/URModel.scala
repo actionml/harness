@@ -44,23 +44,23 @@ class URModel(
     *  @return always returns true since most other reasons to not save cause exceptions
     */
   def save(
-    dateNames: Seq[String],
+    dateNames: Set[String],
     esIndex: String,
     esType: String,
     numESWriteConnections: Option[Int] = None): Boolean = {
 
-    logger.debug(s"Start saving the model to Elasticsearch")
+    logger.trace(s"Start saving the model to Elasticsearch")
 
     // for ES we need to create the entire index in an rdd of maps, one per item so we'll
     // convert cooccurrence matrices into correlators as RDD[(itemID, (actionName, Seq[itemID])]
     // do they need to be in Elasticsearch format
-    logger.info("Converting cooccurrence matrices into correlators")
+    logger.trace("Converting cooccurrence matrices into correlators")
     val correlatorRDDs: Seq[RDD[(String, Map[String, Any])]] = coocurrenceMatrices.map {
       case (actionName, dataset) =>
         dataset.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(actionName)
     }
 
-    logger.info("Group all properties RDD")
+    logger.trace("Group all properties RDD")
     //val collectedCorrelators = correlatorRDDs.map(_.collect())
 
     val groupedRDD: RDD[(String, Map[String, Any])] = groupAll(correlatorRDDs ++ propertiesRDDs)
@@ -77,14 +77,11 @@ class URModel(
       }
     }
 
-    // todo: this could be replaced with an optional list of properties in the params json because now it
-    // goes through every element to find it's property name
+    // todo: this should be replaced with (a) an optional list of properties in the params json because now it
+    // goes through every element!!! ALL DATA! to find it's property name, or (b) maybe this is better as a DB query???
     val esFields: List[String] = esRDD.flatMap(_.keySet).distinct().collect.toList
-    logger.info(s"ES rules[${esFields.size}]: $esFields")
-
-    // todo:
-    //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
-    es.hotSwap(esType, esRDD, esFields, typeMappings, numESWriteConnections)
+    // logger.info(s"ES rules[${esFields.size}]: $esFields")
+    es.hotSwap(esRDD, esFields, typeMappings, numESWriteConnections)
     true
   }
 
@@ -114,7 +111,7 @@ class URModel(
 
 object URModel {
 
-  def extractJvalue(dateNames: Seq[String], key: String, value: Any): Any = value match {
+  def extractJvalue(dateNames: Set[String], key: String, value: Any): Any = value match {
     case JArray(list) => list.map(extractJvalue(dateNames, key, _))
     case JString(s) =>
       if (dateNames.contains(key)) {

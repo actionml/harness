@@ -23,7 +23,6 @@ import org.apache.spark.rdd.RDD
 trait WriteToEsSupport {
 
   def hotSwap(
-    typeName: String,
     indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,

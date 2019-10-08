@@ -1,34 +1,29 @@
-# harness environment file (sourced by scripts)
+# Harness Server config
 
-# Harness Server config, should work as-id unless you are using SSL
-# to listen on the host IP address for external connections
-# export REST_SERVER_HOST=0.0.0.0 # to listen for external connections
-export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
-# to change the port used
-export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
-
-# MongoDB setup
-# todo: allow for multiple servers in cluster
-export MONGO_HOST=${MONGO_HOST:-localhost}
-export MONGO_PORT=${MONGO_PORT:-27017}
-
-# HDFS setup
-# This should be set by Hadoop, otherwise set it here
-#export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
-# Files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
-# if needed
-#export HDFS_MASTER=${HDFS_MASTER:-localhost}
-#export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
-
-# Elasticsearch setup (optional: used by UR and similar Engines)
-# todo: need to allow for multiple servers for cluster operation of ES
-export ELASTICSEARCH_REST_HOST=${ELASTICSEARCH_REST_HOST:-localhost}
-export ELASTICSEARCH_REST_PORT=${ELASTICSEARCH_REST_PORT:-9200}
-export ELASTICSEARCH_REST_PROTOCOL=${ELASTICSEARCH_REST_PROTOCOL:-http}
+# deprecated old REST_SERVER_HOST/PORT config used in Harness 0.4.x
+# export HARNESS_URI="http://0.0.0.0:9090" # for external connections
+export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 
 # To configure Harness logging
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
 export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
+
+# MongoDB setup
+export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
+
+# Elasticsearch setup (optional: used by UR and similar Engines)
+# todo: need to allow for multiple servers for cluster operation of ES
+export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
+
+
+# ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
+
+# HDFS setup
+# export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
+# Files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
+# if needed
+# export HDFS_MASTER=${HDFS_MASTER:-localhost}
+# export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
 
 # =============================================================
 # Only change to enable TLS/SSL
@@ -64,3 +59,10 @@ export ADMIN_USER_ID=${ADMIN_USER_ID:-some-user-id}
 # The Python CLI needs to pass the user-id and user-secret to the Python SDK so when using Auth supply a pointer to
 # the user-secret here.
 export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
+
+# =============================================================
+# Only needed if you use the Spark Job Server with Apache Livy
+# =============================================================
+
+# Spark Job Server (Apache Livy) setup
+export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}

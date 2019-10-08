@@ -18,21 +18,24 @@
 package com.actionml.core.validate
 
 import java.io.IOException
-import java.time.Instant
+import java.time.{Instant, ZoneId, ZoneOffset}
 import java.time.format.DateTimeFormatter
-import java.util.{Date, TimeZone}
+import java.time.temporal.ChronoField
+import java.util.{Date, GregorianCalendar, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
+import org.json4s.JsonAST.JString
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
+import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 
 
 trait JsonSupport extends LazyLogging {
@@ -44,14 +47,14 @@ trait JsonSupport extends LazyLogging {
     }
   }
   implicit object StringReader extends Reader[String] {
-    override def read(value: json4s.JValue): String = value.extract[String]
+    override def read(value: json4s.JValue): String = enrichViaSystemEnv(value.extract[String])
   }
   implicit object JObjectReader extends Reader[JObject] {
     override def read(value: json4s.JValue): JObject = {
       value.extract[JObject]
     }
   }
-  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all
+  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all + new StringSystemEnvSerializer
   object CustomFormats extends DefaultFormats {
     override val dateFormat: DateFormat = new DateFormat {
       private val readFormat = DateTimeFormatter.ISO_DATE_TIME
@@ -61,7 +64,7 @@ trait JsonSupport extends LazyLogging {
         try {
           Option(Date.from(Instant.from(readFormat.parse(s))))
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             logger.error(s"Can't parse date $s", e)
             None
         }
@@ -69,14 +72,22 @@ trait JsonSupport extends LazyLogging {
 
       override def format(d: Date): String = writeFormat.format(Instant.ofEpochMilli(d.getTime).atZone(timezone.toZoneId))
 
-      override def timezone: TimeZone = TimeZone.getDefault
+      override def timezone: TimeZone = TimeZone.getTimeZone("UTC")
     }
   }
+  class StringSystemEnvSerializer extends CustomSerializer[String](format => (
+    {
+      case JString(s) => enrichViaSystemEnv(s)
+    },
+    {
+      case s: String => JString(s)
+    }
+  ))
 
-  def parseAndValidate[T : ClassTag](
+  def parseAndValidate[T](
     json: String,
     errorMsg: String = "",
-    transform: JValue => JValue = a => a)(implicit tag: TypeTag[T]): Validated[ValidateError, T] = {
+    transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): Validated[ValidateError, T] = {
 
     try{
       Valid(transform(parse(json)).extract[T])
@@ -85,7 +96,8 @@ trait JsonSupport extends LazyLogging {
         val msg = if (errorMsg.isEmpty) {
           tag.tpe match {
             case TypeRef(_, _, args) =>
-            s"Error $args from JSON: $json"
+              s"Error $args from JSON: $json"
+            case _ => errorMsg
           }
         } else { errorMsg }
         logger.error(msg + s"$json", e)
@@ -96,11 +108,6 @@ trait JsonSupport extends LazyLogging {
   def prettify(jsonString: String): String = {
     val mapper = new ObjectMapper()
     try {
-      //val jsonObject = mapper.readValue(jsonString, Object.class)
-      //val jsonObject = mapper.readValue(jsonString, Class[Object])
-      //val jsonObject = mapper.readValue(jsonString, JavaType)
-      //mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject)
-
       val json = mapper.readValue(jsonString, classOf[Any])
       mapper.writerWithDefaultPrettyPrinter.writeValueAsString(json)
     } catch {
@@ -123,4 +130,12 @@ trait JsonSupport extends LazyLogging {
   }
 
 
+  private val env = s"system.env.(.*)".r
+  private def enrichViaSystemEnv: String => String = {
+    case env(value) => sys.env.getOrElse(value, {
+      logger.warn(s"No ENV VAR for $value")
+      value
+    })
+    case s => s
+  }
 }
