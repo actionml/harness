@@ -116,7 +116,7 @@ Integral to REST is the notion of a "resource", which is an item that can be add
 
 For the full Harness REST API and response codes, see the [Harness REST Specification](docs/rest_spec.md)
 
-## Input and Query
+## Input and Query   
 
 There are 2 primary APIs in the SDK for sending Engine events and making queries. 
 
