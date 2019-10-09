@@ -2,7 +2,7 @@
 # Harness Overview
 
 This project implements a microservice based Machine Learning Server. It provides an API for plug-in Engines and implements all services needed for input and query. Features include:
-
+     
  - **TLS/SSL** support from akka-http on the Server as well as in the Java and Python Client SDKs
  - **Authentication** support using server to server bearer tokens, similar to basic auth but from the OAuth 2.0 spec. Again on both Server and Client SDKs.
  - **Authorization** based on Roles and Permissions for secure multi-tenancy
