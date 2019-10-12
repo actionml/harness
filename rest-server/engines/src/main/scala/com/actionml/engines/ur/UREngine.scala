@@ -20,7 +20,7 @@ package com.actionml.engines.ur
 import java.util.Date
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
@@ -28,10 +28,14 @@ import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
+import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
+
+import scala.concurrent.duration._
+import scala.util.Try
 
 
 class UREngine extends Engine with JsonSupport {
@@ -49,7 +53,25 @@ class UREngine extends Engine with JsonSupport {
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
-        val eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
+        parseAndValidate[URDatasetParams](
+          jsonConfig,
+          errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
+            s"$jsonConfig",
+          transform = _ \ "dataset"
+        ).foreach { p =>
+          val eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
+          p.ttl.fold[Validated[ValidateError, _]] {
+            eventsDao.createIndexes(365.days)
+            Valid(p)
+          } { ttlString =>
+            Try(Duration(ttlString)).toOption.map { ttl =>
+              // We assume the DAO will check to see if this is a change and no do the reindex if not needed
+              eventsDao.createIndexes(ttl)
+              logger.debug(s"Got a dataset.ttl = $ttl")
+              Valid(p)
+            }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
+          }
+        }
         algo = URAlgorithm(this, jsonConfig, dataset)
         logStatus(p)
         Valid(p)
