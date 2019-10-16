@@ -45,70 +45,76 @@ jobs:
           pip install docker-compose==1.12.0
           docker-compose version 
     - run:
-        name: Docker login
-        command: |
-          echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-    - run:
-        name: Build docker image
-        command: |
+        name: Install Kubectl
+        command: | 
+          set -x
+          chmod +x docker/config-kubectl.sh
+          ./docker/config-kubectl.sh
+    # - run:
+    #     name: Docker login
+    #     command: |
+    #       echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+    # - run:
+    #     name: Build docker image
+    #     command: |
 
-          echo 'export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)' >> $SHELL_ENV
-          echo 'export DATE_BUILD=$(date +'%Y-%m-%d')' >> $SHELL_ENV
-          source $SHELL_ENV
+    #       echo 'export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)' >> $SHELL_ENV
+    #       echo 'export DATE_BUILD=$(date +'%Y-%m-%d')' >> $SHELL_ENV
+    #       source $SHELL_ENV
 
-          echo "SHORT_GIT_HASH $SHORT_GIT_HASH"
-          echo "DATE_BUILD $DATE_BUILD"
+    #       echo "SHORT_GIT_HASH $SHORT_GIT_HASH"
+    #       echo "DATE_BUILD $DATE_BUILD"
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops)
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            *)
-            ;;
-          esac
-    - run:
-        name: Test docker image
-        command: |
-          cd docker && \
-          mv envs .env &&\
-          docker-compose up -d --build
-          docker-compose ps
-          sleep 45
+    #       case "${CIRCLE_BRANCH}" in
+    #         master|develop|devops)
+    #           docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+    #         ;;
+    #         *)
+    #         ;;
+    #       esac
+    # - run:
+    #     name: Test docker image
+    #     command: |
+    #       cd docker && \
+    #       mv envs .env &&\
+    #       docker-compose up -d --build
+    #       docker-compose ps
+    #       sleep 45
 
-          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
-          docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
+    #       docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
+    #       docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
 
-          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+    #       docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
 
-          echo "export RESULT=$RESULT" >> $SHELL_ENV
-          source $SHELL_ENV
-    - run:
-        name: Publish docker image
-        command: |
-          source $SHELL_ENV
-          echo "Result is ${RESULT}"
+    #       echo "export RESULT=$RESULT" >> $SHELL_ENV
+    #       source $SHELL_ENV
+    # - run:
+    #     name: Publish docker image
+    #     command: |
+    #       source $SHELL_ENV
+    #       echo "Result is ${RESULT}"
 
-          if [ $RESULT -eq 0 ]
-          then
-            case "${CIRCLE_BRANCH}" in
-              "master")
-                docker image push actionml/harness:latest
-              ;;
-              develop|devops)
-                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-                docker tag actionml/harness:latest actionml/harness:$BRANCH
-                docker image push actionml/harness:$BRANCH
+    #       if [ $RESULT -eq 0 ]
+    #       then
+    #         case "${CIRCLE_BRANCH}" in
+    #           "master")
+    #             docker image push actionml/harness:latest
+    #           ;;
+    #           develop|devops)
+    #             BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+    #             docker tag actionml/harness:latest actionml/harness:$BRANCH
+    #             docker image push actionml/harness:$BRANCH
                 
-                docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
-                docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
+    #             docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
+    #             docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
                 
-                docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
-                docker image push actionml/harness:$BRANCH-$DATE_BUILD
-              ;;
-              *)
-              ;;
-            esac
-          fi
+    #             docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
+    #             docker image push actionml/harness:$BRANCH-$DATE_BUILD
+    #           ;;
+    #           *)
+    #           ;;
+    #         esac
+    #       fi
 
 workflows:
   version: 2
