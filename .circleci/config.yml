@@ -56,7 +56,7 @@ jobs:
 
           kubectl get nodes
 
-          kubernetes get pods -o wide
+          kubectl get pods -o wide
     # - run:
     #     name: Docker login
     #     command: |
