@@ -42,8 +42,6 @@ RUN apk add --no-cache --update cmake git perl && \
   cp java/target/* /usr/lib/jvm/java-1.8-openjdk/jre/lib/amd64/ && \
   rm -rf /tmp/*
 
-
 WORKDIR /harness
-RUN echo "devops test 4" > devops-test.txt
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./bin/harness-start"]
