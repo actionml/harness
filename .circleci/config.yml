@@ -41,12 +41,8 @@ jobs:
         name: Install Docker Compose and Kubectl
         command: |
           set -x
-          apk add --no-cache --update py-pip python-dev libffi-dev openssl-dev gcc libc-dev make curl curl-dev
-          pip install docker-compose==1.12.0
-          docker-compose version 
-
-          chmod +x docker/config-kubectl.sh
-          ./docker/config-kubectl.sh
+          chmod +x docker/config-dependencies.sh
+          ./docker/config-dependencies.sh
 
     - run:
         name: Docker login
@@ -123,7 +119,7 @@ jobs:
             BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
             kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
           
-            kubectl delete pod harness-0
+            # kubectl delete pod harness-0
           fi
 
 workflows:
