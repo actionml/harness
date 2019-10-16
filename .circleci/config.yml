@@ -121,7 +121,7 @@ jobs:
           if [ $RESULT -eq 0 ]
           then
             BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-            kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:$BRANCH"}]'
+            kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
           
             kubectl delete pod harness-0
           fi
