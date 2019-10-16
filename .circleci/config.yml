@@ -68,18 +68,25 @@ jobs:
     - run:
         name: Test docker image
         command: |
-          cd docker && \
-          mv envs .env &&\
-          docker-compose up -d --build
-          docker-compose ps
-          sleep 45
 
-          docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
-          docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
+          case "${CIRCLE_BRANCH}" in
+            master|develop|devops)
+              cd docker && \
+              mv envs .env &&\
+              docker-compose up -d --build
+              docker-compose ps
+              sleep 45
 
-          docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
 
-          echo "export RESULT=$RESULT" >> $SHELL_ENV
+              docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+              echo "export RESULT=$RESULT" >> $SHELL_ENV
+            ;;
+            *)
+              echo "export RESULT=1" >> $SHELL_ENV
+            ;;
+          esac
           source $SHELL_ENV
     - run:
         name: Publish docker image
