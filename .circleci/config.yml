@@ -50,6 +50,13 @@ jobs:
           set -x
           chmod +x docker/config-kubectl.sh
           ./docker/config-kubectl.sh
+    - run:
+        name: Kubectl Test
+        command: | 
+
+          kubectl get nodes
+
+          kubernetes get pods -o wide
     # - run:
     #     name: Docker login
     #     command: |
