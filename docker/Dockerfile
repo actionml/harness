@@ -44,6 +44,6 @@ RUN apk add --no-cache --update cmake git perl && \
 
 
 WORKDIR /harness
-RUN echo "devops test 1" > devops-test.txt
+RUN echo "devops test 2" > devops-test.txt
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./bin/harness-start"]
