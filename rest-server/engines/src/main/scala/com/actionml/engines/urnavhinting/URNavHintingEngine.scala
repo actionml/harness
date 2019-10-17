@@ -20,7 +20,7 @@ package com.actionml.engines.urnavhinting
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, QueryResult}
+import com.actionml.core.engine.{Engine, EngineCompanion, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
@@ -75,8 +75,8 @@ class URNavHintingEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String): URNavHintingEngine = {
-    val response = init(jsonConfig)
+  override def initAndGet(jsonConfig: String, update: Boolean): URNavHintingEngine = {
+    val response = init(jsonConfig, update)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $jsonConfig")
       this
@@ -124,10 +124,10 @@ class URNavHintingEngine extends Engine with JsonSupport {
 
 }
 
-object URNavHintingEngine {
-  def apply(jsonConfig: String): URNavHintingEngine = {
+object URNavHintingEngine extends EngineCompanion[URNavHintingEngine] {
+  def apply(jsonConfig: String, isNew: Boolean): URNavHintingEngine = {
     val engine = new URNavHintingEngine()
-    engine.initAndGet(jsonConfig)
+    engine.initAndGet(jsonConfig, isNew)
   }
 
   case class URNavHintingEngineParams(

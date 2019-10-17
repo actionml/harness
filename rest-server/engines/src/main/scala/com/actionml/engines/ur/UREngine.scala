@@ -22,7 +22,7 @@ import java.util.Date
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, QueryResult}
+import com.actionml.core.engine.{Engine, EngineCompanion, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
@@ -47,19 +47,18 @@ class UREngine extends Engine with JsonSupport {
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(jsonConfig).andThen { _ =>
-
       parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
-        parseAndValidate[URDatasetParams](
+        if (update) parseAndValidate[URDatasetParams](
           jsonConfig,
           errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
             s"$jsonConfig",
           transform = _ \ "dataset"
         ).foreach { p =>
-          val eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
+          def eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
           p.ttl.fold[Validated[ValidateError, _]] {
             eventsDao.createIndexes(365.days)
             Valid(p)
@@ -96,8 +95,8 @@ class UREngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String): UREngine = {
-    val response = init(jsonConfig)
+  override def initAndGet(jsonConfig: String, update: Boolean): UREngine = {
+    val response = init(jsonConfig, update)
     if (response.isValid) {
       logger.info(s"Engine-id: ${engineId}. Initialized with JSON: $jsonConfig")
       this
@@ -153,10 +152,10 @@ class UREngine extends Engine with JsonSupport {
 
 }
 
-object UREngine extends JsonSupport {
-  def apply(jsonConfig: String): UREngine = {
+object UREngine extends JsonSupport with EngineCompanion[UREngine] {
+  def apply(jsonConfig: String, isNew: Boolean): UREngine = {
     val engine = new UREngine()
-    engine.initAndGet(jsonConfig)
+    engine.initAndGet(jsonConfig, update = isNew)
   }
 
   case class UREngineParams(
