@@ -23,6 +23,7 @@ import java.time.Instant
 
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport.EsDocument
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
@@ -48,8 +49,12 @@ import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
 import scala.util.{Properties, Try}
 
-trait ElasticSearchSupport extends SearchSupport[Hit] {
-  override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
+trait ElasticSearchSupport extends SearchSupport[Hit, EsDocument] {
+  override def createSearchClient(aliasName: String): SearchClient[Hit, EsDocument] = ElasticSearchClient(aliasName)
+}
+
+object ElasticSearchSupport {
+  type EsDocument = (String, Map[String, List[String]])
 }
 
 trait JsonSearchResultTransformation[T] {
@@ -74,8 +79,9 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
-  this: JsonSearchResultTransformation[T] =>
+class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument])
+  extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
+  this: JsonSearchResultTransformation[Hit] =>
   import ElasticSearchClient._
   import ElasticSearchClient.ESVersions._
   implicit val _ = DefaultFormats
@@ -91,7 +97,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
-  override def saveOneById(id: String, doc: T): Boolean = {
+  override def saveOneById(id: String, doc: EsDocument): Boolean = {
     client.performRequest(new Request(
       "HEAD",
       s"/_alias/$alias"))
@@ -133,7 +139,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     }
   }
 
-  override def search(query: SearchQuery): Seq[T] = {
+  override def search(query: SearchQuery): Seq[Hit] = {
     client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
       .getStatusLine
       .getStatusCode match {
@@ -142,7 +148,7 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
         val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
         val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
         val indexSet = responseJValue.extract[Map[String, JValue]].keys
-        indexSet.headOption.fold(Seq.empty[T]) { actualIndexName =>
+        indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
           logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
           val request = new Request("POST", s"/$actualIndexName/_search")
           request.setJsonEntity(mkElasticQueryString(query))
@@ -153,15 +159,15 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
               transform(parse(EntityUtils.toString(response.getEntity)))
             case _ =>
               logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-              Seq.empty[T]
+              Seq.empty[Hit]
           }
         }
-      case _ => Seq.empty
+      case _ => Seq.empty[Hit]
     }
 
   }
 
-  def findDocById(id: String): (String, Map[String, Seq[String]]) = {
+  def findDocById(id: String): EsDocument = {
     var rjv: Option[JValue] = Some(JString(""))
     try {
       client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
@@ -210,17 +216,22 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     }
 
     if (rjv.nonEmpty) {
-      //val responseJValue = parse(EntityUtils.toString(response.getEntity))
       try {
-        val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
-        id -> result
+        val jobj = (rjv.get \ "_source").values.asInstanceOf[Map[String, Any]]
+        id -> jobj.collect {
+          case (name, value) if value.isInstanceOf[List[Any]] =>
+            name -> value.asInstanceOf[List[Any]].collect {
+              case v: String => v
+            }
+        }
       } catch {
         case e: ClassCastException =>
-          id -> Map.empty
+          logger.error("Wrong format of ES doc", e)
+          id -> Map.empty[String, List[String]]
       }
     } else {
       logger.info(s"Non-existent item-id: $id, not an error")
-      id -> Map.empty
+      id -> Map.empty[String, List[String]]
     }
   }
 
@@ -385,14 +396,16 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
 
 
 object ElasticSearchClient extends LazyLogging with JsonSupport {
-  private implicit val _: Writer[Hit] = new Writer[Hit] {
-    override def write(obj: Hit): JValue = JObject(
-      "id" -> JString(obj.id),
-      "score" -> JDouble(obj.score)
+  private implicit val _: Writer[EsDocument] = new Writer[EsDocument] {
+    override def write(doc: EsDocument): JValue = JObject(
+      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
+        JField(key, JArray(values.map(JString))) :: acc
+      }
     )
   }
 
-  def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
+  def apply(aliasName: String): ElasticSearchClient =
+    new ElasticSearchClient(aliasName) with ElasticSearchResultTransformation
 
 
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString

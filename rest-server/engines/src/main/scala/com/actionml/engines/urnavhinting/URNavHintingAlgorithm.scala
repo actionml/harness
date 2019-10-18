@@ -89,7 +89,7 @@ class URNavHintingAlgorithm private (
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
   private var dateNames: Seq[String] = _
-  private var es: ElasticSearchClient[Hit] = _
+  private var es: ElasticSearchClient = _
   private var indicators: Option[List[IndicatorParams]] = None
   private var seed: Option[Long] = None
 
