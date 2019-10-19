@@ -66,8 +66,8 @@ class CBEngine extends Engine with JsonSupport {
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  override def initAndGet(json: String): CBEngine = {
-   val response = init(json)
+  override def initAndGet(json: String, update: Boolean): CBEngine = {
+   val response = init(json, update)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
@@ -200,12 +200,9 @@ case class CBStatus(
   }
 }
 
-object CBEngine {
-  def apply(json: String): CBEngine = {
+object CBEngine extends EngineCompanion[CBEngine] {
+  def apply(json: String, isNew: Boolean): CBEngine = {
     val engine = new CBEngine()
-    engine.initAndGet(json)
+    engine.initAndGet(json, update = isNew)
   }
-
-  // in case we don't want to use "apply", which is magically connected to the class's constructor
-  def createEngine(json: String) = apply(json)
 }
