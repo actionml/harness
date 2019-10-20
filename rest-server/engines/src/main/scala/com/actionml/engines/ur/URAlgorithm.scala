@@ -85,7 +85,7 @@ class URAlgorithm private (
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
   private var dateNames: Set[String] = _
-  private var es: ElasticSearchClient[Hit] = _
+  private var es: ElasticSearchClient = _
   private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
   private var rules: Option[Seq[Rule]] = _
@@ -337,7 +337,7 @@ class URAlgorithm private (
 
     logger.trace("Engine-id: ${engineId}. Actions read now creating correlators")
     val cooccurrenceIDSs = {
-      val iDs = data.indicatorRDDs.map(_._2).toSeq
+      val iDs = data.indicatorRDDs.map(_._2)
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
           DownsamplableCrossOccurrenceDataset(
