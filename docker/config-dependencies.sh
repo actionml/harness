@@ -12,10 +12,16 @@ mv ./kubectl /usr/local/bin/kubectl
 
 # == Configure K8s Cluster
 kubectl config set-credentials admin --username=${K8S_ADMIN_USER} --password=${K8S_ADMIN_PASS}
-kubectl config set-cluster k8s.sitespect --insecure-skip-tls-verify=true --server=${K8S_SERVER}
-kubectl config set-context k8s.sitespect --user=admin --namespace=default --cluster=k8s.sitespect
-kubectl config use-context k8s.sitespect
+kubectl config set-cluster k8s.cluster --insecure-skip-tls-verify=true --server=${K8S_SERVER}
+kubectl config set-context k8s.cluster --user=admin --namespace=default --cluster=k8s.cluster
+kubectl config use-context k8s.cluster
 
+
+
+`kubectl config set-credentials admin --username=<K8S_ADMIN_USER> --password=<K8S_ADMIN_PASS>`
+`kubectl config set-cluster <K8S_CLUSTER_NAME> --insecure-skip-tls-verify=true --server=<K8S_SERVER>`
+`kubectl config set-context  <K8S_CLUSTER_NAME> --user=admin --namespace=default --cluster= <K8S_CLUSTER_NAME>`
+`kubectl config use-context  <K8S_CLUSTER_NAME>`
 
 
 
