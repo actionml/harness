@@ -22,7 +22,7 @@ import java.util.Date
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, EngineCompanion, QueryResult}
+import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
@@ -152,7 +152,7 @@ class UREngine extends Engine with JsonSupport {
 
 }
 
-object UREngine extends JsonSupport with EngineCompanion[UREngine] {
+object UREngine extends JsonSupport {
   def apply(jsonConfig: String, isNew: Boolean): UREngine = {
     val engine = new UREngine()
     engine.initAndGet(jsonConfig, update = isNew)

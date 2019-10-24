@@ -151,7 +151,7 @@ case class NavHintingStatus(
     algorithmParams: AlgorithmParams)
   extends Response
 
-object NavHintingEngine extends EngineCompanion[NavHintingEngine] {
+object NavHintingEngine {
   def apply(json: String, isNew: Boolean): NavHintingEngine = {
     val engine = new NavHintingEngine()
     engine.initAndGet(json, update = isNew)

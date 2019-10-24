@@ -200,7 +200,7 @@ case class CBStatus(
   }
 }
 
-object CBEngine extends EngineCompanion[CBEngine] {
+object CBEngine {
   def apply(json: String, isNew: Boolean): CBEngine = {
     val engine = new CBEngine()
     engine.initAndGet(json, update = isNew)

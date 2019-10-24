@@ -150,8 +150,4 @@ abstract class Engine extends LazyLogging with JsonSupport {
   }
 }
 
-trait EngineCompanion[T] {
-  def apply(json: String, isNew: Boolean): T
-}
-
 case class EngineStatus(engineId: String, comment: String) extends Response
