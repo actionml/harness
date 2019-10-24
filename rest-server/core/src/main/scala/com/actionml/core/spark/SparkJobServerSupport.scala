@@ -84,7 +84,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
       Await.result(
         Future.sequence {
           lib.filter(f => f.isFile && f.getName.endsWith(".jar"))
-            .map(jar => client.addJar(URI.create(s"file://${jar.getAbsolutePath}")))
+            .map(client.uploadJar)
         } , Duration.Inf)
       contexts.update(id, ContextApi(client, handlers))
       client

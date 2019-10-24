@@ -342,7 +342,6 @@ class URAlgorithm private (
               logger.error(s"Spark computation failed for engine $engineId", e)
           } finally {
             JobManager.removeJob(jobDescription.jobId)
-            SparkContextSupport.stopAndClean(sc)
           }
 
       case e: ValidateError =>
