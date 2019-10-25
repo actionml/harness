@@ -20,7 +20,7 @@ package com.actionml.engines.urnavhinting
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.core.drawInfo
-import com.actionml.core.engine.{Engine, EngineCompanion, QueryResult}
+import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
@@ -29,8 +29,6 @@ import com.actionml.core.store.indexes.annotations.SingleIndex
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
-
-import scala.concurrent.duration._
 
 
 class URNavHintingEngine extends Engine with JsonSupport {
@@ -124,7 +122,7 @@ class URNavHintingEngine extends Engine with JsonSupport {
 
 }
 
-object URNavHintingEngine extends EngineCompanion[URNavHintingEngine] {
+object URNavHintingEngine {
   def apply(jsonConfig: String, isNew: Boolean): URNavHintingEngine = {
     val engine = new URNavHintingEngine()
     engine.initAndGet(jsonConfig, isNew)
