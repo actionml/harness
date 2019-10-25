@@ -47,7 +47,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @return The extending Engine instance, initialized and ready for input and/or queries etc.
     */
   @deprecated("Companion factory objects should be used instead of this old factory method", "0.3.0")
-  def initAndGet(json: String): Engine
+  def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit
@@ -148,6 +148,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
     logger.warn(message)
     Invalid(NotImplemented(jsonComment(message)))
   }
+}
+
+trait EngineCompanion[T] {
+  def apply(json: String, isNew: Boolean): T
 }
 
 case class EngineStatus(engineId: String, comment: String) extends Response

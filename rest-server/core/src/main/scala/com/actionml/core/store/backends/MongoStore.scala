@@ -47,11 +47,9 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T: TypeTag](name: String)(implicit ct: ClassTag[T]): DAO[T] = {
+  override def createDao[T: TypeTag](name: String, ttl: Duration)(implicit ct: ClassTag[T]): DAO[T] = {
     val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
-    val dao = new MongoAsyncDao[T](collection)
-    dao.createIndexes()
-    dao
+    new MongoAsyncDao[T](collection)
   }
 
   override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))

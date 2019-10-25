@@ -79,19 +79,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
           s"$jsonConfig",
         transform = _ \ "dataset"
-      ).andThen { p =>
-        p.ttl.fold[Validated[ValidateError, _]] {
-          eventsDao.createIndexes()
-          Valid(p)
-        } { ttlString =>
-          Try(Duration(ttlString)).toOption.map { ttl =>
-            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(ttl)
-            logger.debug(s"Engine-id: ${engineId}. Got a dataset.ttl = $ttl")
-            Valid(p)
-          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
-        }
-      }.andThen(_ => Valid(Comment("URDataset initialized")))
+      ).andThen(_ => Valid(Comment("URDataset initialized")))
     }
   }
 

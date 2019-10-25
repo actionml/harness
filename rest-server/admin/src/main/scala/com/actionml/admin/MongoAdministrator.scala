@@ -37,7 +37,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   drawActionML
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
-    Class.forName(engineFactory).getMethod("apply", classOf[String]).invoke(null, json).asInstanceOf[Engine]
+    Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.TRUE).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state
@@ -84,7 +84,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
       if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" === params.engineId))).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
+        enginesCollection.saveOne("engineId" === params.engineId , EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
         Valid(Comment(params.engineId))
       } else if (newEngine != null) {

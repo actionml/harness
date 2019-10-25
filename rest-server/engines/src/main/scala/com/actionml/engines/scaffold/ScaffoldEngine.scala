@@ -63,8 +63,8 @@ class ScaffoldEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): ScaffoldEngine = {
-    val response = init(json)
+  override def initAndGet(json: String, update: Boolean): ScaffoldEngine = {
+    val response = init(json, update)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
@@ -132,11 +132,8 @@ class ScaffoldEngine extends Engine with JsonSupport {
 }
 
 object ScaffoldEngine {
-  def apply(json: String): ScaffoldEngine = {
+  def apply(json: String, isNew: Boolean): ScaffoldEngine = {
     val engine = new ScaffoldEngine()
-    engine.initAndGet(json)
+    engine.initAndGet(json, update = isNew)
   }
-
-  // in case we don't want to use "apply", which is magically connected to the class's constructor
-  def createEngine(json: String) = apply(json)
 }

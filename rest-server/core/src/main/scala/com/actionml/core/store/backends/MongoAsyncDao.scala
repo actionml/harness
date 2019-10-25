@@ -24,13 +24,12 @@ import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
-import com.mongodb.client.model.IndexOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonInt32, BsonValue}
-import org.mongodb.scala.model.{Filters, IndexModel, Sorts}
+import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -160,6 +159,10 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
         case _ => false
       }.flatMap(_._3)
     }
+    def mkIndexOptions(name: String) =
+      if (name == "_id") IndexOptions().name(name)
+      else IndexOptions().name(name).background(true)
+
     (for {
       actualIndexesInfo <- getActualIndexesInfo(collection)
       required = getRequiredIndexesInfo[T].map {
@@ -169,11 +172,10 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       absentIndexes = required diff actualIndexesInfo
       newIndexes = absentIndexes.collect {
         case (iName, SingleIndex(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
-          val options = new IndexOptions().name(iName)
-            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+          val options = mkIndexOptions(iName).expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
           (iName, IndexModel(Document(iName -> order2Int(o)), options))
         case (iName, SingleIndex(o, _), _)=>
-          (iName, IndexModel(Document(iName -> order2Int(o)), new IndexOptions().name(iName)))
+          (iName, IndexModel(Document(iName -> order2Int(o)), mkIndexOptions(iName)))
         case (_, CompoundIndex(fields), _) =>
           val indexName: String = fields.map(_._1).mkString("_")
           val builder = Document.builder
@@ -181,7 +183,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
             case (name, o) =>
               builder += name -> ordering2BsonValue(o)
           }
-          (indexName, IndexModel(builder.result(), new IndexOptions().name(indexName)))
+          (indexName, IndexModel(builder.result(), mkIndexOptions(indexName)))
       }
       _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
         logger.info(s"Drop index $iname")
