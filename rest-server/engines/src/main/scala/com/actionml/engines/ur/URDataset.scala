@@ -175,31 +175,34 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private val es = ElasticSearchClient(engineId)
   private def insertProperty(event: UREvent): Unit =
     try {
-      val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
-      itemsDao.saveOneById(
-        event.entityId,
-        URItemProperties(
-          _id = updateItem._id,
-          dateProps = updateItem.dateProps ++ event.dateProps,
-          categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
-          floatProps = updateItem.floatProps ++ event.floatProps,
-          booleanProps = updateItem.booleanProps ++ event.booleanProps
+      itemsDao.findOneById(event.entityId).fold(logger.warn(s"No property found with id ${event.entityId}")) { updateItem =>
+        itemsDao.saveOneById(
+          event.entityId,
+          URItemProperties(
+            _id = updateItem._id,
+            dateProps = updateItem.dateProps ++ event.dateProps,
+            categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+            floatProps = updateItem.floatProps ++ event.floatProps,
+            booleanProps = updateItem.booleanProps ++ event.booleanProps
+          )
         )
-      )
-      val newProps = (
-        event.categoricalProps.mapValues(_.toList) ++
-        event.booleanProps.mapValues(_.toString :: Nil) ++
-        event.dateProps.mapValues(_.toString :: Nil) ++
-        event.floatProps.mapValues(_.toString :: Nil)
-      ).filter {
-        case (name, _) => indicatorNames.contains(name)
+        val newProps = (
+          event.categoricalProps.mapValues(_.toList) ++
+            event.booleanProps.mapValues(_.toString :: Nil) ++
+            event.dateProps.mapValues(_.toString :: Nil) ++
+            event.floatProps.mapValues(_.toString :: Nil)
+        ).filterNot {
+          case (name, _) => indicatorNames.contains(name)
+        }
+        if (newProps.nonEmpty) {
+          val esDoc = {
+            val doc = es.findDocById(event.entityId)
+            (doc._1, doc._2 ++ newProps)
+          }
+          val result = es.saveOneById(event.entityId, esDoc)
+          logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
+        }
       }
-      val esDoc = {
-        val doc = es.findDocById(event.entityId)
-        (doc._1, doc._2 ++ newProps)
-      }
-      val result = es.saveOneById(event.entityId, esDoc)
-      logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
     } catch {
       case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
     }
