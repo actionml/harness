@@ -123,7 +123,7 @@ jobs:
           if [ $RESULT -eq 0 ] 
           then
            case "${CIRCLE_BRANCH}" in
-              "develop")
+              "devops")
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
               
