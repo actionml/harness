@@ -18,6 +18,7 @@
 package com.actionml.admin
 
 import cats.data.Validated
+import cats.effect.IO
 import com.actionml.core.engine.Engine
 import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
@@ -31,7 +32,7 @@ abstract class Administrator extends LazyLogging {
 
   // engine management
   def getEngine(engineId: String): Option[Engine]
-  def addEngine(json: String): Validated[ValidateError, Response]
+  def addEngine(json: String): IO[Validated[ValidateError, _ <: Response]]
   def removeEngine(engineId: String): Validated[ValidateError, Response]
   def updateEngine(json: String): Validated[ValidateError, Response]
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response]

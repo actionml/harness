@@ -48,7 +48,7 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
     case CreateEngine(engineJson) =>
       log.info("Create new engine, {}", engineJson)
-      sender() ! admin.addEngine(engineJson)
+      sender() ! admin.addEngine(engineJson).unsafeRunSync()
 
     case UpdateEngine(engineJson) =>
       log.info(s"Update existing engine, $engineJson")

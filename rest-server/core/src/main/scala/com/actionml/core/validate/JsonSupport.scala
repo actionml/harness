@@ -25,6 +25,7 @@ import java.util.{Date, GregorianCalendar, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import cats.effect.IO
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
@@ -83,6 +84,13 @@ trait JsonSupport extends LazyLogging {
       case s: String => JString(s)
     }
   ))
+
+  def parseAndValidateIO[T](
+                           json: String,
+                           errorMsg: String = "",
+                           transform: JValue => JValue = a => a)
+                           (implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): IO[T] =
+    IO(transform(parse(json)).extract[T])
 
   def parseAndValidate[T](
     json: String,

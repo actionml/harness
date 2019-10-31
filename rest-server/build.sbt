@@ -9,7 +9,7 @@ scalaVersion := "2.11.12"
 lazy val harnessAuthLibVersion = "0.3.0"
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
-lazy val circeVersion = "0.8.0"
+lazy val circeVersion = "0.11.1"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoJavaDriverVersion = "3.10.2"
 lazy val mongoScalaDriverVersion = "2.6.0"
@@ -62,6 +62,13 @@ lazy val commonSettings = Seq(
 lazy val core = (project in file("core")).
   settings(
     commonSettings,
+    scalacOptions ++= Seq(
+      "-feature",
+      "-deprecation",
+      "-unchecked",
+      "-language:postfixOps",
+      "-language:higherKinds",
+      "-Ypartial-unification"),
     libraryDependencies ++= Seq(
       "org.mongodb.scala" %% "mongo-scala-driver" % mongoScalaDriverVersion,
       "org.mongodb.scala" %% "mongo-scala-bson" % mongoScalaDriverVersion,
@@ -88,12 +95,17 @@ lazy val core = (project in file("core")).
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-generic-extras" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
-      "io.circe" %% "circe-optics" % circeVersion,
+      "io.circe" %% "circe-optics" % "0.11.0",
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
       "de.heikoseeberger" %% "akka-http-json4s" % "1.16.0",
 
       "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
       "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
+
+      "org.typelevel" %% "cats-effect" % "1.4.0",
+      "com.github.cb372" %% "scalacache-cats-effect" % "0.28.0",
+      "com.github.cb372" %% "scalacache-guava" % "0.28.0",
+      "io.chrisdavenport" %% "circuit" % "0.2.3",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),

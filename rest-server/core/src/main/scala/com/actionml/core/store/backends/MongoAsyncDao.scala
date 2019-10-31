@@ -19,6 +19,7 @@ package com.actionml.core.store.backends
 
 import java.util.concurrent.TimeUnit
 
+import cats.effect.{ContextShift, IO}
 import com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
@@ -55,6 +56,16 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   override def findOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Option[T]] = {
     collection.find(mkFilter(filter)).headOption
   }
+
+  override def findManyIO(query: DaoQuery = DaoQuery())(implicit cs: ContextShift[IO]): IO[Iterable[T]] = IO.fromFuture(IO {
+    val find = collection.find(mkFilter(query.filter))
+    query.orderBy.fold(find) { order =>
+      find.sort(order2Bson(order))
+    }.skip(query.offset)
+      .limit(query.limit)
+      .foldLeft(List.empty[T])((acc, i) => i :: acc)
+      .toFuture
+  })
 
   override def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]] = {
     val find = collection.find(mkFilter(query.filter))

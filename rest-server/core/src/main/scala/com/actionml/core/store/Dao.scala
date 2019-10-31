@@ -19,6 +19,7 @@ package com.actionml.core.store
 
 import java.util.concurrent.Executors
 
+import cats.effect.{ContextShift, IO}
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.typesafe.scalalogging.LazyLogging
 
@@ -34,6 +35,7 @@ trait DAO[T] extends AsyncDao[T] {
   def findOneById(id: String): Option[T]
   def findOne(filter: (String, QueryCondition)*): Option[T]
   def findMany(query: DaoQuery = DaoQuery()): Iterable[T]
+  def findManyIO(query: DaoQuery = DaoQuery())(implicit cs: ContextShift[IO]): IO[Iterable[T]]
   def insert(o: T): Unit
   def insertMany(c: Seq[T]): Unit
   def update(filter: (String, QueryCondition)*)(o: T): T
