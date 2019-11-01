@@ -31,7 +31,9 @@ After the first build, your work will be set on CircleCi.
 ![4](https://user-images.githubusercontent.com/17029741/68024271-657db600-fc88-11e9-96d5-fedba486d60c.png)
 
 ## Harness
-To create, upload the image to the docker hub and upgrade to the k8s cluster.
+In order to create the CI/CD configuration for your harness you will need to have your own  repository on docker hub (private or public). It is needed to push the image that is going to be used.
+After creating your repoository in docker hub, follow these steps:
+
 Click on setting icon on the right top of the page and go to *Project Settings*.
 Click `Environment Variables` in the left and `Add Variables` in the right page and add the following variables:
 
