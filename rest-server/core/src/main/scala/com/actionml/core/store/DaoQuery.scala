@@ -20,7 +20,7 @@ package com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 
 
-case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, QueryCondition)] = Seq.empty)
+case class DaoQuery(offset: Int = 0, limit: Int = 100, orderBy: Option[OrderBy] = None, filter: Seq[(String, QueryCondition)] = Seq.empty)
 
 object DaoQuery {
   val empty = DaoQuery()

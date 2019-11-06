@@ -144,6 +144,7 @@ class UREngine extends Engine with JsonSupport {
     logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
+    JobManager.getActiveJobDescriptions(engineId).foreach(d => JobManager.cancelJob(engineId, d.jobId))
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
@@ -255,5 +256,5 @@ object UREngine extends JsonSupport {
 
 case class UREngineStatus(
     engineParams: UREngineParams,
-    jobStatuses: Map[String, JobDescription])
+    jobStatuses: Iterable[JobDescription])
   extends Response

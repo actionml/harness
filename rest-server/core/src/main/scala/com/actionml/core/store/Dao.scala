@@ -34,6 +34,7 @@ trait DAO[T] extends AsyncDao[T] {
   def findOneById(id: String): Option[T]
   def findOne(filter: (String, QueryCondition)*): Option[T]
   def findMany(query: DaoQuery = DaoQuery()): Iterable[T]
+  def findMany(filter: (String, QueryCondition)*): Iterable[T]
   def insert(o: T): Unit
   def insertMany(c: Seq[T]): Unit
   def update(filter: (String, QueryCondition)*)(o: T): T
@@ -74,6 +75,7 @@ trait SyncDao[T] extends DAO[T] with LazyLogging { self: AsyncDao[T] =>
   override def findOneById(id: String): Option[T] = sync(findOneByIdAsync(id))
   override def findOne(filter: (String, QueryCondition)*): Option[T] = sync(findOneAsync(filter: _*))
   override def findMany(query: DaoQuery = DaoQuery()): Iterable[T] = sync(findManyAsync(query))
+  override def findMany(filter: (String, QueryCondition)*): Iterable[T] = sync(findManyAsync(DaoQuery(filter = filter)))
   override def insert(o: T): Unit = sync(insertAsync(o))
   override def insertMany(c: Seq[T]): Unit = sync(insertManyAsync(c))
   override def update(filter: (String, QueryCondition)*)(o: T): T = sync(updateAsync(filter: _*)(o))

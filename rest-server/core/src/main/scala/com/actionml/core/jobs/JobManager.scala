@@ -22,7 +22,7 @@ import java.util.UUID
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.DAO
+import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.store.backends.MongoStorage
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
@@ -38,9 +38,9 @@ import scala.util.control.NonFatal
 
 trait JobManagerInterface {
   def addJob(engineId: String, f: Future[_] = Future.successful(()), c: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
-  def getActiveJobDescriptions(engineId: String): Map[String, JobDescription]
+  def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   def removeJob(jobId: String): Unit
-  def cancelJob(jobId: String): Future[Unit]
+  def cancelJob(engineId: String, jobId: String): Future[Unit]
 }
 
 /** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
@@ -50,50 +50,47 @@ trait JobManagerInterface {
   * must be scanned for any error reports. Todo: do we want to remember some number of old finished jobs?
   */
 object JobManager extends JobManagerInterface with LazyLogging {
+  import com.actionml.core.store.DaoQuery.syntax._
   private val jobsStore: DAO[JobRecord] = MongoStorage.getStorage("harness_meta_store", codecs = JobRecord.mongoCodecs).createDao[JobRecord]("jobs")
   // first key is engineId, second is the harness specific Job id
-  private val jobDescriptions: TrieMap[String, Map[String, (Cancellable, JobDescription)]] = TrieMap.empty
+  private val jobDescriptions = TrieMap.empty[String, List[(Cancellable, JobDescription)]]
 
   override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
     val description = JobDescription.create.copy(status = JobStatuses.executing, comment = comment)
     jobsStore.insert(JobRecord(engineId, description))
     jobDescriptions.put(engineId,
-      jobDescriptions.getOrElse(engineId, Map.empty) +
-        (description.jobId -> (c -> description.copy(status = JobStatuses.executing)))
+      (c -> description.copy(status = JobStatuses.executing)) :: jobDescriptions.getOrElse(engineId, Nil)
     )
     description
   }
 
   /** Gets any active Jobs for the specified Engine */
-  override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
+  override def getActiveJobDescriptions(engineId: String): Iterable[JobDescription] = {
     jobsStore
-      .findMany()
-      .map(j => engineId -> j.toJobDescription)
-      .toMap
+      .findMany("engineId" === engineId)
+      .map(_.toJobDescription)
   }
 
   override def removeJob(harnessJobId: String): Unit = {
-    import com.actionml.core.store.DaoQuery.syntax._
     jobsStore.removeOne(("jobId" === harnessJobId))
     jobDescriptions.collectFirst { case (engineId, jds) =>
-      jobDescriptions.update(engineId, jds - harnessJobId)
+      jobDescriptions.update(engineId, jds.filterNot(_._2.jobId == harnessJobId))
     }
   }
 
-  override def cancelJob(jobId: String): Future[Unit] = {
-    Future.sequence(jobDescriptions.collect {
-      case (_, jds) if jds.contains(jobId) =>
-        jds.get(jobId).map {
-          case (cancellable, _) =>
-            removeJob(jobId)
-            cancellable.cancel()
-        }
-    }.flatten ++ Seq(LivyJobServerSupport.cancel(jobId)))
-      .map(_ => ())
-      .recover {
-        case NonFatal(e) =>
-          logger.error(s"Cancel job error", e)
+  override def cancelJob(engineId: String, jobId: String): Future[Unit] = {
+    jobDescriptions.get(engineId).fold(Future.successful()) { jds =>
+      jds.find(_._2.jobId == jobId).fold(Future.successful()) {
+        case (cancellable, description) =>
+          val f = cancellable.cancel()
+          f.onComplete(_ => removeJob(jobId))
+          f.flatMap(_ => LivyJobServerSupport.cancel(jobId))
+          f.recover {
+            case NonFatal(e) =>
+              logger.error(s"Cancel job error", e)
+          }
       }
+    }
   }
 }
 
