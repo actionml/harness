@@ -68,7 +68,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   override def getActiveJobDescriptions(engineId: String): Map[String, JobDescription] = {
     jobsStore
       .findMany()
-      .map(j => engineId -> j.toJobDescription)
+      .map(j => j.jobId -> j.toJobDescription)
       .toMap
   }
 

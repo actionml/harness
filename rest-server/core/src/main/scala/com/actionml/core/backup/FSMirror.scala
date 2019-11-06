@@ -18,6 +18,7 @@
 package com.actionml.core.backup
 
 import java.io.{File, FileWriter, IOException, PrintWriter}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -67,7 +68,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
   }
 
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
+  override def importEvents(engine: Engine, location: String, isActive: AtomicBoolean): Validated[ValidateError, String] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
          | $errMsg""".stripMargin)))
@@ -87,14 +88,14 @@ class FSMirror(mirrorContainer: String, engineId: String)
           for (file <- flist) {
             filesRead += 1
             logger.trace(s"Engine-id: ${engineId}. Importing from file: ${file.getName}")
-            eventsProcessed = eventsProcessed + importFromFile(file, engine)
+            eventsProcessed = eventsProcessed + importFromFile(file, engine, isActive)
           }
           if(filesRead == 0 || eventsProcessed == 0)
             logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $location ?")
           else
             logger.trace(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
         } else if (resourceCollection.exists()) { // single file
-          val eventsProcessed = importFromFile(new File(location), engine)
+          val eventsProcessed = importFromFile(new File(location), engine, isActive)
           logger.info(s"Engine-id: ${engineId}. Import processed $eventsProcessed events.")
         }
       } else {
@@ -115,23 +116,29 @@ class FSMirror(mirrorContainer: String, engineId: String)
     Valid(jsonComment("Job created to import events in the background."))
   }
 
-  private def importFromFile(file: File, engine: Engine): Long = {
+  private class CancelException extends RuntimeException
+  private def importFromFile(file: File, engine: Engine, isActive: AtomicBoolean): Long = {
     var eventsProcessed = 0
     val src = Source.fromFile(file)
     try {
       src.getLines().sliding(512, 512).foreach { lines =>
         eventsProcessed += lines.size
-        try {
-          engine.inputMany(lines)
-        } catch {
-          case e: IOException =>
-            logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
-        }
+        if (isActive.get)
+          try {
+            engine.inputMany(lines)
+          } catch {
+            case e: IOException =>
+              logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
+          }
+        else throw new CancelException
       }
       eventsProcessed
     } catch {
       case e: IOException =>
         logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.getMessage}", e)
+        eventsProcessed
+      case _: CancelException =>
+        logger.info(s"Import canceled on file ${file}. $eventsProcessed events processed")
         eventsProcessed
     } finally {
       src.close

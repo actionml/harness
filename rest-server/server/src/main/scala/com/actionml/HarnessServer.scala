@@ -26,7 +26,7 @@ import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
+import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService}
 import com.actionml.core.store.backends.MongoStorage
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.Module

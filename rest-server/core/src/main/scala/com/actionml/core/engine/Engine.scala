@@ -17,10 +17,12 @@
 
 package com.actionml.core.engine
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{Cancellable, JobManager}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
@@ -132,8 +134,15 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def inputMany: Seq[String] => Unit = _.foreach(input)
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val f = Future(mirroring.importEvents(this, inputPath))
-    val jobDescription = JobManager.addJob(engineId, f, comment = "batch import, non-Spark job")
+    val isActive = new AtomicBoolean(true)
+    val f = Future(mirroring.importEvents(this, inputPath, isActive))
+    val cancel = new Cancellable {
+      override def cancel(): Future[Unit] = {
+        isActive.set(false)
+        Future.successful ()
+      }
+    }
+    val jobDescription = JobManager.addJob(engineId, f, cancel, comment = "batch import, non-Spark job")
     f.onComplete(_ => JobManager.removeJob(jobDescription.jobId))
     Valid(jobDescription)
   }

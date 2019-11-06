@@ -166,6 +166,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     }
     try {
       eventsDao.insertMany(events)
+      logger.debug(s"Inserted ${events.size} events")
     } catch {
       case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert events $data", e)
     }

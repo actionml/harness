@@ -18,6 +18,7 @@
 package com.actionml.core.backup
 
 import java.io._
+import java.util.concurrent.atomic.AtomicBoolean
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -93,12 +94,12 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
   // todo: should read in a thread and return at once after checking parameters
   // todo: decouple importEvents from mirrorEvents
   /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
+  override def importEvents(engine: Engine, location: String, isActive: AtomicBoolean): Validated[ValidateError, String] = {
     def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
       jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
          | $errMsg""".stripMargin)))
 
-    if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
+    if (rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
       logger.error(s"Engine-id: ${engineId}. Reading from the mirror location will cause an infinite loop." +
         "\nTry moving the files to a new location before doing a batch import.")
       importEventsError(s"Engine-id: ${engineId}. Reading from the mirror location will cause in infinite loop." +
