@@ -140,11 +140,11 @@ class UREngine extends Engine with JsonSupport {
   }
 
   // todo: should kill any pending Spark jobs
-  override def destroy(): Unit = {
+  override def destroy: Unit = {
+    super.destroy
     logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
-    JobManager.getActiveJobDescriptions(engineId).foreach(d => JobManager.cancelJob(engineId, d.jobId))
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {

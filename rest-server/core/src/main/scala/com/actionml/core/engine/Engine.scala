@@ -26,7 +26,8 @@ import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -50,7 +51,9 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit
+  def destroy(): Unit = {
+    Await.result(Future.sequence(JobManager.getActiveJobDescriptions(engineId).map(d => JobManager.cancelJob(engineId, d.jobId))), 30.minutes)
+  }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
     *
