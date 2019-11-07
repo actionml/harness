@@ -324,33 +324,18 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
-    def fieldToJson: ((String, (String, Boolean))) => JField = {
-      case (name, (tpe, _)) => JField(name, JObject("type" -> JString(tpe)))
-    }
     client.performRequest(new Request("HEAD", s"/$indexName"))
       .getStatusLine.getStatusCode match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
           val body = JObject(
-//            JField("settings",
-//              JObject("similarity" ->
-//                JObject("scripted_tfidf" ->
-//                  JObject("type" -> JString("scripted")) ~
-//                  JObject("script" -> JObject(
-//                    "source" -> JString("double tf = Math.sqrt(doc.freq); double idf = Math.log((field.docCount+1.0)/(term.docFreq+1.0)) + 1.0; double norm = 1/Math.sqrt(doc.length); return query.boost * tf * idf * norm;")
-//                  ))
-//                )
-//              )
-//            ) ::
             JField("mappings",
               JObject(indexType ->
                 JObject("properties" -> {
                   fieldNames.map { fieldName =>
                     if (typeMappings.contains(fieldName))
-                      JObject(fieldName -> JObject("type" -> JString(typeMappings(fieldName)._1)) )
-//                      ~ JObject("similarity" -> JString("scripted_tfidf")))
+                      JObject(fieldName -> JObject("type" -> JString(typeMappings(fieldName)._1)))
                     else // unspecified fields are treated as not_analyzed strings
-                      JObject(fieldName -> JObject("type" -> JString("keyword")) )
-//                      ~ JObject("similarity" -> JString("scripted_tfidf")))
+                      JObject(fieldName -> JObject("type" -> JString("keyword")))
                   }.reduce(_ ~ _)
                 })
               )
@@ -475,10 +460,6 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
       clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0)))
       if (mustIsEmpty) clauses = clauses ~ ("minimum_should_match" -> 1)
     } else {
-//      clauses = clauses ~ ("must" -> mustToJson(query.must.distinct))
-//      clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot.distinct)))
-//      clauses = clauses ~ ("filter" -> filterToJson(query.filters.distinct))
-//      clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should.distinct)))
       clauses = clauses ~ ("must" -> mustToJson(query.must))
       clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
       clauses = clauses ~ ("filter" -> filterToJson(query.filters))
@@ -512,16 +493,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
             m.boost.fold[JObject](JObject())(b => JObject("boost" -> JDouble(b)))
       }
     }
-    val boosted = clauses.view/*.map { case (name, matchers) =>
-      name -> matchers.foldLeft(Map.empty[Matcher, Float]) { (acc, m) =>
-        acc.get(m).map { b =>
-          acc + (m -> (b + 1f))
-        }.getOrElse(acc + (m -> 1f))
-      }.map { case (m, boost) =>
-        m.copy(boost = m.boost.map(_ + boost).orElse(Some(boost)))
-      }
-    }*/
-    boosted.view.flatMap { case (clause, matchers) =>
+    clauses.view.flatMap { case (clause, matchers) =>
       matchers.flatMap {
         case m@Matcher(_, values, _) if mkAND || values.isEmpty || values.size == 1 =>
           m.values.map { v =>
