@@ -467,7 +467,7 @@ class URAlgorithm private (
     val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
     val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
 
-    val sq = SearchQuery(
+    SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
@@ -476,9 +476,6 @@ class URAlgorithm private (
       size = numResults,
       from = startPos
     )
-
-    //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
-    sq
   }
 
   /** Aggregates unique Rules by name, discarding config rules that are named the same as a query rule */
