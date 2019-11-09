@@ -34,6 +34,7 @@ object DaoQuery {
   case class LessOrEqualsTo(value: Any) extends QueryCondition
   case class LessThen(value: Any) extends QueryCondition
   case class Equals(value: Any) extends QueryCondition
+  case class NotEquals(value: Any) extends QueryCondition
 
   object syntax {
 
@@ -52,6 +53,9 @@ object DaoQuery {
       }
       def ===(v: Any): (String, QueryCondition) = {
         name -> Equals(v)
+      }
+      def !==(v: Any): (String, QueryCondition) = {
+        name -> NotEquals(v)
       }
     }
   }

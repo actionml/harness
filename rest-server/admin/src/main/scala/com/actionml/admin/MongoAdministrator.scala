@@ -43,6 +43,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
+    JobManager.abortExecuting
     engines = enginesCollection.findMany().map { engine =>
       // create each engine passing the params
       val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)

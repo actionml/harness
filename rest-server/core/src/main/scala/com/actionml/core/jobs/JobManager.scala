@@ -41,6 +41,7 @@ trait JobManagerInterface {
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   def removeJob(jobId: String): Unit
   def cancelJob(engineId: String, jobId: String): Future[Unit]
+  def abortExecuting: Future[Unit]
 }
 
 /** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
@@ -68,7 +69,13 @@ object JobManager extends JobManagerInterface with LazyLogging {
   override def getActiveJobDescriptions(engineId: String): Iterable[JobDescription] = {
     jobsStore
       .findMany("engineId" === engineId)
-      .map(_.toJobDescription)
+      .foldLeft(List.empty[JobDescription]) {
+        case (acc, j) if j.status == JobStatuses.queued || j.status == JobStatuses.executing =>
+          j.toJobDescription :: acc
+        case (acc, j) if acc.count(d => d.status != JobStatuses.queued && d.status != JobStatuses.executing) < 10 =>
+          j.toJobDescription :: acc
+        case (acc, _) => acc
+      }
   }
 
   override def removeJob(harnessJobId: String): Unit = {
@@ -92,6 +99,12 @@ object JobManager extends JobManagerInterface with LazyLogging {
       }
     }
   }
+
+  override def abortExecuting: Future[Unit] = {
+    jobsStore
+      .updateAsync("status" !== JobStatuses.failed, "status" !== JobStatuses.successful, "status" !== JobStatuses.cancelled)("status" -> JobStatuses.failed)
+      .map(_ => ())
+  }
 }
 
 final case class JobRecord(engineId: String, jobId: String, status: JobStatuses.JobStatus, comment: String) {
@@ -103,7 +116,11 @@ object JobRecord {
     import org.mongodb.scala.bson.codecs.Macros._
     object JobStatusesEnumCodecProvider extends CodecProvider {
       def isCaseObjectEnum[T](clazz: Class[T]): Boolean = {
-        clazz.isInstance(JobStatuses.queued) || clazz.isInstance(JobStatuses.executing) || clazz.isInstance(JobStatuses.failed) || clazz.isInstance(JobStatuses.successful)
+        clazz.isInstance(JobStatuses.queued) ||
+          clazz.isInstance(JobStatuses.executing) ||
+          clazz.isInstance(JobStatuses.failed) ||
+          clazz.isInstance(JobStatuses.successful) ||
+          clazz.isInstance(JobStatuses.cancelled)
       }
 
       override def get[T](clazz: Class[T], registry: CodecRegistry): Codec[T] = {
@@ -115,21 +132,15 @@ object JobRecord {
       }
 
       object CaseObjectEnumCodec extends Codec[JobStatuses.JobStatus] {
-        val identifier = "value"
         override def decode(reader: BsonReader, decoderContext: DecoderContext): JobStatuses.JobStatus = {
-          reader.readStartDocument()
-          val enumName = reader.readString(identifier)
-          reader.readEndDocument()
+          val enumName = reader.readString()
           Try(JobStatuses.withName(enumName))
             .toOption
             .getOrElse(throw new BsonInvalidOperationException(s"$enumName is an invalid value for a JobStatuses object"))
         }
 
         override def encode(writer: BsonWriter, value: JobStatuses.JobStatus, encoderContext: EncoderContext): Unit = {
-          val name = value.toString
-          writer.writeStartDocument()
-          writer.writeString(identifier, name)
-          writer.writeEndDocument()
+          writer.writeString(value.toString)
         }
 
         override def getEncoderClass: Class[JobStatuses.JobStatus] = JobStatuses.getClass.asInstanceOf[Class[JobStatuses.JobStatus]]
@@ -165,5 +176,6 @@ object JobStatuses extends Enumeration {
   val executing = Value("executing")
   val successful = Value("successful")
   val failed = Value("failed")
+  val cancelled = Value("cancelled")
 }
 
