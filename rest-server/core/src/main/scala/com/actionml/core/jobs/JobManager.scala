@@ -17,17 +17,18 @@
 
 package com.actionml.core.jobs
 
-import java.util.UUID
+import java.time.Instant
+import java.util.{Date, UUID}
 
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.{DAO, DaoQuery}
+import com.actionml.core.store.DAO
 import com.actionml.core.store.backends.MongoStorage
 import com.typesafe.scalalogging.LazyLogging
-import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
+import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -37,11 +38,19 @@ import scala.util.control.NonFatal
 
 
 trait JobManagerInterface {
-  def addJob(engineId: String, f: Future[_] = Future.successful(()), c: Cancellable = Cancellable.noop, comment: String = ""): JobDescription
+  def addJob(
+        engineId: String,
+        f: Future[_] = Future.successful(()),
+        c: Cancellable = Cancellable.noop,
+        comment: String = "",
+        initStatus: JobStatus = JobStatuses.queued): JobDescription
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
+  @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
   def removeJob(jobId: String): Unit
+  def finishJob(jobId: String): Unit
+  def markJobFailed(jobId: String): Unit
   def cancelJob(engineId: String, jobId: String): Future[Unit]
-  def abortExecuting: Future[Unit]
+  def abortExecutingJobs: Future[Unit]
 }
 
 /** Creates Futures and unique jobDescriptions, both are returned immediately but any arbitrary block of code can be
@@ -53,14 +62,14 @@ trait JobManagerInterface {
 object JobManager extends JobManagerInterface with LazyLogging {
   import com.actionml.core.store.DaoQuery.syntax._
   private val jobsStore: DAO[JobRecord] = MongoStorage.getStorage("harness_meta_store", codecs = JobRecord.mongoCodecs).createDao[JobRecord]("jobs")
-  // first key is engineId, second is the harness specific Job id
+  // This [duplicate] map stores runtime stuff (futures and cancellables). EngineId is the key
   private val jobDescriptions = TrieMap.empty[String, List[(Cancellable, JobDescription)]]
 
-  override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String): JobDescription = {
-    val description = JobDescription.create.copy(status = JobStatuses.executing, comment = comment)
+  override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String, status: JobStatus): JobDescription = {
+    val description = JobDescription.create(status = status, comment = comment)
     jobsStore.insert(JobRecord(engineId, description))
     jobDescriptions.put(engineId,
-      (c -> description.copy(status = JobStatuses.executing)) :: jobDescriptions.getOrElse(engineId, Nil)
+      (c -> description) :: jobDescriptions.getOrElse(engineId, Nil)
     )
     description
   }
@@ -79,10 +88,8 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 
   override def removeJob(harnessJobId: String): Unit = {
-    jobsStore.removeOne(("jobId" === harnessJobId))
-    jobDescriptions.collectFirst { case (engineId, jds) =>
-      jobDescriptions.update(engineId, jds.filterNot(_._2.jobId == harnessJobId))
-    }
+    jobsStore.removeOneAsync(("jobId" === harnessJobId))
+      .onSuccess { case _ => removeLocal(harnessJobId) }
   }
 
   override def cancelJob(engineId: String, jobId: String): Future[Unit] = {
@@ -90,7 +97,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
       jds.find(_._2.jobId == jobId).fold(Future.successful()) {
         case (cancellable, description) =>
           val f = cancellable.cancel()
-          f.onComplete(_ => removeJob(jobId))
+          jobsStore.update("jobId" === jobId)("status" -> JobStatuses.cancelled)
           f.flatMap(_ => LivyJobServerSupport.cancel(jobId))
           f.recover {
             case NonFatal(e) =>
@@ -100,18 +107,44 @@ object JobManager extends JobManagerInterface with LazyLogging {
     }
   }
 
-  override def abortExecuting: Future[Unit] = {
+  override def abortExecutingJobs: Future[Unit] = {
     jobsStore
-      .updateAsync("status" !== JobStatuses.failed, "status" !== JobStatuses.successful, "status" !== JobStatuses.cancelled)("status" -> JobStatuses.failed)
+      .updateAsync("status" !== JobStatuses.failed,
+                   "status" !== JobStatuses.successful,
+                   "status" !== JobStatuses.cancelled)("status" -> JobStatuses.failed, "completedAt" -> new Date)
       .map(_ => ())
+  }
+
+  override def finishJob(jobId: String): Unit = {
+    jobsStore.updateAsync("jobId" === jobId)("status" -> JobStatuses.successful, "completedAt" -> new Date)
+      .onSuccess { case _ => removeLocal(jobId) }
+  }
+
+  override def markJobFailed(jobId: String): Unit = {
+    jobsStore.updateAsync("jobId" === jobId)("status" -> JobStatuses.failed, "completedAt" -> new Date)
+      .onSuccess { case _ => removeLocal(jobId) }
+  }
+
+
+  private def removeLocal(jobId: String): Unit = {
+    jobDescriptions.collectFirst { case (engineId, jds) =>
+      jobDescriptions.update(engineId, jds.filterNot(_._2.jobId == jobId))
+    }
   }
 }
 
-final case class JobRecord(engineId: String, jobId: String, status: JobStatuses.JobStatus, comment: String) {
-  def toJobDescription = JobDescription(jobId, status, comment)
+final case class JobRecord(
+  engineId: String,
+  jobId: String,
+  status: JobStatuses.JobStatus,
+  comment: String,
+  createdAt: Date,
+  completedAt: Option[Date]
+) {
+  def toJobDescription = JobDescription(jobId, status, comment, createdAt, completedAt)
 }
 object JobRecord {
-  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment)
+  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt)
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
     object JobStatusesEnumCodecProvider extends CodecProvider {
@@ -160,14 +193,18 @@ object Cancellable {
   }
 }
 
-case class JobDescription(
+case class JobDescription (
   jobId: String,
   status: JobStatus = JobStatuses.queued,
-  comment: String = ""
+  comment: String = "",
+  createdAt: Date = new Date,
+  completedAt: Option[Date] = None
 ) extends Response
 
 object JobDescription {
   def create: JobDescription = JobDescription(UUID.randomUUID().toString)
+  def create(status: JobStatuses.JobStatus, comment: String): JobDescription =
+    JobDescription(UUID.randomUUID().toString, status = status, comment = comment)
 }
 
 object JobStatuses extends Enumeration {

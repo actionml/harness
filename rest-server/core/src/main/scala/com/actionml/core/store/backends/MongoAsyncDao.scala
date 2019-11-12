@@ -81,7 +81,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       collection.insertMany(c).headOption.flatMap {
         case Some(t) =>
           logger.trace(s"Successfully inserted ${c.size} items into $name with result $t")
-          Future.successful()
+          Future.successful ()
         case None =>
           logger.error(s"Can't insert $c into collection ${collection.namespace}")
           Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))

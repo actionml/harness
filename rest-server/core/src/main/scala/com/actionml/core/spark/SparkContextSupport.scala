@@ -20,14 +20,13 @@ package com.actionml.core.spark
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
+import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface, JobStatuses}
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
@@ -46,7 +45,7 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
     case s@Running(_, _, currentPromise, otherPromises) =>
       if (currentPromise.isCompleted) {
         currentPromise.future.value.foreach {
-          case Success(sc) => if (!sc.isStopped) sc.stop()
+          case Success(sc) => if (!sc.isStopped) stopSc(sc)
           case _ =>
         }
       } else currentPromise.failure(new InterruptedException)
@@ -58,13 +57,13 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
     state.get match {
       case s@Running(_, optSc, _, promises) if promises.nonEmpty =>
         val (p, others) = (promises.head, promises.tail)
-        optSc.foreach(_.stop())
+        optSc.foreach(stopSc)
         createSparkContext(p._1).foreach { newSc =>
           p._2.complete(Success(newSc))
           state.compareAndSet(s, Running(p._1, Option(newSc), p._2, others))
         }
       case s@Running(_, optSc, _, _)  =>
-        optSc.foreach(_.stop())
+        optSc.foreach(stopSc)
         state.compareAndSet(s, Idle)
       case Idle =>
     }
@@ -90,7 +89,7 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
           }
         }
         val f = p.future
-        val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job")
+        val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job", status = JobStatuses.executing)
         JobManager.removeJob(jobDescription.jobId)
         (f, desc)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
@@ -111,6 +110,11 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
     }
   }
 
+
+  private def stopSc(sc: SparkContext): Unit = {
+    sc.stop()
+    System.clearProperty("spark.driver.port")
+  }
 
   private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
     val f = Future {
@@ -134,7 +138,7 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
     f.onComplete {
       case Failure(e) =>
         logger.error(s"Spark context failed for job ${params.jobDescription}", e)
-        JobManager.removeJob(params.jobDescription.jobId)
+        JobManager.markJobFailed(params.jobDescription.jobId)
       case _ =>
     }
     f
@@ -143,7 +147,7 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
     override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
       logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
-      jobManager.removeJob(jobId)
+      jobManager.finishJob(jobId)
     }
   }
 
