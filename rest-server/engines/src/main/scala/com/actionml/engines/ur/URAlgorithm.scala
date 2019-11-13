@@ -507,11 +507,9 @@ class URAlgorithm private (
 
     implicit val ordering = Ordering.desc
     val userHistory = eventsDao.findMany(
-      DaoQuery(
-        orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
-        limit = maxQueryEvents,
-        filter = Seq("entityId" === query.user.getOrElse(""))))
-      .toSeq
+      orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
+      limit = maxQueryEvents
+    )("entityId" === query.user.getOrElse("")).toSeq
       // .distinct // these will be distinct so this is redundant
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")

@@ -105,7 +105,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
           // this handles a conversion
           if(event.properties.getOrElse("conversion", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
-            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq("entityId" === event.entityId))).toSeq
+            val conversionJourney = activeJourneysDao.findMany("entityId" === event.entityId).toSeq
             if(conversionJourney.size != 0) {
               val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
               // tag these so they can be removed when the model is $deleted

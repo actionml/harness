@@ -17,14 +17,14 @@
 
 package com.actionml.core.jobs
 
-import java.time.Instant
 import java.util.{Date, UUID}
 
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.DAO
+import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.store.{DAO, OrderBy}
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
@@ -77,7 +77,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   /** Gets any active Jobs for the specified Engine */
   override def getActiveJobDescriptions(engineId: String): Iterable[JobDescription] = {
     jobsStore
-      .findMany("engineId" === engineId)
+      .findMany(orderBy = Option(OrderBy(desc, "completedAt", "createdAt")))("engineId" === engineId)
       .foldLeft(List.empty[JobDescription]) {
         case (acc, j) if j.status == JobStatuses.queued || j.status == JobStatuses.executing =>
           j.toJobDescription :: acc
@@ -138,7 +138,7 @@ final case class JobRecord(
   jobId: String,
   status: JobStatuses.JobStatus,
   comment: String,
-  createdAt: Date,
+  createdAt: Option[Date],
   completedAt: Option[Date]
 ) {
   def toJobDescription = JobDescription(jobId, status, comment, createdAt, completedAt)
@@ -197,7 +197,7 @@ case class JobDescription (
   jobId: String,
   status: JobStatus = JobStatuses.queued,
   comment: String = "",
-  createdAt: Date = new Date,
+  createdAt: Option[Date] = Option(new Date),
   completedAt: Option[Date] = None
 ) extends Response
 
