@@ -29,7 +29,7 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonInt32, BsonValue}
-import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts}
+import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts, Updates}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -81,7 +81,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       collection.insertMany(c).headOption.flatMap {
         case Some(t) =>
           logger.trace(s"Successfully inserted ${c.size} items into $name with result $t")
-          Future.successful()
+          Future.successful ()
         case None =>
           logger.error(s"Can't insert $c into collection ${collection.namespace}")
           Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))
@@ -92,14 +92,12 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
     }
   }
 
-  override def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
-    collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
+  override def updateAsync(filter: (String, QueryCondition)*)(update: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit] = {
+    collection.updateMany(mkFilter(filter), mkUpdate(update: _*)).headOption.map {
       case Some(t) =>
-        logger.trace(s"Successfully updated object $o with the filter $filter")
-        Future.successful(t)
+        logger.trace(s"Successfully updated object $t with the filter $filter")
       case None =>
-        logger.error(s"Can't update collection ${collection.namespace} with filter $filter and value $o")
-        Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
+        logger.trace(s"Nothing was updated in the collection ${collection.namespace} with filter $filter and value $update")
     }
   }
 
@@ -214,7 +212,14 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       case (k, LessOrEqualsTo(v)) => Filters.lte(k, v)
       case (k, LessThen(v)) => Filters.lt(k, v)
       case (k, Equals(v)) => Filters.eq(k, v)
+      case (k, NotEquals(v)) => Filters.ne(k, v)
     }.toArray[Bson]: _*)
+  }
+
+  private def mkUpdate(fields: (String, Any)*): Bson = {
+    Updates.combine(fields.map { f =>
+      Updates.set(f._1, f._2)
+    }: _*)
   }
 
   private def order2Bson(order: OrderBy): Bson = {

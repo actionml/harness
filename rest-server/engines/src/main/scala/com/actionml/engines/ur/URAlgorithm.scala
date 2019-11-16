@@ -298,7 +298,6 @@ class URAlgorithm private (
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
       } finally {
-        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
     }
@@ -434,10 +433,10 @@ class URAlgorithm private (
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     try {
-      JobManager.getActiveJobDescriptions(engineId).get(jobId).fold[Validated[ValidateError, Response]] {
+      JobManager.getActiveJobDescriptions(engineId).find(_.jobId == jobId).fold[Validated[ValidateError, Response]] {
         Invalid(WrongParams(s"No jobId $jobId found"))
       } { _ =>
-        Await.result(JobManager.cancelJob(jobId), 5.minutes)
+        Await.result(JobManager.cancelJob(engineId, jobId), 5.minutes)
         Valid(Comment(s"Job $jobId aborted successfully"))
       }
     } catch {
@@ -505,11 +504,9 @@ class URAlgorithm private (
 
     implicit val ordering = Ordering.desc
     val userHistory = eventsDao.findMany(
-      DaoQuery(
-        orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
-        limit = maxQueryEvents,
-        filter = Seq("entityId" === query.user.getOrElse(""))))
-      .toSeq
+      orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
+      limit = maxQueryEvents
+    )("entityId" === query.user.getOrElse("")).toSeq
       // .distinct // these will be distinct so this is redundant
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")

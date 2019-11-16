@@ -197,4 +197,4 @@ object URNavHintingEngine {
 
 }
 
-case class URNavHintingEngineStatus(engineParams: URNavHintingEngineParams, jobStatuses: Map[String, JobDescription]) extends Response
+case class URNavHintingEngineStatus(engineParams: URNavHintingEngineParams, jobStatuses: Iterable[JobDescription]) extends Response

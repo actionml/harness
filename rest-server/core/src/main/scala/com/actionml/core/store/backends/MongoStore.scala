@@ -18,23 +18,14 @@
 package com.actionml.core.store.backends
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.concurrent.TimeUnit
+import java.util.Date
 
-import com.actionml.core.spark.GenericMongoClient
-import com.actionml.core.store.indexes.annotations.SingleIndex
-import com.actionml.core.store.{DAO, Ordering, Store}
-import com.mongodb.ConnectionString
-import com.mongodb.client.MongoClients
-import com.mongodb.client.model.IndexOptions
-import com.mongodb.connection.netty.NettyStreamFactoryFactory
+import com.actionml.core.store.{DAO, Store}
 import com.typesafe.scalalogging.LazyLogging
-import io.netty.channel.nio.NioEventLoopGroup
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
-import org.mongodb.scala.bson.collection.immutable.Document
-import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{MongoClient, MongoClientSettings, MongoCollection, MongoDatabase}
+import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -81,7 +72,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   }
 
 
-  private val timeout = 5 seconds
+  private val timeout = 5.seconds
   private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
 
   override def dbName: String = db.name
@@ -90,7 +81,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 object MongoStorage extends LazyLogging {
   private lazy val mongoClient = MongoClient(MongoConfig.mongo.uri.toString)
 
-  def close = {
+  def close() = {
     logger.trace(s"Closing mongo client $mongoClient")
     mongoClient.close()
   }
@@ -104,8 +95,8 @@ object MongoStorage extends LazyLogging {
     import scala.collection.JavaConversions._
     if (codecs.nonEmpty) fromRegistries(
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      fromProviders(codecs),
-      DEFAULT_CODEC_REGISTRY
+      DEFAULT_CODEC_REGISTRY,
+      fromProviders(codecs)
     ) else fromRegistries(
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
       DEFAULT_CODEC_REGISTRY
