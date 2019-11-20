@@ -508,13 +508,13 @@ class URAlgorithm private (
       limit = maxQueryEvents
     )("entityId" === query.user.getOrElse("")).toSeq
       // .distinct // these will be distinct so this is redundant
+      .filter { event =>
+        queryEventNamesFilter.contains(event.event)
+      }
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
-      }
-      .filter { event =>
-        queryEventNamesFilter.contains(event.event)
       }
       .groupBy(_.event)
       .flatMap{ case (name, events) =>
