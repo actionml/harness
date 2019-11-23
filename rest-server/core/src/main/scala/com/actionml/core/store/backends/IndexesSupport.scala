@@ -94,7 +94,7 @@ trait IndexesSupport {
     }
     col.listIndexes().map { i =>
       val keyInfo = i.get("key").get.asDocument()
-      val indexes = asScalaIterator(keyInfo.entrySet().map(e => (e.getKey, e.getValue.asInt32().intValue())).iterator()).toList
+      val indexes = asScalaIterator(keyInfo.entrySet().map(e => (e.getKey, e.getValue.asNumber().intValue())).iterator()).toList
       indexes.foldLeft(Option.empty[CompoundIndex]) {
         case (acc, (name, ordering)) if indexes.size > 1 =>
           val o = int2Ordering(ordering)
