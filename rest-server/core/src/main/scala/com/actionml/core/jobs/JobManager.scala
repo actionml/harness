@@ -38,12 +38,11 @@ import scala.util.control.NonFatal
 
 
 trait JobManagerInterface {
-  def addJob(
-        engineId: String,
-        f: Future[_] = Future.successful(()),
-        c: Cancellable = Cancellable.noop,
-        comment: String = "",
-        initStatus: JobStatus = JobStatuses.queued): JobDescription
+  def addJob(engineId: String,
+             f: Future[_] = Future.successful(()),
+             c: Cancellable = Cancellable.noop,
+             comment: String = "",
+             initStatus: JobStatus = JobStatuses.queued): JobDescription
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
   def removeJob(jobId: String): Unit
