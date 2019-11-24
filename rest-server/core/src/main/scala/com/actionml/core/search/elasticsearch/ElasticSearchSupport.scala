@@ -34,13 +34,15 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
-import org.elasticsearch.client.{Request, RestClient}
+import org.elasticsearch.client.{Request, Response, RestClient}
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
@@ -164,6 +166,10 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
 
   }
 
+  private def performRequest(method: String, url: String): Future[Response] = {
+    Future(client.performRequest(new Request(method, url)))
+  }
+
   def findDocById(id: String): EsDocument = {
     var rjv: Option[JValue] = None
     try {
@@ -203,10 +209,10 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
         case _ =>
       }
     } catch {
-      case e: org.elasticsearch.client.ResponseException => {
-        logger.error("got no data for the item", e)
+      case e: org.elasticsearch.client.ResponseException =>
+        if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
+        else logger.error("Find doc by id error", e)
         rjv = None
-      }
       case NonFatal(e) =>
         logger.error("got unknown exception and so no data for the item", e)
         rjv = None
