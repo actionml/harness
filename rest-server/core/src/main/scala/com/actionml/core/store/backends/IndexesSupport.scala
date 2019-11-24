@@ -106,9 +106,9 @@ trait IndexesSupport {
         val iName = keyInfo.getFirstKey
         val ttlInfo = i.get("expireAfterSeconds")
         val ttlValue = ttlInfo.map { ttl =>
-          Duration(ttl.asInt64().getValue, SECONDS)
+          Duration(ttl.asNumber().intValue(), SECONDS)
         }
-        val orderingValue: Ordering.Ordering = int2Ordering(keyInfo.getInt32(iName).getValue)
+        val orderingValue: Ordering.Ordering = int2Ordering(keyInfo.getNumber(iName).intValue())
         (iName, SingleIndex(order = orderingValue, isTtl = ttlInfo.isDefined), ttlValue)
       }
     }.toFuture
