@@ -33,7 +33,7 @@ import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 
@@ -88,20 +88,25 @@ object JobManager extends JobManagerInterface with LazyLogging {
 
   override def removeJob(harnessJobId: String): Unit = {
     jobsStore.removeOneAsync(("jobId" === harnessJobId))
-      .onSuccess { case _ => removeLocal(harnessJobId) }
+      .onSuccess { case _ =>
+        removeLocal(harnessJobId)
+        logger.info(s"Job $harnessJobId removed")
+      }
   }
 
   override def cancelJob(engineId: String, jobId: String): Future[Unit] = {
-    jobDescriptions.get(engineId).fold(Future.successful()) { jds =>
-      jds.find(_._2.jobId == jobId).fold(Future.successful()) {
-        case (cancellable, description) =>
-          val f = cancellable.cancel()
-          jobsStore.update("jobId" === jobId)("status" -> JobStatuses.cancelled)
-          f.flatMap(_ => LivyJobServerSupport.cancel(jobId))
-          f.recover {
-            case NonFatal(e) =>
+    jobDescriptions.get(engineId).fold(Future.successful(())) { jds =>
+      jds.find(_._2.jobId == jobId).fold(Future.successful(())) {
+        case (cancellable, _) =>
+          val f = cancellable.cancel().flatMap(_ => LivyJobServerSupport.cancel(jobId))
+          f.onComplete {
+            case Success(_) =>
+              jobsStore.update("jobId" === jobId)("status" -> JobStatuses.cancelled)
+              logger.info(s"Job $jobId [engine id $engineId] cancelled")
+            case Failure(NonFatal(e)) =>
               logger.error(s"Cancel job error", e)
           }
+          f
       }
     }
   }
@@ -116,12 +121,18 @@ object JobManager extends JobManagerInterface with LazyLogging {
 
   override def finishJob(jobId: String): Unit = {
     jobsStore.updateAsync("jobId" === jobId)("status" -> JobStatuses.successful, "completedAt" -> new Date)
-      .onSuccess { case _ => removeLocal(jobId) }
+      .onSuccess { case _ =>
+        logger.info(s"Job $jobId completed successfully")
+        removeLocal(jobId)
+      }
   }
 
   override def markJobFailed(jobId: String): Unit = {
     jobsStore.updateAsync("jobId" === jobId)("status" -> JobStatuses.failed, "completedAt" -> new Date)
-      .onSuccess { case _ => removeLocal(jobId) }
+      .onSuccess { case _ =>
+        removeLocal(jobId)
+        logger.info(s"Job $jobId marked as failed")
+      }
   }
 
 
