@@ -149,12 +149,23 @@ final case class JobRecord(
   status: JobStatuses.JobStatus,
   comment: String,
   createdAt: Option[Date],
-  completedAt: Option[Date]
+  completedAt: Option[Date],
+  expireAt: Option[Date]
 ) {
-  def toJobDescription = JobDescription(jobId, status, comment, createdAt, completedAt)
+  def toJobDescription = {
+    val newStatus = expireAt.collect {
+      case d if d.compareTo(new Date) <= 0 => JobStatuses.expired
+    }.getOrElse(status)
+    JobDescription(jobId, newStatus, comment, createdAt, completedAt)
+  }
 }
 object JobRecord {
-  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt)
+  private def expireAt(): Option[Date] = {
+    val defaultExpireMillis = 43200000 // 12 hours
+    Option(new Date(new Date().getTime + defaultExpireMillis))
+  }
+
+  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt())
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
     object JobStatusesEnumCodecProvider extends CodecProvider {
@@ -224,5 +235,6 @@ object JobStatuses extends Enumeration {
   val successful = Value("successful")
   val failed = Value("failed")
   val cancelled = Value("cancelled")
+  val expired = Value("expired")
 }
 
