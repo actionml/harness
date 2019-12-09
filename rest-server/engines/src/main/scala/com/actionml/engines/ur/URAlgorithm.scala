@@ -297,6 +297,7 @@ class URAlgorithm private (
       } catch {
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+          JobManager.markJobFailed(jobDescription.jobId)
       } finally {
         SparkContextSupport.stopAndClean(sc)
       }
