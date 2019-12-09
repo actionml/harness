@@ -25,6 +25,7 @@ import com.actionml.core.spark.LivyJobServerSupport
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
@@ -35,6 +36,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
+import net.ceedubs.ficus.Ficus._
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+
+import scala.concurrent.duration.FiniteDuration
 
 
 trait JobManagerInterface {
@@ -143,6 +149,8 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 }
 
+final case class JobManagerConfig(expireAfter: Option[FiniteDuration])
+
 final case class JobRecord(
   engineId: String,
   jobId: String,
@@ -160,12 +168,14 @@ final case class JobRecord(
   }
 }
 object JobRecord {
-  private def expireAt(): Option[Date] = {
-    val defaultExpireMillis = 43200000 // 12 hours
-    Option(new Date(new Date().getTime + defaultExpireMillis))
+  private val config = ConfigFactory.load
+  private val jobsConfig = config.as[JobManagerConfig]("jobs")
+  private val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(43200000) // 12 hours by default
+  private def expireAt(start: Option[Date]): Option[Date] = {
+    start.map(d => new Date(d.getTime + defaultExpireMillis))
   }
 
-  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt())
+  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
     object JobStatusesEnumCodecProvider extends CodecProvider {

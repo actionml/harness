@@ -19,6 +19,7 @@ package com.actionml.router.config
 
 import java.net.URI
 
+import com.actionml.core.jobs.JobManagerConfig
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -33,7 +34,7 @@ import scala.util.Properties
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 29.01.17 19:09
   */
-case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfig, auth: AuthConfig)
+case class AppConfig(restServer: RestServerConfig, actorSystem: ActorSystemConfig, auth: AuthConfig, jobs: JobManagerConfig)
 case class RestServerConfig(
   host: String,
   port: Int,
@@ -65,7 +66,8 @@ object AppConfig {
 
       // These should be removed from conf and ALWAYS read from the env
       actorSystem = config.as[ActorSystemConfig]("actor-system"),
-      auth = config.as[AuthConfig]("auth")
+      auth = config.as[AuthConfig]("auth"),
+      jobs = config.as[JobManagerConfig]("jobs")
     )
   }
 }
