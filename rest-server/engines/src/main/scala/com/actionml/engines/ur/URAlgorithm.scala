@@ -287,8 +287,9 @@ class URAlgorithm private (
           logger.info(s"Engine-id: ${engineId}. Event name: $name")
           logger.info(s"Engine-id: ${engineId}. Num users/rows = ${ids.matrix.nrow}")
           logger.info(s"Engine-id: ${engineId}. Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
+          // do not log these in real world situations, only for small debug test data
+          // logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
+          // logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
         }
         logger.info("======================================== done ========================================")
 
