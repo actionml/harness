@@ -10,7 +10,7 @@
 HARNESS_CLASS=com.actionml.HarnessServer
 
 # Harness options passed to the Java service
-HARNESS_OPTS="\
+HARNESS_OPTS="${HARNESS_OPTS}\
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
 -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} # this is a no-op!
 

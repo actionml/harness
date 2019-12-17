@@ -15,6 +15,11 @@ export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
 # todo: need to allow for multiple servers for cluster operation of ES
 export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
 
+HARNESS_OPTS="\
+-J-Xmx4G \
+-J-XX:+UseConcMarkSweepGC \
+"
+
 
 # ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
 
