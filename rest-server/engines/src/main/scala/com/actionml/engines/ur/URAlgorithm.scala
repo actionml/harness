@@ -295,6 +295,7 @@ class URAlgorithm private (
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
+        JobManager.finishJob(jobDescription.jobId)
       } catch {
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)

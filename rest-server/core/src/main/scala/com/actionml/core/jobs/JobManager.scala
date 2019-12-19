@@ -22,6 +22,7 @@ import java.util.{Date, UUID}
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
+import com.actionml.core.store.Ordering.asc
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
@@ -45,10 +46,10 @@ import scala.concurrent.duration.FiniteDuration
 
 trait JobManagerInterface {
   def addJob(engineId: String,
-             f: Future[_] = Future.successful(()),
              c: Cancellable = Cancellable.noop,
              comment: String = "",
              initStatus: JobStatus = JobStatuses.queued): JobDescription
+  def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
   def removeJob(jobId: String): Unit
@@ -70,7 +71,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   // This [duplicate] map stores runtime stuff (futures and cancellables). EngineId is the key
   private val jobDescriptions = TrieMap.empty[String, List[(Cancellable, JobDescription)]]
 
-  override def addJob(engineId: String, f: Future[_], c: Cancellable, comment: String, status: JobStatus): JobDescription = {
+  override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
     val description = JobDescription.create(status = status, comment = comment)
     jobsStore.insert(JobRecord(engineId, description))
     jobDescriptions.put(engineId,
@@ -79,17 +80,28 @@ object JobManager extends JobManagerInterface with LazyLogging {
     description
   }
 
+  override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
+    jobsStore.updateAsync("jobId" === jobId)("status" -> status)
+    for {
+      descriptions <- jobDescriptions.get(engineId)
+      (_, description) <- descriptions.find { case (_, d) => d.jobId == jobId }
+    } yield jobDescriptions.put(engineId,
+      (c -> description.copy(status = status)) :: descriptions.filterNot(_._2 == description)
+    )
+  }
+
   /** Gets any active Jobs for the specified Engine */
   override def getActiveJobDescriptions(engineId: String): Iterable[JobDescription] = {
     jobsStore
-      .findMany(orderBy = Option(OrderBy(desc, "completedAt", "createdAt")))("engineId" === engineId)
+      .findMany(orderBy = Option(OrderBy(desc, "createdAt")))("engineId" === engineId)
+      .toVector
       .foldLeft(List.empty[JobDescription]) {
         case (acc, j) if j.status == JobStatuses.queued || j.status == JobStatuses.executing =>
           j.toJobDescription :: acc
         case (acc, j) if acc.count(d => d.status != JobStatuses.queued && d.status != JobStatuses.executing) < 10 =>
           j.toJobDescription :: acc
         case (acc, _) => acc
-      }
+      }.sortBy(_.status.id)
   }
 
   override def removeJob(harnessJobId: String): Unit = {
