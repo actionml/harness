@@ -4,8 +4,7 @@
 # export HARNESS_URI="http://0.0.0.0:9090" # for external connections
 export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 
-# The maximum number of concurrently accepted connections when using the
-# `Http().bindAndHandle` methods.
+# The maximum number of concurrently accepted connections.
 # Note, that this setting limits the number of the connections on a best-effort basis.
 # It does *not* strictly guarantee that the number of established TCP connections will never
 # exceed the limit (but it will be approximately correct) because connection termination happens
