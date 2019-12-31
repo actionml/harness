@@ -174,7 +174,7 @@ final case class JobRecord(
 ) {
   def toJobDescription = {
     val newStatus = expireAt.collect {
-      case d if d.compareTo(new Date) <= 0 => JobStatuses.expired
+      case d if (Seq(JobStatuses.executing, JobStatuses.queued).contains(status)) && (d.compareTo(new Date) <= 0) => JobStatuses.expired
     }.getOrElse(status)
     JobDescription(jobId, newStatus, comment, createdAt, completedAt)
   }
@@ -182,12 +182,14 @@ final case class JobRecord(
 object JobRecord {
   private val config = ConfigFactory.load
   private val jobsConfig = config.as[JobManagerConfig]("jobs")
-  private val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(43200000) // 12 hours by default
+  private[jobs] val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(43200000) // 12 hours by default
   private def expireAt(start: Option[Date]): Option[Date] = {
     start.map(d => new Date(d.getTime + defaultExpireMillis))
   }
 
-  def apply(engineId: String, jd: JobDescription): JobRecord = JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
+  def apply(engineId: String, jd: JobDescription): JobRecord =
+    JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
+
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
     object JobStatusesEnumCodecProvider extends CodecProvider {
