@@ -24,7 +24,7 @@ import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManag
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerEvent}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 
@@ -89,9 +89,8 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
           }
         }
         val f = p.future
-        val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job", status = JobStatuses.executing)
-        JobManager.removeJob(jobDescription.jobId)
-        (f, desc)
+        JobManager.updateJob(engineId, jobDescription.jobId, JobStatuses.executing, new SparkCancellable(params.jobDescription.jobId, f))
+        (f, jobDescription)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         (p.future, currentParams.jobDescription)
       case s@Running(currentParams, sc, _, promises) if !sc.exists(_.isStopped) =>
@@ -121,7 +120,7 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
       val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf").getOrElse(Map.empty)
       val conf = new SparkConf()
       configMap.get("master").foreach(conf.setMaster)
-      conf.setAppName(params.engineId)
+      conf.setAppName(s"${params.engineId}:${params.jobDescription.jobId}")
       conf.setAll(configMap - "master")
       val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
       conf.setJars(jars)
@@ -131,15 +130,13 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
       // rest through on the hope they are correct
       if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
       val sc = new SparkContext(conf)
-      sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment, interruptOnCancel = true)
+      sc.setJobGroup(params.jobDescription.jobId, s"${params.jobDescription.comment}. EngineId: ${params.engineId}", interruptOnCancel = true)
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    f.onComplete {
-      case Failure(e) =>
-        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
-        JobManager.markJobFailed(params.jobDescription.jobId)
-      case _ =>
+    f.onFailure { case e =>
+      logger.error(s"Spark context can not be created for job ${params.jobDescription}", e)
+      JobManager.markJobFailed(params.jobDescription.jobId)
     }
     f
   }

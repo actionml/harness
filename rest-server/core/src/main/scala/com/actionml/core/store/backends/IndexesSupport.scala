@@ -94,7 +94,7 @@ trait IndexesSupport {
     }
     col.listIndexes().map { i =>
       val keyInfo = i.get("key").get.asDocument()
-      val indexes = asScalaIterator(keyInfo.entrySet().map(e => (e.getKey, e.getValue.asInt32().intValue())).iterator()).toList
+      val indexes = asScalaIterator(keyInfo.entrySet().map(e => (e.getKey, e.getValue.asNumber().intValue())).iterator()).toList
       indexes.foldLeft(Option.empty[CompoundIndex]) {
         case (acc, (name, ordering)) if indexes.size > 1 =>
           val o = int2Ordering(ordering)
@@ -106,9 +106,9 @@ trait IndexesSupport {
         val iName = keyInfo.getFirstKey
         val ttlInfo = i.get("expireAfterSeconds")
         val ttlValue = ttlInfo.map { ttl =>
-          Duration(ttl.asInt64().getValue, SECONDS)
+          Duration(ttl.asNumber().intValue(), SECONDS)
         }
-        val orderingValue: Ordering.Ordering = int2Ordering(keyInfo.getInt32(iName).getValue)
+        val orderingValue: Ordering.Ordering = int2Ordering(keyInfo.getNumber(iName).intValue())
         (iName, SingleIndex(order = orderingValue, isTtl = ttlInfo.isDefined), ttlValue)
       }
     }.toFuture

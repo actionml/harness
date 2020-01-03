@@ -29,21 +29,20 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
-import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
-import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
-import org.elasticsearch.client.{Request, RestClient}
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
+import org.elasticsearch.client.{Request, Response, RestClient}
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
-import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
@@ -82,8 +81,8 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
 class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument])
   extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[Hit] =>
-  import ElasticSearchClient._
   import ElasticSearchClient.ESVersions._
+  import ElasticSearchClient._
   implicit val _ = DefaultFormats
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
@@ -111,8 +110,8 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
               "doc" -> JsonMethods.asJValue(doc),
               "doc_as_upsert" -> JBool(true)
             )))
-          val aliasResponse = client.performRequest(request)
-          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val response = client.performRequest(request)
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
           case NonFatal(e) =>
@@ -167,6 +166,10 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
 
   }
 
+  private def performRequest(method: String, url: String): Future[Response] = {
+    Future(client.performRequest(new Request(method, url)))
+  }
+
   def findDocById(id: String): EsDocument = {
     var rjv: Option[JValue] = None
     try {
@@ -206,10 +209,10 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
         case _ =>
       }
     } catch {
-      case e: org.elasticsearch.client.ResponseException => {
-        logger.error("got no data for the item", e)
+      case e: org.elasticsearch.client.ResponseException =>
+        if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
+        else logger.error("Find doc by id error", e)
         rjv = None
-      }
       case NonFatal(e) =>
         logger.error("got unknown exception and so no data for the item", e)
         rjv = None

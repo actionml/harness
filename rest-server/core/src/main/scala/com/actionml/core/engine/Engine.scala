@@ -135,9 +135,9 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def inputMany: Seq[String] => Unit = _.foreach(input)
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val f = Future(mirroring.importEvents(this, inputPath))
-    val jobDescription = JobManager.addJob(engineId, f, comment = "batch import, non-Spark job", status = JobStatuses.executing)
-    f.onComplete(_ => JobManager.finishJob(jobDescription.jobId))
+    val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
+    Future(mirroring.importEvents(this, inputPath))
+      .onComplete(_ => JobManager.finishJob(jobDescription.jobId))
     Valid(jobDescription)
   }
 
