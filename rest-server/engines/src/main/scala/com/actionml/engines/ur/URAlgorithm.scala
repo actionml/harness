@@ -287,16 +287,19 @@ class URAlgorithm private (
           logger.info(s"Engine-id: ${engineId}. Event name: $name")
           logger.info(s"Engine-id: ${engineId}. Num users/rows = ${ids.matrix.nrow}")
           logger.info(s"Engine-id: ${engineId}. Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
+          // do not log these in real world situations, only for small debug test data
+          // logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
+          // logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
         }
         logger.info("======================================== done ========================================")
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
+        JobManager.finishJob(jobDescription.jobId)
       } catch {
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+          JobManager.markJobFailed(jobDescription.jobId)
       } finally {
         SparkContextSupport.stopAndClean(sc)
       }
@@ -508,13 +511,13 @@ class URAlgorithm private (
       limit = maxQueryEvents
     )("entityId" === query.user.getOrElse("")).toSeq
       // .distinct // these will be distinct so this is redundant
+      .filter { event =>
+        queryEventNamesFilter.contains(event.event)
+      }
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
-      }
-      .filter { event =>
-        queryEventNamesFilter.contains(event.event)
       }
       .groupBy(_.event)
       .flatMap{ case (name, events) =>
