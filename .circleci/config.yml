@@ -75,14 +75,12 @@ jobs:
               mv envs .env &&\
               docker-compose up -d --build
               docker-compose ps
-              sleep 45
-              
-              docker-compose ps
+              sleep 55
+
               docker-compose logs harness
 
               docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
               docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
-              echo "harness-cli status system finished"
               
               docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
               echo "harness-cli simple-integration-test finished"
@@ -121,24 +119,24 @@ jobs:
               ;;
             esac
           fi
-    # - run:
-    #     name: Update kubernetes Deployment
-    #     command: | 
-    #       source $SHELL_ENV
+    - run:
+        name: Update kubernetes Deployment
+        command: | 
+          source $SHELL_ENV
 
-    #       if [ $RESULT -eq 0 ] 
-    #       then
-    #        case "${CIRCLE_BRANCH}" in
-    #           "devops")
-    #             BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-    #             kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
+          if [ $RESULT -eq 0 ] 
+          then
+           case "${CIRCLE_BRANCH}" in
+              "develop")
+                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+                kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
               
-    #             kubectl delete pod harness-0
-    #           ;;
-    #           *)
-    #           ;;
-    #         esac
-    #       fi
+                kubectl delete pod harness-0
+              ;;
+              *)
+              ;;
+            esac
+          fi
 workflows:
   version: 2
   default:
