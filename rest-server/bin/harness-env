@@ -94,3 +94,6 @@ export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${AD
 
 # Spark Job Server (Apache Livy) setup
 export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}
+
+# Misc settings
+export JOBS_EXPIRE_AFTER=86400000
