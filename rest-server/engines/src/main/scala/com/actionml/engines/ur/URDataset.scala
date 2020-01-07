@@ -17,12 +17,15 @@
 
 package com.actionml.engines.ur
 
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -30,10 +33,7 @@ import com.actionml.engines.ur.URDataset.URDatasetParams
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
 import scala.language.reflectiveCalls
-import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -43,11 +43,13 @@ import scala.util.control.NonFatal
   *
   * @param engineId The Engine ID
   */
-class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport {
+class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport with ElasticSearchSupport {
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val eventsDao = store.createDao[UREvent](getEventsCollectionName)
   private val itemsDao = store.createDao[URItemProperties](getItemsCollectionName)
+  private val writeFormat = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneId.of("UTC"))
+  private val es = createSearchClient(engineId)
 
   def getItemsDao = itemsDao
 
@@ -78,19 +80,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
           s"$jsonConfig",
         transform = _ \ "dataset"
-      ).andThen { p =>
-        p.ttl.fold[Validated[ValidateError, _]] {
-          eventsDao.createIndexes()
-          Valid(p)
-        } { ttlString =>
-          Try(Duration(ttlString)).toOption.map { ttl =>
-            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(ttl)
-            logger.debug(s"Engine-id: ${engineId}. Got a dataset.ttl = $ttl")
-            Valid(p)
-          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
-        }
-      }.andThen(_ => Valid(Comment("URDataset initialized")))
+      ).andThen(_ => Valid(Comment("URDataset initialized")))
     }
   }
 
@@ -185,7 +175,10 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   private def insertProperty(event: UREvent): Unit =
     try {
-      val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
+      val updateItem = itemsDao.findOneById(event.entityId).getOrElse {
+        logger.warn(s"No property found with id ${event.entityId}")
+        URItemProperties(event.entityId, Map.empty)
+      }
       itemsDao.saveOneById(
         event.entityId,
         URItemProperties(
@@ -196,8 +189,24 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           booleanProps = updateItem.booleanProps ++ event.booleanProps
         )
       )
+      val newProps = (
+        event.categoricalProps.mapValues(_.toList) ++
+        event.booleanProps.mapValues(_.toString :: Nil) ++
+        event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
+        event.floatProps.mapValues(_.toString :: Nil)
+      ).filterNot {
+        case (name, _) => indicatorNames.contains(name)
+      }
+      if (newProps.nonEmpty) {
+        val esDoc = {
+          val doc = es.findDocById(event.entityId)
+          (doc._1, doc._2 ++ newProps)
+        }
+        val result = es.saveOneById(event.entityId, esDoc)
+        logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
+      }
     } catch {
-      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event")
+      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
     }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])

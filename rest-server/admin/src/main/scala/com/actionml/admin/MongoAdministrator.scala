@@ -26,7 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-
+import scala.util.Properties
 
 class MongoAdministrator extends Administrator with JsonSupport {
   import DaoQuery.syntax._
@@ -37,12 +37,13 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   drawActionML
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
-    Class.forName(engineFactory).getMethod("apply", classOf[String]).invoke(null, json).asInstanceOf[Engine]
+    Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.TRUE).asInstanceOf[Engine]
   }
 
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
+    JobManager.abortExecutingJobs
     engines = enginesCollection.findMany().map { engine =>
       // create each engine passing the params
       val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)
@@ -81,10 +82,10 @@ class MongoAdministrator extends Administrator with JsonSupport {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" === params.engineId))).size == 1) {
+      if (newEngine != null && enginesCollection.findMany("engineId" === params.engineId).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
-        enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
+        enginesCollection.saveOne("engineId" === params.engineId , EngineMetadata(params.engineId, params.engineFactory, json))
         engines += params.engineId -> newEngine
         Valid(Comment(params.engineId))
       } else if (newEngine != null) {
@@ -144,10 +145,15 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   override def systemInfo(): Validated[ValidateError, Response] = {
     logger.trace("Getting Harness system info")
-    case class sysInfo(version: String = "0.5.0-SNAPSHOT")
-    val info = com.actionml.admin.BuildInfo
-    val ver = info.version
-    Valid(Comment(s"Version: ${com.actionml.admin.BuildInfo.version}"))
+    // todo: do we want to check connectons to services here?
+    Valid(SystemInfo(
+      buildVersion = com.actionml.admin.BuildInfo.version,
+      gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
+      gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
+      harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
+      mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" )
+    ))
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
@@ -186,10 +192,12 @@ case class EngineMetadata(
   engineFactory: String,
   params: String)
 
-// not sure how to bring this in scope since it is defined during the compile step
-// of build.sbt
-/*
-object BuildInfo {
-  val version = "${version.value}"
-}
-*/
+case class SystemInfo(
+    buildVersion: String,
+    gitBranch: String,
+    gitHash: String,
+    harnessURI: String,
+    mongoURI: String,
+    elasticsearchURI: String
+)
+  extends Response

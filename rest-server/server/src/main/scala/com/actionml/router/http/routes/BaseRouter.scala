@@ -64,8 +64,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
     ifDefinedStatus: StatusCode
   )(ifDefinedResource: Future[Validated[ValidateError, T]])(implicit toJson: T => JValue): Route = {
     onSuccess(ifDefinedResource) {
-      case Valid(a) =>
-        complete(ifDefinedStatus, toJson(a))
+      case Valid(a) => complete(ifDefinedStatus, toJson(a))
       case Invalid(error: ParseError) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: MissingParams) => complete(StatusCodes.BadRequest, error.message)
       case Invalid(error: WrongParams) => complete(StatusCodes.BadRequest, error.message)

@@ -24,12 +24,12 @@ import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
-import com.mongodb.client.model.IndexOptions
+import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonInt32, BsonValue}
-import org.mongodb.scala.model.{Filters, IndexModel, Sorts}
+import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts, Updates}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -80,7 +80,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       collection.insertMany(c).headOption.flatMap {
         case Some(t) =>
           logger.trace(s"Successfully inserted ${c.size} items into $name with result $t")
-          Future.successful()
+          Future.successful ()
         case None =>
           logger.error(s"Can't insert $c into collection ${collection.namespace}")
           Future.failed(new RuntimeException(s"Can't insert $c to collection ${collection.namespace}"))
@@ -91,14 +91,12 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
     }
   }
 
-  override def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T] = {
-    collection.findOneAndReplace(mkFilter(filter), o).headOption.flatMap {
+  override def updateAsync(filter: (String, QueryCondition)*)(update: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit] = {
+    collection.updateMany(mkFilter(filter), mkUpdate(update: _*)).headOption.map {
       case Some(t) =>
-        logger.trace(s"Successfully updated object $o with the filter $filter")
-        Future.successful(t)
+        logger.trace(s"Successfully updated object $t with the filter $filter")
       case None =>
-        logger.error(s"Can't update collection ${collection.namespace} with filter $filter and value $o")
-        Future.failed(new RuntimeException(s"Can't update collection ${collection.namespace} with filter $filter and value $o"))
+        logger.trace(s"Nothing was updated in the collection ${collection.namespace} with filter $filter and value $update")
     }
   }
 
@@ -158,6 +156,10 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
         case _ => false
       }.flatMap(_._3)
     }
+    def mkIndexOptions(name: String) =
+      if (name == "_id") IndexOptions().name(name)
+      else IndexOptions().name(name).background(true)
+
     (for {
       actualIndexesInfo <- getActualIndexesInfo(collection)
       required = getRequiredIndexesInfo[T].map {
@@ -167,11 +169,10 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       absentIndexes = required diff actualIndexesInfo
       newIndexes = absentIndexes.collect {
         case (iName, SingleIndex(o, isTtl), _) if isTtl && actualTtl(iName, actualIndexesInfo).forall(_.compareTo(ttl) != 0) =>
-          val options = new IndexOptions().name(iName)
-            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+          val options = mkIndexOptions(iName).expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
           (iName, IndexModel(Document(iName -> order2Int(o)), options))
         case (iName, SingleIndex(o, _), _)=>
-          (iName, IndexModel(Document(iName -> order2Int(o)), new IndexOptions().name(iName)))
+          (iName, IndexModel(Document(iName -> order2Int(o)), mkIndexOptions(iName)))
         case (_, CompoundIndex(fields), _) =>
           val indexName: String = fields.map(_._1).mkString("_")
           val builder = Document.builder
@@ -179,7 +180,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
             case (name, o) =>
               builder += name -> ordering2BsonValue(o)
           }
-          (indexName, IndexModel(builder.result(), new IndexOptions().name(indexName)))
+          (indexName, IndexModel(builder.result(), mkIndexOptions(indexName)))
       }
       _ <- Future.traverse(newIndexes.map(_._1) intersect actualIndexesInfo.map(_._1)) { iname =>
         logger.debug(s"Drop index $iname")
@@ -210,7 +211,14 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
       case (k, LessOrEqualsTo(v)) => Filters.lte(k, v)
       case (k, LessThen(v)) => Filters.lt(k, v)
       case (k, Equals(v)) => Filters.eq(k, v)
+      case (k, NotEquals(v)) => Filters.ne(k, v)
     }.toArray[Bson]: _*)
+  }
+
+  private def mkUpdate(fields: (String, Any)*): Bson = {
+    Updates.combine(fields.map { f =>
+      Updates.set(f._1, f._2)
+    }: _*)
   }
 
   private def order2Bson(order: OrderBy): Bson = {

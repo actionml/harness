@@ -33,10 +33,11 @@ trait DAO[T] extends AsyncDao[T] {
   def collectionName: String
   def findOneById(id: String): Option[T]
   def findOne(filter: (String, QueryCondition)*): Option[T]
-  def findMany(query: DaoQuery = DaoQuery()): Iterable[T]
+  def findMany(filter: (String, QueryCondition)*): Iterable[T]
+  def findMany(offset: Int = 0, limit: Int = 100, orderBy: Option[OrderBy] = None)(filter: (String, QueryCondition)*): Iterable[T]
   def insert(o: T): Unit
   def insertMany(c: Seq[T]): Unit
-  def update(filter: (String, QueryCondition)*)(o: T): T
+  def update(filter: (String, QueryCondition)*)(update: (String, Any)*): Unit
   def saveOneById(id: String, o: T): Unit
   def saveOne(filter: (String, QueryCondition), o: T): Unit
   def removeOneById(id: String): T
@@ -48,10 +49,10 @@ trait DAO[T] extends AsyncDao[T] {
 trait AsyncDao[T] {
   def findOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Option[T]]
   def findOneByIdAsync(id: String): Future[Option[T]]
-  def findManyAsync(query: DaoQuery = DaoQuery())(implicit ec: ExecutionContext): Future[Iterable[T]]
+  def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]]
   def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
   def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit]
-  def updateAsync(filter: (String, QueryCondition)*)(o: T)(implicit ec: ExecutionContext): Future[T]
+  def updateAsync(filter: (String, QueryCondition)*)(update: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit]
   def saveOneByIdAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
   def saveOneAsync(filter: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit]
   def removeOneByIdAsync(id: String)(implicit ec: ExecutionContext): Future[T]
@@ -73,10 +74,12 @@ trait SyncDao[T] extends DAO[T] with LazyLogging { self: AsyncDao[T] =>
 
   override def findOneById(id: String): Option[T] = sync(findOneByIdAsync(id))
   override def findOne(filter: (String, QueryCondition)*): Option[T] = sync(findOneAsync(filter: _*))
-  override def findMany(query: DaoQuery = DaoQuery()): Iterable[T] = sync(findManyAsync(query))
+  override def findMany(filter: (String, QueryCondition)*): Iterable[T] = findMany(orderBy = None)(filter: _*)
+  override def findMany(offset: Int, limit: Int, orderBy: Option[OrderBy])(filter: (String, QueryCondition)*): Iterable[T] =
+    sync(findManyAsync(DaoQuery(filter = filter, offset = offset, limit = limit, orderBy = orderBy)))
   override def insert(o: T): Unit = sync(insertAsync(o))
   override def insertMany(c: Seq[T]): Unit = sync(insertManyAsync(c))
-  override def update(filter: (String, QueryCondition)*)(o: T): T = sync(updateAsync(filter: _*)(o))
+  override def update(filter: (String, QueryCondition)*)(update: (String, Any)*): Unit = sync(updateAsync(filter: _*)(update: _*))
   override def saveOneById(id: String, o: T): Unit = sync(saveOneByIdAsync(id, o))
   // saveOne will overwrite an object if the primary key already exists, like a Mongo upsert
   override def saveOne(filter: (String, QueryCondition), o: T): Unit = sync(saveOneAsync(filter, o)) // saveOneById but create the primary key

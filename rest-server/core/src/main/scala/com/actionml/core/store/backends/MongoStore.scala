@@ -27,8 +27,10 @@ import com.mongodb.ConnectionString
 import com.mongodb.client.MongoClients
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.connection.netty.NettyStreamFactoryFactory
+import java.util.Date
+
+import com.actionml.core.store.{DAO, Store}
 import com.typesafe.scalalogging.LazyLogging
-import io.netty.channel.nio.NioEventLoopGroup
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
@@ -48,11 +50,9 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def createDao[T: ClassTag : ru.TypeTag](name: String, ttl: Option[Duration]): DAO[T] = {
-    val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs))
-    val dao = new MongoAsyncDao[T](collection)
-    dao.createIndexes()
-    dao
+  override def createDao[T: ru.TypeTag](name: String, ttl: Duration)(implicit ct: ClassTag[T]): DAO[T] = {
+    val collection = db.getCollection[T](name).withCodecRegistry(codecRegistry(codecs)(ct))
+    new MongoAsyncDao[T](collection)
   }
 
   override def removeCollection(name: String): Unit = sync(removeCollectionAsync(name))
@@ -84,7 +84,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
   }
 
 
-  private val timeout = 5 seconds
+  private val timeout = 5.seconds
   private def sync[A](f: => Future[A]): A = Await.result(f, timeout)
 
   override def dbName: String = db.name
@@ -93,7 +93,7 @@ class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store
 object MongoStorage extends LazyLogging {
   private lazy val mongoClient = MongoClient(MongoConfig.mongo.uri.toString)
 
-  def close = {
+  def close() = {
     logger.trace(s"Closing mongo client $mongoClient")
     mongoClient.close()
   }
@@ -107,8 +107,8 @@ object MongoStorage extends LazyLogging {
     import scala.collection.JavaConversions._
     if (codecs.nonEmpty) fromRegistries(
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
-      fromProviders(codecs),
-      DEFAULT_CODEC_REGISTRY
+      DEFAULT_CODEC_REGISTRY,
+      fromProviders(codecs)
     ) else fromRegistries(
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
       DEFAULT_CODEC_REGISTRY

@@ -10,13 +10,16 @@
 HARNESS_CLASS=com.actionml.HarnessServer
 
 # Harness options passed to the Java service
-HARNESS_OPTS="\
+HARNESS_OPTS="${HARNESS_OPTS}\
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
--DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} \
--Drest-server.host=${REST_SERVER_HOST} \
--Drest-server.port=${REST_SERVER_PORT} \
--Dmongo.host=${MONGO_HOST} \
--Dmongo.port=${MONGO_PORT}"
+-DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} # this is a no-op!
+
+# We should be able to remove the above options to read all from env, better for containers
+# \
+#-Drest-server.host=${HARNESS_HOST} \ # is this needed?
+#-Drest-server.port=${HARNESS_PORT} \ # is this needed? We use a URI here
+#-Dmongo.host=${MONGO_HOST} \ # is this needed?
+#-Dmongo.port=${MONGO_PORT}" # is this needed? We use a URI here
 
 
 if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
@@ -47,5 +50,5 @@ else
     exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" &
   fi
 
-  echo -e "${CYAN}Run \"harnessctl status\" to get server status${NC}"
+  echo -e "${CYAN}Run \"harness-cli status system\" to get server status information${NC}"
 fi

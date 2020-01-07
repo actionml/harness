@@ -20,11 +20,11 @@ package com.actionml.core.spark
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface}
+import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface, JobStatuses}
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerEvent}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 
@@ -45,7 +45,7 @@ object SparkContextSupport extends JsonSupport {
     case s@Running(_, _, currentPromise, otherPromises) =>
       if (currentPromise.isCompleted) {
         currentPromise.future.value.foreach {
-          case Success(sc) => if (!sc.isStopped) sc.stop()
+          case Success(sc) => if (!sc.isStopped) stopSc(sc)
           case _ =>
         }
       } else currentPromise.failure(new InterruptedException)
@@ -57,13 +57,13 @@ object SparkContextSupport extends JsonSupport {
     state.get match {
       case s@Running(_, optSc, _, promises) if promises.nonEmpty =>
         val (p, others) = (promises.head, promises.tail)
-        optSc.foreach(_.stop())
+        optSc.foreach(stopSc)
         createSparkContext(p._1).foreach { newSc =>
           p._2.complete(Success(newSc))
           state.compareAndSet(s, Running(p._1, Option(newSc), p._2, others))
         }
       case s@Running(_, optSc, _, _)  =>
-        optSc.foreach(_.stop())
+        optSc.foreach(stopSc)
         state.compareAndSet(s, Idle)
       case Idle =>
     }
@@ -89,9 +89,8 @@ object SparkContextSupport extends JsonSupport {
           }
         }
         val f = p.future
-        val desc = JobManager.addJob(engineId, f, new SparkCancellable(params.jobDescription.jobId, f), "Spark job")
-        JobManager.removeJob(jobDescription.jobId)
-        (f, desc)
+        JobManager.updateJob(engineId, jobDescription.jobId, JobStatuses.executing, new SparkCancellable(params.jobDescription.jobId, f))
+        (f, jobDescription)
       case Running(currentParams, _, p, _) if currentParams == params && p.isCompleted && p.future.value.forall(r => r.isSuccess && !r.get.isStopped) =>
         (p.future, currentParams.jobDescription)
       case s@Running(currentParams, sc, _, promises) if !sc.exists(_.isStopped) =>
@@ -111,12 +110,17 @@ object SparkContextSupport extends JsonSupport {
   }
 
 
+  private def stopSc(sc: SparkContext): Unit = {
+    sc.stop()
+    System.clearProperty("spark.driver.port")
+  }
+
   private def createSparkContext(params: SparkContextParams): Future[SparkContext] = {
     val f = Future {
       val configMap = configParams ++ parseAndValidate[Map[String, String]](params.config, transform = _ \ "sparkConf").getOrElse(Map.empty)
       val conf = new SparkConf()
       configMap.get("master").foreach(conf.setMaster)
-      conf.setAppName(params.engineId)
+      conf.setAppName(s"${params.engineId}:${params.jobDescription.jobId}")
       conf.setAll(configMap - "master")
       val jars = listJars(sys.env.getOrElse("HARNESS_HOME", ".") + s"${File.separator}lib")
       conf.setJars(jars)
@@ -126,15 +130,13 @@ object SparkContextSupport extends JsonSupport {
       // rest through on the hope they are correct
       if (params.kryoClasses.nonEmpty) conf.registerKryoClasses(params.kryoClasses)
       val sc = new SparkContext(conf)
-      sc.setJobGroup(params.jobDescription.jobId, params.jobDescription.comment, interruptOnCancel = true)
+      sc.setJobGroup(params.jobDescription.jobId, s"${params.jobDescription.comment}. EngineId: ${params.engineId}", interruptOnCancel = true)
       sc.addSparkListener(new JobManagerListener(JobManager, params.engineId, params.jobDescription.jobId))
       sc
     }
-    f.onComplete {
-      case Failure(e) =>
-        logger.error(s"Spark context failed for job ${params.jobDescription}", e)
-        JobManager.removeJob(params.jobDescription.jobId)
-      case _ =>
+    f.onFailure { case e =>
+      logger.error(s"Spark context can not be created for job ${params.jobDescription}", e)
+      JobManager.markJobFailed(params.jobDescription.jobId)
     }
     f
   }
@@ -142,7 +144,7 @@ object SparkContextSupport extends JsonSupport {
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
     override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
       logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
-      jobManager.removeJob(jobId)
+      jobManager.finishJob(jobId)
     }
   }
 

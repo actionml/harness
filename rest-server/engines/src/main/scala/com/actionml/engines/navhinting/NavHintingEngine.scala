@@ -62,8 +62,8 @@ class NavHintingEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): NavHintingEngine = {
-   val response = init(json)
+  override def initAndGet(json: String, update: Boolean): NavHintingEngine = {
+   val response = init(json, update)
     if (response.isValid) {
       logger.trace(s"Initialized with Engine's JSON: $json")
       this
@@ -152,11 +152,8 @@ case class NavHintingStatus(
   extends Response
 
 object NavHintingEngine {
-  def apply(json: String): NavHintingEngine = {
+  def apply(json: String, isNew: Boolean): NavHintingEngine = {
     val engine = new NavHintingEngine()
-    engine.initAndGet(json)
+    engine.initAndGet(json, update = isNew)
   }
-
-  // in case we don't want to use "apply", which is magically connected to the class's constructor
-  def createEngine(json: String) = apply(json)
 }

@@ -30,8 +30,6 @@ import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
 
-import scala.concurrent.duration._
-
 
 class URNavHintingEngine extends Engine with JsonSupport {
 
@@ -75,8 +73,8 @@ class URNavHintingEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String): URNavHintingEngine = {
-    val response = init(jsonConfig)
+  override def initAndGet(jsonConfig: String, update: Boolean): URNavHintingEngine = {
+    val response = init(jsonConfig, update)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $jsonConfig")
       this
@@ -125,9 +123,9 @@ class URNavHintingEngine extends Engine with JsonSupport {
 }
 
 object URNavHintingEngine {
-  def apply(jsonConfig: String): URNavHintingEngine = {
+  def apply(jsonConfig: String, isNew: Boolean): URNavHintingEngine = {
     val engine = new URNavHintingEngine()
-    engine.initAndGet(jsonConfig)
+    engine.initAndGet(jsonConfig, isNew)
   }
 
   case class URNavHintingEngineParams(
@@ -199,4 +197,4 @@ object URNavHintingEngine {
 
 }
 
-case class URNavHintingEngineStatus(engineParams: URNavHintingEngineParams, jobStatuses: Map[String, JobDescription]) extends Response
+case class URNavHintingEngineStatus(engineParams: URNavHintingEngineParams, jobStatuses: Iterable[JobDescription]) extends Response

@@ -1,0 +1,8 @@
+# Configures teh docker-compose containers to store peristent files to
+# ./docker-persistence/... Change this if you want to upt files elsewhere on the host
+ES_JAVA_OPTS=-Xms512m -Xmx512m
+ES_DATA=./docker-persistence/es/data
+HARNESS_LOGS=./docker-persistence/harness/logs
+MONGO_LOGS=./docker-persistence/mongo/logs
+MONGO_DATA=./docker-persistence/mongo/data/db
+CLI_DATA=./docker-persistence/harness-cli/data

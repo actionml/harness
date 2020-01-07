@@ -54,7 +54,7 @@ object URPreparator extends LazyLogging {
       //val debug = singleEventRDD.collect()
 
       (i.name, singleEventRDD)
-    }.toSeq.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
+    }.filterNot { case (_, singleEventRDD) => singleEventRDD.isEmpty() }
 
     val fieldsRDD: RDD[(ItemID, PropertyMap)] = itemsRDD.map(item => (item._id, item.dateProps ++ item.categoricalProps ++ item.floatProps ++ item.booleanProps))
 

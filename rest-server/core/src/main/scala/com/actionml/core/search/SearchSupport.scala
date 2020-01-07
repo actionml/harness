@@ -20,8 +20,8 @@ package com.actionml.core.search
 import com.actionml.core.search.Filter.Conditions.Condition
 import com.actionml.core.search.Filter.Types.Type
 
-trait SearchSupport[T] {
-  def createSearchClient(engineId: String): SearchClient[T]
+trait SearchSupport[R, D] {
+  def createSearchClient(engineId: String): SearchClient[R, D]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
@@ -75,14 +75,17 @@ case class SearchQuery(
 
 case class Hit(id: String, score: Float)
 
-trait SearchClient[T] {
+/*
+  R is the type of search result, D - type of Document
+ */
+trait SearchClient[R, D] {
   def close(): Unit
   def createIndex(
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
-  def saveOneById(id: String, doc: T): Boolean
+  def saveOneById(id: String, doc: D): Boolean
   def deleteIndex(refresh: Boolean = false): Boolean
-  def search(query: SearchQuery): Seq[T]
-  def findDocById(id: String): (String, Map[String, Seq[String]])
+  def search(query: SearchQuery): Seq[R]
+  def findDocById(id: String): D
 }

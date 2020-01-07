@@ -18,10 +18,9 @@
 package com.actionml.core.validate
 
 import java.io.IOException
-import java.time.{Instant, ZoneId, ZoneOffset}
+import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoField
-import java.util.{Date, GregorianCalendar, TimeZone}
+import java.util.{Date, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}

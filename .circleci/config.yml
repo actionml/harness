@@ -5,8 +5,8 @@ jobs:
     - image: actionml/harness-sdk:0.1
       entrypoint: /entrypoint.sh
     environment:
-    - SDK_VERBOSE: true
-    - JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
+      - SDK_VERBOSE: true
+      - JVM_OPTS: -Xms512m -Xmx3584m -Xss2m
     steps:
     - checkout
     - restore_cache:
@@ -30,20 +30,33 @@ jobs:
   publish:
     docker:
     - image: docker:stable
+    environment:
+      SHELL_ENV: /etc/profile
     steps:
     - checkout
     - setup_remote_docker
     - attach_workspace:
         at: /root/project/dist
     - run:
+        name: Install Docker Compose and Kubectl
+        command: |
+          set -x
+          chmod +x docker/config-dependencies.sh
+          ./docker/config-dependencies.sh
+    - run:
         name: Docker login
         command: |
           echo -n ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
     - run:
-        name: Build rest-server docker image
+        name: Build docker image
         command: |
-          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%Y-%m-%d')
+
+          echo 'export SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)' >> $SHELL_ENV
+          echo 'export DATE_BUILD=$(date +'%Y-%m-%d')' >> $SHELL_ENV
+          source $SHELL_ENV
+
+          echo "SHORT_GIT_HASH $SHORT_GIT_HASH"
+          echo "DATE_BUILD $DATE_BUILD"
 
           case "${CIRCLE_BRANCH}" in
             master|develop|devops)
@@ -53,50 +66,78 @@ jobs:
             ;;
           esac
     - run:
-        name: Publish docker image
+        name: Test docker image
         command: |
-          SHORT_GIT_HASH=$(echo $CIRCLE_SHA1 | cut -c -7)
-          DATE_BUILD=$(date +'%Y-%m-%d')
-          
+
           case "${CIRCLE_BRANCH}" in
-            "master")
-              docker image push actionml/harness:latest
-            ;;
-            "develop")
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}
-              docker image push actionml/harness:${CIRCLE_BRANCH}
-              
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-            ;;
-            "devops")
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}
-              docker image push actionml/harness:${CIRCLE_BRANCH}
-              
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$SHORT_GIT_HASH
-              
-              docker tag actionml/harness:latest actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
-              docker image push actionml/harness:${CIRCLE_BRANCH}-$DATE_BUILD
+            master|develop|devops)
+              cd docker && \
+              mv envs .env &&\
+              docker-compose up -d --build
+              docker-compose ps
+              sleep 45
+
+              docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
+
+              docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+              echo "export RESULT=$RESULT" >> $SHELL_ENV
             ;;
             *)
+              echo "export RESULT=1" >> $SHELL_ENV
             ;;
           esac
-  test:
-    docker:
-    - image: alpine
-    steps:
-    - run: echo "unit or other tests"
+          source $SHELL_ENV
+    - run:
+        name: Publish docker image
+        command: |
+          source $SHELL_ENV
+          echo "Result is ${RESULT}"
+
+          if [ $RESULT -eq 0 ]
+          then
+            case "${CIRCLE_BRANCH}" in
+              "master")
+                docker image push actionml/harness:latest
+              ;;
+              develop|devops)
+                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+                docker tag actionml/harness:latest actionml/harness:$BRANCH
+                docker image push actionml/harness:$BRANCH
+                
+                docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
+                docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
+                
+                docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
+                docker image push actionml/harness:$BRANCH-$DATE_BUILD
+              ;;
+              *)
+              ;;
+            esac
+          fi
+    - run:
+        name: Update kubernetes Deployment
+        command: | 
+          source $SHELL_ENV
+
+          if [ $RESULT -eq 0 ] 
+          then
+           case "${CIRCLE_BRANCH}" in
+              "develop")
+                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+                kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
+              
+                kubectl delete pod harness-0
+              ;;
+              *)
+              ;;
+            esac
+          fi
 workflows:
   version: 2
   default:
     jobs:
     - build
-    - test
     - publish:
         requires:
         - build
-        - test

@@ -17,7 +17,6 @@
 
 package com.actionml.engines.ur
 
-import com.actionml.core.search.Hit
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.mahout.math.indexeddataset.IndexedDataset
@@ -32,7 +31,7 @@ class URModel(
     coocurrenceMatrices: Seq[(String, IndexedDataset)] = Seq.empty,
     propertiesRDDs: Seq[RDD[(String, Map[String, Any])]] = Seq.empty,
     typeMappings: Map[String, (String, Boolean)] = Map.empty) // maps fieldname that need type mapping in Elasticsearch
-    (implicit sc: SparkContext, es: ElasticSearchClient[Hit])
+    (implicit sc: SparkContext, es: ElasticSearchClient)
   extends LazyLogging {
 
 
