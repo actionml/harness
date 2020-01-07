@@ -28,7 +28,7 @@ if [ ! -f "${HARNESS_HOME}/bin/main" ]; then
   exit 1
 fi
 
-
+#l DFIQ;FIJIJGIT
 # Locate harness PID
 pid=$(java_pid $HARNESS_CLASS)
 
