@@ -78,7 +78,7 @@ jobs:
               sleep 55
 
               docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=60|g" /harness-cli/examples/ur/simple-integration-test.sh'
-              docker-compose exec harness-cli bash -c 'sed -i "cat -n  /harness-cli/examples/ur/simple-integration-test.sh'
+              docker-compose exec harness-cli bash -c 'cat -n  /harness-cli/examples/ur/simple-integration-test.sh'
               docker-compose logs harness
 
               docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
