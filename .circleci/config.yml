@@ -42,7 +42,7 @@ jobs:
         command: |
           set -x
           chmod +x docker/config-dependencies.sh
-          ./docker/config-dependencies.sh
+          # ./docker/config-dependencies.sh
     - run:
         name: Docker login
         command: |
@@ -115,24 +115,24 @@ jobs:
               ;;
             esac
           fi
-    - run:
-        name: Update kubernetes Deployment
-        command: | 
-          source $SHELL_ENV
+    # - run:
+    #     name: Update kubernetes Deployment
+    #     command: | 
+    #       source $SHELL_ENV
 
-          if [ $RESULT -eq 0 ] 
-          then
-           case "${CIRCLE_BRANCH}" in
-              "devops")
-                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-                kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
+    #       if [ $RESULT -eq 0 ] 
+    #       then
+    #        case "${CIRCLE_BRANCH}" in
+    #           "devops")
+    #             BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
+    #             kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
               
-                kubectl delete pod harness-0
-              ;;
-              *)
-              ;;
-            esac
-          fi
+    #             kubectl delete pod harness-0
+    #           ;;
+    #           *)
+    #           ;;
+    #         esac
+    #       fi
 workflows:
   version: 2
   default:
