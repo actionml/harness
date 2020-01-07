@@ -29,21 +29,20 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
-import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
-import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
-import org.elasticsearch.client.{Request, RestClient}
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
+import org.elasticsearch.client.{Request, Response, RestClient}
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
-import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
@@ -82,8 +81,8 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
 class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument])
   extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[Hit] =>
-  import ElasticSearchClient._
   import ElasticSearchClient.ESVersions._
+  import ElasticSearchClient._
   implicit val _ = DefaultFormats
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
@@ -111,8 +110,8 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
               "doc" -> JsonMethods.asJValue(doc),
               "doc_as_upsert" -> JBool(true)
             )))
-          val aliasResponse = client.performRequest(request)
-          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val response = client.performRequest(request)
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
           case NonFatal(e) =>
@@ -167,8 +166,12 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
 
   }
 
+  private def performRequest(method: String, url: String): Future[Response] = {
+    Future(client.performRequest(new Request(method, url)))
+  }
+
   def findDocById(id: String): EsDocument = {
-    var rjv: Option[JValue] = Some(JString(""))
+    var rjv: Option[JValue] = None
     try {
       client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
         .getStatusLine
@@ -177,7 +180,7 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
           val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
           val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
-          rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
+          rjv = indexSet.headOption.map { actualIndexName =>
             val url = s"/$actualIndexName/$indexType/${encodeURIFragment(id)}"
             logger.trace(s"Find doc by id using URL: $url")
             val response = client.performRequest(new Request("GET", url))
@@ -188,7 +191,7 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
                 val entity = EntityUtils.toString(response.getEntity)
                 logger.trace(s"Got status code: 200\nentity: $entity")
                 if (entity.isEmpty) {
-                  None
+                  Option.empty[JValue]
                 } else {
                   logger.trace(s"About to parse: $entity")
                   val result = parse(entity)
@@ -200,16 +203,16 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
                 Some(parse("""{"notFound": "true"}"""))
               case _ =>
                 logger.trace(s"Got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
-                None
+                Option.empty[JValue]
             }
           }
         case _ =>
       }
     } catch {
-      case e: org.elasticsearch.client.ResponseException => {
-        logger.error("got no data for the item", e)
+      case e: org.elasticsearch.client.ResponseException =>
+        if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
+        else logger.error("Find doc by id error", e)
         rjv = None
-      }
       case NonFatal(e) =>
         logger.error("got unknown exception and so no data for the item", e)
         rjv = None
@@ -324,9 +327,6 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
-    def fieldToJson: ((String, (String, Boolean))) => JField = {
-      case (name, (tpe, _)) => JField(name, JObject("type" -> JString(tpe)))
-    }
     client.performRequest(new Request("HEAD", s"/$indexName"))
       .getStatusLine.getStatusCode match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
@@ -454,18 +454,20 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
     var clauses = JObject()
+    val mustIsEmpty = query.must.flatMap(_.values).isEmpty
+    val shouldNonEmpty = query.should.flatMap(_.values).nonEmpty
     if (esVersion == ESVersions.v5) {
       clauses = clauses ~ ("must" -> matcherToJson(Map("terms" -> query.must)))
       clauses = clauses ~ ("must_not" -> matcherToJson(Map("terms" -> query.mustNot)))
       clauses = clauses ~ ("filter" -> filterToJson(query.filters))
       clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0)))
-      if (query.must.flatMap(_.values).isEmpty) clauses = clauses ~ ("minimum_should_match" -> 1)
+      if (mustIsEmpty) clauses = clauses ~ ("minimum_should_match" -> 1)
     } else {
       clauses = clauses ~ ("must" -> mustToJson(query.must))
       clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
       clauses = clauses ~ ("filter" -> filterToJson(query.filters))
       clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should)))
-      if (query.must.flatMap(_.values).nonEmpty) clauses = clauses ~ ("minimum_should_match" -> JInt(1))
+      if (mustIsEmpty && shouldNonEmpty) clauses = clauses ~ ("minimum_should_match" -> JInt(1))
     }
     val esQuery =
       ("size" -> query.size) ~
@@ -475,30 +477,38 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
         "_score" -> JObject("order" -> JString("desc")),
         query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
       ))
-    compact(render(esQuery))
+    val esquery = compact(render(esQuery))
+    logger.debug(s"Query for Elasticsearch: $esquery")
+    esquery
   }
 
-  private def mustToJson: Seq[Matcher] => JValue = {
-    case Nil =>
-      JObject {
-        "match_all" -> JObject("boost" -> JDouble(0))
+  private def mustToJson: Seq[Matcher] => JValue = clauses =>
+    if (clauses.isEmpty)
+      JObject("match_all" -> JObject("boost" -> JDouble(0)))
+    else
+      clausesToJson(Map("term" -> clauses), mkAND = false)
+
+  private def clausesToJson(clauses: Map[String, Seq[Matcher]], mkAND: Boolean = true): JArray = {
+    def mkClause(clause: String, m: Matcher, v: String): (String, JObject) = {
+      clause -> JObject {
+        m.name ->
+          ("value" -> JString(v)) ~
+            m.boost.fold[JObject](JObject())(b => JObject("boost" -> JDouble(b)))
       }
-    case clauses =>
-      clausesToJson(Map("term" -> clauses))
-  }
-
-  private def clausesToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
-    clauses.toList.flatMap { case (clause, matchers) =>
-      matchers.flatMap { m =>
-        m.values.map { v =>
-          clause -> JObject {
-            m.name ->
-              ("value" -> JString(v)) ~
-              m.boost.fold[JObject](JObject())(b => JObject("boost" -> JDouble(b)))
+    }
+    clauses.view.flatMap { case (clause, matchers) =>
+      matchers.flatMap {
+        case m@Matcher(_, values, _) if mkAND || values.isEmpty || values.size == 1 =>
+          m.values.map { v =>
+            mkClause(clause, m, v)
           }
-        }
+        case m => Seq("bool" -> JObject("should" -> JArray(
+          m.values.map { v => JObject(
+            mkClause(clause, m, v)
+          )}.toList
+        )))
       }
-    } ++ others.toList
+    }
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {

@@ -140,7 +140,8 @@ class UREngine extends Engine with JsonSupport {
   }
 
   // todo: should kill any pending Spark jobs
-  override def destroy(): Unit = {
+  override def destroy: Unit = {
+    super.destroy
     logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
@@ -255,5 +256,5 @@ object UREngine extends JsonSupport {
 
 case class UREngineStatus(
     engineParams: UREngineParams,
-    jobStatuses: Map[String, JobDescription])
+    jobStatuses: Iterable[JobDescription])
   extends Response

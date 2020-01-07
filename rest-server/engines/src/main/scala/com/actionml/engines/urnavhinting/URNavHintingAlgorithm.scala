@@ -398,8 +398,8 @@ class URNavHintingAlgorithm private (
     // like "you forgot to train"
     // todo: order by date
     import DaoQuery.syntax._
-    val unconvertedHist = dataset.getActiveJourneysDao.findMany(DaoQuery(limit= maxQueryEvents * 100,filter = Seq("entityId" === query.user)))
-    val convertedHist = dataset.getIndicatorsDao.findMany(DaoQuery(limit= maxQueryEvents * 100, filter = Seq("entityId" === query.user)))
+    val unconvertedHist = dataset.getActiveJourneysDao.findMany(limit= maxQueryEvents * 100)("entityId" === query.user)
+    val convertedHist = dataset.getIndicatorsDao.findMany(limit= maxQueryEvents * 100)("entityId" === query.user)
     val userEvents = modelEventNames.map { n =>
       (n,
         (unconvertedHist.filter(_.event == n).map(_.targetEntityId.get).toSeq ++

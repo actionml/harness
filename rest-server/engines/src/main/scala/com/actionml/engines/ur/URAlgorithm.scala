@@ -287,18 +287,20 @@ class URAlgorithm private (
           logger.info(s"Engine-id: ${engineId}. Event name: $name")
           logger.info(s"Engine-id: ${engineId}. Num users/rows = ${ids.matrix.nrow}")
           logger.info(s"Engine-id: ${engineId}. Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
+          // do not log these in real world situations, only for small debug test data
+          // logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
+          // logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
         }
         logger.info("======================================== done ========================================")
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
+        JobManager.finishJob(jobDescription.jobId)
       } catch {
         case NonFatal(e) =>
           logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+          JobManager.markJobFailed(jobDescription.jobId)
       } finally {
-        JobManager.removeJob(jobDescription.jobId)
         SparkContextSupport.stopAndClean(sc)
       }
     }
@@ -434,10 +436,10 @@ class URAlgorithm private (
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     try {
-      JobManager.getActiveJobDescriptions(engineId).get(jobId).fold[Validated[ValidateError, Response]] {
+      JobManager.getActiveJobDescriptions(engineId).find(_.jobId == jobId).fold[Validated[ValidateError, Response]] {
         Invalid(WrongParams(s"No jobId $jobId found"))
       } { _ =>
-        Await.result(JobManager.cancelJob(jobId), 5.minutes)
+        Await.result(JobManager.cancelJob(engineId, jobId), 5.minutes)
         Valid(Comment(s"Job $jobId aborted successfully"))
       }
     } catch {
@@ -467,7 +469,7 @@ class URAlgorithm private (
     val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
     val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
 
-    val sq = SearchQuery(
+    SearchQuery(
       sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
       should = shouldMatchers,
       must = mustMatchers,
@@ -476,9 +478,6 @@ class URAlgorithm private (
       size = numResults,
       from = startPos
     )
-
-    //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
-    sq
   }
 
   /** Aggregates unique Rules by name, discarding config rules that are named the same as a query rule */
@@ -508,19 +507,17 @@ class URAlgorithm private (
 
     implicit val ordering = Ordering.desc
     val userHistory = eventsDao.findMany(
-      DaoQuery(
-        orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
-        limit = maxQueryEvents,
-        filter = Seq("entityId" === query.user.getOrElse(""))))
-      .toSeq
+      orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
+      limit = maxQueryEvents
+    )("entityId" === query.user.getOrElse("")).toSeq
       // .distinct // these will be distinct so this is redundant
+      .filter { event =>
+        queryEventNamesFilter.contains(event.event)
+      }
       .map { event => // rename aliased events to the group name
         // logger.info(s"History: ${event}")
         val queryEventName = queryEventNames(event.event)
         event.copy(event = queryEventName)
-      }
-      .filter { event =>
-        queryEventNamesFilter.contains(event.event)
       }
       .groupBy(_.event)
       .flatMap{ case (name, events) =>

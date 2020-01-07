@@ -43,6 +43,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
   // instantiates all stored engine instances with restored state
   override def init() = {
     // ask engines to init
+    JobManager.abortExecutingJobs
     engines = enginesCollection.findMany().map { engine =>
       // create each engine passing the params
       val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)
@@ -81,7 +82,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
     // val params = parse(json).extract[GenericEngineParams]
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
-      if (newEngine != null && enginesCollection.findMany(DaoQuery(filter = Seq("engineId" === params.engineId))).size == 1) {
+      if (newEngine != null && enginesCollection.findMany("engineId" === params.engineId).size == 1) {
         // re-initialize
         logger.trace(s"Re-initializing engine for resource-id: ${ params.engineId } with new params $json")
         enginesCollection.saveOne("engineId" === params.engineId , EngineMetadata(params.engineId, params.engineFactory, json))

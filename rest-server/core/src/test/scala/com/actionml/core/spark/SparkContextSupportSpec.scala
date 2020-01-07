@@ -19,11 +19,12 @@ package com.actionml.core.spark
 
 import com.actionml.core.jobs.JobDescription
 import org.apache.spark.SparkContext
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfter, FlatSpec, Ignore, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+@Ignore
 class SparkContextSupportSpec extends FlatSpec with Matchers with BeforeAndAfter {
   System.setProperty("hadoop.home.dir", "/tmp")
   after {
