@@ -42,7 +42,7 @@ jobs:
         command: |
           set -x
           chmod +x docker/config-dependencies.sh
-          # ./docker/config-dependencies.sh
+          ./docker/config-dependencies.sh
     - run:
         name: Docker login
         command: |
