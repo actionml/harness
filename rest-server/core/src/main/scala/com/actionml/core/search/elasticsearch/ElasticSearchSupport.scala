@@ -233,7 +233,7 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
           id -> Map.empty[String, List[String]]
       }
     } else {
-      logger.info(s"Non-existent item-id: $id, not an error")
+      logger.debug(s"Non-existent item-id: $id, creating new item.")
       id -> Map.empty[String, List[String]]
     }
   }

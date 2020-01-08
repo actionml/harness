@@ -177,7 +177,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private def insertProperty(event: UREvent): Unit =
     try {
       val updateItem = itemsDao.findOneById(event.entityId).getOrElse {
-        logger.warn(s"No property found with id ${event.entityId}")
+        logger.debug(s"No item found with id ${event.entityId}")
         URItemProperties(event.entityId, Map.empty)
       }
       itemsDao.saveOneById(
@@ -198,14 +198,12 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       ).filterNot {
         case (name, _) => indicatorNames.contains(name)
       }
-      if (newProps.nonEmpty) {
-        val esDoc = {
-          val doc = es.findDocById(event.entityId)
-          (doc._1, doc._2 ++ newProps)
-        }
-        val result = es.saveOneById(event.entityId, esDoc)
-        logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
+      val esDoc = {
+        val doc = es.findDocById(event.entityId)
+        (doc._1, doc._2 ++ newProps)
       }
+      val result = es.saveOneById(event.entityId, esDoc)
+      logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
     } catch {
       case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
     }
