@@ -345,7 +345,7 @@ class URAlgorithm private (
             JobManager.removeJob(jobDescription.jobId)
           }
 
-      case e: ValidateError =>
+        case e: ValidateError =>
           logger.error(s"Algorithm parameters error: $e")
           JobManager.markJobFailed(jobDescription.jobId)
       }
