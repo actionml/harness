@@ -177,7 +177,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private def insertProperty(event: UREvent): Unit =
     try {
       val updateItem = itemsDao.findOneById(event.entityId).getOrElse {
-        logger.warn(s"No property found with id ${event.entityId}")
+        logger.info(s"No item found with id ${event.entityId}")
         URItemProperties(event.entityId, Map.empty)
       }
       itemsDao.saveOneById(
