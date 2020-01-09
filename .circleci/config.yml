@@ -77,16 +77,23 @@ jobs:
               docker-compose ps
               sleep 45
 
+              docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=60|g" /harness-cli/examples/ur/simple-integration-test.sh'
+
+              docker-compose logs harness
+
               docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
               docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
-
+              
               docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+              echo "harness-cli simple-integration-test finished"
+
               echo "export RESULT=$RESULT" >> $SHELL_ENV
             ;;
             *)
               echo "export RESULT=1" >> $SHELL_ENV
             ;;
           esac
+          
           source $SHELL_ENV
     - run:
         name: Publish docker image
