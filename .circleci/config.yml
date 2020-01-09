@@ -93,6 +93,7 @@ jobs:
               echo "export RESULT=1" >> $SHELL_ENV
             ;;
           esac
+          
           source $SHELL_ENV
     - run:
         name: Publish docker image
