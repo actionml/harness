@@ -38,6 +38,9 @@ export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
 # todo: need to allow for multiple servers for cluster operation of ES
 export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
 
+# This setting helps mark spark train jobs as expired if they do not respond for this period of time
+export JOBS_EXPIRE_AFTER="12 hours"
+
 HARNESS_OPTS="\
 -J-Xmx4G \
 -J-XX:+UseConcMarkSweepGC \
