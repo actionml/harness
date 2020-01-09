@@ -12,7 +12,7 @@ export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 # flow materializations will never exceed the limit for the reason that it is impossible to reliably
 # detect when a materialization has ended.
 # See akka.http.server.max-connections at https://doc.akka.io/docs/akka-http/current/configuration.html
-export HARNESS_MAX_CONNECTIONS=1024
+export HARNESS_MAX_CONNECTIONS=${HARNESS_MAX_CONNECTIONS:-1024}
 
 # The maximum number of requests that are accepted (and dispatched to
 # the application) on one single connection before the first request
@@ -25,7 +25,7 @@ export HARNESS_MAX_CONNECTIONS=1024
 # time. Set to higher values to enable HTTP pipelining.
 # This value must be > 0 and <= 1024.
 # See akka.http.server.pipelining-limit at https://doc.akka.io/docs/akka-http/current/configuration.html
-export HARNESS_MAX_REQUESTS=16
+export HARNESS_MAX_REQUESTS=${HARNESS_MAX_REQUESTS:-16}
 
 # To configure Harness logging
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"

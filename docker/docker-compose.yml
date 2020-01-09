@@ -10,6 +10,8 @@ services:
       MONGO_URI: mongodb://mongo:27017
       HARNESS_URI: http://0.0.0.0:9090
       ELASTICSEARCH_URI: http://elasticsearch:9200
+      HARNESS_MAX_REQUESTS: 8
+      HARNESS_MAX_CONNECTIONS: 512
     depends_on:
       - mongo
       - elasticsearch
