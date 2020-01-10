@@ -77,7 +77,7 @@ jobs:
               docker-compose ps
               sleep 45
 
-              docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=60|g" /harness-cli/examples/ur/simple-integration-test.sh'
+              docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
 
               docker-compose logs harness
 
