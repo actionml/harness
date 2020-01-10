@@ -30,6 +30,8 @@ import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
 
+import scala.concurrent.Future
+
 
 class URNavHintingEngine extends Engine with JsonSupport {
 
@@ -105,12 +107,13 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
-  def query(jsonQuery: String): Validated[ValidateError, Response] = {
+  def query(jsonQuery: String): Future[Response] = {
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URNavHintingQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
       Valid(result)
     }
+    ???
   }
 
   // todo: should kill any pending Spark jobs

@@ -73,17 +73,23 @@ class BaseModule extends Module with LazyLogging {
   bind[CommandsRouter] to new CommandsRouter
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
+  lazy val administrator = {
+    val a = new MongoAdministrator
+    a.init
+    a
+  }
+  bind[Administrator] identifiedBy 'Administrator to administrator
+
   bind[EventService] to new EventServiceImpl
   bind[EngineService] to new EngineServiceImpl
-  bind[QueryService] to new QueryServiceImpl
+//  bind[QueryService] to new QueryServiceImpl(administrator)
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService
 
-  bind[Administrator] identifiedBy 'Administrator to new MongoAdministrator initWith(_.init())
-
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
-  binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
+//  binding identifiedBy 'QueryService to AkkaInjectable.inject[QueryServiceImpl]("QueryService")
+  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
 

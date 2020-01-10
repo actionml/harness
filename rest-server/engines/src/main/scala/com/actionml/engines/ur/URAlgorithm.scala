@@ -40,7 +40,7 @@ import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -389,7 +389,7 @@ class URAlgorithm private (
   }
 
 
-  override def query(query: URQuery): URQueryResult = {
+  override def query(query: URQuery): Future[URQueryResult] = {
     // todo: need to have an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     /*
@@ -430,8 +430,7 @@ class URAlgorithm private (
 
 
     val modelQuery = buildModelQuery(query)
-    val result = es.search(modelQuery).map(hit => ItemScore(hit.id, hit.score)) // todo: optionally return rankings?
-    URQueryResult(result)
+    es.search(modelQuery).map(items => URQueryResult(items.map(hit => ItemScore(hit.id, hit.score)))) // todo: optionally return rankings?
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {

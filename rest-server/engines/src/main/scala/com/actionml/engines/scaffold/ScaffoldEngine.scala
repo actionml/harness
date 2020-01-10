@@ -24,6 +24,8 @@ import com.actionml.core.engine._
 import com.actionml.core.model._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
+import scala.concurrent.Future
+
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
@@ -120,13 +122,14 @@ class ScaffoldEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, Response] = {
+  def query(json: String): Future[Response] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
       Valid(result)
     }
+    ???
   }
 
 }

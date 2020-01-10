@@ -122,7 +122,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def query(query: CBQuery): CBQueryResult = {
+  override def query(query: CBQuery): Future[CBQueryResult] = {
     // todo: isDefinedAt is not enough to know there have been events
     if (dataset.usageEventGroups isDefinedAt query.groupId) {
       logger.info(s"Making query for group: ${query.groupId}")
@@ -131,6 +131,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
       logger.info(s"Making default query since dataset.usageEventGroups isDefinedAt query.groupId is false for group: ${query.groupId}")
       getDefaultVariant(query)
     }
+    ???
   }
 
   def createVW(params: CBAlgoParams): VWMulticlassLearner = {

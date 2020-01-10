@@ -60,7 +60,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
-  def query(json: String): Validated[ValidateError, Response]
+  def query(json: String): Future[Response]
 
 
   // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes

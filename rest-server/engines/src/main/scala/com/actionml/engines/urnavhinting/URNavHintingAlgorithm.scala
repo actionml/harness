@@ -40,7 +40,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 
@@ -393,7 +393,7 @@ class URNavHintingAlgorithm private (
 
 
 
-  def query(query: URNavHintingQuery): URNavHintingQueryResult = {
+  def query(query: URNavHintingQuery): Future[URNavHintingQueryResult] = {
     // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     // todo: order by date
@@ -415,8 +415,9 @@ class URNavHintingAlgorithm private (
       size = limit
     )
     logger.info(s"Sending query: $esQuery")
-    val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
-    URNavHintingQueryResult(esResult)
+    val esResult = es.search(esQuery).map(_.map { hit => (hit.id, hit.score.toDouble)})
+//    URNavHintingQueryResult(esResult)
+    ???
   }
 
   /** Calculate all fields and items needed for ranking.

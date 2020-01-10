@@ -49,7 +49,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
   override val authEnabled = config.auth.enabled
-  private val queryService = inject[ActorRef]('QueryService)
+  private val queryService = inject[QueryService]('QueryService)
 
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
@@ -67,9 +67,10 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   /** Creates a Query in REST so status = 201 */
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
-    completeByValidated(StatusCodes.Created) {
-      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
-    }
+    onSuccess(queryService.query(engineId, JsonMethods.compact(query))) { r => complete(r) }
+//    completeByValidated(StatusCodes.Created) {
+//      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
+//    }
   }
 
   private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {
