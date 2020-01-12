@@ -87,6 +87,7 @@ trait SearchClient[R, D] {
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
   def saveOneById(id: String, doc: D): Boolean
+  def saveOneByIdAsync(id: String, doc: D): Future[Boolean]
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Future[Seq[R]]
   def findDocById(id: String): D

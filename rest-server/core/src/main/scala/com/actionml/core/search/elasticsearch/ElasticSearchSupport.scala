@@ -122,6 +122,42 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     }
   }
 
+  def saveOneByIdAsync(id: String, doc: EsDocument): Future[Boolean] = {
+    val promise = Promise[Boolean]()
+    val aliasListener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        response.getStatusLine.getStatusCode match {
+          case 200 =>
+            try {
+              val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+              request.setJsonEntity(
+                JsonMethods.compact(JObject(
+                  "doc" -> JsonMethods.asJValue(doc),
+                  "doc_as_upsert" -> JBool(true)
+                )))
+              val updateListener = new ResponseListener {
+                override def onSuccess(response: Response): Unit = {
+                  val responseJValue = parse(EntityUtils.toString(response.getEntity))
+                  (responseJValue \ "result").getAs[String].contains("updated")
+                  promise.success(true)
+                }
+                override def onFailure(exception: Exception): Unit = promise.failure(exception)
+              }
+              client.performRequestAsync(request, updateListener)
+            } catch {
+              case NonFatal(e) =>
+                logger.error(s"Can't upsert $doc with id $id", e)
+                promise.success(false)
+            }
+          case _ => promise.success(false)
+        }
+      }
+      override def onFailure(exception: Exception): Unit = promise.failure(exception)
+    }
+    client.performRequestAsync(new Request("HEAD", s"/_alias/$alias"), aliasListener)
+    promise.future
+  }
+
   override def deleteIndex(refresh: Boolean): Boolean = {
     // todo: Andrey, this is a deprecated API, also this throws an exception when the Elasticsearch server is not running
     // it should give a more friendly error message by testing to see if Elasticsearch is running or maybe we should test
