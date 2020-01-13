@@ -67,7 +67,7 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   /** Creates a Query in REST so status = 201 */
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
-    onSuccess(queryService.query(engineId, JsonMethods.compact(query))) { r => complete(r) }
+    onSuccess(queryService.queryAsync(engineId, JsonMethods.compact(query))) { r => complete(r) }
 //    completeByValidated(StatusCodes.Created) {
 //      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
 //    }

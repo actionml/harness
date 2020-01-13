@@ -174,40 +174,54 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     }
   }
 
-  override def search(query: SearchQuery): Future[Seq[Hit]] = {
+  override def search(query: SearchQuery): Seq[Hit] = {
+    client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
+      .getStatusLine
+      .getStatusCode match {
+        case 200 =>
+          // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
+          val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val indexSet = responseJValue.extract[Map[String, JValue]].keys
+          indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
+            logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+            val request = new Request("POST", s"/$actualIndexName/_search")
+            request.setJsonEntity(mkElasticQueryString(query))
+            val response = client.performRequest(request)
+            response.getStatusLine.getStatusCode match {
+              case 200 =>
+                logger.trace(s"Got source from query: $query")
+                transform(parse(EntityUtils.toString(response.getEntity)))
+              case _ =>
+                logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+                Seq.empty[Hit]
+            }
+          }
+        case _ => Seq.empty[Hit]
+    }
+  }
+
+  override def searchAsync(query: SearchQuery): Future[Seq[Hit]] = {
     val p = Promise[Seq[Hit]]()
-    val aliasesListener = new ResponseListener {
+    val actualIndexName = alias
+    logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+    val request = new Request("POST", s"/$actualIndexName/_search")
+    request.setJsonEntity(mkElasticQueryString(query))
+
+    val searchListener = new ResponseListener {
       override def onSuccess(response: Response): Unit = {
         response.getStatusLine.getStatusCode match {
           case 200 =>
-            val responseJValue = parse(EntityUtils.toString(response.getEntity))
-            val indexSet = responseJValue.extract[Map[String, JValue]].keys
-            indexSet.headOption.foreach { actualIndexName =>
-              logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
-              val request = new Request("POST", s"/$actualIndexName/_search")
-              request.setJsonEntity(mkElasticQueryString(query))
-
-              val searchListener = new ResponseListener {
-                override def onSuccess(response: Response): Unit = {
-                  response.getStatusLine.getStatusCode match {
-                    case 200 =>
-                      logger.trace(s"Got source from query: $query")
-                      p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
-                    case _ =>
-                      logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-                      p.complete(Success(Seq.empty[Hit]))
-                  }
-                }
-                override def onFailure(exception: Exception): Unit = p.failure(exception)
-              }
-              client.performRequestAsync(request, searchListener)
-            }
-          case _ => Seq.empty[Hit]
+            logger.debug(s"Got source from query: $query")
+            p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
+          case _ =>
+            logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+            p.complete(Success(Seq.empty[Hit]))
         }
       }
       override def onFailure(exception: Exception): Unit = p.failure(exception)
     }
-    client.performRequestAsync(new Request("GET", s"/_alias/$alias"), aliasesListener)
+    client.performRequestAsync(request, searchListener)
     p.future
   }
 

@@ -122,15 +122,16 @@ class ScaffoldEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Future[Response] = {
+  override def query(json: String): Validated[ValidateError, GenericQueryResult] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       val result = algo.query(query)
       Valid(result)
     }
-    ???
   }
+
+  override def queryAsync(json: String): Future[Response] = Future.failed(new NotImplementedError())
 
 }
 

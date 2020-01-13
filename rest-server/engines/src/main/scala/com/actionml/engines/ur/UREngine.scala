@@ -132,11 +132,19 @@ class UREngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
-  def query(jsonQuery: String): Future[Response] = {
+  def query(jsonQuery: String): Validated[ValidateError, Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
+    parseAndValidate[URQuery](jsonQuery).andThen { query =>
+      val result = algo.query(query)
+      Valid(result)
+    }
+  }
+
+  def queryAsync(jsonQuery: String): Future[Response] = {
     logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
     parseAndValidate[URQuery](jsonQuery) match {
-      case e: ValidateError => Future.failed(new RuntimeException(s"Parse error. Can't parse $jsonQuery"))
-      case Valid(t) => algo.query(t)
+      case Invalid(error) => Future.failed(new RuntimeException(s"Parse error. Can't parse $jsonQuery. Cause: $error"))
+      case Valid(t) => algo.queryAsync(t)
     }
   }
 

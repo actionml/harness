@@ -388,8 +388,7 @@ class URAlgorithm private (
       typeMappings = allMappings)(sc, es)
   }
 
-
-  override def query(query: URQuery): Future[URQueryResult] = {
+  override def query(query: URQuery): URQueryResult = {
     // todo: need to have an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     /*
@@ -427,10 +426,14 @@ class URAlgorithm private (
         PredictedResult(Array.empty[ItemScore])
 
      */
-
-
     val modelQuery = buildModelQuery(query)
-    es.search(modelQuery).map(items => URQueryResult(items.map(hit => ItemScore(hit.id, hit.score)))) // todo: optionally return rankings?
+    val items = es.search(modelQuery)
+    URQueryResult(items.map(hit => ItemScore(hit.id, hit.score))) // todo: optionally return rankings?
+  }
+
+  override def queryAsync(query: URQuery): Future[URQueryResult] = {
+    val modelQuery = buildModelQuery(query)
+    es.searchAsync(modelQuery).map(items => URQueryResult(items.map(hit => ItemScore(hit.id, hit.score)))) // todo: optionally return rankings?
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {

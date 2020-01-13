@@ -17,12 +17,9 @@
 
 package com.actionml.router.service
 
-import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
 import com.actionml.core.model.Response
-import com.actionml.core.validate.{JsonSupport, WrongParams}
-import com.actionml.router.ActorInjectable
-import scaldi.Injector
+import com.actionml.core.validate.JsonSupport
 
 import scala.concurrent.Future
 
@@ -33,14 +30,14 @@ import scala.concurrent.Future
   * 25.02.17 11:48
   */
 trait QueryService {
-  def query(engineId: String, query: String): Future[Response]
+  def queryAsync(engineId: String, query: String): Future[Response]
 }
 
 class QueryServiceImpl(admin: Administrator) extends QueryService with JsonSupport {
 
-  override def query(engineId: String, query: String): Future[Response] =
+  override def queryAsync(engineId: String, query: String): Future[Response] =
     admin.getEngine(engineId) match {
-      case Some(engine) ⇒ engine.query(query)
+      case Some(engine) ⇒ engine.queryAsync(query)
       case None ⇒ Future.failed(new RuntimeException(jsonComment(s"Engine for id=$engineId not found")))
     }
 }

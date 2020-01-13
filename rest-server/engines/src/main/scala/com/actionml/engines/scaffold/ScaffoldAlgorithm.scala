@@ -53,8 +53,11 @@ class ScaffoldAlgorithm(json: String, dataset: ScaffoldDataset)
     Valid(jsonComment("ScaffoldAlgorithm input processed"))
   }
 
+  def query(query: GenericQuery): GenericQueryResult = {
+    GenericQueryResult()
+  }
 
-  def query(query: GenericQuery): Future[GenericQueryResult] = {
+  def queryAsync(query: GenericQuery): Future[GenericQueryResult] = {
     Future.successful(GenericQueryResult())
   }
 

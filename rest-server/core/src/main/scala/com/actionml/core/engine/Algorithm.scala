@@ -46,7 +46,9 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
   // def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Algorithm"); this}
   // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
 
-  def query(query: Q): Future[R]
+  def query(query: Q): R
+
+  def queryAsync(query: Q): Future[R]
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     Invalid(NotImplemented(s"Can't cancel job $jobId [engineId $engineId]"))

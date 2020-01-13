@@ -108,14 +108,15 @@ class NavHintingEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Future[Response] = {
+  def query(json: String): Validated[ValidateError, NHQueryResult] = {
     logger.debug(s"Got a query JSON string: $json")
     parseAndValidate[NHQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
       Valid(algo.query(query))
     }
-    ???
   }
+
+  def queryAsync(json: String): Future[Response] = Future.failed(new NotImplementedError())
 
 }
 

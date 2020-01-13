@@ -168,7 +168,9 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     }
   }
 
-  override def query(query: NHQuery): Future[NHQueryResult] = {
+  override def queryAsync(query: NHQuery): Future[NHQueryResult] = Future.failed(new NotImplementedError())
+
+  override def query(query: NHQuery): NHQueryResult = {
     // find model elements that match eligible and sort by weight, sort before taking the top k
     // adds the weights of hints with the same id from multiple conversion-id models
     val results = query.eligibleNavIds.map((_,0d)).flatMap { case (eligibleNavId, w) =>
@@ -184,7 +186,6 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
       .take(params.num.getOrElse(1))
 
     NHQueryResult(results)
-    ???
   }
 
   override def destroy(): Unit = {

@@ -107,14 +107,15 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
-  def query(jsonQuery: String): Future[Response] = {
+  override def query(jsonQuery: String): Validated[ValidateError, URNavHintingEngine.URNavHintingQueryResult] = {
     logger.trace(s"Got a query JSON string: $jsonQuery")
     parseAndValidate[URNavHintingQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
       Valid(result)
     }
-    ???
   }
+
+  override def queryAsync(jsonQuery: String): Future[Response] = Future.failed(new NotImplementedError())
 
   // todo: should kill any pending Spark jobs
   override def destroy(): Unit = {
