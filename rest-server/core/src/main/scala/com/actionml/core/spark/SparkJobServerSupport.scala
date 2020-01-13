@@ -65,9 +65,8 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
 
   override def cancel(jobId: String): Future[Unit] = Future.successful ()
 
-  def mkNewClient(initParams: String, engineId: String): (LivyScalaClient, JobDescription) = {
+  private[spark] def mkNewClient(initParams: String, engineId: String, jd: JobDescription): LivyScalaClient = {
     import scala.collection.JavaConversions._
-    val jd = JobDescription.create
     val configMap = configParams ++ parseAndValidate[Map[String, String]](initParams, transform = _ \ "sparkConf")
     val master = configMap.getOrElse("master", "local")
     val conf = new LivyClientBuilder()
@@ -93,7 +92,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
         logger.error("Jars upload problem", e)
         throw e
     }
-    (client, jd)
+    client
   }
 
 

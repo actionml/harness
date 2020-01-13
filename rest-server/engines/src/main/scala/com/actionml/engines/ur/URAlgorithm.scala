@@ -29,9 +29,8 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.LivyJobServerSupport
+import com.actionml.core.spark.{LivyJobServerSupport, SparkClient, SparkContextSupport, SparkJobServerSupport}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
 import com.actionml.core.store.sparkmongo.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
@@ -70,6 +69,7 @@ class URAlgorithm private (
   extends Algorithm[URQuery, URQueryResult]
     with LambdaAlgorithm[UREvent]
     with LazyLogging
+    with SparkClient
     with JsonSupport {
 
   import URAlgorithm._
@@ -264,10 +264,8 @@ class URAlgorithm private (
   }
 
   private def mkTrain(engineId: String, initParams: String, esIndex: String, esType: String): Validated[ValidateError, Response] = {
-    val (client, jobDescription) = LivyJobServerSupport.mkNewClient(initParams, engineId)
-    client.submit { jc =>
+    val (_, jobDescription) = sparkClient(initParams, useSparkJobServer = false, engineId).submit { implicit sc =>
       val logger = Logger.getLogger("spark_job")
-      implicit val sc = jc.sc
       JsonSupport.parseAndValidate[URAlgorithmParams](initParams, transform = _ \ "algorithm") match {
         case Valid(params) =>
           val indiParams = params.indicators
@@ -337,17 +335,12 @@ class URAlgorithm private (
 
             // todo: for now ignore properties and only calc popularity, then save to ES
             calcAll(engineId, rankingsParams, rankingFieldNames, modelEventNames, dateNames, data, eventsRdd, indiParams, logger).save(dateNames, esIndex, esType, numESWriteConnections)
-            JobManager.finishJob(jobDescription.jobId)
           } catch {
             case NonFatal(e) =>
               logger.error(s"Spark computation failed for engine $engineId", e)
-          } finally {
-            JobManager.removeJob(jobDescription.jobId)
           }
-
-        case e: ValidateError =>
+        case Invalid(e) =>
           logger.error(s"Algorithm parameters error: $e")
-          JobManager.markJobFailed(jobDescription.jobId)
       }
     }
     logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
@@ -682,7 +675,7 @@ object URAlgorithm extends JsonSupport {
     //val collectedProps = propertiesRDD.collect()
 
     logger.debug("Correlators created now putting into URModel")
-    val es = ElasticSearchClient("test_ur")
+    val es = ElasticSearchClient(engineId)
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),

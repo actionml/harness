@@ -80,13 +80,13 @@ object JobManager extends JobManagerInterface with LazyLogging {
     description
   }
 
-  override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
+  override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable = Cancellable.noop): Unit = {
     jobsStore.updateAsync("jobId" === jobId)("status" -> status)
     for {
       descriptions <- jobDescriptions.get(engineId)
-      (_, description) <- descriptions.find { case (_, d) => d.jobId == jobId }
+      (currentCancellable, description) <- descriptions.find { case (_, d) => d.jobId == jobId }
     } yield jobDescriptions.put(engineId,
-      (c -> description.copy(status = status)) :: descriptions.filterNot(_._2 == description)
+      ((if (c != Cancellable.noop) c else currentCancellable) -> description.copy(status = status)) :: descriptions.filterNot(_._2 == description)
     )
   }
 
