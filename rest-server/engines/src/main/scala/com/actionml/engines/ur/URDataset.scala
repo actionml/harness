@@ -194,12 +194,12 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       )
       newProps = (
         event.categoricalProps.mapValues(_.toList) ++
-          event.booleanProps.mapValues(_.toString :: Nil) ++
-          event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
-          event.floatProps.mapValues(_.toString :: Nil)
-        ).filterNot {
-          case (name, _) => indicatorNames.contains(name)
-        }
+        event.booleanProps.mapValues(_.toString :: Nil) ++
+        event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
+        event.floatProps.mapValues(_.toString :: Nil)
+      ).filterNot {
+        case (name, _) => indicatorNames.contains(name)
+      }
       esDoc = {
         val doc = es.findDocById(event.entityId)
         (doc._1, doc._2 ++ newProps)
