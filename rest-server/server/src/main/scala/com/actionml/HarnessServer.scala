@@ -89,7 +89,7 @@ class BaseModule extends Module with LazyLogging {
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
 //  binding identifiedBy 'QueryService to AkkaInjectable.inject[QueryServiceImpl]("QueryService")
-  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator)
+  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
 

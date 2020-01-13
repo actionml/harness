@@ -23,7 +23,7 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
@@ -48,7 +48,7 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
 
   def query(query: Q): R
 
-  def queryAsync(query: Q): Future[R]
+  def queryAsync(query: Q)(implicit ec: ExecutionContext): Future[R]
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     Invalid(NotImplemented(s"Can't cancel job $jobId [engineId $engineId]"))

@@ -36,7 +36,7 @@ import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, Vali
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.io.Source
 import scala.reflect.io.Path
 import scala.util.{Failure, Success}
@@ -122,7 +122,7 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     }
   }
 
-  override def queryAsync(query: CBQuery): Future[CBQueryResult] = Future.failed(new NotImplementedError())
+  override def queryAsync(query: CBQuery)(implicit ec: ExecutionContext): Future[CBQueryResult] = Future.failed(new NotImplementedError())
 
   override def query(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events

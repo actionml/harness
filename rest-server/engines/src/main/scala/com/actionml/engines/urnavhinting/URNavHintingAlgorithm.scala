@@ -40,7 +40,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 
@@ -417,7 +417,7 @@ class URNavHintingAlgorithm private (
     URNavHintingQueryResult(esResult)
   }
 
-  override def queryAsync(query: URNavHintingQuery): Future[URNavHintingQueryResult] = Future.failed(new NotImplementedError)
+  override def queryAsync(query: URNavHintingQuery)(implicit ec: ExecutionContext): Future[URNavHintingQueryResult] = Future.failed(new NotImplementedError)
 
   /** Calculate all fields and items needed for ranking.
     *

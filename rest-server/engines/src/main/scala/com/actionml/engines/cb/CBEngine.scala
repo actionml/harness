@@ -25,7 +25,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
@@ -142,7 +142,7 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def queryAsync(json: String): Future[Response] = Future.failed(new NotImplementedError())
+  override def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
 
 /*  override def status(): String = {
     s"""

@@ -23,7 +23,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{AlgorithmParams => _, _}
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
   * and mixing is allowed since they each just add either real time "input" or batch "train" methods. It is sometimes
@@ -57,7 +57,7 @@ class ScaffoldAlgorithm(json: String, dataset: ScaffoldDataset)
     GenericQueryResult()
   }
 
-  def queryAsync(query: GenericQuery): Future[GenericQueryResult] = {
+  def queryAsync(query: GenericQuery)(implicit ec: ExecutionContext): Future[GenericQueryResult] = {
     Future.successful(GenericQueryResult())
   }
 

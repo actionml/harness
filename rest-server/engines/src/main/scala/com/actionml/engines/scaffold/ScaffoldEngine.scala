@@ -24,7 +24,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
@@ -131,7 +131,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
     }
   }
 
-  override def queryAsync(json: String): Future[Response] = Future.failed(new NotImplementedError())
+  override def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
 
 }
 

@@ -40,7 +40,7 @@ import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -431,7 +431,7 @@ class URAlgorithm private (
     URQueryResult(items.map(hit => ItemScore(hit.id, hit.score))) // todo: optionally return rankings?
   }
 
-  override def queryAsync(query: URQuery): Future[URQueryResult] = {
+  override def queryAsync(query: URQuery)(implicit ec: ExecutionContext): Future[URQueryResult] = {
     val modelQuery = buildModelQuery(query)
     es.searchAsync(modelQuery).map(items => URQueryResult(items.map(hit => ItemScore(hit.id, hit.score)))) // todo: optionally return rankings?
   }

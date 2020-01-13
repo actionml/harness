@@ -17,11 +17,12 @@
 
 package com.actionml.router.service
 
+import akka.actor.ActorSystem
 import com.actionml.admin.Administrator
 import com.actionml.core.model.Response
 import com.actionml.core.validate.JsonSupport
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   *
@@ -33,7 +34,8 @@ trait QueryService {
   def queryAsync(engineId: String, query: String): Future[Response]
 }
 
-class QueryServiceImpl(admin: Administrator) extends QueryService with JsonSupport {
+class QueryServiceImpl(admin: Administrator, system: ActorSystem) extends QueryService with JsonSupport {
+  implicit val blockingEC: ExecutionContext = system.dispatchers.lookup("es-dispatcher")
 
   override def queryAsync(engineId: String, query: String): Future[Response] =
     admin.getEngine(engineId) match {

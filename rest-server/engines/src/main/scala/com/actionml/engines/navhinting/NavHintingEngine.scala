@@ -25,7 +25,7 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Controller for Navigation Hinting. Trains with each input in parallel with serving queries */
 class NavHintingEngine extends Engine with JsonSupport {
@@ -116,7 +116,7 @@ class NavHintingEngine extends Engine with JsonSupport {
     }
   }
 
-  def queryAsync(json: String): Future[Response] = Future.failed(new NotImplementedError())
+  def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
 
 }
 
