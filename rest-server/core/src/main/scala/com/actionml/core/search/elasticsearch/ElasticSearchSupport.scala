@@ -34,7 +34,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
-import org.elasticsearch.client.{Request, Response, RestClient}
+import org.elasticsearch.client.{Request, Response, ResponseListener, RestClient}
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
@@ -42,11 +42,11 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
-import scala.util.{Properties, Try}
+import scala.util.{Properties, Success, Try}
 
 trait ElasticSearchSupport extends SearchSupport[Hit, EsDocument] {
   override def createSearchClient(aliasName: String): SearchClient[Hit, EsDocument] = ElasticSearchClient(aliasName)
@@ -78,7 +78,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument])
+class ElasticSearchClient private (alias: String, client: RestClient)(implicit w: Writer[EsDocument])
   extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[Hit] =>
   import ElasticSearchClient.ESVersions._
@@ -122,6 +122,42 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     }
   }
 
+  def saveOneByIdAsync(id: String, doc: EsDocument): Future[Boolean] = {
+    val promise = Promise[Boolean]()
+    val aliasListener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        response.getStatusLine.getStatusCode match {
+          case 200 =>
+            try {
+              val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+              request.setJsonEntity(
+                JsonMethods.compact(JObject(
+                  "doc" -> JsonMethods.asJValue(doc),
+                  "doc_as_upsert" -> JBool(true)
+                )))
+              val updateListener = new ResponseListener {
+                override def onSuccess(response: Response): Unit = {
+                  val responseJValue = parse(EntityUtils.toString(response.getEntity))
+                  (responseJValue \ "result").getAs[String].contains("updated")
+                  promise.success(true)
+                }
+                override def onFailure(exception: Exception): Unit = promise.failure(exception)
+              }
+              client.performRequestAsync(request, updateListener)
+            } catch {
+              case NonFatal(e) =>
+                logger.error(s"Can't upsert $doc with id $id", e)
+                promise.success(false)
+            }
+          case _ => promise.success(false)
+        }
+      }
+      override def onFailure(exception: Exception): Unit = promise.failure(exception)
+    }
+    client.performRequestAsync(new Request("HEAD", s"/_alias/$alias"), aliasListener)
+    promise.future
+  }
+
   override def deleteIndex(refresh: Boolean): Boolean = {
     // todo: Andrey, this is a deprecated API, also this throws an exception when the Elasticsearch server is not running
     // it should give a more friendly error message by testing to see if Elasticsearch is running or maybe we should test
@@ -142,28 +178,51 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
       .getStatusLine
       .getStatusCode match {
-      case 200 =>
-        // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
-        val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
-        val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
-        val indexSet = responseJValue.extract[Map[String, JValue]].keys
-        indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
-          logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
-          val request = new Request("POST", s"/$actualIndexName/_search")
-          request.setJsonEntity(mkElasticQueryString(query))
-          val response = client.performRequest(request)
-          response.getStatusLine.getStatusCode match {
-            case 200 =>
-              logger.trace(s"Got source from query: $query")
-              transform(parse(EntityUtils.toString(response.getEntity)))
-            case _ =>
-              logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-              Seq.empty[Hit]
+        case 200 =>
+          // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
+          val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
+          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+          val indexSet = responseJValue.extract[Map[String, JValue]].keys
+          indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
+            logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+            val request = new Request("POST", s"/$actualIndexName/_search")
+            request.setJsonEntity(mkElasticQueryString(query))
+            val response = client.performRequest(request)
+            response.getStatusLine.getStatusCode match {
+              case 200 =>
+                logger.trace(s"Got source from query: $query")
+                transform(parse(EntityUtils.toString(response.getEntity)))
+              case _ =>
+                logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+                Seq.empty[Hit]
+            }
           }
-        }
-      case _ => Seq.empty[Hit]
+        case _ => Seq.empty[Hit]
     }
+  }
 
+  override def searchAsync(query: SearchQuery): Future[Seq[Hit]] = {
+    val p = Promise[Seq[Hit]]()
+    val actualIndexName = alias
+    logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+    val request = new Request("POST", s"/$actualIndexName/_search")
+    request.setJsonEntity(mkElasticQueryString(query))
+
+    val searchListener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        response.getStatusLine.getStatusCode match {
+          case 200 =>
+            logger.debug(s"Got source from query: $query")
+            p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
+          case _ =>
+            logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+            p.complete(Success(Seq.empty[Hit]))
+        }
+      }
+      override def onFailure(exception: Exception): Unit = p.failure(exception)
+    }
+    client.performRequestAsync(request, searchListener)
+    p.future
   }
 
   private def performRequest(method: String, url: String): Future[Response] = {
@@ -302,7 +361,6 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
     oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
   }
 
-
   private def encodeURIFragment(s: String): String = {
     var result: String = ""
     try
@@ -392,44 +450,6 @@ class ElasticSearchClient private (alias: String)(implicit w: Writer[EsDocument]
   private def refreshIndexByName(indexName: String): Unit = {
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
   }
-}
-
-
-object ElasticSearchClient extends LazyLogging with JsonSupport {
-  private implicit val _: Writer[EsDocument] = new Writer[EsDocument] {
-    override def write(doc: EsDocument): JValue = JObject(
-      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
-        JField(key, JArray(values.map(JString))) :: acc
-      }
-    )
-  }
-
-  def apply(aliasName: String): ElasticSearchClient =
-    new ElasticSearchClient(aliasName) with ElasticSearchResultTransformation
-
-
-  private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
-
-  private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
-
-  private lazy val client: RestClient = {
-    val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
-
-    val builder = RestClient.builder(
-      new HttpHost(
-        uri.getHost,
-        uri.getPort,
-        uri.getScheme))
-
-    if (config.hasPath("elasticsearch.auth")) {
-      val authConfig = config.getConfig("elasticsearch.auth")
-      builder.setHttpClientConfigCallback(new BasicAuthProvider(
-        authConfig.getString("username"),
-        authConfig.getString("password")
-      ))
-    }
-    builder.build
-  }
 
   private lazy val esVersion: ESVersions.Value = {
     import ESVersions._
@@ -444,11 +464,6 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
           Option.empty
         }
       }.getOrElse(v5)
-  }
-  private object ESVersions extends Enumeration {
-    val v5 = Value(5)
-    val v6 = Value(6)
-    val v7 = Value(7)
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
@@ -471,12 +486,12 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
     }
     val esQuery =
       ("size" -> query.size) ~
-      ("from" -> query.from) ~
-      ("query" -> JObject("bool" -> clauses)) ~
-      ("sort" -> Seq(
-        "_score" -> JObject("order" -> JString("desc")),
-        query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
-      ))
+        ("from" -> query.from) ~
+        ("query" -> JObject("bool" -> clauses)) ~
+        ("sort" -> Seq(
+          "_score" -> JObject("order" -> JString("desc")),
+          query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
+        ))
     val esquery = compact(render(esQuery))
     logger.debug(s"Query for Elasticsearch: $esquery")
     esquery
@@ -534,8 +549,52 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
         )))
       }
     }
-  }.toList.map {
+    }.toList.map {
     case ((t, _), j) => JObject(t.toString -> j)
+  }
+}
+
+
+object ElasticSearchClient extends LazyLogging with JsonSupport {
+  private implicit val _: Writer[EsDocument] = new Writer[EsDocument] {
+    override def write(doc: EsDocument): JValue = JObject(
+      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
+        JField(key, JArray(values.map(JString))) :: acc
+      }
+    )
+  }
+
+  def apply(aliasName: String): ElasticSearchClient = {
+    val client: RestClient = {
+      val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
+
+      val builder = RestClient.builder(
+        new HttpHost(
+          uri.getHost,
+          uri.getPort,
+          uri.getScheme))
+
+      if (config.hasPath("elasticsearch.auth")) {
+        val authConfig = config.getConfig("elasticsearch.auth")
+        builder.setHttpClientConfigCallback(new BasicAuthProvider(
+          authConfig.getString("username"),
+          authConfig.getString("password")
+        ))
+      }
+      builder.build
+    }
+    new ElasticSearchClient(aliasName, client) with ElasticSearchResultTransformation
+  }
+
+
+  private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
+
+  private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
+
+  private object ESVersions extends Enumeration {
+    val v5 = Value(5)
+    val v6 = Value(6)
+    val v7 = Value(7)
   }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
