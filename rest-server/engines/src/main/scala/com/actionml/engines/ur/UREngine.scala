@@ -34,6 +34,7 @@ import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -136,6 +137,14 @@ class UREngine extends Engine with JsonSupport {
     parseAndValidate[URQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
       Valid(result)
+    }
+  }
+
+  def queryAsync(jsonQuery: String)(implicit ec: ExecutionContext): Future[Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
+    parseAndValidate[URQuery](jsonQuery) match {
+      case Invalid(error) => Future.failed(new RuntimeException(s"Parse error. Can't parse $jsonQuery. Cause: $error"))
+      case Valid(t) => algo.queryAsync(t)
     }
   }
 

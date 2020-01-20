@@ -23,6 +23,8 @@ import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.{ExecutionContext, Future}
+
 /**
   * Defines the API for Harness Algorithms, init/destroy are required, start/stop are optional.
   * Typically this class is not extended but either KappaAlgorithm, LambdaAlgorithm, or KappaLambdaAlgorithm,
@@ -45,6 +47,8 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
   // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}
 
   def query(query: Q): R
+
+  def queryAsync(query: Q)(implicit ec: ExecutionContext): Future[R]
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     Invalid(NotImplemented(s"Can't cancel job $jobId [engineId $engineId]"))

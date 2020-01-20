@@ -20,6 +20,8 @@ package com.actionml.core.search
 import com.actionml.core.search.Filter.Conditions.Condition
 import com.actionml.core.search.Filter.Types.Type
 
+import scala.concurrent.Future
+
 trait SearchSupport[R, D] {
   def createSearchClient(engineId: String): SearchClient[R, D]
 }
@@ -85,7 +87,9 @@ trait SearchClient[R, D] {
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
   def saveOneById(id: String, doc: D): Boolean
+  def saveOneByIdAsync(id: String, doc: D): Future[Boolean]
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[R]
+  def searchAsync(query: SearchQuery): Future[Seq[R]]
   def findDocById(id: String): D
 }

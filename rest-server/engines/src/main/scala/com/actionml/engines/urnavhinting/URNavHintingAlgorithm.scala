@@ -30,7 +30,7 @@ import com.actionml.core.search.{Hit, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.sparkmongo.syntax._
 import com.actionml.core.store.{DAO, DaoQuery}
-import com.actionml.core.validate.{JsonSupport, MissingParams, ValidateError, WrongParams}
+import com.actionml.core.validate.{JsonSupport, MissingParams, NotImplemented, ValidateError, WrongParams}
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.URAlgorithmParams
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEvent, URNavHintingQuery, URNavHintingQueryResult}
 import org.apache.mahout.math.cf.{DownsamplableCrossOccurrenceDataset, SimilarityAnalysis}
@@ -40,7 +40,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 
@@ -391,9 +391,7 @@ class URNavHintingAlgorithm private (
       typeMappings = getMappings)(sc, es)
   }
 
-
-
-  def query(query: URNavHintingQuery): URNavHintingQueryResult = {
+  override def query(query: URNavHintingQuery): URNavHintingQueryResult = {
     // todo: need to hav an API to see if the alias and index exist. If not then send a friendly error message
     // like "you forgot to train"
     // todo: order by date
@@ -415,9 +413,11 @@ class URNavHintingAlgorithm private (
       size = limit
     )
     logger.info(s"Sending query: $esQuery")
-    val esResult = es.search(esQuery).map { hit => (hit.id, hit.score.toDouble)}
+    val esResult = es.search(esQuery).map(hit => (hit.id, hit.score.toDouble))
     URNavHintingQueryResult(esResult)
   }
+
+  override def queryAsync(query: URNavHintingQuery)(implicit ec: ExecutionContext): Future[URNavHintingQueryResult] = Future.failed(new NotImplementedError)
 
   /** Calculate all fields and items needed for ranking.
     *
