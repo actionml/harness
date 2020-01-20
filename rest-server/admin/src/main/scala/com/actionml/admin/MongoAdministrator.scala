@@ -82,14 +82,15 @@ class MongoAdministrator extends Administrator with JsonSupport {
     parseAndValidate[GenericEngineParams](json).andThen { params =>
       val newEngine = newEngineInstance(params.engineFactory, json)
       if (enginesCollection.findMany("engineId" === params.engineId).nonEmpty) {
-        Invalid(WrongParams(s"Engine ${params.engineId} already exists"))
+        Invalid(WrongParams(s"Engine ${params.engineId} already exists, use update"))
+        logger.warn(s"Ignored, engine for resource-id: ${params.engineId} already exists, use update")
       } else if (newEngine != null) {
         //add new
         logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
         enginesCollection.insert(EngineMetadata(params.engineId, params.engineFactory, json))
         // todo: this will not allow 2 harness servers with the same Engines, do not manage in-memory copy of engines?
         engines += params.engineId -> newEngine
-        logger.trace(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
+        logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
         Valid(Comment(s"EngineId: ${params.engineId} created"))
       } else {
         // ignores case of too many engine with the same engineId
