@@ -50,6 +50,8 @@ trait AsyncDao[T] {
   def findOneAsync(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Option[T]]
   def findOneByIdAsync(id: String): Future[Option[T]]
   def findManyAsync(query: DaoQuery)(implicit ec: ExecutionContext): Future[Iterable[T]]
+  def findManyAsync(offset: Int = 0, limit: Int = 100, orderBy: Option[OrderBy] = None)(filter: (String, QueryCondition)*)(implicit ec: ExecutionContext): Future[Iterable[T]] =
+    findManyAsync(DaoQuery(filter = filter, offset = offset, limit = limit, orderBy = orderBy))
   def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
   def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit]
   def updateAsync(filter: (String, QueryCondition)*)(update: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit]
@@ -76,7 +78,7 @@ trait SyncDao[T] extends DAO[T] with LazyLogging { self: AsyncDao[T] =>
   override def findOne(filter: (String, QueryCondition)*): Option[T] = sync(findOneAsync(filter: _*))
   override def findMany(filter: (String, QueryCondition)*): Iterable[T] = findMany(orderBy = None)(filter: _*)
   override def findMany(offset: Int, limit: Int, orderBy: Option[OrderBy])(filter: (String, QueryCondition)*): Iterable[T] =
-    sync(findManyAsync(DaoQuery(filter = filter, offset = offset, limit = limit, orderBy = orderBy)))
+    sync(findManyAsync(offset, limit, orderBy)(filter: _*))
   override def insert(o: T): Unit = sync(insertAsync(o))
   override def insertMany(c: Seq[T]): Unit = sync(insertManyAsync(c))
   override def update(filter: (String, QueryCondition)*)(update: (String, Any)*): Unit = sync(updateAsync(filter: _*)(update: _*))
