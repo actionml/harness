@@ -27,7 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -52,7 +52,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit = {
-    Await.result(Future.sequence(JobManager.getActiveJobDescriptions(engineId).map(d => JobManager.cancelJob(engineId, d.jobId))), 30.minutes)
+    Await.result(JobManager.removeAllJobs(engineId), 5.minutes)
   }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
@@ -60,7 +60,9 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
-  def query(json: String): Validated[ValidateError, Response]
+  def query(jsonQuery: String): Validated[ValidateError, Response]
+
+  def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response]
 
 
   // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes

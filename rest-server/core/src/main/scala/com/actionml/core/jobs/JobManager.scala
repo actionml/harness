@@ -53,6 +53,7 @@ trait JobManagerInterface {
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
   def removeJob(jobId: String): Unit
+  def removeAllJobs(engineId: String): Future[Unit]
   def finishJob(jobId: String): Unit
   def markJobFailed(jobId: String): Unit
   def cancelJob(engineId: String, jobId: String): Future[Unit]
@@ -110,6 +111,17 @@ object JobManager extends JobManagerInterface with LazyLogging {
         removeLocal(harnessJobId)
         logger.info(s"Job $harnessJobId removed")
       }
+  }
+
+  override def removeAllJobs(engineId: String): Future[Unit] = {
+    jobDescriptions.remove(engineId).filter(_.nonEmpty).fold(Future.successful ()) { list =>
+      val cancelJobs = Future.reduce(list.map { case (c, _) => c.cancel() })((_, _) => ())
+        .recover { case NonFatal(e) => logger.error("Job cancel error", e)}
+      for {
+        _ <- cancelJobs
+        _ <- jobsStore.removeManyAsync("engineId" === engineId)
+      } yield ()
+    }
   }
 
   override def cancelJob(engineId: String, jobId: String): Future[Unit] = {

@@ -25,6 +25,8 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
 
+import scala.concurrent.{ExecutionContext, Future}
+
 
 // Kappa style calls train with each input, may wait for explicit triggering of train for Lambda
 class CBEngine extends Engine with JsonSupport {
@@ -127,7 +129,7 @@ class CBEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, Response] = {
+  override def query(json: String): Validated[ValidateError, CBQueryResult] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[CBQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
@@ -139,6 +141,8 @@ class CBEngine extends Engine with JsonSupport {
       }
     }
   }
+
+  override def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
 
 /*  override def status(): String = {
     s"""

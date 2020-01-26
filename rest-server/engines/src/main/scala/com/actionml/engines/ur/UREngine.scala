@@ -34,6 +34,7 @@ import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -139,9 +140,17 @@ class UREngine extends Engine with JsonSupport {
     }
   }
 
+  def queryAsync(jsonQuery: String)(implicit ec: ExecutionContext): Future[Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
+    parseAndValidate[URQuery](jsonQuery) match {
+      case Invalid(error) => Future.failed(new RuntimeException(s"Parse error. Can't parse $jsonQuery. Cause: $error"))
+      case Valid(t) => algo.queryAsync(t)
+    }
+  }
+
   // todo: should kill any pending Spark jobs
   override def destroy: Unit = {
-    super.destroy
+    super.destroy()
     logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
