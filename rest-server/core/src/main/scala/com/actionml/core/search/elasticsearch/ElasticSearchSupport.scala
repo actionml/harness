@@ -42,7 +42,8 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
 import scala.reflect.ManifestFactory
 import scala.util.control.NonFatal
@@ -225,76 +226,66 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     p.future
   }
 
-  private def performRequest(method: String, url: String): Future[Response] = {
-    Future(client.performRequest(new Request(method, url)))
-  }
+  def findDocById(id: String): EsDocument = Await.result(findDocByIdAsync(id), Duration.Inf)
 
-  def findDocById(id: String): EsDocument = {
-    var rjv: Option[JValue] = None
-    try {
-      client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
-        .getStatusLine
-        .getStatusCode match {
-        case 200 =>
-          val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
-          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
-          val indexSet = responseJValue.extract[Map[String, JValue]].keys
-          rjv = indexSet.headOption.map { actualIndexName =>
-            val url = s"/$actualIndexName/$indexType/${encodeURIFragment(id)}"
-            logger.trace(s"Find doc by id using URL: $url")
-            val response = client.performRequest(new Request("GET", url))
-            logger.trace(s"Got response: $response")
-
-            response.getStatusLine.getStatusCode match {
-              case 200 =>
-                val entity = EntityUtils.toString(response.getEntity)
-                logger.trace(s"Got status code: 200\nentity: $entity")
-                if (entity.isEmpty) {
-                  Option.empty[JValue]
-                } else {
-                  logger.trace(s"About to parse: $entity")
-                  val result = parse(entity)
-                  logger.trace(s"GetSource for $url result: $result")
-                  Some(result)
-                }
-              case 404 =>
-                logger.trace(s"Got status code: 404")
-                Some(parse("""{"notFound": "true"}"""))
-              case _ =>
-                logger.trace(s"Got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
-                Option.empty[JValue]
+  def findDocByIdAsync(id: String): Future[EsDocument] = {
+    val promise = Promise[EsDocument]()
+    val url = s"/$alias/$indexType/${encodeURIFragment(id)}"
+    val request = new Request("GET", url)
+    val listener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        logger.trace(s"Got response: $response")
+        val rjv: Option[JValue] = response.getStatusLine.getStatusCode match {
+          case 200 =>
+            val entity = EntityUtils.toString(response.getEntity)
+            logger.trace(s"Got status code: 200\nentity: $entity")
+            if (entity.isEmpty) {
+              Option.empty[JValue]
+            } else {
+              logger.trace(s"About to parse: $entity")
+              val result = parse(entity)
+              logger.trace(s"GetSource for $url result: $result")
+              Some(result)
             }
-          }
-        case _ =>
-      }
-    } catch {
-      case e: org.elasticsearch.client.ResponseException =>
-        if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
-        else logger.error("Find doc by id error", e)
-        rjv = None
-      case NonFatal(e) =>
-        logger.error("got unknown exception and so no data for the item", e)
-        rjv = None
-    }
-
-    if (rjv.nonEmpty) {
-      try {
-        val jobj = (rjv.get \ "_source").values.asInstanceOf[Map[String, Any]]
-        id -> jobj.collect {
-          case (name, value) if value.isInstanceOf[List[Any]] =>
-            name -> value.asInstanceOf[List[Any]].collect {
-              case v: String => v
-            }
+          case 404 =>
+            logger.trace(s"Got status code: 404")
+            Some(parse("""{"notFound": "true"}"""))
+          case _ =>
+            logger.trace(s"Got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
+            Option.empty[JValue]
         }
-      } catch {
-        case e: ClassCastException =>
-          logger.error("Wrong format of ES doc", e)
+        promise.success(if (rjv.nonEmpty) {
+          try {
+            val jobj = (rjv.get \ "_source").values.asInstanceOf[Map[String, Any]]
+            id -> jobj.collect {
+              case (name, value) if value.isInstanceOf[List[Any]] =>
+                name -> value.asInstanceOf[List[Any]].collect {
+                  case v: String => v
+                }
+            }
+          } catch {
+            case e: ClassCastException =>
+              logger.error("Wrong format of ES doc", e)
+              id -> Map.empty[String, List[String]]
+          }
+        } else {
+          logger.debug(s"Non-existent item-id: $id, creating new item.")
           id -> Map.empty[String, List[String]]
+        })
       }
-    } else {
-      logger.debug(s"Non-existent item-id: $id, creating new item.")
-      id -> Map.empty[String, List[String]]
+      override def onFailure(exception: Exception): Unit = {
+        exception match {
+          case e: org.elasticsearch.client.ResponseException =>
+            if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
+            else logger.error("Find doc by id error", e)
+          case NonFatal(e) =>
+            logger.error("got unknown exception and so no data for the item", e)
+        }
+        promise.success(id -> Map.empty[String, List[String]])
+      }
     }
+    client.performRequestAsync(request, listener)
+    promise.future
   }
 
   override def hotSwap(

@@ -463,10 +463,13 @@ class URAlgorithm private (
     val numResults = query.num.getOrElse(limit)
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    getUserHistMatcher(query).map { case (userHistoryMatchers, userEvents) =>
+    for {
+      (userHistoryMatchers, userEvents) <- getUserHistMatcher(query)
+      similarItemsMatchers <- getSimilarItemsMatchers(query)
+    } yield {
       val shouldMatchers =
         userHistoryMatchers ++
-          getSimilarItemsMatchers(query) ++
+          similarItemsMatchers ++
           getItemSetMatchers(query) ++
           getBoostedRulesMatchers(aggregatedRules)
 
@@ -541,19 +544,19 @@ class URAlgorithm private (
   }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
-  def getSimilarItemsMatchers(query: URQuery): Seq[Matcher] = {
+  def getSimilarItemsMatchers(query: URQuery): Future[Seq[Matcher]] = {
     val activeItemBias = query.itemBias.getOrElse(itemBias)
     val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
 
-    query.item.fold(Seq.empty[Matcher]/*no item specified*/) { i =>
+    query.item.fold(Future.successful(Seq.empty[Matcher])/*no item specified*/) { i =>
       logger.trace(s"Engine-id: ${engineId}. using item ${query.item.get}")
-      val (_, itemProperties) = es.findDocById(i)
-
-      logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
-      modelEventNames.map { eventName => // get items that are similar by eventName
-        val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
-        val rItems = items.take(maxQueryEvents)
-        Matcher(eventName, rItems, similarItemsBoost)
+      es.findDocByIdAsync(i).map { case (_, itemProperties) =>
+        logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
+        modelEventNames.map { eventName => // get items that are similar by eventName
+          val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
+          val rItems = items.take(maxQueryEvents)
+          Matcher(eventName, rItems, similarItemsBoost)
+        }
       }
     }
   }
