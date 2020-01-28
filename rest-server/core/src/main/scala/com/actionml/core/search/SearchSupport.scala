@@ -92,4 +92,5 @@ trait SearchClient[R, D] {
   def search(query: SearchQuery): Seq[R]
   def searchAsync(query: SearchQuery): Future[Seq[R]]
   def findDocById(id: String): D
+  def findDocByIdAsync(id: String): Future[D]
 }
