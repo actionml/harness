@@ -194,7 +194,7 @@ final case class JobRecord(
 object JobRecord {
   private val config = ConfigFactory.load
   private val jobsConfig = config.as[JobManagerConfig]("jobs")
-  private[jobs] val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(43200000) // 12 hours by default
+  private[jobs] val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(throw new RuntimeException("Environment variable JOBS_EXPIRE_AFTER must be set"))
   private def expireAt(start: Option[Date]): Option[Date] = {
     start.map(d => new Date(d.getTime + defaultExpireMillis))
   }
