@@ -42,7 +42,7 @@ export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
 export JOBS_EXPIRE_AFTER="12 hours"
 
 HARNESS_OPTS="\
--J-Xmx4G \
+-J-Xmx${HARNESS_XMX:-4G} \
 -J-XX:+UseConcMarkSweepGC \
 "
 
