@@ -41,10 +41,10 @@ export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
 # This setting helps mark spark train jobs as expired if they do not respond for this period of time
 export JOBS_EXPIRE_AFTER="12 hours"
 
-HARNESS_OPTS="\
--J-Xmx4G \
--J-XX:+UseConcMarkSweepGC \
-"
+# Use only when necessary to pass options to the launcher for Harness
+# for example below we set the heap size for the JVM, otherwise the JVM has a default, which is correct in many cases
+# also in the example we use a more concurrent Garbage Collector, to avoid pauses in Harness execution for GC
+# HARNESS_OPTS=" -J-Xmx4G -J-XX:+UseConcMarkSweepGC "
 
 
 # ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
