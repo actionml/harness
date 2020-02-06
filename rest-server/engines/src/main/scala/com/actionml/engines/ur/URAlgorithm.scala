@@ -27,8 +27,8 @@ import com.actionml.core.engine._
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
-import com.actionml.core.spark.{LivyJobServerSupport, SparkContextSupport, SparkJobServerSupport}
+import com.actionml.core.search.{Filter, Matcher, SearchQuery}
+import com.actionml.core.spark.SparkContextSupport
 import com.actionml.core.store.sparkmongo.syntax._
 import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
@@ -41,9 +41,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 
@@ -252,6 +250,7 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -426,6 +425,7 @@ class URAlgorithm private (
         PredictedResult(Array.empty[ItemScore])
 
      */
+    import scala.concurrent.ExecutionContext.Implicits.global
     val modelQuery = Await.result(buildModelQuery(query), Duration.Inf)
     val items = es.search(modelQuery)
     URQueryResult(items.map(hit => ItemScore(hit.id, hit.score))) // todo: optionally return rankings?
@@ -454,7 +454,7 @@ class URAlgorithm private (
   }
 
 
-  private def buildModelQuery(query: URQuery): Future[SearchQuery] = {
+  private def buildModelQuery(query: URQuery)(implicit ec: ExecutionContext): Future[SearchQuery] = {
     logger.info(s"Engine-id: ${engineId}. Got query: \n${query}")
 
     val aggregatedRules = aggregateRules(rules, query.rules)
@@ -464,8 +464,7 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     for {
-      (userHistoryMatchers, userEvents) <- getUserHistMatcher(query)
-      similarItemsMatchers <- getSimilarItemsMatchers(query)
+      ((userHistoryMatchers, userEvents), similarItemsMatchers) <- getUserHistMatcher(query) zip getSimilarItemsMatchers(query)
     } yield {
       val shouldMatchers =
         userHistoryMatchers ++
@@ -502,53 +501,54 @@ class URAlgorithm private (
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery): Future[(Seq[Matcher], Seq[UREvent])] = {
-    import DaoQuery.syntax._
-    eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
-      limit = maxQueryEvents
-    )("entityId" === query.user.getOrElse("")).map { uh =>
-      val userHistory = uh.toSeq.view
-      val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
-      // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
-      // strength. DO NOT document, only for tests
+  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] = {
+    query.user.fold[Future[(Seq[Matcher], Seq[UREvent])]](Future.successful((Seq.empty, Seq.empty))) { user =>
+      import DaoQuery.syntax._
+      eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
+        limit = maxQueryEvents
+      )("entityId" === user).map { uh =>
+        val userHistory = uh.toSeq.view
+        val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
+        // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
+        // strength. DO NOT document, only for tests
 
-      val userHistBias = query.userBias.getOrElse(userBias)
-      val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
+        val userHistBias = query.userBias.getOrElse(userBias)
+        val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-      userHistory
-        // .distinct // these will be distinct so this is redundant
-        .filter { event =>
-          queryEventNamesFilter.contains(event.event)
+        userHistory
+          // .distinct // these will be distinct so this is redundant
+          .filter { event =>
+            queryEventNamesFilter.contains(event.event)
+          }
+          .map { event => // rename aliased events to the group name
+            // logger.info(s"History: ${event}")
+            val queryEventName = queryEventNames(event.event)
+            event.copy(event = queryEventName)
+          }
+          .groupBy(_.event)
+          .flatMap { case (name, events) =>
+            events.sortBy(_.eventTime) // implicit ordering
+              .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+          }.toSeq
+
+        val userEvents = modelEventNames.map { name =>
+          (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
         }
-        .map { event => // rename aliased events to the group name
-          // logger.info(s"History: ${event}")
-          val queryEventName = queryEventNames(event.event)
-          event.copy(event = queryEventName)
-        }
-        .groupBy(_.event)
-        .flatMap { case (name, events) =>
-          events.sortBy(_.eventTime) // implicit ordering
-            .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
-        }.toSeq
 
-      val userEvents = modelEventNames.map { name =>
-        (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
+        // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
+        // logger.info(s"Indicators in ES query: ${userEvents}")
+
+        val userHistMatchers = userEvents.map { case (name, hist) => Matcher(name, hist, userEventsBoost) }
+        (userHistMatchers, userHistory)
       }
-
-      // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
-      // logger.info(s"Indicators in ES query: ${userEvents}")
-
-      val userHistMatchers = userEvents.map { case (name, hist) => Matcher(name, hist, userEventsBoost) }
-      (userHistMatchers, userHistory)
     }
   }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
-  def getSimilarItemsMatchers(query: URQuery): Future[Seq[Matcher]] = {
-    val activeItemBias = query.itemBias.getOrElse(itemBias)
-    val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
-
+  def getSimilarItemsMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
     query.item.fold(Future.successful(Seq.empty[Matcher])/*no item specified*/) { i =>
+      val activeItemBias = query.itemBias.getOrElse(itemBias)
+      val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
       logger.trace(s"Engine-id: ${engineId}. using item ${query.item.get}")
       es.findDocByIdAsync(i).map { case (_, itemProperties) =>
         logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
