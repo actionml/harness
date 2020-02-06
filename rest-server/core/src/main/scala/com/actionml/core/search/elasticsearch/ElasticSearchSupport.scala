@@ -29,6 +29,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
+import org.apache.http.config.ConnectionConfig
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.util.EntityUtils
@@ -564,6 +565,12 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
           uri.getHost,
           uri.getPort,
           uri.getScheme))
+//      builder.setHttpClientConfigCallback(new HttpClientConfigCallback {
+//        override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder = {
+//          httpClientBuilder.setMaxConnPerRoute(100)
+//          httpClientBuilder.setMaxConnTotal(300)
+//        }
+//      })
 
       if (config.hasPath("elasticsearch.auth")) {
         val authConfig = config.getConfig("elasticsearch.auth")
