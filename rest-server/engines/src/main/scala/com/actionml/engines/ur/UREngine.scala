@@ -33,6 +33,8 @@ import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
+import zio.DefaultRuntime
+import zio.Exit.{Failure, Success}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -44,6 +46,7 @@ class UREngine extends Engine with JsonSupport {
   private var dataset: URDataset = _
   private var algo: URAlgorithm = _
   private var params: UREngineParams = _
+  private val rt = new DefaultRuntime{}
 
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
@@ -152,19 +155,22 @@ class UREngine extends Engine with JsonSupport {
   override def destroy: Unit = {
     import zio._
     import zio.duration._
-    val searchRetry = Schedule.exponential(2500.milliseconds, factor = 4).whileOutput(_ < 1.hour) // will retry 5 times: after 10 seconds, after 40 seconds, after about 2.5 minutes, 10 minutes and finally 42 minutes
+    val searchRetry = Schedule.exponential(2500.milliseconds, factor = 4).whileOutput(_ < 1.hour) // will retry 5 times: after 10 seconds, after 40 seconds, after about 2.5 minutes, 10 minutes and finally 42 minutes. So, last attempt will occur after 42+10+3=55 minutes
     val dbRetry = Schedule.exponential(1.seconds, factor = 3).whileOutput(_ < 10.minutes) // will retry 4 times: after 15, 45, 135 and 405 seconds
-    (for {
+    rt.unsafeRunAsync(for {
       _ <- ZIO.fromFuture(_ => super.destroyAsync()).retry(dbRetry)
       _ = logger.info(s"Dropping persisted data for Engine-id: $engineId")
       _ <- ZIO.fromFuture(_ => dataset.destroyAsync).retry(dbRetry)
       _ <- ZIO.fromFuture(_ => algo.destroyAsync).retry(searchRetry)
-    } yield ()).foldCause(cause => {
-      val errMsg = s"Delete engine error. Engine id: $engineId"
-      cause.failureOption.fold(logger.error(errMsg)) { e =>
-        logger.error(s"Delete engine error. Engine id: $engineId", e)
-      }
-    }, _ => logger.debug(s"Successfully destroyed engine $engineId"))
+    } yield ()) {
+      case Failure(e) =>
+        val errMsg = s"Delete engine error. Engine id: $engineId"
+        e.failureOption.fold(logger.error(errMsg)) { e =>
+          logger.error(s"Delete engine error. Engine id: $engineId", e)
+        }
+      case Success(v) =>
+        logger.debug(s"Successfully destroyed engine $engineId")
+    }
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {

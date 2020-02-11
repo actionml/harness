@@ -176,11 +176,11 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     }
   }
 
-  override def deleteIndexAsync(refresh: Boolean): Future[Boolean] = {
-    val promise = Promise[Boolean]()
+  override def deleteIndexAsync(refresh: Boolean): Future[Unit] = {
+    val promise = Promise[Unit]()
     def fail(e: Throwable) = {
       logger.error("Delete Elasticsearch index error", e)
-      promise.success(false)
+      promise.failure(e)
     }
     val listener = new ResponseListener() {
       override def onSuccess(response: Response): Unit = {

@@ -89,7 +89,7 @@ trait SearchClient[R, D] {
   def saveOneById(id: String, doc: D): Boolean
   def saveOneByIdAsync(id: String, doc: D): Future[Boolean]
   def deleteIndex(refresh: Boolean = false): Boolean
-  def deleteIndexAsync(refresh: Boolean = false): Future[Boolean]
+  def deleteIndexAsync(refresh: Boolean = false): Future[Unit]
   def search(query: SearchQuery): Seq[R]
   def searchAsync(query: SearchQuery): Future[Seq[R]]
   def findDocById(id: String): D
