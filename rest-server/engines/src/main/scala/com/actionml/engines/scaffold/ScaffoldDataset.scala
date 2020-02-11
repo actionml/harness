@@ -23,6 +23,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, GenericEvent, Resp
 import com.actionml.core.engine.Dataset
 import com.actionml.core.validate._
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -44,8 +45,9 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
   }
 
   /** Cleanup all persistent data or processes created by the Dataset */
-  override def destroy() = {
-  }
+  override def destroy() = {}
+
+  override def destroyAsync: Future[Unit] = Future.successful ()
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(json: String): Validated[ValidateError, GenericEvent] = {

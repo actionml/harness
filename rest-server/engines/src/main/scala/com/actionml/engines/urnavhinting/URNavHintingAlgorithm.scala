@@ -228,6 +228,10 @@ class URNavHintingAlgorithm private (
     es.deleteIndex()
   }
 
+  def destroyAsync(): Future[Unit] = {
+    es.deleteIndexAsync().map(_ => ())
+  }
+
   override def input(datum: URNavHintingEvent): Validated[ValidateError, Response] = {
     // This deals with real-time model changes, if any are implemented
     // todo: none do anything for the PoC so all return errors

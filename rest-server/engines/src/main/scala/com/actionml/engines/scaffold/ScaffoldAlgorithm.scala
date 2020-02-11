@@ -45,8 +45,9 @@ class ScaffoldAlgorithm(json: String, dataset: ScaffoldDataset)
     }
   }
 
-  override def destroy(): Unit = {
-  }
+  override def destroy(): Unit = {}
+
+  override def destroyAsync = Future.successful ()
 
   override def input(datum: GenericEvent): Validated[ValidateError, String] = {
     // For Kappa the model update happens or it triggered with each input

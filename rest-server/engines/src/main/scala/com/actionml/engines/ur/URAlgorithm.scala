@@ -225,6 +225,11 @@ class URAlgorithm private (
     es.deleteIndex()
   }
 
+  override def destroyAsync: Future[Unit] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    es.deleteIndexAsync().map(_ => ())
+  }
+
   override def input(datum: UREvent): Validated[ValidateError, Response] = {
     // This deals with real-time model changes, if any are implemented
     // todo: none do anything for the PoC so all return errors

@@ -42,6 +42,8 @@ abstract class Algorithm[Q, R] extends LazyLogging with JsonSupport {
 
   def destroy(): Unit
 
+  def destroyAsync(): Future[Unit]
+
   // todo: removeOne these is not needed
   // def start(): Algorithm[Q, R] = {logger.trace(s"No-op starting base Algorithm"); this}
   // def stop(): Unit = {logger.trace(s"No-op stopping base Kappa/Lambda Algorithm")}

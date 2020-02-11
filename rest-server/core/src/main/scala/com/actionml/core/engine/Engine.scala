@@ -52,7 +52,11 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit = {
-    Await.result(JobManager.removeAllJobs(engineId), 5.minutes)
+    Await.result(destroyAsync(), 5.minutes)
+  }
+
+  def destroyAsync(): Future[Unit] = {
+    JobManager.removeAllJobs(engineId)
   }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.

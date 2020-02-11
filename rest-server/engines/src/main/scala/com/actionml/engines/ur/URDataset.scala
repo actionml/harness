@@ -94,6 +94,8 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     store.drop //.dropDatabase(engineId)
   }
 
+  override def destroyAsync = store.dropAsync()
+
   // Parse, validate, drill into the different derivative event types, andThen(persist)?
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
     import DaoQuery.syntax._

@@ -73,6 +73,11 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
     storage.drop()
   }
 
+  override def destroyAsync = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    storage.dropAsync()
+  }
+
   // add one json, possibly an CBEvent, to the beginning of the dataset
   override def input(json: String): Validated[ValidateError, CBEvent] = {
     parseAndValidate[CBRawEvent](json).andThen { event =>

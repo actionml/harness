@@ -29,6 +29,7 @@ import com.actionml.engines.ur.UREngine.UREvent
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent}
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -93,6 +94,12 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
     // todo: Yikes this cannot be used with the sharedDb or all data from all engines will be dropped!!!!!
     // must drop only the data from collections
     if(noSharedDb) store.drop // todo: should do references counting and drop on last reference??? Maybe not
+  }
+
+  override def destroyAsync: Future[Unit] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    if (noSharedDb) store.dropAsync()
+    else Future.successful ()
   }
 
   // Parse, validate, drill into the different derivative event types, andThen(persist)?

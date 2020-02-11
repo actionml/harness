@@ -192,6 +192,8 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
     // removeOne old model since it is recreated with each new NavHintingEngine
   }
 
+  override def destroyAsync: Future[Unit] = Future.successful ()
+
 }
 
 

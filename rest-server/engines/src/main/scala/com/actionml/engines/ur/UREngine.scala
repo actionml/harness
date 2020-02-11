@@ -35,7 +35,7 @@ import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
+import scala.concurrent.duration.Duration
 import scala.util.Try
 
 
@@ -47,6 +47,7 @@ class UREngine extends Engine with JsonSupport {
 
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
+    import scala.concurrent.duration._
     super.init(jsonConfig).andThen { _ =>
       parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
         params = p
@@ -148,12 +149,22 @@ class UREngine extends Engine with JsonSupport {
     }
   }
 
-  // todo: should kill any pending Spark jobs
   override def destroy: Unit = {
-    super.destroy()
-    logger.info(s"Dropping persisted data for Engine-id: $engineId")
-    dataset.destroy()
-    algo.destroy()
+    import zio._
+    import zio.duration._
+    val searchRetry = Schedule.exponential(2500.milliseconds, factor = 4).whileOutput(_ < 1.hour) // will retry 5 times: after 10 seconds, after 40 seconds, after about 2.5 minutes, 10 minutes and finally 42 minutes
+    val dbRetry = Schedule.exponential(1.seconds, factor = 3).whileOutput(_ < 10.minutes) // will retry 4 times: after 15, 45, 135 and 405 seconds
+    (for {
+      _ <- ZIO.fromFuture(_ => super.destroyAsync()).retry(dbRetry)
+      _ = logger.info(s"Dropping persisted data for Engine-id: $engineId")
+      _ <- ZIO.fromFuture(_ => dataset.destroyAsync).retry(dbRetry)
+      _ <- ZIO.fromFuture(_ => algo.destroyAsync).retry(searchRetry)
+    } yield ()).foldCause(cause => {
+      val errMsg = s"Delete engine error. Engine id: $engineId"
+      cause.failureOption.fold(logger.error(errMsg)) { e =>
+        logger.error(s"Delete engine error. Engine id: $engineId", e)
+      }
+    }, _ => logger.debug(s"Successfully destroyed engine $engineId"))
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {

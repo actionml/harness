@@ -63,6 +63,11 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
     store.drop //.dropDatabase(engineId)
   }
 
+  override def destroyAsync = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    store.dropAsync()
+  }
+
   // add one json, possibly an NHEvent, to the beginning of the dataset
   override def input(json: String): Validated[ValidateError, NHEvent] = {
     parseAndValidate[NHRawEvent](json).andThen { event =>

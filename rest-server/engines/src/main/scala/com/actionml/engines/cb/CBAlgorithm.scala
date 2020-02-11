@@ -286,34 +286,34 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
     item
   }
 
-  override def destroy(): Unit = {
+  override def destroyAsync: Future[Unit] = {
+    actors.terminate().andThen { case _ =>
+      logger.debug("Closing VW learner")
+      if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
+    }.map { _ =>
+      logger.debug(s"Attempting to delete old model file: $modelPath")
+      if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
+        while (!Files.deleteIfExists(Paths.get(modelPath))) {
+          logger.info(s"Could not delete the model: $modelPath, trying again.")
+        }
+        logger.info(s"Success deleting model: $modelPath")
+      }
+      logger.debug(s"Attempting to delete old cache file: $cache_path")
+      if (Files.exists(Paths.get(cache_path)) && !Files.isDirectory(Paths.get(cache_path))) {
+        while (!Files.deleteIfExists(Paths.get(cache_path))) {
+          logger.info(s"Could not delete the cache: $cache_path, trying again.")
+        }
+        logger.info(s"Success deleting cache: $cache_path")
+      }
+    }
+  }
 
-    try{ Await.result(
-      actors.terminate().andThen { case _ =>
-        logger.debug("Closing VW learner")
-        if (vw != null.asInstanceOf[VWMulticlassLearner]) vw.close()
-      }.map { _ =>
-        logger.debug(s"Attempting to delete old model file: $modelPath")
-        if (Files.exists(Paths.get(modelPath)) && !Files.isDirectory(Paths.get(modelPath))) {
-          while (!Files.deleteIfExists(Paths.get(modelPath))) {
-            logger.info(s"Could not delete the model: $modelPath, trying again.")
-          }
-          logger.info(s"Success deleting model: $modelPath")
-        }
-        logger.debug(s"Attempting to delete old cache file: $cache_path")
-        if (Files.exists(Paths.get(cache_path)) && !Files.isDirectory(Paths.get(cache_path))) {
-          while (!Files.deleteIfExists(Paths.get(cache_path))) {
-            logger.info(s"Could not delete the cache: $cache_path, trying again.")
-          }
-          logger.info(s"Success deleting cache: $cache_path")
-        }
-      }, 5 seconds)
+  override def destroy: Unit =
+    try{ Await.result(destroyAsync() , 5 seconds)
     } catch {
       case e: TimeoutException =>
         logger.error(s"Error unable to delete the VW model file for $engineId at $modelPath in the 5 second timeout.")
     }
-  }
-
 }
 
 case class CBAllParams(

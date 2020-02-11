@@ -95,6 +95,9 @@ lazy val core = (project in file("core")).
       "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
       "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
 
+      "dev.zio" %% "zio" % "1.0.0-RC17",
+      "dev.zio" %% "zio-streams" % "1.0.0-RC17",
+
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies ++= Seq(

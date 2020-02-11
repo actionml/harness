@@ -176,6 +176,29 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     }
   }
 
+  override def deleteIndexAsync(refresh: Boolean): Future[Boolean] = {
+    val promise = Promise[Boolean]()
+    def fail(e: Throwable) = {
+      logger.error("Delete Elasticsearch index error", e)
+      promise.success(false)
+    }
+    val listener = new ResponseListener() {
+      override def onSuccess(response: Response): Unit = {
+        try {
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
+          val indexSet = responseJValue.extract[Map[String, JValue]].keys
+          indexSet.forall(deleteIndexByName(_, refresh))
+          promise.success(true)
+        } catch {
+          case NonFatal(e) => fail(e)
+        }
+      }
+      override def onFailure(exception: Exception): Unit = fail(exception)
+    }
+    client.performRequestAsync(new Request("GET", s"/_alias/$alias"), listener)
+    promise.future
+  }
+
   override def search(query: SearchQuery): Seq[Hit] = {
     client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
       .getStatusLine

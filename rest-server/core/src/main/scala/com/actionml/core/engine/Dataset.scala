@@ -24,11 +24,14 @@ import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonSupport, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.Future
+
 abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport {
 
   // methods that must be implemented in the Engine
   def init(json: String, update: Boolean = false): Validated[ValidateError, Response]
   def destroy(): Unit
+  def destroyAsync(): Future[Unit]
   def input(datum: String): Validated[ValidateError, Event]
   def inputMany(data: Seq[String]): Unit =
     data.foldLeft[Validated[ValidateError, Event]](Valid(new Event {})) { (acc, e) =>
