@@ -191,22 +191,17 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         booleanProps = updateItem.booleanProps ++ event.booleanProps
       )
     )
-    val newProps = (
+    val esDoc = event.entityId -> (
       event.categoricalProps.mapValues(_.toList) ++
         event.booleanProps.mapValues(_.toString :: Nil) ++
         event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
         event.floatProps.mapValues(_.toString :: Nil)
-      ).filterNot {
-      case (name, _) => indicatorNames.contains(name)
+      ).filterNot { case (name, _) => indicatorNames.contains(name) }
+    es.saveOneByIdAsync(event.entityId, esDoc).map { result =>
+      logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search")
+    }.onFailure {
+      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
     }
-    (for {
-      doc <- es.findDocByIdAsync(event.entityId)
-      esDoc = (doc._1, doc._2 ++ newProps)
-      result <- es.saveOneByIdAsync(event.entityId, esDoc)
-    } yield logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elastic Search"))
-      .onFailure {
-        case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
-      }
   }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
