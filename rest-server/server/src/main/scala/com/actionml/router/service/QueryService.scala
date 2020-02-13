@@ -35,7 +35,7 @@ trait QueryService {
 }
 
 class QueryServiceImpl(admin: Administrator, system: ActorSystem) extends QueryService with JsonSupport {
-  implicit val blockingEC: ExecutionContext = system.dispatchers.lookup("es-dispatcher")
+  implicit val esEC: ExecutionContext = system.dispatchers.lookup("es-dispatcher")
 
   override def queryAsync(engineId: String, query: String): Future[Response] =
     admin.getEngine(engineId) match {

@@ -33,7 +33,6 @@ import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   *
@@ -97,7 +96,7 @@ class BaseModule extends Module with LazyLogging {
     logger.info("Terminating actor system in the Harness Server...")
     system.whenTerminated.onComplete { t =>
       logger.info(s"Actor system terminated: $t")
-    }
+    }(scala.concurrent.ExecutionContext.Implicits.global)
     system.terminate
   }
 }

@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version in ThisBuild := "0.5.1-RC1"
+version in ThisBuild := "0.5.1"
 
 scalaVersion := "2.11.12"
 
@@ -23,7 +23,7 @@ lazy val sparkVersion = "2.3.3"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
-lazy val elasticSearchVersion = "7.1.1"
+lazy val elasticSearchVersion = "7.5.2"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
 
