@@ -191,6 +191,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         booleanProps = updateItem.booleanProps ++ event.booleanProps
       )
     )
+
     val esDoc = event.entityId -> (
       event.categoricalProps.mapValues(_.toList) ++
         event.booleanProps.mapValues(_.toString :: Nil) ++
