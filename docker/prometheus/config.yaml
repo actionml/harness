@@ -1,6 +1,7 @@
 ---
-username: 
-password: 
-
+startDelaySeconds: 0
+ssl: false
+lowercaseOutputName: false
+lowercaseOutputLabelNames: false
 rules:
 - pattern: ".*"
