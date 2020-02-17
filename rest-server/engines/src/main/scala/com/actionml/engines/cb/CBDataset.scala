@@ -235,7 +235,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
     }
   }
 
-  override def inputAsync(datum: String): Validated[ValidateError, Future[Unit]] = ???
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
 

@@ -162,6 +162,6 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
     }
   }
 
-  override def inputAsync(datum: String): Validated[ValidateError, Future[Unit]] = ???
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 

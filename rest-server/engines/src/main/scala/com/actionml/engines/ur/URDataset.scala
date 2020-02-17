@@ -145,12 +145,12 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     }
   }
 
-  override def inputAsync(jsonEvent: String): Validated[ValidateError, Future[Unit]] = {
+  override def inputAsync(jsonEvent: String): Validated[ValidateError, Future[Response]] = {
     import DaoQuery.syntax._
     parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen(toUrEvent).andThen { event =>
       if (aliases.contains(event.event)) { // only store the indicator events here
         try {
-          Valid(eventsDao.insertAsync(event))
+          Valid(eventsDao.insertAsync(event).map(_ => Comment("UR input processed")))
         } catch {
           case e: Throwable =>
             logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
@@ -161,12 +161,11 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           case "$delete" =>
             event.entityType match {
               case "user" =>
-                Valid(eventsDao.removeManyAsync("entityId" === event.entityId))
-                //logger.trace(s"Engine-id: ${engineId}. Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
-//                Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
+                logger.trace(s"Engine-id: ${engineId}. Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(eventsDao.removeManyAsync("entityId" === event.entityId).map(_ => Comment(s"deleted data for user: ${event.entityId}")))
               case "item" =>
-                Valid(itemsDao.removeOneByIdAsync(event.entityId).map(_ => ()))
-                //logger.trace(s"Engine-id: ${engineId}. Deleted properties for item: ${event.entityId}")
+                logger.trace(s"Engine-id: ${engineId}. Deleted properties for item: ${event.entityId}")
+                Valid(itemsDao.removeOneByIdAsync(event.entityId).map(_ => Comment(s"Deleted properties for item: ${event.entityId}")))
               case _ =>
                 logger.error(s"Engine-id: ${engineId}. Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
@@ -177,14 +176,15 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
               case "user" =>
                 logger.warn(s"Engine-id: ${engineId}. User properties not supported, send as named indicator event.")
                 Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
-              case "item" => Valid(insertProperty(event))
+              case "item" =>
+                Valid(insertProperty(event).map(_ => Comment("UR input processed")))
               case _ =>
                 logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
           case _ =>
             logger.warn(s"Engine-id: ${engineId}. Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
-            Valid(Future.successful ())
+            Valid(Future.successful(Comment("Unknown event")))
         }
       }
     }
@@ -275,7 +275,6 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       val targetEntityId = (j \ "targetEntityId").getAs[String]
       val (dateProps, categoricalProps, floatProps, booleanProps) = (j \ "properties").getAs[JObject]
         .fold(emptyProps)(parseProps)
-      val conversionId = (j \ "conversionId").getAs[String]
       val eventTime = (j \ "eventTime").as[Date]
       Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, eventTime))
     } catch {

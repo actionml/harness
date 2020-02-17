@@ -123,8 +123,7 @@ class UREngine extends Engine with JsonSupport {
     import scala.concurrent.ExecutionContext.Implicits.global
     dataset
       .inputAsync(jsonEvent)
-      .fold(a => Future.successful(Invalid(a)), a => a.map(_ => Valid(Comment("UR input processed"))))
-    //[Future[Validated[ValidateError, Response]]]
+      .fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
   }
 
   override def inputMany: Seq[String] => Unit = dataset.inputMany

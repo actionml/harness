@@ -32,7 +32,7 @@ abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport
   def init(json: String, update: Boolean = false): Validated[ValidateError, Response]
   def destroy(): Unit
   def input(datum: String): Validated[ValidateError, Event]
-  def inputAsync(datum: String): Validated[ValidateError, Future[Unit]]
+  def inputAsync(datum: String): Validated[ValidateError, Future[Response]]
   def inputMany(data: Seq[String]): Unit =
     data.foldLeft[Validated[ValidateError, Event]](Valid(new Event {})) { (acc, e) =>
       acc.andThen(_ => input(e))

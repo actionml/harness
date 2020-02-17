@@ -163,7 +163,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
     } else None
   }
 
-  override def inputAsync(datum: String): Validated[ValidateError, Future[Unit]] = ???
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])

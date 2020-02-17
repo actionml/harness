@@ -18,7 +18,7 @@
 package com.actionml.engines.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, GenericEngineParams, GenericEvent, Response}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.validate._
@@ -60,6 +60,6 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
     }.andThen(Valid(_)) // may persist or otherwise react to the parsed and validated event
   }
 
-  override def inputAsync(datum: String): Validated[ValidateError, Future[Unit]] = ???
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
