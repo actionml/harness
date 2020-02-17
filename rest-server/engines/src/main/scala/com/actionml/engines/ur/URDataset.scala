@@ -217,11 +217,29 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   }
 
   private def insertProperty(event: UREvent): Future[Unit] = {
+    val updateItemF = itemsDao.findOneByIdAsync(event.entityId).map(_.getOrElse {
+      logger.debug(s"No item found with id ${event.entityId}")
+      URItemProperties(event.entityId, Map.empty)
+    })
+
+    val esDoc = event.entityId -> (
+      event.categoricalProps.mapValues(_.toList) ++
+        event.booleanProps.mapValues(_.toString :: Nil) ++
+        event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
+        event.floatProps.mapValues(_.toString :: Nil)
+      ).filterNot { case (name, _) => indicatorNames.contains(name) }
+    val updateElasticsearchF = es
+      .saveOneByIdAsync(event.entityId, esDoc)
+      .map { result =>
+        logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elasticsearch")
+      }.recoverWith {
+        case NonFatal(e) =>
+          logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
+          Future.failed(e)
+      }
+
     for {
-      updateItem <- itemsDao.findOneByIdAsync(event.entityId).map(_.getOrElse {
-        logger.debug(s"No item found with id ${event.entityId}")
-        URItemProperties(event.entityId, Map.empty)
-      })
+      (updateItem, _) <- updateItemF zip updateElasticsearchF
       _ <- itemsDao.saveOneByIdAsync(
         event.entityId,
         URItemProperties(
@@ -232,20 +250,6 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
           booleanProps = updateItem.booleanProps ++ event.booleanProps
         )
       )
-      esDoc = event.entityId -> (
-        event.categoricalProps.mapValues(_.toList) ++
-          event.booleanProps.mapValues(_.toString :: Nil) ++
-          event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
-          event.floatProps.mapValues(_.toString :: Nil)
-        ).filterNot { case (name, _) => indicatorNames.contains(name) }
-      _ <- es.saveOneByIdAsync(event.entityId, esDoc)
-        .map { result =>
-          logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elasticsearch")
-        }.recoverWith {
-        case NonFatal(e) =>
-          logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
-          Future.failed(e)
-      }
     } yield ()
   }
 
