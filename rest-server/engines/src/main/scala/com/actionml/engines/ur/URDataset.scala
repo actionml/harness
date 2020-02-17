@@ -217,10 +217,24 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   }
 
   private def insertProperty(event: UREvent): Future[Unit] = {
-    val updateItemF = itemsDao.findOneByIdAsync(event.entityId).map(_.getOrElse {
-      logger.debug(s"No item found with id ${event.entityId}")
-      URItemProperties(event.entityId, Map.empty)
-    })
+    val updateMongo =
+      for {
+        updateItemOpt <- itemsDao.findOneByIdAsync(event.entityId)
+        updateItem = updateItemOpt.getOrElse {
+          logger.debug(s"No item found with id ${event.entityId}")
+          URItemProperties(event.entityId, Map.empty)
+        }
+        _ <- itemsDao.saveOneByIdAsync(
+          event.entityId,
+          URItemProperties(
+            _id = updateItem._id,
+            dateProps = updateItem.dateProps ++ event.dateProps,
+            categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+            floatProps = updateItem.floatProps ++ event.floatProps,
+            booleanProps = updateItem.booleanProps ++ event.booleanProps
+          )
+        )
+      } yield ()
 
     val esDoc = event.entityId -> (
       event.categoricalProps.mapValues(_.toList) ++
@@ -228,29 +242,17 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
         event.floatProps.mapValues(_.toString :: Nil)
       ).filterNot { case (name, _) => indicatorNames.contains(name) }
-    val updateElasticsearchF = es
+    val updateElasticsearch = es
       .saveOneByIdAsync(event.entityId, esDoc)
       .map { result =>
         logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elasticsearch")
       }.recoverWith {
-        case NonFatal(e) =>
-          logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
-          Future.failed(e)
-      }
+      case NonFatal(e) =>
+        logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
+        Future.failed(e)
+    }
 
-    for {
-      (updateItem, _) <- updateItemF zip updateElasticsearchF
-      _ <- itemsDao.saveOneByIdAsync(
-        event.entityId,
-        URItemProperties(
-          _id = updateItem._id,
-          dateProps = updateItem.dateProps ++ event.dateProps,
-          categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
-          floatProps = updateItem.floatProps ++ event.floatProps,
-          booleanProps = updateItem.booleanProps ++ event.booleanProps
-        )
-      )
-    } yield ()
+    (updateMongo zip updateElasticsearch).map(_ => ())
   }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
