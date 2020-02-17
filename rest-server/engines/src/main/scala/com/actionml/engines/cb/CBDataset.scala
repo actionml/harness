@@ -27,6 +27,7 @@ import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 import scala.util.control.NonFatal
 
@@ -233,6 +234,8 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
         Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
   }
+
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
 
