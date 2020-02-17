@@ -66,7 +66,6 @@ class BaseModule extends Module with LazyLogging {
   bind[RestServer] to new RestServer
 
   bind[CheckRouter] to new CheckRouter
-  bind[EventsRouter] to new EventsRouter
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
@@ -79,7 +78,9 @@ class BaseModule extends Module with LazyLogging {
   }
   bind[Administrator] identifiedBy 'Administrator to administrator
 
-  bind[EventService] to new EventServiceImpl
+  val eventService = new EventServiceImpl(administrator)
+  bind[EventService] to eventService
+  bind[EventsRouter] to new EventsRouter(eventService)
   bind[EngineService] to new EngineServiceImpl
 //  bind[QueryService] to new QueryServiceImpl(administrator)
 

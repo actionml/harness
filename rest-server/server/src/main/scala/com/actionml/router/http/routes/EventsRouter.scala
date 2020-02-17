@@ -53,8 +53,7 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 12:53
   */
-class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
-  private val eventService = inject[ActorRef]('EventService)
+class EventsRouter(eventService: EventService)(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
   override val authEnabled = config.auth.enabled
@@ -78,14 +77,14 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.debug("Get event: {}, {}", datasetId, eventId)
     completeByValidated(StatusCodes.OK) {
-      (eventService ? GetEvent(datasetId, eventId)).mapTo[Validated[ValidateError, Response]]
+      eventService.getEvent(datasetId, eventId)
     }
   }
 
   private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[JValue])) { event =>
     log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(engineId, JsonMethods.compact(event))).mapTo[Validated[ValidateError, Response]]
+      eventService.createEvent(engineId, JsonMethods.compact(event))
     }
   }
 

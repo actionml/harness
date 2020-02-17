@@ -17,11 +17,13 @@
 
 package com.actionml.router.service
 
+import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
-import com.actionml.core.validate.{JsonSupport, NotImplemented, WrongParams}
-import com.actionml.router.ActorInjectable
-import scaldi.Injector
+import com.actionml.core.model.Response
+import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError, WrongParams}
+
+import scala.concurrent.Future
 
 /**
   *
@@ -30,27 +32,18 @@ import scaldi.Injector
   * 28.01.17 14:49
   */
 
-trait EventService extends ActorInjectable
-
-class EventServiceImpl(implicit inj: Injector) extends EventService with JsonSupport {
-
-  private val admin = inject[Administrator]('Administrator)
-
-  override def receive: Receive = {
-    case GetEvent(engineId, eventId) ⇒
-      log.debug("Get event, {}, {}", engineId, eventId)
-      sender() ! Invalid(NotImplemented())
-
-    case CreateEvent(engineId, event) =>
-      log.debug("Receive new event & stored, {}, {}", engineId, event)
-      admin.getEngine(engineId) match {
-        case Some(engine) => sender() ! engine.input(event)
-        case None => sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
-      }
-
-  }
+trait EventService {
+  def getEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]]
+  def createEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]]
 }
 
-sealed trait EventAction
-case class GetEvent(engineId: String, eventId: String) extends EventAction
-case class CreateEvent(engineId: String, event: String) extends EventAction
+class EventServiceImpl(admin: Administrator) extends EventService with JsonSupport {
+  override def getEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]] =
+    Future.successful(Invalid(NotImplemented()))
+
+  override def createEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]] = {
+    admin.getEngine(engineId).fold[Future[Validated[ValidateError, Response]]](Future.successful(Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found"))))) { engine =>
+      engine.inputAsync(event)
+    }
+  }
+}

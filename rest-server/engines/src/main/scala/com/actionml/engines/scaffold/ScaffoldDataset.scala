@@ -18,11 +18,12 @@
 package com.actionml.engines.scaffold
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, GenericEngineParams, GenericEvent, Response}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.validate._
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -59,5 +60,6 @@ class ScaffoldDataset(engineId: String) extends Dataset[GenericEvent](engineId) 
     }.andThen(Valid(_)) // may persist or otherwise react to the parsed and validated event
   }
 
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 

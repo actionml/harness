@@ -24,7 +24,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{EngineParams, Event, Query, Response}
+import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
@@ -117,6 +117,13 @@ class UREngine extends Engine with JsonSupport {
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
     if(response.isInvalid) logger.info(s"Engine-id: ${engineId}. Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
+  }
+
+  override def inputAsync(jsonEvent: String): Future[Validated[ValidateError, Response]] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    dataset
+      .inputAsync(jsonEvent)
+      .fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
   }
 
   override def inputMany: Seq[String] => Unit = dataset.inputMany

@@ -29,6 +29,7 @@ import com.actionml.engines.ur.UREngine.UREvent
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent}
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -161,5 +162,6 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
     }
   }
 
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 

@@ -139,11 +139,20 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
                 )))
               val updateListener = new ResponseListener {
                 override def onSuccess(response: Response): Unit = {
-                  val responseJValue = parse(EntityUtils.toString(response.getEntity))
-                  (responseJValue \ "result").getAs[String].contains("updated")
-                  promise.success(true)
+                  response.getStatusLine().getStatusCode match {
+                    case 200 =>
+                      val responseJValue = parse(EntityUtils.toString(response.getEntity))
+                      (responseJValue \ "result").getAs[String].contains("updated")
+                      promise.success(true)
+                    case 404 =>
+                      logger.warn("The Elasticsearch index does not exist, have you trained yet?")
+                      promise.success(false)
+                    case _ => promise.failure(new RuntimeException("Elasticsearch index update error"))
+                  }
                 }
-                override def onFailure(exception: Exception): Unit = promise.failure(exception)
+                override def onFailure(exception: Exception): Unit = exception match {
+                  case NonFatal(e) => promise.failure(e)
+                }
               }
               client.performRequestAsync(request, updateListener)
             } catch {
