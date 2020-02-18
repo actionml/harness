@@ -11,7 +11,6 @@ HARNESS_CLASS=com.actionml.HarnessServer
 
 # Harness options passed to the Java service
 HARNESS_OPTS="${HARNESS_OPTS}\
--javaagent:/harness/prometheus/jmx_prometheus_javaagent-0.12.0.jar=9400:/harness/prometheus/config.yaml \
 -Dlogback.configurationFile=${HARNESS_LOG_CONFIG} \
 -DHARNESS_LOG_PATH=${HARNESS_LOG_PATH} # this is a no-op!
 
@@ -47,7 +46,7 @@ else
     # HARNESS_CLILOG="${HARNESS_CLILOG:-/tmp/harness.log}"
     echo -e "${CYAN}Starting Harness server as a daemon${NC}"
     HARNESS_CLILOG="${HARNESS_CLILOG:-/dev/null}" # these will be written to logs and STDOUT/STDERR so do not need in tmp file also
-    exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" &
+    exec "${HARNESS_HOME}"/bin/main ${HARNESS_OPTS} <&- &> "${HARNESS_CLILOG}" -- -javaagent:/harness/prometheus/jmx_prometheus_javaagent-0.12.0.jar=9401:/harness/prometheus/config.yaml &
   fi
 
   echo -e "${CYAN}Run \"harness-cli status system\" to get server status information${NC}"
