@@ -23,10 +23,16 @@ import com.actionml.core._
 import com.actionml.core.engine.Engine
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
-import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
+import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate._
-import scala.util.Properties
+import zio.clock.Clock
+import zio.duration._
+import zio.stream.ZStream
+import zio.{DefaultRuntime, Schedule, ZIO}
+
+import scala.util.{Properties, Try}
+
 
 class MongoAdministrator extends Administrator with JsonSupport {
   import DaoQuery.syntax._
@@ -34,6 +40,28 @@ class MongoAdministrator extends Administrator with JsonSupport {
 
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   @volatile private var engines = Map.empty[String, Engine]
+
+  new DefaultRuntime{}.unsafeRunAsync(mkEnginesStream(enginesCollection).foreach { enginesList =>
+    if (this.engines.keySet.toList != enginesList.map(_.engineId)) this.engines = enginesList.map(e => e.engineId -> e).toMap
+    ZIO.unit
+  })(_ => ())
+
+  def mkEnginesStream(enginesDao: DAO[EngineMetadata]): ZStream[Clock, Nothing, List[Engine]] = {
+    def toEngines(docs: Iterable[EngineMetadata]): ZIO[Clock, Nothing, List[Engine]] = {
+      ZIO.fromFunction(_ => docs.toList.flatMap { meta =>
+        Try(newEngineInstance(meta.engineFactory, meta.params)).toOption.flatMap(Option.apply).fold[Option[Engine]] {
+          logger.error(s"Error creating engineId: ${meta.engineId} from ${meta.params}" +
+            s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
+            s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
+            s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
+          enginesCollection.removeOne("engineId" === meta.engineId)
+          // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
+          None
+        } { a => Option(a)}
+      })
+    }
+    ZStream.repeatEffectWith(toEngines(enginesDao.findMany()), Schedule.linear(30.seconds)) // this can be replaced with stream from kafka or redis or...
+  }
 
   drawActionML
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
@@ -44,25 +72,10 @@ class MongoAdministrator extends Administrator with JsonSupport {
   override def init() = {
     // ask engines to init
     JobManager.abortExecutingJobs
-    engines = enginesCollection.findMany().map { engine =>
-      // create each engine passing the params
-      val e = engine.engineId -> newEngineInstance(engine.engineFactory, engine.params)
-      if (e._2 == null) { // it is possible that previously valid metadata is now bad, the Engine code must have changed
-        logger.error(s"Error creating engineId: ${engine.engineId} from ${engine.params}" +
-          s"\n\nTrying to recover by deleting the previous Engine metadata but data may still exist for this Engine, which you must " +
-          s"delete by hand from whatever DB the Engine uses then you can re-add a valid Engine JSON config and start over. Note:" +
-          s"this only happens when code for one version of the Engine has chosen to not be backwards compatible.")
-        // Todo: we need a way to cleanup in this situation
-        enginesCollection.removeOne("engineId" === engine.engineId)
-        // can't do this because the instance is null: deadEngine.destroy(), maybe we need a companion object with a cleanup function?
-      }
-      e
-    }.filter(_._2 != null).toMap
     drawInfo("Harness Server Init", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("Number of Engines: ", engines.size),
-      ("Engines: ", engines.map(_._1))))
-
+      ("Engines: ", engines.keys)))
     this
   }
 
