@@ -17,10 +17,12 @@
 
 package com.actionml.core.search.elasticsearch
 
-import java.io.UnsupportedEncodingException
+import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
+import java.util.Scanner
 
+import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport.EsDocument
@@ -124,48 +126,41 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     }
   }
 
-  def saveOneByIdAsync(id: String, doc: EsDocument): Future[Boolean] = {
-    val promise = Promise[Boolean]()
-    val aliasListener = new ResponseListener {
-      override def onSuccess(response: Response): Unit = {
-        response.getStatusLine.getStatusCode match {
-          case 200 =>
-            try {
-              val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
-              request.setJsonEntity(
-                JsonMethods.compact(JObject(
-                  "doc" -> JsonMethods.asJValue(doc),
-                  "doc_as_upsert" -> JBool(true)
-                )))
-              val updateListener = new ResponseListener {
-                override def onSuccess(response: Response): Unit = {
-                  response.getStatusLine().getStatusCode match {
-                    case 200 =>
-                      val responseJValue = parse(EntityUtils.toString(response.getEntity))
-                      (responseJValue \ "result").getAs[String].contains("updated")
-                      promise.success(true)
-                    case 404 =>
-                      logger.warn("The Elasticsearch index does not exist, have you trained yet?")
-                      promise.success(false)
-                    case _ => promise.failure(new RuntimeException("Elasticsearch index update error"))
-                  }
-                }
-                override def onFailure(exception: Exception): Unit = exception match {
-                  case NonFatal(e) => promise.failure(e)
-                }
-              }
-              client.performRequestAsync(request, updateListener)
-            } catch {
-              case NonFatal(e) =>
-                logger.error(s"Can't upsert $doc with id $id", e)
-                promise.success(false)
-            }
-          case _ => promise.success(false)
+  def saveOneByIdAsync(id: String, doc: EsDocument): Future[Comment] = {
+    val promise = Promise[Comment]()
+    try {
+      val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+      request.setJsonEntity(
+        JsonMethods.compact(JObject(
+          "doc" -> JsonMethods.asJValue(doc),
+          "doc_as_upsert" -> JBool(true)
+        )))
+      val updateListener = new ResponseListener {
+        override def onSuccess(response: Response): Unit = {
+          response.getStatusLine.getStatusCode match {
+            case 200 =>
+              val responseJValue = parse(EntityUtils.toString(response.getEntity))
+              (responseJValue \ "result").getAs[String].contains("updated")
+              promise.success(Comment("Upserted successfully"))
+            case 404 =>
+              val msg = "The Elasticsearch index does not exist, have you trained yet?"
+              logger.warn(msg)
+              promise.success(Comment(msg))
+            case code =>
+              logger.error(s"Elasticsearch update error. Got response code $code. ${new BufferedReader(new InputStreamReader(response.getEntity.getContent))}")
+              promise.failure(new RuntimeException(s"Elasticsearch index update error: staus code $code"))
+          }
+        }
+        override def onFailure(exception: Exception): Unit = exception match {
+          case NonFatal(e) => promise.failure(e)
         }
       }
-      override def onFailure(exception: Exception): Unit = promise.failure(exception)
+      client.performRequestAsync(request, updateListener)
+    } catch {
+      case e: IOException =>
+        logger.error(s"Can't upsert $doc with id $id", e)
+        promise.success(Comment("Can't connect to Elasticsearch nodes"))
     }
-    client.performRequestAsync(new Request("HEAD", s"/_alias/$alias"), aliasListener)
     promise.future
   }
 
