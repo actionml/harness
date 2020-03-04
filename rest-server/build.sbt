@@ -36,6 +36,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 lazy val commonSettings = Seq(
   organization := "com.actionml",
   scalaVersion := "2.11.12",
+  scalacOptions := Seq("-target:jvm-1.8"),
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -81,6 +82,7 @@ lazy val core = (project in file("core")).
 
       "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
 
+      "org.json4s" %% "json4s-native" % json4sVersion,
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,
 
@@ -97,6 +99,7 @@ lazy val core = (project in file("core")).
 
       "dev.zio" %% "zio" % "1.0.0-RC17",
       "dev.zio" %% "zio-streams" % "1.0.0-RC17",
+      "io.etcd" % "jetcd-core" % "0.5.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),

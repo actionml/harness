@@ -128,6 +128,8 @@ trait JsonSupport extends LazyLogging {
     "[\n    " + jsonStrings.mkString(",\n    ") + "\n]"
   }
 
+  def toJsonString[A <: AnyRef](a: A): String = org.json4s.native.Serialization.write(a)
+
 
   private val env = s"system.env.(.*)".r
   private def enrichViaSystemEnv: String => String = {

@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
-package com.actionml.admin
+package com.actionml.core.engine.backend
 
-import com.actionml.core.engine.backend.EnginesMongoBackend
+import com.actionml.core.validate.ValidateError
+import zio.IO
 
-class MongoAdministrator extends EnginesMongoBackend[EngineMetadata] with Administrator {
-  override def codecs = MongoStorageHelper.codecs
+trait EnginesBackend[I,D,S] {
+  def addEngine(id: I, data: D): IO[ValidateError, Unit]
+  def updateEngine(id: I, data: D): IO[ValidateError, Unit]
+  def deleteEngine(id: I): IO[ValidateError, Unit]
+  def findEngine(id: I): IO[ValidateError, D]
+  def listEngines: IO[ValidateError, Iterable[D]]
+  def onChange(callback: () => Unit): Unit = ()
 }

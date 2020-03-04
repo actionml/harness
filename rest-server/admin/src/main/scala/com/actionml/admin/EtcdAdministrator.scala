@@ -17,8 +17,10 @@
 
 package com.actionml.admin
 
-import com.actionml.core.engine.backend.EnginesMongoBackend
+import com.actionml.core.engine.backend.EnginesEtcdBackend
+import com.actionml.core.validate.JsonSupport
 
-class MongoAdministrator extends EnginesMongoBackend[EngineMetadata] with Administrator {
-  override def codecs = MongoStorageHelper.codecs
+class EtcdAdministrator extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
+  override protected def encode: EngineMetadata => String = toJsonString
+  override protected def decode: String => Option[EngineMetadata] = parseAndValidate[EngineMetadata](_).toOption
 }
