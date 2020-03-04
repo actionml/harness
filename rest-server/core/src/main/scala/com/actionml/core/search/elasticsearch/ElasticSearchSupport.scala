@@ -138,7 +138,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       val updateListener = new ResponseListener {
         override def onSuccess(response: Response): Unit = {
           response.getStatusLine.getStatusCode match {
-            case 200 =>
+            case 200 | 201 =>
               val responseJValue = parse(EntityUtils.toString(response.getEntity))
               (responseJValue \ "result").getAs[String].contains("updated")
               promise.success(Comment("Upserted successfully"))
