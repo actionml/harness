@@ -194,9 +194,9 @@ For specifics of the format and use of events and queries see the Engine specifi
 
     The CLI is implemented using the Python SDK so they are packaged together [here](https://github.com/actionml/harness-cli) 
   
-- [Config](https://actionml.com/docs/harness_config.md)
+- [Config](https://actionml.com/docs/harness_config)
 
-    To change this and other global behavior (not engine specific) read the [Config Page](https://actionml.com/docs/harness_config.md)
+    To change this and other global behavior (not engine specific) read the [Config Page](https://actionml.com/docs/harness_config)
     
 # Installation
 
