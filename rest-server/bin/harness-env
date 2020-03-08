@@ -4,6 +4,33 @@
 # export HARNESS_URI="http://0.0.0.0:9090" # for external connections
 export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 
+# To configure Harness logging
+export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
+export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
+
+# MongoDB setup
+export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
+
+# Elasticsearch setup (optional: used by UR and similar Engines)
+# todo: need to allow for multiple servers for cluster operation of ES, which
+#     is currently done in the sparkConf section of an Engine Instance config
+export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
+
+# This setting helps mark spark train jobs as expired if they do not respond for this period of time
+export JOBS_EXPIRE_AFTER="12 hours"
+
+# Use only when necessary to pass options to the launcher for Harness
+# for example below we set the heap size for the JVM, otherwise the JVM has a default, which is correct in many cases
+# also in the example we use a more concurrent Garbage Collector, to avoid pauses in Harness execution for GC
+# HARNESS_OPTS=" -J-Xmx4G -J-XX:+UseConcMarkSweepGC "
+
+
+# ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
+
+# =============================================================
+# Only change if default vertical scaling is not sufficient
+# =============================================================
+
 # The maximum number of concurrently accepted connections.
 # Note, that this setting limits the number of the connections on a best-effort basis.
 # It does *not* strictly guarantee that the number of established TCP connections will never
@@ -27,27 +54,9 @@ export HARNESS_MAX_CONNECTIONS=${HARNESS_MAX_CONNECTIONS:-1024}
 # See akka.http.server.pipelining-limit at https://doc.akka.io/docs/akka-http/current/configuration.html
 export HARNESS_MAX_REQUESTS=${HARNESS_MAX_REQUESTS:-16}
 
-# To configure Harness logging
-export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
-export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
-
-# MongoDB setup
-export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
-
-# Elasticsearch setup (optional: used by UR and similar Engines)
-# todo: need to allow for multiple servers for cluster operation of ES
-export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
-
-# This setting helps mark spark train jobs as expired if they do not respond for this period of time
-export JOBS_EXPIRE_AFTER="12 hours"
-
-# Use only when necessary to pass options to the launcher for Harness
-# for example below we set the heap size for the JVM, otherwise the JVM has a default, which is correct in many cases
-# also in the example we use a more concurrent Garbage Collector, to avoid pauses in Harness execution for GC
-# HARNESS_OPTS=" -J-Xmx4G -J-XX:+UseConcMarkSweepGC "
-
-
-# ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
+# =============================================================
+# Only change if you are using HDFS for file storage
+# =============================================================
 
 # HDFS setup
 # export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
