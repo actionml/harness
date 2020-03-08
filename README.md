@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/actionml/harness.svg?style=svg)](https://circleci.com/gh/actionml/harness)
+[![CircleCI](https://circleci.com/gh/actionml/harness.svg?style=svg)](https://circleci.com/gh/actionml/harness/tree/develop)
 # Harness Overview
 
 This project implements a microservice based Machine Learning Server. It provides an API for plug-in Engines and implements all services needed for input and query. Features include:
