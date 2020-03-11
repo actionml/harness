@@ -28,11 +28,12 @@ import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.validate.{JsonSupport, ParseError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -129,9 +130,13 @@ class UREngine extends Engine with JsonSupport {
   override def inputMany: Seq[String] => Unit = dataset.inputMany
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): IO[ValidateError, Response] = {
     logStatus(params)
-    Valid(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+    IO.effect(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+      .mapError { e =>
+        logger.error("Get status error", e)
+        ValidRequestExecutionError("Get status error")
+      }
   }
 
   override def train(): Validated[ValidateError, Response] = {

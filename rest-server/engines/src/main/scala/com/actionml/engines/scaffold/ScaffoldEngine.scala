@@ -23,6 +23,7 @@ import com.actionml.core.drawInfo
 import com.actionml.core.engine._
 import com.actionml.core.model._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -76,9 +77,9 @@ class ScaffoldEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): IO[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(this.params)
+    IO.succeed(this.params)
   }
 
   override def destroy(): Unit = {

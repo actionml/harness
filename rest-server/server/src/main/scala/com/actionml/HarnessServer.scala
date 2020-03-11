@@ -66,7 +66,6 @@ class BaseModule extends Module with LazyLogging {
   bind[RestServer] to new RestServer
 
   bind[CheckRouter] to new CheckRouter
-  bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
@@ -79,10 +78,13 @@ class BaseModule extends Module with LazyLogging {
   bind[Administrator] identifiedBy 'Administrator to administrator
 
   val eventService = new EventServiceImpl(administrator)
+  val engineService =  new EngineServiceImpl(administrator)
   bind[EventService] to eventService
   bind[EventsRouter] to new EventsRouter(eventService)
-  bind[EngineService] to new EngineServiceImpl
+  bind[EngineService] to engineService
 //  bind[QueryService] to new QueryServiceImpl(administrator)
+
+  bind[EnginesRouter] to new EnginesRouter(engineService)
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService

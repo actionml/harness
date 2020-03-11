@@ -26,7 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{drawActionML, drawInfo}
 import com.typesafe.scalalogging.LazyLogging
-import zio.DefaultRuntime
+import zio.{DefaultRuntime, IO, Task, ZIO}
 
 import scala.util.Properties
 
@@ -43,8 +43,17 @@ trait Administrator extends LazyLogging with JsonSupport {
   onChange(updateEngines)
 
   drawActionML
-  protected def newEngineInstance(engineFactory: String, json: String): Engine = {
+
+  private def newEngineInstance(engineFactory: String, json: String): Engine = {
     Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.TRUE).asInstanceOf[Engine]
+  }
+  private def newEngineInstanceIO(engineFactory: String, json: String): IO[ValidateError, Engine] = {
+    val error = ParseError(jsonComment(s"Unable to create Engine the config JSON seems to be in error"))
+    IO.effect(newEngineInstance(engineFactory, json))
+      .mapError { e =>
+        logger.error("Engine creation error", e)
+        error
+      }.filterOrFail(_ != null)(error)
   }
 
   // instantiates all stored engine instances with restored state
@@ -71,32 +80,34 @@ trait Administrator extends LazyLogging with JsonSupport {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): Validated[ValidateError, Response] = {
-    parseAndValidate[GenericEngineParams](json).andThen { params =>
-      val newEngine = newEngineInstance(params.engineFactory, json)
-      if (getEngine(params.engineId).nonEmpty) {
+  def addEngine(json: String): IO[ValidateError, Response] = {
+    for {
+      params <- parseAndValidateIO[GenericEngineParams](json)
+      result <- getEngine(params.engineId).fold {
+        newEngineInstanceIO(params.engineFactory, json).flatMap(_ =>
+          addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).map { _ =>
+            logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
+            Comment(s"EngineId: ${params.engineId} created")
+          }
+        )
+      } { _ =>
         logger.warn(s"Ignored, engine for resource-id: ${params.engineId} already exists, use update")
-        Invalid(WrongParams(s"Engine ${params.engineId} already exists, use update"))
-      } else if (newEngine != null) {
-        logger.trace(s"Initializing new engine for resource-id: ${ params.engineId } with params $json")
-        addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json))
-        logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
-        Valid(Comment(s"EngineId: ${params.engineId} created"))
-      } else {
-        // ignores case of too many engine with the same engineId
-        Invalid(ParseError(jsonComment(s"Unable to create Engine the config JSON seems to be in error")))
+        IO.fail(WrongParams(s"Engine ${params.engineId} already exists, use update"))
       }
-    }
+    } yield result
   }
 
-  def updateEngine(json: String): Validated[ValidateError, Response] = {
-    parseAndValidate[GenericEngineParams](json).andThen { params =>
-      engines.get(params.engineId).map { existingEngine =>
-        logger.trace(s"Re-initializing engine for resource-id: ${params.engineId} with new params $json")
-        updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json))
-        existingEngine.init(json, update = true)
-      }.getOrElse(Invalid(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist"))))
-    }
+  def updateEngine(json: String): IO[ValidateError, Response] = {
+    import com.actionml.core.utils.ZIOUtil._
+    for {
+      params <- parseAndValidateIO[GenericEngineParams](json)
+      result <- engines.get(params.engineId)
+          .fold[IO[ValidateError,Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
+            updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).flatMap { _ =>
+              existingEngine.init(json, update = true)
+            }.mapError(e => ValidRequestExecutionError())
+          }
+    } yield result
   }
 
   def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, Response] = {
@@ -114,47 +125,50 @@ trait Administrator extends LazyLogging with JsonSupport {
     }
   }
 
-  def removeEngine(engineId: String): Validated[ValidateError, Response] = {
-    if (engines.contains(engineId)) {
-      logger.info(s"Stopped and removed engine and all data for id: $engineId")
-      val deadEngine = engines(engineId)
-      deleteEngine(engineId)
-      deadEngine.destroy()
-      Valid(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
-    } else {
+  def removeEngine(engineId: String): IO[ValidateError, Response] = {
+    engines.get(engineId).fold[IO[ValidateError, Response]] {
       logger.warn(s"Cannot removeOne, non-existent engine for engineId: $engineId")
-      Invalid(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
+      IO.fail(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
+    } { deadEngine =>
+      logger.info(s"Stopped and removed engine and all data for id: $engineId")
+      for {
+        result <- deleteEngine(engineId).map(_ => Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
+        _ <- IO.effect(deadEngine.destroy()).mapError { e =>
+          logger.error("Destroy engine error", e)
+          ValidRequestExecutionError()
+        }
+      } yield result
     }
   }
 
-  def systemInfo(): Validated[ValidateError, Response] = {
+  def systemInfo(): IO[ValidateError, Response] = {
     logger.trace("Getting Harness system info")
     // todo: do we want to check connectons to services here?
-    Valid(SystemInfo(
+    IO.effect(SystemInfo(
       buildVersion = com.actionml.admin.BuildInfo.version,
       gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
       gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
       harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
       mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
       elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" )
-    ))
-  }
-
-  def statuses(): Validated[ValidateError, List[Response]] = {
-    logger.trace("Getting status for all Engines")
-    val empty = List.empty
-    engines.map(_._2.status()).foldLeft[Validated[ValidateError, List[Response]]](Valid(empty)) { (acc, s) =>
-      acc.andThen(statuses => s.map(status => statuses :+ status))
+    )).mapError { e =>
+      logger.error("Get system info error", e)
+      ValidRequestExecutionError("Get system info error")
     }
   }
 
-  def status(resourceId: String): Validated[ValidateError, Response] = {
+  def statuses(): IO[ValidateError, List[Response]] = {
+    logger.trace("Getting status for all Engines")
+    ZIO.collectAll(engines.map(_._2.status()))
+  }
+
+  def status(resourceId: String): IO[ValidateError, Response] = {
     if (engines.contains(resourceId)) {
       logger.trace(s"Getting status for $resourceId")
       engines(resourceId).status()
     } else {
       logger.error(s"Non-existent engine-id: $resourceId")
-      Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $resourceId")))
+      IO.fail(WrongParams(jsonComment(s"Non-existent engine-id: $resourceId")))
     }
   }
 

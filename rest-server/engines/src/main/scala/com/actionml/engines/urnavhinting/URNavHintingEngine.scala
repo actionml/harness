@@ -26,9 +26,10 @@ import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.SingleIndex
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -97,9 +98,13 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with URNavHintingEngine's status
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): IO[ValidateError, Response] = {
     logStatus(params)
-    Valid(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+    IO.effect(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+      .mapError { e =>
+        logger.error("Get status error", e)
+        ValidRequestExecutionError("Get status error")
+      }
   }
 
   override def train(): Validated[ValidateError, Response] = {

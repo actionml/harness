@@ -31,6 +31,7 @@ import org.json4s.JsonAST.JString
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
+import zio.IO
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -102,6 +103,29 @@ trait JsonSupport extends LazyLogging {
         logger.error(msg + s"$json", e)
         Invalid(ParseError(s"""{"comment":"${msg + json}"}"""))
     }
+  }
+
+  def parseAndValidateIO[T](json: String,
+                            errorMsg: String = "",
+                            transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): IO[ValidateError, T] = {
+    lazy val msg = if (errorMsg.isEmpty) {
+      tag.tpe match {
+        case TypeRef(_, _, args) =>
+          s"Error $args from JSON:"
+        case _ => "JSON parse error"
+      }
+    } else { errorMsg }
+    def handleError: Throwable => ValidateError = {
+      case e: MappingException =>
+        logger.error(s"$msg $json", e)
+        ParseError(s"""{"comment":"$msg $json"}""")
+      case NonFatal(e) =>
+        logger.error(msg + s"$json", e)
+        ValidRequestExecutionError(msg)
+    }
+
+    IO.effect(transform(parse(json)).extract[T])
+      .mapError(handleError)
   }
 
   def prettify(jsonString: String): String = {

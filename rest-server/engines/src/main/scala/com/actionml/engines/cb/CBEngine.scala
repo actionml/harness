@@ -24,6 +24,7 @@ import com.actionml.core.engine._
 import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -79,13 +80,13 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): IO[ValidateError, Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     val status = CBStatus(
       engineParams = this.params,
       algorithmParams = algo.params,
       activeGroups = algo.trainers.size)
-    Valid(status)
+    IO.succeed(status)
   }
 
   override def destroy(): Unit = synchronized {
