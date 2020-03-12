@@ -207,4 +207,4 @@ There are several ways to install and run Harness. The primary method we release
 
 # Versions
 
-The latest stable version is 0.5.1, see [versions.md](versions)
+The latest stable version is 0.5.1, see [versions.md](versions.md)
