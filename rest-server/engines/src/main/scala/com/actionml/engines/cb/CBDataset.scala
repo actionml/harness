@@ -27,7 +27,9 @@ import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
+import scala.util.control.NonFatal
 
 /** Reacts to persisted input data for the Contextual Bandit.
   * There are 2 types of input events for the CB 1) usage events and 2) property change events. The usage events
@@ -227,11 +229,13 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
       case e@(_: IllegalArgumentException | _: ArithmeticException) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
         Invalid(ParseError(jsonComment(s"ISO 8601 Datetime parsing error ignoring input: ${event}")))
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
         Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
   }
+
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
 

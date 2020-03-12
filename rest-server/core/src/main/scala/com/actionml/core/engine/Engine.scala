@@ -20,13 +20,14 @@ package com.actionml.core.engine
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobManager, JobStatuses}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -47,17 +48,21 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @return The extending Engine instance, initialized and ready for input and/or queries etc.
     */
   @deprecated("Companion factory objects should be used instead of this old factory method", "0.3.0")
-  def initAndGet(json: String): Engine
+  def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit
+  def destroy(): Unit = {
+    Await.result(JobManager.removeAllJobs(engineId), 5.minutes)
+  }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
     *
     * @param json Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
-  def query(json: String): Validated[ValidateError, Response]
+  def query(jsonQuery: String): Validated[ValidateError, Response]
+
+  def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response]
 
 
   // This section defines methods that must be executed as inherited, but are optional for implementation in extending classes
@@ -70,7 +75,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
     if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
-      logger.info("No mirrorContainer defined for this engine so no event mirroring will be done.")
+      logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
@@ -126,14 +131,19 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
     mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-    Valid(Comment("Input processed by base Engine"))
+      .andThen(_ => Valid(Comment("Input processed by base Engine")))
   }
 
+  def inputAsync(json: String): Future[Validated[ValidateError, Response]] = {
+    Future.successful(Invalid(NotImplemented()))
+  }
+
+  def inputMany: Seq[String] => Unit = _.foreach(input)
+
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.startNewJob(engineId,
-      Future(mirroring.importEvents(this, inputPath),
-      "batch import, non-Spark job")
-    )
+    val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
+    Future(mirroring.importEvents(this, inputPath))
+      .onComplete(_ => JobManager.finishJob(jobDescription.jobId))
     Valid(jobDescription)
   }
 

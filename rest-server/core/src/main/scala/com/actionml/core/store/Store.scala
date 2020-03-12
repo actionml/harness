@@ -17,7 +17,7 @@
 
 package com.actionml.core.store
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -25,7 +25,7 @@ import scala.reflect.runtime.universe._
 
 trait Store {
   def dbName: String
-  def createDao[T: TypeTag](collectionName: String)(implicit ct: ClassTag[T]): DAO[T]
+  def createDao[T: TypeTag](collectionName: String, ttl: Duration = 365.days)(implicit ct: ClassTag[T]): DAO[T]
   def removeCollection(name: String): Unit
   def drop(): Unit
   def removeCollectionAsync(name: String)(implicit ec: ExecutionContext): Future[Unit]

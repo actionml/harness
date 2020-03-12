@@ -30,13 +30,13 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response, User}
 import com.actionml.core.store._
-import com.actionml.core.store.backends.MongoDao
+import com.actionml.core.store.backends.MongoAsyncDao
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.cb.SingleGroupTrainer.constructVWString
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.io.Source
 import scala.reflect.io.Path
 import scala.util.{Failure, Success}
@@ -121,6 +121,8 @@ class CBAlgorithm(json: String, resourceId: String, dataset: CBDataset)
         Invalid(ValidRequestExecutionError(jsonComment(s"Input to non-existent group: $groupName Initialize the group before sending input.")))
     }
   }
+
+  override def queryAsync(query: CBQuery)(implicit ec: ExecutionContext): Future[CBQueryResult] = Future.failed(new NotImplementedError())
 
   override def query(query: CBQuery): CBQueryResult = {
     // todo: isDefinedAt is not enough to know there have been events

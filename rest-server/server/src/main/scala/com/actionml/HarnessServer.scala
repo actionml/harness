@@ -33,7 +33,6 @@ import scaldi.Module
 import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   *
@@ -58,39 +57,47 @@ class BaseModule extends Module with LazyLogging {
   val config = AppConfig.apply
   bind[AppConfig] to config
 
-  bind[ActorSystem] to ActorSystem(inject[AppConfig].actorSystem.name) destroyWith(terminateActorSystem)
-  private def terminateActorSystem(system: ActorSystem): Unit = {
-    logger.info("Terminating actor system in the Harness Server...")
-    system.whenTerminated.onComplete { t =>
-      logger.info(s"Actor system terminated: $t")
-    }
-    system.terminate
-  }
+  implicit lazy val system = ActorSystem(inject[AppConfig].actorSystem.name)
+  bind[ActorSystem] to system destroyWith(terminateActorSystem)
 
-  implicit lazy val system: ActorSystem = inject [ActorSystem]
   bind[ExecutionContext] to system.dispatcher
   bind[ActorMaterializer] to ActorMaterializer()
 
   bind[RestServer] to new RestServer
 
   bind[CheckRouter] to new CheckRouter
-  bind[EventsRouter] to new EventsRouter
   bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
-  bind[EventService] to new EventServiceImpl
+  lazy val administrator = {
+    val a = new MongoAdministrator
+    a.init
+    a
+  }
+  bind[Administrator] identifiedBy 'Administrator to administrator
+
+  val eventService = new EventServiceImpl(administrator)
+  bind[EventService] to eventService
+  bind[EventsRouter] to new EventsRouter(eventService)
   bind[EngineService] to new EngineServiceImpl
-  bind[QueryService] to new QueryServiceImpl
+//  bind[QueryService] to new QueryServiceImpl(administrator)
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService
 
   binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
-  binding identifiedBy 'QueryService to AkkaInjectable.injectActorRef[QueryService]("QueryService")
+//  binding identifiedBy 'QueryService to AkkaInjectable.inject[QueryServiceImpl]("QueryService")
+  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
-  bind[Administrator] identifiedBy 'Administrator to new MongoAdministrator initWith(_.init())
 
+  private def terminateActorSystem(system: ActorSystem): Unit = {
+    logger.info("Terminating actor system in the Harness Server...")
+    system.whenTerminated.onComplete { t =>
+      logger.info(s"Actor system terminated: $t")
+    }(scala.concurrent.ExecutionContext.Implicits.global)
+    system.terminate
+  }
 }

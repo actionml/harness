@@ -31,7 +31,7 @@ import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.math._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -167,6 +167,8 @@ class NavHintingAlgorithm(json: String, dataset: NavHintingDataset)
       }
     }
   }
+
+  override def queryAsync(query: NHQuery)(implicit ec: ExecutionContext): Future[NHQueryResult] = Future.failed(new NotImplementedError())
 
   override def query(query: NHQuery): NHQueryResult = {
     // find model elements that match eligible and sort by weight, sort before taking the top k

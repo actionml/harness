@@ -17,11 +17,12 @@
 
 package com.actionml.router.service
 
-import cats.data.Validated.Invalid
+import akka.actor.ActorSystem
 import com.actionml.admin.Administrator
-import com.actionml.core.validate.{JsonSupport, WrongParams}
-import com.actionml.router.ActorInjectable
-import scaldi.Injector
+import com.actionml.core.model.Response
+import com.actionml.core.validate.JsonSupport
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   *
@@ -29,21 +30,18 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 25.02.17 11:48
   */
-trait QueryService extends ActorInjectable
+trait QueryService {
+  def queryAsync(engineId: String, query: String): Future[Response]
+}
 
-class QueryServiceImpl(implicit inj: Injector) extends QueryService with JsonSupport {
+class QueryServiceImpl(admin: Administrator, system: ActorSystem) extends QueryService with JsonSupport {
+  implicit val esEC: ExecutionContext = system.dispatchers.lookup("es-dispatcher")
 
-  private val admin = inject[Administrator]('Administrator)
-
-  override def receive: Receive = {
-    case GetPrediction(engineId, query) ⇒
-      log.debug("Get prediction, {}, {}", engineId, query)
-      admin.getEngine(engineId) match {
-        case Some(engine) ⇒ sender() ! engine.query(query)
-        case None ⇒ sender() ! Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found")))
-      }
-
-  }
+  override def queryAsync(engineId: String, query: String): Future[Response] =
+    admin.getEngine(engineId) match {
+      case Some(engine) ⇒ engine.queryAsync(query)
+      case None ⇒ Future.failed(new RuntimeException(jsonComment(s"Engine for id=$engineId not found")))
+    }
 }
 
 sealed trait QueryAction

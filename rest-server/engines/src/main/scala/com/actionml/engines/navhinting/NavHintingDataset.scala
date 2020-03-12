@@ -33,6 +33,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.reflectiveCalls
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /** Navigation Hinting input data
   * The NavHintingDataset manages User journeys and the hint model. Users are not in-memory. Journeys may be in-memory
@@ -128,7 +129,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
                 Valid(event)
 
               } catch {
-                case e: Exception => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
+                case NonFatal(e) => //todo: @andrey java.lang.RuntimeException is thrown by sync dao, this seems to generic
                   logger.error(s"Cannot $$delete non-existent model: ${event.entityId}", e)
                   Invalid(ResourceNotFound(jsonComment(s"Cannot $$delete non-existent model: ${event.entityId}")))
               }
@@ -144,7 +145,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
       case e @ (_ : IllegalArgumentException | _ : ArithmeticException ) =>
         logger.error(s"ISO 8601 Datetime parsing error ignoring input: ${event}", e)
         Invalid(ParseError(jsonComment(s"ISO 8601 Datetime parsing error ignoring input: ${event}")))
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}", e)
         Invalid(ParseError(jsonComment(s"Unknown Exception: Beware! trying to recover by ignoring input: ${event}, ${e.getMessage}")))
     }
@@ -162,6 +163,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
     } else None
   }
 
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])

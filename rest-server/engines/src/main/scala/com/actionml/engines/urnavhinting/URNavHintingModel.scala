@@ -32,7 +32,7 @@ class URNavHintingModel(
     coocurrenceMatrices: Seq[(String, IndexedDataset)] = Seq.empty,
     propertiesRDDs: Seq[RDD[(String, Map[String, Any])]] = Seq.empty,
     typeMappings: Map[String, (String, Boolean)] = Map.empty) // maps fieldname that need type mapping in Elasticsearch
-    (implicit sc: SparkContext, es: ElasticSearchClient[Hit])
+    (implicit sc: SparkContext, es: ElasticSearchClient)
   extends LazyLogging {
 
 
@@ -84,7 +84,7 @@ class URNavHintingModel(
 
     // todo:
     //EsClient.hotSwap(esIndex, esType, esRDD, esFields, typeMappings, numESWriteConnections)
-    es.hotSwap(esType, esRDD, esFields)
+    es.hotSwap(esRDD, esFields)
     true
   }
 

@@ -8,7 +8,7 @@ export NC='\033[0m'           # Text Reset
 # Regular Colors
 export RED='\033[0;31m'          # Red--error
 export GREEN='\033[0;32m'        # Green
-export YELLOW='\033[0;33m'       # Yellow
+export YELLOW='\033[0;33m'       # Yellow--warning
 export BLUE='\033[0;34m'         # Blue
 export PURPLE='\033[0;35m'       # Purple
 export CYAN='\033[0;36m'         # Cyan--hints and info messages
@@ -87,29 +87,4 @@ status_line() {
 java_pid() {
   local pid service_class="$1"
   ps -e -w -w -o pid,command | grep "\bjava .*${service_class}" | sed 's/^ *\([0-9]*\) .*/\1/'
-}
-
-
-## Check if harness is running
-harness_running() {
-  if [ "$1" = "-v" ]; then
-    "${HARNESS_HOME}"/bin/commands.py status "${USER_ARGS}"
-  else
-    "${HARNESS_HOME}"/bin/commands.py status ${USER_ARGS} &> /dev/null
-  fi
-}
-
-
-## Wait for harness is running
-waitfor_harness() {
-  local checks=3 delay=2 timeout=${1:-30}
-
-  while ( ! harness_running || [ "${checks}" -gt 0 ] ); do
-    [ "${timeout}" -le 0 ] && break
-    sleep $delay
-    checks=$((checks - 1))
-    timeout=$((timeout - delay))
-  done
-
-  harness_running
 }

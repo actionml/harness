@@ -24,6 +24,8 @@ import com.actionml.core.engine._
 import com.actionml.core.model._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 
+import scala.concurrent.{ExecutionContext, Future}
+
 
 /** This is an empty scaffolding Template for an Engine that does only generic things.
   * This is not the minimal Template because many methods are implemented generically in the
@@ -63,8 +65,8 @@ class ScaffoldEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String): ScaffoldEngine = {
-    val response = init(json)
+  override def initAndGet(json: String, update: Boolean): ScaffoldEngine = {
+    val response = init(json, update)
     if (response.isValid) {
       logger.trace(s"Initialized with JSON: $json")
       this
@@ -120,7 +122,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
   }
 
   /** triggers parse, validation of the query then returns the result with HTTP Status Code */
-  def query(json: String): Validated[ValidateError, Response] = {
+  override def query(json: String): Validated[ValidateError, GenericQueryResult] = {
     logger.trace(s"Got a query JSON string: $json")
     parseAndValidate[GenericQuery](json).andThen { query =>
       // query ok if training group exists or group params are in the dataset
@@ -129,14 +131,13 @@ class ScaffoldEngine extends Engine with JsonSupport {
     }
   }
 
+  override def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
+
 }
 
 object ScaffoldEngine {
-  def apply(json: String): ScaffoldEngine = {
+  def apply(json: String, isNew: Boolean): ScaffoldEngine = {
     val engine = new ScaffoldEngine()
-    engine.initAndGet(json)
+    engine.initAndGet(json, update = isNew)
   }
-
-  // in case we don't want to use "apply", which is magically connected to the class's constructor
-  def createEngine(json: String) = apply(json)
 }

@@ -20,12 +20,9 @@ package com.actionml.core.store
 import com.actionml.core.store.DaoQuery.QueryCondition
 
 
-case class DaoQuery(offset: Int = 0, limit: Int = Int.MaxValue, orderBy: Option[OrderBy] = None, filter: Seq[(String, QueryCondition)] = Seq.empty)
+case class DaoQuery(offset: Int, limit: Int, orderBy: Option[OrderBy], filter: Seq[(String, QueryCondition)])
 
 object DaoQuery {
-  val empty = DaoQuery()
-
-
   sealed trait QueryCondition {
     def value: Any
   }
@@ -34,6 +31,7 @@ object DaoQuery {
   case class LessOrEqualsTo(value: Any) extends QueryCondition
   case class LessThen(value: Any) extends QueryCondition
   case class Equals(value: Any) extends QueryCondition
+  case class NotEquals(value: Any) extends QueryCondition
 
   object syntax {
 
@@ -52,6 +50,9 @@ object DaoQuery {
       }
       def ===(v: Any): (String, QueryCondition) = {
         name -> Equals(v)
+      }
+      def !==(v: Any): (String, QueryCondition) = {
+        name -> NotEquals(v)
       }
     }
   }

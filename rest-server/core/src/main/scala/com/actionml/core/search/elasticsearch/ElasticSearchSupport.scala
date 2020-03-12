@@ -18,35 +18,44 @@
 package com.actionml.core.search.elasticsearch
 
 import java.io.UnsupportedEncodingException
-import java.net.URLEncoder
+import java.net.{URI, URLEncoder}
 import java.time.Instant
 
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport.EsDocument
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
-import org.apache.http.entity.{ContentType, StringEntity}
+import org.apache.http.config.ConnectionConfig
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
-import org.apache.http.nio.entity.NStringEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
+import org.elasticsearch.client.{Request, Response, ResponseListener, RestClient}
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
-import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
+import scala.language.postfixOps
 import scala.reflect.ManifestFactory
+import scala.util.control.NonFatal
+import scala.util.{Properties, Success, Try}
 
-trait ElasticSearchSupport extends SearchSupport[Hit] {
-  override def createSearchClient(aliasName: String): SearchClient[Hit] = ElasticSearchClient(aliasName)
+trait ElasticSearchSupport extends SearchSupport[Hit, EsDocument] {
+  override def createSearchClient(aliasName: String): SearchClient[Hit, EsDocument] = ElasticSearchClient(aliasName)
+}
+
+object ElasticSearchSupport {
+  type EsDocument = (String, Map[String, List[String]])
 }
 
 trait JsonSearchResultTransformation[T] {
@@ -54,6 +63,7 @@ trait JsonSearchResultTransformation[T] {
   implicit def manifest: Manifest[T]
   def transform(j: JValue): Seq[T]
 }
+
 
 trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[Hit] {
   override implicit val manifest: Manifest[Hit] = ManifestFactory.classType(classOf[Hit])
@@ -70,15 +80,17 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) extends SearchClient[T] with LazyLogging with WriteToEsSupport with JsonSupport {
-  this: JsonSearchResultTransformation[T] =>
+class ElasticSearchClient private (alias: String, client: RestClient)(implicit w: Writer[EsDocument])
+  extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
+  this: JsonSearchResultTransformation[Hit] =>
+  import ElasticSearchClient.ESVersions._
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
+  private val indexType = if (esVersion != v7) "items" else "_doc"
 
   override def close: Unit = client.close()
 
   override def createIndex(
-    indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean): Boolean = {
@@ -86,168 +98,207 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
-  override def saveOnById(id: String, typeName: String, doc: T): Boolean = {
-    client.performRequest(
+  override def saveOneById(id: String, doc: EsDocument): Boolean = {
+    client.performRequest(new Request(
       "HEAD",
-      s"/_alias/$alias",
-      Map.empty[String, String].asJava)
+      s"/_alias/$alias"))
       .getStatusLine
       .getStatusCode match {
       case 200 =>
         try {
-          val aliasResponse = client.performRequest(
-            "POST",
-            s"/$alias/$typeName/${encodeURIFragment(id)}/_update",
-            Map.empty[String, String].asJava,
-            new StringEntity(JsonMethods.compact(JObject(
+          val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+          request.setJsonEntity(
+            JsonMethods.compact(JObject(
               "doc" -> JsonMethods.asJValue(doc),
               "doc_as_upsert" -> JBool(true)
-            )), ContentType.APPLICATION_JSON))
-          val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+            )))
+          val response = client.performRequest(request)
+          val responseJValue = parse(EntityUtils.toString(response.getEntity))
           (responseJValue \ "result").getAs[String].contains("updated")
         } catch {
-          case e: Exception =>
-            logger.error(s"Can't upsert $doc with id $id and type $typeName", e)
+          case NonFatal(e) =>
+            logger.error(s"Can't upsert $doc with id $id", e)
             false
         }
       case _ => false
     }
   }
 
+  def saveOneByIdAsync(id: String, doc: EsDocument): Future[Boolean] = {
+    val promise = Promise[Boolean]()
+    val aliasListener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        response.getStatusLine.getStatusCode match {
+          case 200 =>
+            try {
+              val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+              request.setJsonEntity(
+                JsonMethods.compact(JObject(
+                  "doc" -> JsonMethods.asJValue(doc),
+                  "doc_as_upsert" -> JBool(true)
+                )))
+              val updateListener = new ResponseListener {
+                override def onSuccess(response: Response): Unit = {
+                  response.getStatusLine().getStatusCode match {
+                    case 200 =>
+                      val responseJValue = parse(EntityUtils.toString(response.getEntity))
+                      (responseJValue \ "result").getAs[String].contains("updated")
+                      promise.success(true)
+                    case 404 =>
+                      logger.warn("The Elasticsearch index does not exist, have you trained yet?")
+                      promise.success(false)
+                    case _ => promise.failure(new RuntimeException("Elasticsearch index update error"))
+                  }
+                }
+                override def onFailure(exception: Exception): Unit = exception match {
+                  case NonFatal(e) => promise.failure(e)
+                }
+              }
+              client.performRequestAsync(request, updateListener)
+            } catch {
+              case NonFatal(e) =>
+                logger.error(s"Can't upsert $doc with id $id", e)
+                promise.success(false)
+            }
+          case _ => promise.success(false)
+        }
+      }
+      override def onFailure(exception: Exception): Unit = promise.failure(exception)
+    }
+    client.performRequestAsync(new Request("HEAD", s"/_alias/$alias"), aliasListener)
+    promise.future
+  }
+
   override def deleteIndex(refresh: Boolean): Boolean = {
     // todo: Andrey, this is a deprecated API, also this throws an exception when the Elasticsearch server is not running
     // it should give a more friendly error message by testing to see if Elasticsearch is running or maybe we should test
     // the required services when an engine is created or updated. This would be more efficient for frequent client requests
-    client.performRequest(
-      // Does the alias exist?
-      "HEAD",
-      s"/_alias/$alias",
-      Map.empty[String, String].asJava)
+    client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
       .getStatusLine
       .getStatusCode match {
-          case 200 =>
-            val aliasResponse = client.performRequest(
-              "GET",
-              s"/_alias/$alias",
-              Map.empty[String, String].asJava)
-            val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
-            val indexSet = responseJValue.extract[Map[String, JValue]].keys
-            indexSet.forall(deleteIndexByName(_, refresh))
-          case _ => false
-        }
+      case 200 =>
+        val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
+        val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
+        val indexSet = responseJValue.extract[Map[String, JValue]].keys
+        indexSet.forall(deleteIndexByName(_, refresh))
+      case _ => false
+    }
   }
 
-  override def search(query: SearchQuery): Seq[T] = {
-    client.performRequest(
-      // Does the alias exist?
-      "HEAD",
-      s"/_alias/$alias",
-      Map.empty[String, String].asJava)
+  override def search(query: SearchQuery): Seq[Hit] = {
+    client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
       .getStatusLine
       .getStatusCode match {
-          case 200 =>
-            // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
-            val aliasResponse = client.performRequest(
-              "GET",
-              s"/_alias/$alias",
-              Map.empty[String, String].asJava)
-            val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
-            val indexSet = responseJValue.extract[Map[String, JValue]].keys
-            indexSet.headOption.fold(Seq.empty[T]) { actualIndexName =>
-              logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
-              val response = client.performRequest(
-                "POST",
-                s"/$actualIndexName/_search",
-                Map.empty[String, String].asJava,
-                new StringEntity(mkElasticQueryString(query), ContentType.APPLICATION_JSON))
-              response.getStatusLine.getStatusCode match {
-                case 200 =>
-                  logger.info(s"Got source from query: $query")
-                  transform(parse(EntityUtils.toString(response.getEntity)))
-                case _ =>
-                  logger.info(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-                  Seq.empty[T]
-              }
-            }
-          case _ => Seq.empty
-        }
-
-  }
-
-  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]]) = {
-    var rjv: Option[JValue] = Some(JString(""))
-    try {
-      client.performRequest( // Does the alias exist?
-        "HEAD",
-        s"/_alias/$alias",
-        Map.empty[String, String].asJava)
-        .getStatusLine
-        .getStatusCode match {
         case 200 =>
-          val aliasResponse = client.performRequest(
-            "GET",
-            s"/_alias/$alias",
-            Map.empty[String, String].asJava)
+          // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
+          val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
           val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
-          rjv = indexSet.headOption.fold(Option.empty[JValue]) { actualIndexName =>
-            val url = s"/$actualIndexName/$typeName/${encodeURIFragment(id)}"
-            logger.info(s"find doc by id using URL: $url")
-            val response = client.performRequest(
-              "GET",
-              url,
-              Map.empty[String, String].asJava)
-            logger.info(s"got response: $response")
-
+          indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
+            logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+            val request = new Request("POST", s"/$actualIndexName/_search")
+            request.setJsonEntity(mkElasticQueryString(query))
+            val response = client.performRequest(request)
             response.getStatusLine.getStatusCode match {
               case 200 =>
-                val entity = EntityUtils.toString(response.getEntity)
-                logger.info(s"got status code: 200\nentity: $entity")
-                if (entity.isEmpty) {
-                  None
-                } else {
-                  logger.info(s"About to parse: $entity")
-                  val result = parse(entity)
-                  logger.info(s"getSource for $url result: $result")
-                  Some(result)
-                }
-              case 404 =>
-                logger.info(s"got status code: 404")
-                Some(parse("""{"notFound": "true"}"""))
+                logger.trace(s"Got source from query: $query")
+                transform(parse(EntityUtils.toString(response.getEntity)))
               case _ =>
-                logger.info(s"got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
-                None
+                logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+                Seq.empty[Hit]
             }
           }
-        case _ =>
-      }
-    } catch {
-      case e: org.elasticsearch.client.ResponseException => {
-        logger.error("got no data for the item", e)
-        rjv = None
-      }
-      case e: Exception =>
-        logger.error("got unknown exception and so no data for the item", e)
-        rjv = None
+        case _ => Seq.empty[Hit]
     }
+  }
 
-    if (rjv.nonEmpty) {
-      //val responseJValue = parse(EntityUtils.toString(response.getEntity))
-      try {
-        val result = (rjv.get \ "_source").values.asInstanceOf[Map[String, List[String]]]
-        id -> result
-      } catch {
-        case e: ClassCastException =>
-          id -> Map.empty
+  override def searchAsync(query: SearchQuery): Future[Seq[Hit]] = {
+    val p = Promise[Seq[Hit]]()
+    val actualIndexName = alias
+    logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+    val request = new Request("POST", s"/$actualIndexName/_search")
+    request.setJsonEntity(mkElasticQueryString(query))
+
+    val searchListener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        response.getStatusLine.getStatusCode match {
+          case 200 =>
+            logger.debug(s"Got source from query: $query")
+            p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
+          case _ =>
+            logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+            p.complete(Success(Seq.empty[Hit]))
+        }
       }
-    } else {
-      logger.info(s"Non-existent item $id, but that's ok, return backfill recs")
-      id -> Map.empty
+      override def onFailure(exception: Exception): Unit = p.failure(exception)
     }
+    client.performRequestAsync(request, searchListener)
+    p.future
+  }
+
+  def findDocById(id: String): EsDocument = Await.result(findDocByIdAsync(id), Duration.Inf)
+
+  def findDocByIdAsync(id: String): Future[EsDocument] = {
+    val promise = Promise[EsDocument]()
+    val url = s"/$alias/$indexType/${encodeURIFragment(id)}"
+    val request = new Request("GET", url)
+    val listener = new ResponseListener {
+      override def onSuccess(response: Response): Unit = {
+        logger.trace(s"Got response: $response")
+        val rjv: Option[JValue] = response.getStatusLine.getStatusCode match {
+          case 200 =>
+            val entity = EntityUtils.toString(response.getEntity)
+            logger.trace(s"Got status code: 200\nentity: $entity")
+            if (entity.isEmpty) {
+              Option.empty[JValue]
+            } else {
+              logger.trace(s"About to parse: $entity")
+              val result = parse(entity)
+              logger.trace(s"GetSource for $url result: $result")
+              Some(result)
+            }
+          case 404 =>
+            logger.trace(s"Got status code: 404")
+            Some(parse("""{"notFound": "true"}"""))
+          case _ =>
+            logger.trace(s"Got status code: ${response.getStatusLine.getStatusCode}\nentity: ${EntityUtils.toString(response.getEntity)}")
+            Option.empty[JValue]
+        }
+        promise.success(if (rjv.nonEmpty) {
+          try {
+            val jobj = (rjv.get \ "_source").values.asInstanceOf[Map[String, Any]]
+            id -> jobj.collect {
+              case (name, value) if value.isInstanceOf[List[Any]] =>
+                name -> value.asInstanceOf[List[Any]].collect {
+                  case v: String => v
+                }
+            }
+          } catch {
+            case e: ClassCastException =>
+              logger.error("Wrong format of ES doc", e)
+              id -> Map.empty[String, List[String]]
+          }
+        } else {
+          logger.debug(s"Non-existent item-id: $id, creating new item.")
+          id -> Map.empty[String, List[String]]
+        })
+      }
+      override def onFailure(exception: Exception): Unit = {
+        exception match {
+          case e: org.elasticsearch.client.ResponseException =>
+            if (e.getResponse.getStatusLine.getStatusCode == 404) logger.debug(s"got no data for the item because of $e - ${e.getResponse.getStatusLine.getReasonPhrase}")
+            else logger.error("Find doc by id error", e)
+          case NonFatal(e) =>
+            logger.error("got unknown exception and so no data for the item", e)
+        }
+        promise.success(id -> Map.empty[String, List[String]])
+      }
+    }
+    client.performRequestAsync(request, listener)
+    promise.future
   }
 
   override def hotSwap(
-    typeName: String,
     indexRDD: RDD[Map[String, Any]],
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)],
@@ -255,10 +306,10 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     import org.elasticsearch.spark._
     val newIndex = createIndexName(alias)
 
-    logger.info(s"Create new index: $newIndex, $typeName, $fieldNames, $typeMappings")
+    logger.info(s"Create new index: $newIndex, $fieldNames, $typeMappings")
     // todo: this should have a typeMappings that is Map[String, (String, Boolean)] with the Boolean saying to use norms
     // taken out for now since there is no client.admin in the REST client. Have to construct REST call directly
-    createIndexByName(newIndex, typeName, fieldNames, typeMappings, refresh = false, doNotLinkAlias = true)
+    createIndexByName(newIndex, indexType, fieldNames, typeMappings, refresh = false, doNotLinkAlias = true)
 
     // throttle writing to the max bulk-write connections, which is one per ES core.
     // todo: can we find this from the cluster itself?
@@ -272,30 +323,21 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       indexRDD
     }
 
-    val newIndexURI = "/" + newIndex + "/" + typeName
+    val newIndexURI = "/" + newIndex + "/" + indexType
     val esConfig = Map("es.mapping.id" -> "id")
     repartitionedIndexRDD.saveToEs(newIndexURI, esConfig)
 
-    val (oldIndexSet, deleteOldIndexQuery) = client.performRequest(
-      // Does the alias exist?
-      "HEAD",
-      s"/_alias/$alias",
-      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+    val (oldIndexSet, deleteOldIndexQuery) = client.performRequest(new Request("HEAD", s"/_alias/$alias")) // Does the alias exist?
+      .getStatusLine.getStatusCode match {
         case 200 => {
-          val response = client.performRequest(
-            "GET",
-            s"/_alias/$alias",
-            Map.empty[String, String].asJava)
+          val response = client.performRequest(new Request("GET", s"/_alias/$alias"))
           val responseJValue = parse(EntityUtils.toString(response.getEntity))
           val oldIndexSet = responseJValue.extract[Map[String, JValue]].keys
           val oldIndexName = oldIndexSet.head
-          client.performRequest(
-            // Does the old index exist?
-            "HEAD",
-            s"/$oldIndexName",
-            Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+          client.performRequest(new Request("HEAD", s"/$oldIndexName")) // Does the old index exist?
+            .getStatusLine.getStatusCode match {
               case 200 => {
-                val deleteOldIndexQuery = s""",{ "remove_index": { "index": "${oldIndexName}"}}"""
+                val deleteOldIndexQuery = s""",{ "remove_index": { "index": "$oldIndexName"}}"""
                 (oldIndexSet, deleteOldIndexQuery)
               }
               case _ => (Set(), "")
@@ -308,21 +350,17 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
       s"""
         |{
         |    "actions" : [
-        |        { "add":  { "index": "${newIndex}", "alias": "${alias}" } }
-        |        ${deleteOldIndexQuery}
+        |        { "add":  { "index": "$newIndex", "alias": "$alias" } }
+        |        $deleteOldIndexQuery
         |    ]
         |}
       """.stripMargin.replace("\n", "")
 
-    val entity = new NStringEntity(aliasQuery, ContentType.APPLICATION_JSON)
-    client.performRequest(
-      "POST",
-      "/_aliases",
-      Map.empty[String, String].asJava,
-      entity)
+    val request = new Request( "POST", "/_aliases")
+    request.setJsonEntity(aliasQuery)
+    client.performRequest(request)
     oldIndexSet.foreach(deleteIndexByName(_, refresh = false))
   }
-
 
   private def encodeURIFragment(s: String): String = {
     var result: String = ""
@@ -348,65 +386,36 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
-      client.performRequest(
-        "HEAD",
-        s"/$indexName",
-        Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+    client.performRequest(new Request("HEAD", s"/$indexName"))
+      .getStatusLine.getStatusCode match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
-          var mappings =
-            s"""
-               |"mappings": {
-               |  "$indexType": {
-               |    "properties": {
-            """.stripMargin.replace("\n", "")
+          val body = JObject(
+            JField("mappings",
+              JObject(indexType ->
+                JObject("properties" -> {
+                  fieldNames.map { fieldName =>
+                    if (typeMappings.contains(fieldName))
+                      JObject(fieldName -> JObject("type" -> JString(typeMappings(fieldName)._1)))
+                    else // unspecified fields are treated as not_analyzed strings
+                      JObject(fieldName -> JObject("type" -> JString("keyword")))
+                  }.reduce(_ ~ _)
+                })
+              )
+            ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
+          )
 
-          def mappingsField(`type`: String) = {
-            s"""
-               |    : {
-               |      "type": "${`type`}"
-               |    },
-            """.stripMargin.replace("\n", "")
-          }
-
-        val mappingsTail =
-        // unused mapping forces the last element to have no comma, fuck JSON
-          s"""
-             |    "last": {
-             |      "type": "keyword"
-             |    }
-             |}}}
-            """.stripMargin.replace("\n", "")
-
-        fieldNames.foreach { fieldName =>
-          if (typeMappings.contains(fieldName))
-            mappings +=
-              (s""""$fieldName"""" + mappingsField(typeMappings(
-                fieldName)._1))
-          else // unspecified fields are treated as not_analyzed strings
-            mappings += (s""""$fieldName"""" + mappingsField(
-              "keyword"))
-        }
-
-        mappings += mappingsTail
-        val aliases = if (doNotLinkAlias) "" else s""","aliases":{"$alias":{}}"""
-        // "id" string is not_analyzed and does not use norms
-        // val entity = new NStringEntity(mappings, ContentType.APPLICATION_JSON)
-        //logger.info(s"Create index with:\n$indexName\n$mappings\n")
-        val entity = new NStringEntity(s"{$mappings$aliases}", ContentType.APPLICATION_JSON)
-
-        client.
-          performRequest(
-            "PUT",
-            s"/$indexName",
-            Map.empty[String, String].asJava,
-            entity).getStatusLine.
-          getStatusCode match {
+          val request = new Request("PUT", s"/$indexName")
+          if (esVersion == v7) request.addParameter("include_type_name", "true")
+          request.setJsonEntity(JsonMethods.compact(body))
+          client.performRequest(request)
+            .getStatusLine.
+            getStatusCode match {
             case 200 =>
               // now refresh to get it 'committed'
               // todo: should do this after the new index is created so no index downtime
               if (refresh) refreshIndexByName(indexName)
             case _ =>
-              logger.info(s"Index $indexName wasn't created, but may have quietly failed.")
+              logger.warn(s"Index $indexName wasn't created, but may have quietly failed.")
           }
         true
       }
@@ -421,20 +430,16 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
   }
 
   private def deleteIndexByName(indexName: String, refresh: Boolean): Boolean = {
-    client.performRequest(
-      "HEAD",
-      s"/$indexName",
-      Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+    client.performRequest(new Request("HEAD", s"/$indexName"))
+      .getStatusLine.getStatusCode match {
       case 404 => false
       case 200 =>
-        client.performRequest(
-          "DELETE",
-          s"/$indexName",
-          Map.empty[String, String].asJava).getStatusLine.getStatusCode match {
+        client.performRequest(new Request("DELETE", s"/$indexName"))
+          .getStatusLine.getStatusCode match {
           case 200 =>
             if (refresh) refreshIndexByName(indexName)
           case _ =>
-            logger.info(s"Index $indexName wasn't deleted, but may have quietly failed.")
+            logger.warn(s"Index $indexName wasn't deleted, but may have quietly failed.")
         }
         true
       case _ =>
@@ -444,76 +449,88 @@ class ElasticSearchClient[T] private (alias: String)(implicit w: Writer[T]) exte
   }
 
   private def refreshIndexByName(indexName: String): Unit = {
-    client.performRequest(
-      "POST",
-      s"/$indexName/_refresh",
-      Map.empty[String, String].asJava)
-  }
-}
-
-
-object ElasticSearchClient extends LazyLogging with JsonSupport {
-  private implicit val _: Writer[Hit] = new Writer[Hit] {
-    override def write(obj: Hit): JValue = JObject(
-      "id" -> JString(obj.id),
-      "score" -> JDouble(obj.score)
-    )
+    client.performRequest(new Request("POST", s"/$indexName/_refresh"))
   }
 
-  def apply(aliasName: String): ElasticSearchClient[Hit] = new ElasticSearchClient[Hit](aliasName) with ElasticSearchResultTransformation
-
-  private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
-
-  private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
-
-  private lazy val client: RestClient = {
-    val builder = RestClient.builder(
-      new HttpHost(
-        config.getString("elasticsearch.host"),
-        config.getInt("elasticsearch.port"),
-        config.getString("elasticsearch.protocol")))
-
-    if (config.hasPath("elasticsearch.auth")) {
-      val authConfig = config.getConfig("elasticsearch.auth")
-      builder.setHttpClientConfigCallback(new BasicAuthProvider(
-        authConfig.getString("username"),
-        authConfig.getString("password")
-      ))
-    }
-    builder.build
+  private lazy val esVersion: ESVersions.Value = {
+    import ESVersions._
+    Try(client.performRequest(new Request("GET", "/"))).toOption
+      .flatMap { r =>
+        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
+        if (version.startsWith("5.")) Some(v5)
+        else if (version.startsWith("6.")) Some(v6)
+        else if (version.startsWith("7.")) Some(v7)
+        else {
+          logger.warn("Unsupported Elastic Search version: $version")
+          Option.empty
+        }
+      }.getOrElse(v5)
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
-    val json =
-      if (query.should.isEmpty && query.must.isEmpty && query.mustNot.isEmpty)
-        JObject()
-      else {
-        ("size" -> query.size) ~
+    var clauses = JObject()
+    val mustIsEmpty = query.must.flatMap(_.values).isEmpty
+    val shouldNonEmpty = query.should.flatMap(_.values).nonEmpty
+    if (esVersion == ESVersions.v5) {
+      clauses = clauses ~ ("must" -> matcherToJson(Map("terms" -> query.must)))
+      clauses = clauses ~ ("must_not" -> matcherToJson(Map("terms" -> query.mustNot)))
+      clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      clauses = clauses ~ ("should" -> matcherToJson(Map("terms" -> query.should), "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0)))
+      if (mustIsEmpty) clauses = clauses ~ ("minimum_should_match" -> 1)
+    } else {
+      clauses = clauses ~ ("must" -> mustToJson(query.must))
+      clauses = clauses ~ ("must_not" -> clausesToJson(Map("term" -> query.mustNot)))
+      clauses = clauses ~ ("filter" -> filterToJson(query.filters))
+      clauses = clauses ~ ("should" -> clausesToJson(Map("term" -> query.should)))
+      if (mustIsEmpty && shouldNonEmpty) clauses = clauses ~ ("minimum_should_match" -> JInt(1))
+    }
+    val esQuery =
+      ("size" -> query.size) ~
         ("from" -> query.from) ~
-        ("query" ->
-          ("bool" ->
-            ("should" -> matcherToJson(query.should, "constant_score" -> JObject("filter" -> ("match_all" -> JObject()), "boost" -> 0))) ~
-            ("must" -> matcherToJson(query.must)) ~
-            ("must_not" -> matcherToJson(query.mustNot)) ~
-            ("filter" -> filterToJson(query.filters)) ~
-            ("minimum_should_match" -> 1)
-        )) ~
+        ("query" -> JObject("bool" -> clauses)) ~
         ("sort" -> Seq(
           "_score" -> JObject("order" -> JString("desc")),
           query.sortBy -> (("unmapped_type" -> "double") ~ ("order" -> "desc"))
         ))
+    val esquery = compact(render(esQuery))
+    logger.debug(s"Query for Elasticsearch: $esquery")
+    esquery
+  }
+
+  private def mustToJson: Seq[Matcher] => JValue = clauses =>
+    if (clauses.isEmpty)
+      JObject("match_all" -> JObject("boost" -> JDouble(0)))
+    else
+      clausesToJson(Map("term" -> clauses), mkAND = false)
+
+  private def clausesToJson(clauses: Map[String, Seq[Matcher]], mkAND: Boolean = true): JArray = {
+    def mkClause(clause: String, m: Matcher, v: String): (String, JObject) = {
+      clause -> JObject {
+        m.name ->
+          ("value" -> JString(v)) ~
+            m.boost.fold[JObject](JObject())(b => JObject("boost" -> JDouble(b)))
       }
-    // logger.info(s"Query to search engine:\n${pretty(json)}")
-    compact(render(json))
+    }
+    clauses.view.flatMap { case (clause, matchers) =>
+      matchers.flatMap {
+        case m@Matcher(_, values, _) if mkAND || values.isEmpty || values.size == 1 =>
+          m.values.map { v =>
+            mkClause(clause, m, v)
+          }
+        case m => Seq("bool" -> JObject("should" -> JArray(
+          m.values.map { v => JObject(
+            mkClause(clause, m, v)
+          )}.toList
+        )))
+      }
+    }
   }
 
   private def matcherToJson(clauses: Map[String, Seq[Matcher]], others: (String, JObject)*): JArray = {
     clauses.map { case (clause, matchers) =>
       matchers.map { m =>
-        clause ->
-          (m.name -> m.values) ~
-            m.boost.fold(JObject())("boost" -> _)
+        clause -> (m.name -> m.values) ~ m.boost.fold(JObject())("boost" -> _)
       }
     }.flatten.toList ++ others.toList
   }
@@ -533,8 +550,58 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
         )))
       }
     }
-  }.toList.map {
+    }.toList.map {
     case ((t, _), j) => JObject(t.toString -> j)
+  }
+}
+
+
+object ElasticSearchClient extends LazyLogging with JsonSupport {
+  private implicit val _: Writer[EsDocument] = new Writer[EsDocument] {
+    override def write(doc: EsDocument): JValue = JObject(
+      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
+        JField(key, JArray(values.map(JString))) :: acc
+      }
+    )
+  }
+
+  def apply(aliasName: String): ElasticSearchClient = {
+    val client: RestClient = {
+      val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
+
+      val builder = RestClient.builder(
+        new HttpHost(
+          uri.getHost,
+          uri.getPort,
+          uri.getScheme))
+//      builder.setHttpClientConfigCallback(new HttpClientConfigCallback {
+//        override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder = {
+//          httpClientBuilder.setMaxConnPerRoute(100)
+//          httpClientBuilder.setMaxConnTotal(300)
+//        }
+//      })
+
+      if (config.hasPath("elasticsearch.auth")) {
+        val authConfig = config.getConfig("elasticsearch.auth")
+        builder.setHttpClientConfigCallback(new BasicAuthProvider(
+          authConfig.getString("username"),
+          authConfig.getString("password")
+        ))
+      }
+      builder.build
+    }
+    new ElasticSearchClient(aliasName, client) with ElasticSearchResultTransformation
+  }
+
+
+  private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
+
+  private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
+
+  private object ESVersions extends Enumeration {
+    val v5 = Value(5)
+    val v6 = Value(6)
+    val v7 = Value(7)
   }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {

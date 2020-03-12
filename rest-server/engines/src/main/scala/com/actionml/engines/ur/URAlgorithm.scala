@@ -24,13 +24,13 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine._
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
-import com.actionml.core.search.{Filter, Hit, Matcher, SearchQuery}
+import com.actionml.core.search.{Filter, Matcher, SearchQuery}
 import com.actionml.core.spark.SparkContextSupport
-import com.actionml.core.store.SparkMongoSupport.syntax._
-import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, SparkMongoSupport}
+import com.actionml.core.store.sparkmongo.syntax._
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering}
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.UREngine.{ItemScore, Rule, UREvent, URItemProperties, URQuery, URQueryResult}
@@ -40,9 +40,9 @@ import org.apache.mahout.sparkbindings.indexeddataset.IndexedDatasetSpark
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 
 /** Scafolding for a Kappa Algorithm, change with KappaAlgorithm[T] to with LambdaAlgorithm[T] to switch to Lambda,
@@ -60,7 +60,6 @@ class URAlgorithm private (
     itemsDao: DAO[URItemProperties])
   extends Algorithm[URQuery, URQueryResult]
   with LambdaAlgorithm[UREvent]
-  with SparkMongoSupport
   with JsonSupport {
 
   import URAlgorithm._
@@ -83,8 +82,8 @@ class URAlgorithm private (
   private var maxEventsPerEventType: Int = _
   private var rankingsParams: Seq[RankingParams] = _
   private var rankingFieldNames: Seq[String] = _
-  private var dateNames: Seq[String] = _
-  private var es: ElasticSearchClient[Hit] = _
+  private var dateNames: Set[String] = _
+  private var es: ElasticSearchClient = _
   private var indicators: Seq[IndicatorParams] = _
   private var seed: Option[Long] = None
   private var rules: Option[Seq[Rule]] = _
@@ -140,12 +139,12 @@ class URAlgorithm private (
         }.toMap
       }.toMap
 
-      logger.info(s"Events to alias mapping: ${queryEventNames}")
+      logger.info(s"Engine-id: ${engineId}. Events to alias mapping: ${queryEventNames}")
       limit = params.num.getOrElse(DefaultURAlgoParams.NumResults)
 
       modelEventNames = params.indicators.map(_.name)
 
-      blacklistEvents = params.blacklistEvents.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
+      blacklistEvents = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
       fields = params.rules.getOrElse(Seq.empty[Rule])
 
@@ -162,7 +161,7 @@ class URAlgorithm private (
       rankingsParams = params.rankings.getOrElse(Seq(RankingParams(
         name = Some(DefaultURAlgoParams.BackfillFieldName),
         `type` = Some(DefaultURAlgoParams.BackfillType),
-        eventNames = Some(modelEventNames.take(1)),
+        indicatorNames = Some(modelEventNames.take(1)),
         offsetDate = None,
         endDate = None,
         duration = Some(DefaultURAlgoParams.BackfillDuration)))).groupBy(_.`type`).map(_._2.head).toSeq
@@ -173,10 +172,10 @@ class URAlgorithm private (
         rankingFieldName
       }
 
-      dateNames = Seq(
+      dateNames = Set(
         params.dateName,
         params.availableDateName,
-        params.expireDateName).collect { case Some(date) => date } distinct
+        params.expireDateName).flatten
 
 
       es = ElasticSearchClient(engineId)
@@ -251,10 +250,10 @@ class URAlgorithm private (
   }
 
   override def train(): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, cmnt = "Spark job")
-    val f = SparkContextSupport.getSparkContext(initParams, engineId, jobDescription, kryoClasses = Array(classOf[UREvent]))
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
-      logger.info(s"Spark context spark.submit.deployMode: ${sc.deployMode}")
+      logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
       try {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
@@ -284,31 +283,28 @@ class URAlgorithm private (
         logger.info("======================================== Contents of Indicators ========================================")
         data.indicatorRDDs.foreach { case (name, id) =>
           val ids = id.asInstanceOf[IndexedDatasetSpark]
-          logger.info(s"Event name: $name")
-          logger.info(s"Num users/rows = ${ids.matrix.nrow}")
-          logger.info(s"Num items/columns = ${ids.matrix.ncol}")
-          logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
-          logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+          logger.info(s"Engine-id: ${engineId}. Event name: $name")
+          logger.info(s"Engine-id: ${engineId}. Num users/rows = ${ids.matrix.nrow}")
+          logger.info(s"Engine-id: ${engineId}. Num items/columns = ${ids.matrix.ncol}")
+          // do not log these in real world situations, only for small debug test data
+          // logger.info(s"Engine-id: ${engineId}. User dictionary: ${ids.rowIDs.toMap.keySet}")
+          // logger.info(s"Engine-id: ${engineId}. Item dictionary: ${ids.columnIDs.toMap.keySet}")
         }
         logger.info("======================================== done ========================================")
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-
-        //sc.stop() // no more use of sc will be tolerated ;-)
+        JobManager.finishJob(jobDescription.jobId)
       } catch {
-        case e: Throwable =>
-          logger.error(s"Spark computation failed for job $jobDescription", e)
-          sc.cancelJobGroup(jobDescription.jobId)
-          throw e
+        case NonFatal(e) =>
+          logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
+          JobManager.markJobFailed(jobDescription.jobId)
       } finally {
         SparkContextSupport.stopAndClean(sc)
       }
     }
-
-    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
-    logger.debug(s"Starting train $this with spark")
-    Valid(Comment("Started train Job on Spark"))
+    logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
+    Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
   }
 
   /*
@@ -335,14 +331,14 @@ class URAlgorithm private (
 
     //val in = data.indicatorRDDs.map { case ( en, ids) => ids.asInstanceOf[IndexedDatasetSpark].toStringMapRDD(en).collect()}
 
-    logger.info(s"Indicator names: ${modelEventNames}")
-    logger.info(s"Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
+    logger.info(s"Engine-id: ${engineId}. Indicator names: ${modelEventNames}")
+    logger.info(s"Engine-id: ${engineId}. Indicator RDD names: ${data.indicatorRDDs.map { case (en, ids) => en }.mkString(",")}")
     val convertedItems = data.indicatorRDDs.filter { case (en, ids) => en == modelEventNames.head}
       .head._2.columnIDs.toMap.keySet.toSeq
 
-    logger.info("Actions read now creating correlators")
+    logger.trace("Engine-id: ${engineId}. Actions read now creating correlators")
     val cooccurrenceIDSs = {
-      val iDs = data.indicatorRDDs.map(_._2).toSeq
+      val iDs = data.indicatorRDDs.map(_._2)
       val datasets = iDs.zipWithIndex.map {
         case (iD, i) =>
           DownsamplableCrossOccurrenceDataset(
@@ -379,15 +375,17 @@ class URAlgorithm private (
       sc.emptyRDD
     }
 
-    //val collectedProps = propertiesRDD.collect()
+    //val collectedProps = propertiesRDD.flatMap(_._2.keys).distinct().collect()
+    val propertiesMappings = data.fieldsRdd.flatMap(_._2.keys).distinct().collect().map(_ -> ("keyword" -> true)) ++ Map("id" -> ("keyword" -> true))
 
-    logger.info("Correlators created now putting into URModel")
+    val allMappings = getMappings ++ propertiesMappings
+
+    logger.trace(s"Engine-id: ${engineId}. Correlators created now putting into URModel")
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
-      typeMappings = getMappings)(sc, es)
+      typeMappings = allMappings)(sc, es)
   }
-
 
   override def query(query: URQuery): URQueryResult = {
     // todo: need to have an API to see if the alias and index exist. If not then send a friendly error message
@@ -427,61 +425,66 @@ class URAlgorithm private (
         PredictedResult(Array.empty[ItemScore])
 
      */
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val modelQuery = Await.result(buildModelQuery(query), Duration.Inf)
+    val items = es.search(modelQuery)
+    URQueryResult(items.map(hit => ItemScore(hit.id, hit.score))) // todo: optionally return rankings?
+  }
 
-
-    val modelQuery = buildModelQuery(query)
-    val result = es.search(modelQuery).map(hit => ItemScore(hit.id, hit.score)) // todo: optionally return rankings?
-    URQueryResult(result)
+  override def queryAsync(query: URQuery)(implicit ec: ExecutionContext): Future[URQueryResult] = {
+    for {
+      modelQuery <- buildModelQuery(query)
+      result <- es.searchAsync(modelQuery).map(items => URQueryResult(items.map(hit => ItemScore(hit.id, hit.score)))) // todo: optionally return rankings?
+    } yield result
   }
 
   override def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
     try {
-      JobManager.getActiveJobDescriptions(engineId).get(jobId).fold[Validated[ValidateError, Response]] {
+      JobManager.getActiveJobDescriptions(engineId).find(_.jobId == jobId).fold[Validated[ValidateError, Response]] {
         Invalid(WrongParams(s"No jobId $jobId found"))
       } { _ =>
-        Await.result(JobManager.cancelJob(jobId), 5.minutes)
+        Await.result(JobManager.cancelJob(engineId, jobId), 5.minutes)
         Valid(Comment(s"Job $jobId aborted successfully"))
       }
     } catch {
-      case e: Exception =>
-        logger.error(s"Job $jobId abort error", e)
-        Invalid(ValidRequestExecutionError(s"Can't abort job $jobId"))
+      case NonFatal(e) =>
+        logger.error(s"Engine-id: ${engineId}. Cannot abort job: $jobId abort error", e)
+        Invalid(ValidRequestExecutionError(s"Cannot abort job: $jobId"))
     }
   }
 
 
-  private def buildModelQuery(query: URQuery): SearchQuery = {
-    val aggregatedRules = aggregateRules(rules, query.rules)
+  private def buildModelQuery(query: URQuery)(implicit ec: ExecutionContext): Future[SearchQuery] = {
+    logger.info(s"Engine-id: ${engineId}. Got query: \n${query}")
 
-    logger.info(s"Got query: \n$query")
+    val aggregatedRules = aggregateRules(rules, query.rules)
 
     val startPos = query.from.getOrElse(0)
     val numResults = query.num.getOrElse(limit)
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    val (userHistoryMatchers, userEvents) = getUserHistMatcher(query)
-    val shouldMatchers = Map("terms" -> (userHistoryMatchers ++
-      getSimilarItemsMatchers(query) ++
-      getItemSetMatchers(query) ++
-      getBoostedRulesMatchers(aggregatedRules)))
+    for {
+      ((userHistoryMatchers, userEvents), similarItemsMatchers) <- getUserHistMatcher(query) zip getSimilarItemsMatchers(query)
+    } yield {
+      val shouldMatchers =
+        userHistoryMatchers ++
+          similarItemsMatchers ++
+          getItemSetMatchers(query) ++
+          getBoostedRulesMatchers(aggregatedRules)
 
-    val mustMatchers = Map("terms" -> getIncludeRulesMatchers(aggregatedRules))
+      val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
+      val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
 
-    val mustNotMatchers = Map("terms" -> (getExcludeRulesMatchers(aggregatedRules) ++
-      getBlacklistedItemsMatchers(query, userEvents)))
-
-    val sq = SearchQuery(
-      sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
-      should = shouldMatchers,
-      must = mustMatchers,
-      mustNot = mustNotMatchers,
-      filters = getDateFilters(query),
-      size = numResults,
-      from = startPos
-    )
-
-    //logger.info(s"Formed SearchQuery:\n${sq}\nJSON:${prettify(write(sq))}")
-    sq
+      SearchQuery(
+        sortBy = rankingsParams.head.name.getOrElse("popRank"), // todo: this should be a list of ranking rules
+        should = shouldMatchers,
+        must = mustMatchers,
+        mustNot = mustNotMatchers,
+        filters = getDateFilters(query),
+        size = numResults,
+        from = startPos
+      )
+    }
   }
 
   /** Aggregates unique Rules by name, discarding config rules that are named the same as a query rule */
@@ -491,75 +494,71 @@ class URAlgorithm private (
     val validConfigRules = configRules.getOrElse(Seq.empty).filterNot(r => qRuleNames.contains(r.name)) // filter out dup rule names
 
     if(configRules.nonEmpty && queryRules.nonEmpty)
-      logger.info(s"Warning: duplicate rule names from the Query take precedence." +
+      logger.info(s"Engine-id: ${engineId}. Warning: duplicate rule names from the Query take precedence over config rules." +
         s"\n    Config rules: ${configRules.get}\n    Query rules: ${queryRules.get}\n")
 
     qRules ++ validConfigRules
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery): (Seq[Matcher], Seq[UREvent]) = {
+  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] = {
+    query.user.fold[Future[(Seq[Matcher], Seq[UREvent])]](Future.successful((Seq.empty, Seq.empty))) { user =>
+      import DaoQuery.syntax._
+      eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
+        limit = maxQueryEvents
+      )("entityId" === user).map { uh =>
+        val userHistory = uh.toSeq.view
+        val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
+        // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
+        // strength. DO NOT document, only for tests
 
-    import DaoQuery.syntax._
+        val userHistBias = query.userBias.getOrElse(userBias)
+        val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-    val queryEventNamesFilter = query.eventNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
-    // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
-    // strength. DO NOT document, only for tests
+        userHistory
+          // .distinct // these will be distinct so this is redundant
+          .filter { event =>
+            queryEventNamesFilter.contains(event.event)
+          }
+          .map { event => // rename aliased events to the group name
+            // logger.info(s"History: ${event}")
+            val queryEventName = queryEventNames(event.event)
+            event.copy(event = queryEventName)
+          }
+          .groupBy(_.event)
+          .flatMap { case (name, events) =>
+            events.sortBy(_.eventTime) // implicit ordering
+              .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+          }.toSeq
 
-    val userHistBias = query.userBias.getOrElse(userBias)
-    val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
+        val userEvents = modelEventNames.map { name =>
+          (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
+        }
 
-    implicit val ordering = Ordering.desc
-    val userHistory = eventsDao.findMany(
-      DaoQuery(
-        orderBy = Some(OrderBy(ordering, fieldNames = "eventTime")),
-        limit = maxQueryEvents,
-        filter = Seq("entityId" === query.user.getOrElse(""))))
-      .toSeq
-      // .distinct // these will be distinct so this is redundant
-      .map { event => // rename aliased events to the group name
-        // logger.info(s"History: ${event}")
-        val queryEventName = queryEventNames(event.event)
-        event.copy(event = queryEventName)
+        // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
+        // logger.info(s"Indicators in ES query: ${userEvents}")
+
+        val userHistMatchers = userEvents.map { case (name, hist) => Matcher(name, hist, userEventsBoost) }
+        (userHistMatchers, userHistory)
       }
-      .filter { event =>
-        queryEventNamesFilter.contains(event.event)
-      }
-      .groupBy(_.event)
-      .flatMap{ case (name, events) =>
-        events.sortBy(_.eventTime) // implicit ordering
-          .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
-      }.toSeq
-
-    val userEvents = modelEventNames.map { name =>
-      (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
     }
-
-    // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
-    // logger.info(s"Indicators in ES query: ${userEvents}")
-
-    val userHistMatchers = userEvents.map { case(name, hist) => Matcher(name, hist, userEventsBoost) }
-    (userHistMatchers, userHistory)
   }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
-  def getSimilarItemsMatchers(query: URQuery): Seq[Matcher] = {
-    val activeItemBias = query.itemBias.getOrElse(itemBias)
-    val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
-
-    if (query.item.nonEmpty) {
-      logger.info(s"using item ${query.item.get}")
-      val (item, itemProperties) = es.findDocById(query.item.get, esType)
-
-      logger.info(s"getBiasedSimilarItems for item ${query.item.get}, bias value ${itemBias}")
-      modelEventNames.map { eventName => // get items that are similar by eventName
-        val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
-        val rItems = items.take(maxQueryEvents)
-        Matcher(eventName, rItems, similarItemsBoost)
+  def getSimilarItemsMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
+    query.item.fold(Future.successful(Seq.empty[Matcher])/*no item specified*/) { i =>
+      val activeItemBias = query.itemBias.getOrElse(itemBias)
+      val similarItemsBoost = if (activeItemBias > 0 && activeItemBias != 1) Some(activeItemBias) else None
+      logger.trace(s"Engine-id: ${engineId}. using item ${query.item.get}")
+      es.findDocByIdAsync(i).map { case (_, itemProperties) =>
+        logger.trace(s"Engine-id: ${engineId}. getBiasedSimilarItems for item $i, bias value ${itemBias}")
+        modelEventNames.map { eventName => // get items that are similar by eventName
+          val items: Seq[String] = itemProperties.getOrElse(eventName, Seq.empty[String])
+          val rItems = items.take(maxQueryEvents)
+          Matcher(eventName, rItems, similarItemsBoost)
+        }
       }
-    } else {
-      Seq.empty
-    } // no item specified
+    }
   }
 
   private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
@@ -655,7 +654,7 @@ class URAlgorithm private (
       val rankingFieldName = rankingParams.name.getOrElse(PopModel.nameByType(rankingType))
       val durationAsString = rankingParams.duration.getOrElse(DefaultURAlgoParams.BackfillDuration)
       val duration = Duration(durationAsString).toSeconds.toInt
-      val backfillEvents = rankingParams.eventNames.getOrElse(modelEventNames.take(1))
+      val backfillEvents = rankingParams.indicatorNames.getOrElse(modelEventNames.take(1))
       val offsetDate = rankingParams.offsetDate
       val rankRdd = popModel.calc(rankingType, eventsRdd, backfillEvents, duration, offsetDate)
       rankingFieldName -> rankRdd
@@ -682,8 +681,8 @@ class URAlgorithm private (
       }.toMap ++
       dateNames.map { dateName =>
         dateName -> ("date", false) // map dates to be interpreted as dates
-      }
-    logger.info(s"Index mappings for the Elasticsearch URModel: $mappings")
+      }.toMap ++ Map("id" -> ("keyword", true))
+    logger.trace(s"Engine-id: ${engineId}. Index mappings for the Elasticsearch URModel: $mappings")
     mappings
   }
 
@@ -732,18 +731,18 @@ object URAlgorithm extends JsonSupport {
   }
 
   case class RankingParams(
-      name: Option[String] = None,
-      `type`: Option[String] = None, // See [[com.actionml.BackfillType]]
-      eventNames: Option[Seq[String]] = None, // None means use the algo indicatorParams findMany, otherwise a findMany of events
+      name: Option[String] = Some(DefaultURAlgoParams.BackfillFieldName),
+      `type`: Option[String] = Some(DefaultURAlgoParams.BackfillType), // See [[com.actionml.BackfillType]]
+      indicatorNames: Option[Seq[String]] = None, // None means an error, events must be specified.
       offsetDate: Option[String] = None, // used only for tests, specifies the offset date to start the duration so the most
       // recent date for events going back by from the more recent offsetDate - duration
       endDate: Option[String] = None,
-      duration: Option[String] = None) { // duration worth of events to use in calculation of backfill
+      duration: Option[String] = Some(DefaultURAlgoParams.BackfillDuration)) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
          |_id: $name,
          |type: ${`type`},
-         |indicatorParams: $eventNames,
+         |indicatorParams: $indicatorNames,
          |offsetDate: $offsetDate,
          |endDate: $endDate,
          |duration: $duration
@@ -770,7 +769,7 @@ object URAlgorithm extends JsonSupport {
     typeName: Option[String], // can optionally be used to specify the elasticsearch type name
     recsModel: Option[String] = None, // "all", "collabFiltering", "backfill"
     // indicatorParams: Option[Seq[String]], // names used to ID all user indicatorRDDs
-    blacklistEvents: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
+    blacklistIndicators: Option[Seq[String]] = None, // None means use the primary event, empty array means no filter
     // number of events in user-based recs query
     maxQueryEvents: Option[Int] = None,
     maxEventsPerEventType: Option[Int] = None,
@@ -821,5 +820,6 @@ object URAlgorithm extends JsonSupport {
     fieldsRDD: RDD[(String, Map[String, Any])], // RDD[ item-id, Map[String, Any] or property map
     minEventsPerUser: Option[Int] = Some(1)) extends Serializable
 
+  case class TrainResponse(description: JobDescription, comment: String) extends Response
 }
 

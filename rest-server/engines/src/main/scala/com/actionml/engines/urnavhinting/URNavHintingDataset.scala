@@ -29,6 +29,7 @@ import com.actionml.engines.ur.UREngine.UREvent
 import com.actionml.engines.urnavhinting.URNavHintingAlgorithm.{DefaultURAlgoParams, URAlgorithmParams}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{ItemProperties, URNavHintingEvent}
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
@@ -105,7 +106,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
           // this handles a conversion
           if(event.properties.getOrElse("conversion", false)) {
             // a conversion nav-event means that the active journey keyed to the user gets moved to the indicatorsDao
-            val conversionJourney = activeJourneysDao.findMany(query = DaoQuery(filter = Seq("entityId" === event.entityId))).toSeq
+            val conversionJourney = activeJourneysDao.findMany("entityId" === event.entityId).toSeq
             if(conversionJourney.size != 0) {
               val taggedConvertedJourneys = conversionJourney.map(e => e.copy(conversionId = event.targetEntityId))
               // tag these so they can be removed when the model is $deleted
@@ -161,5 +162,6 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
     }
   }
 
+  override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
 }
 

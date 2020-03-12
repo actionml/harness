@@ -20,8 +20,10 @@ package com.actionml.core.search
 import com.actionml.core.search.Filter.Conditions.Condition
 import com.actionml.core.search.Filter.Types.Type
 
-trait SearchSupport[T] {
-  def createSearchClient(engineId: String): SearchClient[T]
+import scala.concurrent.Future
+
+trait SearchSupport[R, D] {
+  def createSearchClient(engineId: String): SearchClient[R, D]
 }
 
 case class Matcher(name: String, values: Seq[String], boost: Option[Float] = None)
@@ -65,9 +67,9 @@ object Filter {
 
 case class SearchQuery(
   sortBy: String = "popRank", // todo: make it optional and changeable
-  should: Map[String, Seq[Matcher]] = Map.empty,
-  must: Map[String, Seq[Matcher]] = Map.empty,
-  mustNot: Map[String, Seq[Matcher]] = Map.empty,
+  should: Seq[Matcher] = Seq.empty,
+  must: Seq[Matcher] = Seq.empty,
+  mustNot: Seq[Matcher] = Seq.empty,
   filters: Seq[Filter] = Seq.empty,
   size: Int = 20,
   from: Int = 0 // todo: technically should be optional and changeable, but not sure sending 0 is bad in any way
@@ -75,15 +77,20 @@ case class SearchQuery(
 
 case class Hit(id: String, score: Float)
 
-trait SearchClient[T] {
+/*
+  R is the type of search result, D - type of Document
+ */
+trait SearchClient[R, D] {
   def close(): Unit
   def createIndex(
-    indexType: String,
     fieldNames: List[String],
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
-  def saveOnById(id: String, typeName: String, doc: T): Boolean
+  def saveOneById(id: String, doc: D): Boolean
+  def saveOneByIdAsync(id: String, doc: D): Future[Boolean]
   def deleteIndex(refresh: Boolean = false): Boolean
-  def search(query: SearchQuery): Seq[T]
-  def findDocById(id: String, typeName: String): (String, Map[String, Seq[String]])
+  def search(query: SearchQuery): Seq[R]
+  def searchAsync(query: SearchQuery): Future[Seq[R]]
+  def findDocById(id: String): D
+  def findDocByIdAsync(id: String): Future[D]
 }

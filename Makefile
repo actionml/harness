@@ -34,7 +34,7 @@ clean: sbt
 		$(SBT) ++$(SCALA_VERSION) -batch server/clean
 	find $(RESTSRV_DIR) -name "__pycache__" -exec rm -r {} \; || true
 
-dist: clean clean-dist build wheel
+dist: clean clean-dist build #wheel
 	mkdir -p $(DIST) && cd $(DIST) && mkdir bin conf logs project lib
 	cp $(RESTSRV_DIR)/bin/* $(DIST)/bin/
 	cp $(RESTSRV_DIR)/conf/* $(DIST)/conf/
@@ -46,9 +46,9 @@ dist: clean clean-dist build wheel
 	# rm -f $(DIST)/conf/harness.jks $(DIST)/conf/harness.pem
 	echo $(VERSION) > $(DIST)/RELEASE
 
-wheel:
-	mkdir -p $(DIST)
-	pip3 wheel --wheel-dir=$(DIST)/wheel $(PYTHON_SDK_DIR)
+#wheel:
+#	mkdir -p $(DIST)
+#	pip3 wheel --wheel-dir=$(DIST)/wheel $(PYTHON_SDK_DIR)
 
 clean-dist:
 	cd $(DIST) && ls -1A | xargs rm -r || true

@@ -17,13 +17,15 @@
 
 package com.actionml.engines.ur
 
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
-import com.actionml.core.store.indexes.annotations.SingleIndex
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -32,9 +34,9 @@ import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
-import scala.util.Try
+import scala.util.control.NonFatal
 
 /** Scaffold for a Dataset, does nothing but is a good starting point for creating a new Engine
   * Extend with the store of choice, like Mongo or other Store trait.
@@ -43,11 +45,15 @@ import scala.util.Try
   *
   * @param engineId The Engine ID
   */
-class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport {
+class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](engineId) with JsonSupport with ElasticSearchSupport {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   // todo: make sure to index the timestamp for descending ordering, and the name field for filtering
   private val eventsDao = store.createDao[UREvent](getEventsCollectionName)
   private val itemsDao = store.createDao[URItemProperties](getItemsCollectionName)
+  private val writeFormat = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneId.of("UTC"))
+  private val es = createSearchClient(engineId)
 
   def getItemsDao = itemsDao
 
@@ -59,8 +65,10 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
 
   // Engine Params from the JSON config plus defaults
   private var params: URAlgorithmParams = _
-
-  private var indicatorNames: Seq[String] = _
+  private lazy val aliases = params.indicators.flatMap { ip =>
+    ip.aliases.getOrElse(Seq(ip.name))
+  } // should be either aliases for an event name, defaulting to the event name itself
+  private lazy val indicatorNames: Seq[String] = params.indicators.map(_.name)
 
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
     parseAndValidate[URAlgorithmParams](
@@ -70,7 +78,6 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       transform = _ \ "algorithm"
     ).andThen { p =>
       params = p
-      indicatorNames = params.indicators.map(_.name)
       Valid(p)
     }.andThen { p =>
       parseAndValidate[URDatasetParams](
@@ -78,19 +85,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
           s"$jsonConfig",
         transform = _ \ "dataset"
-      ).andThen { p =>
-        p.ttl.fold[Validated[ValidateError, _]] {
-          eventsDao.createIndexes()
-          Valid(p)
-        } { ttlString =>
-          Try(Duration(ttlString)).toOption.map { ttl =>
-            // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-            eventsDao.createIndexes(ttl)
-            logger.debug(s"Got a dataset.ttl = $ttl")
-            Valid(p)
-          }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
-        }
-      }.andThen(_ => Valid(Comment("URDataset initialized")))
+      ).andThen(_ => Valid(Comment("URDataset initialized")))
     }
   }
 
@@ -105,17 +100,13 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   override def input(jsonEvent: String): Validated[ValidateError, UREvent] = {
     import DaoQuery.syntax._
     parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen(toUrEvent).andThen { event =>
-      val aliases = params.indicators.flatMap { ip =>
-        ip.aliases.getOrElse(Seq(ip.name))
-      } // should be either aliases for an event name, defaulting to the event name itself
-
       if (aliases.contains(event.event)) { // only store the indicator events here
         try {
           eventsDao.insert(event)
           Valid(event)
         } catch {
           case e: Throwable =>
-            logger.error(s"Can't save input $jsonEvent", e)
+            logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
             Invalid(ValidRequestExecutionError(e.getMessage))
         }
       } else { // not an indicator so check for reserved events the dataset cares about
@@ -124,39 +115,28 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
             event.entityType match {
               case "user" =>
                 eventsDao.removeMany("entityId" === event.entityId)
-                logger.info(s"Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                logger.trace(s"Engine-id: ${engineId}. Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
                 Valid(jsonComment(s"deleted data for user: ${event.entityId}"))
               case "item" =>
                 itemsDao.removeOneById(event.entityId)
-                logger.info(s"Deleted properties for item: ${event.entityId}")
+                logger.trace(s"Engine-id: ${engineId}. Deleted properties for item: ${event.entityId}")
               case _ =>
-                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                logger.error(s"Engine-id: ${engineId}. Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
           case "$set" => // only item properties as allowed here and used for business rules once they are reflected in
             // the model, which should be immediately but done by the URAlgorithm, which manages the model
             event.entityType match {
               case "user" =>
-                logger.info(s"User properties not supported, send as named indicator event.")
+                logger.warn(s"Engine-id: ${engineId}. User properties not supported, send as named indicator event.")
                 Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
-              case "item" =>
-                val updateItem = itemsDao.findOneById(event.entityId).getOrElse(URItemProperties(event.entityId, Map.empty))
-                itemsDao.saveOneById(
-                  event.entityId,
-                  URItemProperties(
-                    _id = updateItem._id,
-                    dateProps = updateItem.dateProps ++ event.dateProps,
-                    categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
-                    floatProps = updateItem.floatProps ++ event.floatProps,
-                    booleanProps = updateItem.booleanProps ++ event.booleanProps
-                  )
-                )
+              case "item" => insertProperty(event)
               case _ =>
                 logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
                 Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
             }
           case _ =>
-            logger.warn(s"Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
+            logger.warn(s"Engine-id: ${engineId}. Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
 
         }
 
@@ -165,6 +145,115 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     }
   }
 
+  override def inputAsync(jsonEvent: String): Validated[ValidateError, Future[Response]] = {
+    import DaoQuery.syntax._
+    parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent").andThen(toUrEvent).andThen { event =>
+      if (aliases.contains(event.event)) { // only store the indicator events here
+        try {
+          Valid(eventsDao.insertAsync(event).map(_ => Comment("UR input processed")))
+        } catch {
+          case e: Throwable =>
+            logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
+            Invalid(ValidRequestExecutionError(e.getMessage))
+        }
+      } else { // not an indicator so check for reserved events the dataset cares about
+        event.event match {
+          case "$delete" =>
+            event.entityType match {
+              case "user" =>
+                logger.trace(s"Engine-id: ${engineId}. Deleted data for user: ${event.entityId}, retrain to get it reflected in new queries")
+                Valid(eventsDao.removeManyAsync("entityId" === event.entityId).map(_ => Comment(s"deleted data for user: ${event.entityId}")))
+              case "item" =>
+                logger.trace(s"Engine-id: ${engineId}. Deleted properties for item: ${event.entityId}")
+                Valid(itemsDao.removeOneByIdAsync(event.entityId).map(_ => Comment(s"Deleted properties for item: ${event.entityId}")))
+              case _ =>
+                logger.error(s"Engine-id: ${engineId}. Unknown entityType: ${event.entityType} for $$delete")
+                Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
+            }
+          case "$set" => // only item properties as allowed here and used for business rules once they are reflected in
+            // the model, which should be immediately but done by the URAlgorithm, which manages the model
+            event.entityType match {
+              case "user" =>
+                logger.warn(s"Engine-id: ${engineId}. User properties not supported, send as named indicator event.")
+                Invalid(NotImplemented(jsonComment(s"User properties not supported, send as named indicator event.")))
+              case "item" =>
+                Valid(insertProperty(event).map(_ => Comment("UR input processed")))
+              case _ =>
+                logger.error(s"Unknown entityType: ${event.entityType} for $$delete")
+                Invalid(NotImplemented(jsonComment(s"Unknown entityType: ${event.entityType} for $$delete")))
+            }
+          case _ =>
+            logger.warn(s"Engine-id: ${engineId}. Unknown event, not a reserved event, not an indicator. Ignoring. \n${prettify(jsonEvent)}")
+            Valid(Future.successful(Comment("Unknown event")))
+        }
+      }
+    }
+  }
+
+  override def inputMany(data: Seq[String]): Unit = {
+    val (events, items) = data.view.foldLeft[(List[UREvent], List[UREvent])]((List.empty, List.empty)) { case (acc@(el, il), jsonEvent) =>
+      try {
+        parseAndValidate[JObject](jsonEvent, errorMsg = s"Invalid UREvent JSON: $jsonEvent")
+          .andThen(toUrEvent)
+          .toOption.fold(acc) { e =>
+            if (aliases.contains(e.event)) {
+              (e :: el, il)
+            } else if (e.event == "$set" && e.entityType == "item") {
+              (el, e :: il)
+            } else acc
+          }
+      } catch {
+        case NonFatal(e) =>
+          logger.error(s"Engine-id: ${engineId}. Can't save input $jsonEvent", e)
+          acc
+      }
+    }
+    try {
+      eventsDao.insertMany(events)
+    } catch {
+      case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert events $data", e)
+    }
+    items.foreach(insertProperty)
+  }
+
+  private def insertProperty(event: UREvent): Future[Unit] = {
+    val updateMongo =
+      for {
+        updateItemOpt <- itemsDao.findOneByIdAsync(event.entityId)
+        updateItem = updateItemOpt.getOrElse {
+          logger.debug(s"No item found with id ${event.entityId}")
+          URItemProperties(event.entityId, Map.empty)
+        }
+        _ <- itemsDao.saveOneByIdAsync(
+          event.entityId,
+          URItemProperties(
+            _id = updateItem._id,
+            dateProps = updateItem.dateProps ++ event.dateProps,
+            categoricalProps = updateItem.categoricalProps ++ event.categoricalProps,
+            floatProps = updateItem.floatProps ++ event.floatProps,
+            booleanProps = updateItem.booleanProps ++ event.booleanProps
+          )
+        )
+      } yield ()
+
+    val esDoc = event.entityId -> (
+      event.categoricalProps.mapValues(_.toList) ++
+        event.booleanProps.mapValues(_.toString :: Nil) ++
+        event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
+        event.floatProps.mapValues(_.toString :: Nil)
+      ).filterNot { case (name, _) => indicatorNames.contains(name) }
+    val updateElasticsearch = es
+      .saveOneByIdAsync(event.entityId, esDoc)
+      .map { result =>
+        logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elasticsearch")
+      }.recoverWith {
+      case NonFatal(e) =>
+        logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
+        Future.failed(e)
+    }
+
+    (updateMongo zip updateElasticsearch).map(_ => ())
+  }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])
 
@@ -192,13 +281,12 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       val targetEntityId = (j \ "targetEntityId").getAs[String]
       val (dateProps, categoricalProps, floatProps, booleanProps) = (j \ "properties").getAs[JObject]
         .fold(emptyProps)(parseProps)
-      val conversionId = (j \ "conversionId").getAs[String]
       val eventTime = (j \ "eventTime").as[Date]
       Valid(UREvent(eventId, event, entityType, entityId, targetEntityId, dateProps, categoricalProps, floatProps, booleanProps, eventTime))
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.error(s"Can't parse UREvent from $j", e)
-        Invalid(ParseError(s"Can't parse $j as UREvent"))
+        Invalid(ParseError(s"Engine-id: ${engineId}. Can't parse $j as UREvent"))
     }
   }
 }

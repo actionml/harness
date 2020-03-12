@@ -1,34 +1,69 @@
-# harness environment file (sourced by scripts)
+# Harness Server config
 
-# Harness Server config, should work as-id unless you are using SSL
-# to listen on the host IP address for external connections
-# export REST_SERVER_HOST=0.0.0.0 # to listen for external connections
-export REST_SERVER_HOST=${REST_SERVER_HOST:-localhost}
-# to change the port used
-export REST_SERVER_PORT=${REST_SERVER_PORT:-9090}
-
-# MongoDB setup
-# todo: allow for multiple servers in cluster
-export MONGO_HOST=${MONGO_HOST:-localhost}
-export MONGO_PORT=${MONGO_PORT:-27017}
-
-# HDFS setup
-# This should be set by Hadoop, otherwise set it here
-#export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
-# Files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
-# if needed
-#export HDFS_MASTER=${HDFS_MASTER:-localhost}
-#export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
-
-# Elasticsearch setup (optional: used by UR and similar Engines)
-# todo: need to allow for multiple servers for cluster operation of ES
-export ELASTICSEARCH_REST_HOST=${ELASTICSEARCH_REST_HOST:-localhost}
-export ELASTICSEARCH_REST_PORT=${ELASTICSEARCH_REST_PORT:-9200}
-export ELASTICSEARCH_REST_PROTOCOL=${ELASTICSEARCH_REST_PROTOCOL:-http}
+# deprecated old REST_SERVER_HOST/PORT config used in Harness 0.4.x
+# export HARNESS_URI="http://0.0.0.0:9090" # for external connections
+export HARNESS_URI="${HARNESS_URI:-http://localhost:9090}"
 
 # To configure Harness logging
 export HARNESS_LOG_CONFIG="${HARNESS_HOME}/conf/logback.xml"
 export HARNESS_LOG_PATH="${HARNESS_LOG_PATH:-$HARNESS_HOME/logs}"
+
+# MongoDB setup
+export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
+
+# Elasticsearch setup (optional: used by UR and similar Engines)
+# todo: need to allow for multiple servers for cluster operation of ES, which
+#     is currently done in the sparkConf section of an Engine Instance config
+export ELASTICSEARCH_URI="${ELASTICSEARCH_URI:-http://localhost:9200}"
+
+# This setting helps mark spark train jobs as expired if they do not respond for this period of time
+export JOBS_EXPIRE_AFTER="12 hours"
+
+# Use only when necessary to pass options to the launcher for Harness
+# for example below we set the heap size for the JVM, otherwise the JVM has a default, which is correct in many cases
+# also in the example we use a more concurrent Garbage Collector, to avoid pauses in Harness execution for GC
+# HARNESS_OPTS=" -J-Xmx4G -J-XX:+UseConcMarkSweepGC "
+
+
+# ======== FOR SIMPLE USE CASES LOOK NO FURTHER ===============
+
+# =============================================================
+# Only change if default vertical scaling is not sufficient
+# =============================================================
+
+# The maximum number of concurrently accepted connections.
+# Note, that this setting limits the number of the connections on a best-effort basis.
+# It does *not* strictly guarantee that the number of established TCP connections will never
+# exceed the limit (but it will be approximately correct) because connection termination happens
+# asynchronously. It also does *not* guarantee that the number of concurrently active handler
+# flow materializations will never exceed the limit for the reason that it is impossible to reliably
+# detect when a materialization has ended.
+# See akka.http.server.max-connections at https://doc.akka.io/docs/akka-http/current/configuration.html
+export HARNESS_MAX_CONNECTIONS=${HARNESS_MAX_CONNECTIONS:-1024}
+
+# The maximum number of requests that are accepted (and dispatched to
+# the application) on one single connection before the first request
+# has to be completed.
+# Incoming requests that would cause the pipelining limit to be exceeded
+# are not read from the connections socket so as to build up "back-pressure"
+# to the client via TCP flow control.
+# A setting of 1 disables HTTP pipelining, since only one request per
+# connection can be "open" (i.e. being processed by the application) at any
+# time. Set to higher values to enable HTTP pipelining.
+# This value must be > 0 and <= 1024.
+# See akka.http.server.pipelining-limit at https://doc.akka.io/docs/akka-http/current/configuration.html
+export HARNESS_MAX_REQUESTS=${HARNESS_MAX_REQUESTS:-16}
+
+# =============================================================
+# Only change if you are using HDFS for file storage
+# =============================================================
+
+# HDFS setup
+# export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/etc/hadoop"}
+# Files can be addressed as hdfs://<some-name-node>:9000 by default but change the master and port below
+# if needed
+# export HDFS_MASTER=${HDFS_MASTER:-localhost}
+# export HDFS_MASTER_PORT=${HDFS_MASTER_PORT:-9000}
 
 # =============================================================
 # Only change to enable TLS/SSL
@@ -64,3 +99,10 @@ export ADMIN_USER_ID=${ADMIN_USER_ID:-some-user-id}
 # The Python CLI needs to pass the user-id and user-secret to the Python SDK so when using Auth supply a pointer to
 # the user-secret here.
 export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${ADMIN_USER_ID}.secret"}
+
+# =============================================================
+# Only needed if you use the Spark Job Server with Apache Livy
+# =============================================================
+
+# Spark Job Server (Apache Livy) setup
+export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}

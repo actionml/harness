@@ -20,18 +20,23 @@ package com.actionml.engines.ur
 import java.util.Date
 
 import cats.data.Validated
-import cats.data.Validated.Valid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{EngineParams, Event, Query, Response}
+import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
+import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.util.Try
 
 
 class UREngine extends Engine with JsonSupport {
@@ -43,13 +48,30 @@ class UREngine extends Engine with JsonSupport {
   /** Initializing the Engine sets up all needed objects */
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(jsonConfig).andThen { _ =>
-
       parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
         dataset = new URDataset(engineId = engineId, store = MongoStorage.getStorage(dbName, MongoStorageHelper.codecs))
-        val eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
+        if (update) parseAndValidate[URDatasetParams](
+          jsonConfig,
+          errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
+            s"$jsonConfig",
+          transform = _ \ "dataset"
+        ).foreach { p =>
+          def eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
+          p.ttl.fold[Validated[ValidateError, _]] {
+            eventsDao.createIndexes(365.days)
+            Valid(p)
+          } { ttlString =>
+            Try(Duration(ttlString)).toOption.map { ttl =>
+              // We assume the DAO will check to see if this is a change and no do the reindex if not needed
+              eventsDao.createIndexes(ttl)
+              logger.debug(s"Got a dataset.ttl = $ttl")
+              Valid(p)
+            }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
+          }
+        }
         algo = URAlgorithm(this, jsonConfig, dataset)
         logStatus(p)
         Valid(p)
@@ -74,13 +96,13 @@ class UREngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String): UREngine = {
-    val response = init(jsonConfig)
+  override def initAndGet(jsonConfig: String, update: Boolean): UREngine = {
+    val response = init(jsonConfig, update)
     if (response.isValid) {
-      logger.trace(s"Initialized with JSON: $jsonConfig")
+      logger.info(s"Engine-id: ${engineId}. Initialized with JSON: $jsonConfig")
       this
     } else {
-      logger.error(s"Parse error with JSON: $jsonConfig")
+      logger.error(s"Engine-id: ${engineId}. Parse error with JSON: $jsonConfig")
       null.asInstanceOf[UREngine] // todo: ugly, replace
     }
   }
@@ -93,9 +115,18 @@ class UREngine extends Engine with JsonSupport {
       parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
     }
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
-    if(response.isInvalid) logger.info(s"Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
+    if(response.isInvalid) logger.info(s"Engine-id: ${engineId}. Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
   }
+
+  override def inputAsync(jsonEvent: String): Future[Validated[ValidateError, Response]] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    dataset
+      .inputAsync(jsonEvent)
+      .fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
+  }
+
+  override def inputMany: Seq[String] => Unit = dataset.inputMany
 
   // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, Response] = {
@@ -109,16 +140,25 @@ class UREngine extends Engine with JsonSupport {
 
   /** triggers parse, validation of the query then returns the result as JSONharness */
   def query(jsonQuery: String): Validated[ValidateError, Response] = {
-    logger.trace(s"Got a query JSON string: $jsonQuery")
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
     parseAndValidate[URQuery](jsonQuery).andThen { query =>
       val result = algo.query(query)
       Valid(result)
     }
   }
 
+  def queryAsync(jsonQuery: String)(implicit ec: ExecutionContext): Future[Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Got a query JSON string: $jsonQuery")
+    parseAndValidate[URQuery](jsonQuery) match {
+      case Invalid(error) => Future.failed(new RuntimeException(s"Parse error. Can't parse $jsonQuery. Cause: $error"))
+      case Valid(t) => algo.queryAsync(t)
+    }
+  }
+
   // todo: should kill any pending Spark jobs
-  override def destroy(): Unit = {
-    logger.info(s"Dropping persisted data for id: $engineId")
+  override def destroy: Unit = {
+    super.destroy()
+    logger.info(s"Dropping persisted data for Engine-id: $engineId")
     dataset.destroy()
     algo.destroy()
   }
@@ -130,9 +170,9 @@ class UREngine extends Engine with JsonSupport {
 }
 
 object UREngine extends JsonSupport {
-  def apply(jsonConfig: String): UREngine = {
+  def apply(jsonConfig: String, isNew: Boolean): UREngine = {
     val engine = new UREngine()
-    engine.initAndGet(jsonConfig)
+    engine.initAndGet(jsonConfig, update = isNew)
   }
 
   case class UREngineParams(
@@ -195,7 +235,7 @@ object UREngine extends JsonSupport {
       // to what is in the algorithm params or false
       num: Option[Int] = None, // default: whatever is in algorithm params, which itself has a default--probably 20
       from: Option[Int] = None, // paginate from this position return "num"
-      eventNames: Option[Seq[String]], // names used to ID all user indicatorRDDs
+      indicatorNames: Option[Seq[String]], // names used to ID all user indicatorRDDs
       withRanks: Option[Boolean] = None) // Add to ItemScore rank rules values, default false
     extends Query
 
@@ -232,5 +272,5 @@ object UREngine extends JsonSupport {
 
 case class UREngineStatus(
     engineParams: UREngineParams,
-    jobStatuses: Map[String, JobDescription])
+    jobStatuses: Iterable[JobDescription])
   extends Response

@@ -2,16 +2,31 @@
 
 Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines, most notably The Universal Recommender. It is designed to allow custom Engines employing flexible learning styles.
 
-## Compatibility Notes
+## 0.5.1 (current stable containerized)
 
-Use the embedded CLI OR the CLI from [actionml/harness-cli](https://github.com/actionml/harness-cli) For the foreseeable future `harness-cli` will be backward compatible with harness-0.4.0+ It is advised to use the separate project in it's latest stable form since the embedded cli will is deprecating and be removed in harness-0.5.0.
+In production at several locations and in high demand situations. This is the first full containerized release. Improvements include:
 
-## 0.4.1 (current stable)
+ - faster requests per second for input and queries
+ - new system status CLI
+ - new engine status CLI
+ - fully deployed now as images using Docker containers and hosted on hub.docker.com.
+ - system setup can be done in docker-compose for development or proof of concept
+ - the system can be deployed and managed by Kubernetes. 
 
-| Tag Type                 | Tag Value
-|:-------------------------|:---------------------------|
-| Git tag | `0.4.1` |
-| Docker Hub Image tag |`actionml/harness:latest` |
+We maintain a Kubernetes setup config for all Harness services and operate this in high demand situations as well as smaller deployments. This is not free OSS since it is rather complicated to support but comes with many advantages over source or native installations. 
+
+
+### UR-0.9.0
+
+ - improved requests per second for input and queries
+ - Elasticsearch 6.x and 7 support
+ - ES 7 has scoring differences and the integration test has not been updated to reflect these so do not trust the test on ES 7
+ - Realtime property changes for $set, no need to re-train to have them updated in the model
+ - Background index updates for Mongo when changing the TTL in a dataset
+ - New statuses for long lived Jobs, these are now persistent over a restart of Harness. Spark Jobs now have a "completed" or "failed" status.
+ - Extended JSON for Engine Instance Config files, which pulls values from env.
+
+## 0.4.1
 
 Bug fix release.
 
@@ -19,7 +34,7 @@ Bug fix release.
  
 ## 0.4.0
 
-- Add the Universal Recommender ported from PredictionIO
+- Add the Universal Recommender (UR-0.8.0) ported from PredictionIO's UR-0.7.3
 - Minor Universal Recommender feature enhancements
     - Business Rules now called `rules` in queries
     - Event aliases supported to group event types and rearrange via config, requiring no data changes
