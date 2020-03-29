@@ -639,7 +639,9 @@ class URAlgorithm private (
   /** Calculate all rules and items needed for ranking.
     *
     *  @param fieldsRDD all items with their rules
-    *  @param sc the current Spark context
+    *  @param eventsRdd collected events
+    *  @param convertedItems ???
+    *  @param sc current Spark Context
     *  @return
     */
   private def getRanksRDD(
@@ -659,7 +661,7 @@ class URAlgorithm private (
       val rankRdd = popModel.calc(rankingType, eventsRdd, backfillEvents, duration, offsetDate)
       rankingFieldName -> rankRdd
     }
-    //    logger.debug(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
+    logger.info(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
     rankRDDs
       .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
       case (leftRdd, (fieldName, rightRdd)) =>
