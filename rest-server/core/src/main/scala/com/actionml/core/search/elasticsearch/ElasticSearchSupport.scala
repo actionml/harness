@@ -20,7 +20,6 @@ package com.actionml.core.search.elasticsearch
 import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
-import java.util.Scanner
 
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -31,7 +30,6 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
-import org.apache.http.config.ConnectionConfig
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.util.EntityUtils
@@ -44,7 +42,6 @@ import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
@@ -128,9 +125,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
   def saveOneByIdAsync(id: String, doc: EsDocument): Future[Comment] = {
     val promise = Promise[Comment]()
-    try {
-      val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
-      request.setJsonEntity(
+    val msg404 = "The Elasticsearch index does not exist, have you trained yet?"
+    def sendUpdate(indexName: String) = {
+      val updateRequest = new Request("POST", s"/$indexName/$indexType/${encodeURIFragment(id)}/_update")
+      updateRequest.setJsonEntity(
         JsonMethods.compact(JObject(
           "doc" -> JsonMethods.asJValue(doc),
           "doc_as_upsert" -> JBool(true)
@@ -143,9 +141,8 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
               (responseJValue \ "result").getAs[String].contains("updated")
               promise.success(Comment("Upserted successfully"))
             case 404 =>
-              val msg = "The Elasticsearch index does not exist, have you trained yet?"
-              logger.warn(msg)
-              promise.success(Comment(msg))
+              logger.warn(msg404)
+              promise.success(Comment(msg404))
             case code =>
               logger.error(s"Elasticsearch update error. Got response code $code. ${new BufferedReader(new InputStreamReader(response.getEntity.getContent))}")
               promise.failure(new RuntimeException(s"Elasticsearch index update error: staus code $code"))
@@ -155,11 +152,43 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
           case NonFatal(e) => promise.failure(e)
         }
       }
-      client.performRequestAsync(request, updateListener)
+      client.performRequestAsync(updateRequest, updateListener)
+    }
+
+    try {
+      val indexExistsRequest = new Request("GET", s"/_alias/$alias")
+      val indexExistsListerner = new ResponseListener {
+        override def onSuccess(response: Response): Unit = {
+          response.getStatusLine.getStatusCode match {
+            case 200 =>
+              Try(parse(EntityUtils.toString(response.getEntity))
+                .extract[Map[String, JValue]]
+                .keys
+                .headOption).toOption.flatten match {
+                  case None => promise.success(Comment("The Elasticsearch index does not exist, have you trained yet?"))
+                  case Some(i) => sendUpdate(i)
+                }
+            case 404 =>
+              logger.warn(msg404)
+              promise.success(Comment(msg404))
+            case code =>
+              logger.error(s"Elasticsearch update error. Response code $code. Alias $alias, id $id, document $doc")
+              promise.failure(new RuntimeException("Unexpected HTTP response code from Elasticsearch"))
+          }
+        }
+        override def onFailure(exception: Exception): Unit = {
+          logger.warn(msg404)
+          promise.success(Comment(msg404))
+        }
+      }
+      client.performRequestAsync(indexExistsRequest, indexExistsListerner)
     } catch {
       case e: IOException =>
         logger.error(s"Can't upsert $doc with id $id", e)
-        promise.success(Comment("Can't connect to Elasticsearch nodes"))
+        promise.failure(new RuntimeException("Can't connect to Elasticsearch nodes"))
+      case NonFatal(e) =>
+        logger.error(s"Can't upsert $doc with id $id", e)
+        promise.failure(new RuntimeException("Elasticsearch error", e))
     }
     promise.future
   }
@@ -209,25 +238,35 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
   override def searchAsync(query: SearchQuery): Future[Seq[Hit]] = {
     val p = Promise[Seq[Hit]]()
-    val actualIndexName = alias
-    logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
-    val request = new Request("POST", s"/$actualIndexName/_search")
-    request.setJsonEntity(mkElasticQueryString(query))
+    try {
+      val actualIndexName = alias
+      logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
+      val request = new Request("POST", s"/$actualIndexName/_search")
+      request.setJsonEntity(mkElasticQueryString(query))
 
-    val searchListener = new ResponseListener {
-      override def onSuccess(response: Response): Unit = {
-        response.getStatusLine.getStatusCode match {
-          case 200 =>
-            logger.debug(s"Got source from query: $query")
-            p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
-          case _ =>
-            logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
-            p.complete(Success(Seq.empty[Hit]))
+      val searchListener = new ResponseListener {
+        override def onSuccess(response: Response): Unit = {
+          response.getStatusLine.getStatusCode match {
+            case 200 =>
+              logger.debug(s"Got source from query: $query")
+              p.complete(Try(transform(parse(EntityUtils.toString(response.getEntity)))))
+            case _ =>
+              logger.trace(s"Query: $query\nproduced status code: ${response.getStatusLine.getStatusCode}")
+              p.complete(Success(Seq.empty[Hit]))
+          }
         }
+
+        override def onFailure(exception: Exception): Unit = p.failure(exception)
       }
-      override def onFailure(exception: Exception): Unit = p.failure(exception)
+      client.performRequestAsync(request, searchListener)
+    } catch {
+      case e: IOException =>
+        logger.error(s"Can't make a search $query", e)
+        p.failure(new RuntimeException("Can't connect to Elasticsearch nodes"))
+      case NonFatal(e) =>
+        logger.error(s"Can't make a search $query", e)
+        p.failure(new RuntimeException("Elasticsearch error", e))
     }
-    client.performRequestAsync(request, searchListener)
     p.future
   }
 
@@ -447,9 +486,9 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
   }
 
-  private lazy val esVersion: ESVersions.Value = {
+  private val esVersion: ESVersions.Value = {
     import ESVersions._
-    Try(client.performRequest(new Request("GET", "/"))).toOption
+    val ver = Try(client.performRequest(new Request("GET", "/"))).toOption
       .flatMap { r =>
         val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
         if (version.startsWith("5.")) Some(v5)
@@ -460,6 +499,8 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
           Option.empty
         }
       }.getOrElse(v5)
+    logger.info(s"Detected Elasticsearch version $ver")
+    ver
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {

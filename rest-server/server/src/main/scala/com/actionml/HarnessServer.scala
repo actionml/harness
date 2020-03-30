@@ -78,17 +78,13 @@ class BaseModule extends Module with LazyLogging {
   }
   bind[Administrator] identifiedBy 'Administrator to administrator
 
-  val eventService = new EventServiceImpl(administrator)
-  bind[EventService] to eventService
-  bind[EventsRouter] to new EventsRouter(eventService)
+  bind[EventService] to new EventServiceImpl(administrator)
+  bind[EventsRouter] to new EventsRouter
   bind[EngineService] to new EngineServiceImpl
-//  bind[QueryService] to new QueryServiceImpl(administrator)
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService
 
-  binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
-//  binding identifiedBy 'QueryService to AkkaInjectable.inject[QueryServiceImpl]("QueryService")
   bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
