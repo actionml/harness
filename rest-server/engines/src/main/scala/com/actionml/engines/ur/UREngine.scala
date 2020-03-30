@@ -119,8 +119,7 @@ class UREngine extends Engine with JsonSupport {
     response
   }
 
-  override def inputAsync(jsonEvent: String): Future[Validated[ValidateError, Response]] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
+  override def inputAsync(jsonEvent: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
     dataset
       .inputAsync(jsonEvent)
       .fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
