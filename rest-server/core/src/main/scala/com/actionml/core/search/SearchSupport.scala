@@ -17,6 +17,7 @@
 
 package com.actionml.core.search
 
+import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.Conditions.Condition
 import com.actionml.core.search.Filter.Types.Type
 
@@ -87,7 +88,7 @@ trait SearchClient[R, D] {
     typeMappings: Map[String, (String, Boolean)] = Map.empty,
     refresh: Boolean = false): Boolean
   def saveOneById(id: String, doc: D): Boolean
-  def saveOneByIdAsync(id: String, doc: D): Future[Boolean]
+  def saveOneByIdAsync(id: String, doc: D): Future[Comment]
   def deleteIndex(refresh: Boolean = false): Boolean
   def search(query: SearchQuery): Seq[R]
   def searchAsync(query: SearchQuery): Future[Seq[R]]

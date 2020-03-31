@@ -242,17 +242,18 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
         event.dateProps.mapValues { d => writeFormat.format(d.toInstant) :: Nil } ++
         event.floatProps.mapValues(_.toString :: Nil)
       ).filterNot { case (name, _) => indicatorNames.contains(name) }
-    val updateElasticsearch = es
+    val updateSearchEngine = es
       .saveOneByIdAsync(event.entityId, esDoc)
       .map { result =>
-        logger.trace(s"Document $esDoc ${if (result) " successfully saved" else " failed to save"} to Elasticsearch")
-      }.recoverWith {
+        logger.info(s"Document $esDoc successfully saved to Elasticsearch [$result]")
+        result
+      }
+    updateSearchEngine.onFailure {
       case NonFatal(e) =>
         logger.error(s"Engine-id: ${engineId}. Can't insert item $event", e)
-        Future.failed(e)
     }
 
-    (updateMongo zip updateElasticsearch).map(_ => ())
+    (updateMongo zip updateSearchEngine).map(_ => ())
   }
 
   private val emptyProps = (Map.empty[String, Date], Map.empty[String, Seq[String]], Map.empty[String, Float], Map.empty[String, Boolean])

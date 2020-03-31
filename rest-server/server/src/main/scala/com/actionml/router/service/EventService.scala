@@ -23,7 +23,7 @@ import com.actionml.admin.Administrator
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{JsonSupport, NotImplemented, ValidateError, WrongParams}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   *
@@ -34,14 +34,14 @@ import scala.concurrent.Future
 
 trait EventService {
   def getEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]]
-  def createEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]]
+  def createEvent(engineId: String, event: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]]
 }
 
 class EventServiceImpl(admin: Administrator) extends EventService with JsonSupport {
   override def getEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]] =
     Future.successful(Invalid(NotImplemented()))
 
-  override def createEvent(engineId: String, event: String): Future[Validated[ValidateError, Response]] = {
+  override def createEvent(engineId: String, event: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
     admin.getEngine(engineId).fold[Future[Validated[ValidateError, Response]]](Future.successful(Invalid(WrongParams(jsonComment(s"Engine for id=$engineId not found"))))) { engine =>
       engine.inputAsync(event)
     }

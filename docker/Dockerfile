@@ -43,5 +43,8 @@ RUN apk add --no-cache --update cmake git perl && \
   rm -rf /tmp/*
 
 WORKDIR /harness
+RUN mkdir -p prometheus
+RUN wget  -O prometheus/jmx_prometheus_javaagent-0.12.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.12.0/jmx_prometheus_javaagent-0.12.0.jar
+
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./bin/harness-start"]

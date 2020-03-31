@@ -82,15 +82,12 @@ class BaseModule extends Module with LazyLogging {
   bind[EventService] to eventService
   bind[EventsRouter] to new EventsRouter(eventService)
   bind[EngineService] to engineService
-//  bind[QueryService] to new QueryServiceImpl(administrator)
 
   bind[EnginesRouter] to new EnginesRouter(engineService)
 
   bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
   bind[AuthorizationService] to new CachedAuthorizationService
 
-  binding identifiedBy 'EventService to AkkaInjectable.injectActorRef[EventService]("EventService")
-//  binding identifiedBy 'QueryService to AkkaInjectable.inject[QueryServiceImpl]("QueryService")
   bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
