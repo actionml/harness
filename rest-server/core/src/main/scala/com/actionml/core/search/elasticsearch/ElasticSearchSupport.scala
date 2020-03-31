@@ -126,8 +126,8 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   def saveOneByIdAsync(id: String, doc: EsDocument): Future[Comment] = {
     val promise = Promise[Comment]()
     val msg404 = "The Elasticsearch index does not exist, have you trained yet?"
-    def sendUpdate(indexName: String) = {
-      val updateRequest = new Request("POST", s"/$indexName/$indexType/${encodeURIFragment(id)}/_update")
+    def sendUpdate = {
+      val updateRequest = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
       updateRequest.setJsonEntity(
         JsonMethods.compact(JObject(
           "doc" -> JsonMethods.asJValue(doc),
@@ -166,7 +166,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
                 .keys
                 .headOption).toOption.flatten match {
                   case None => promise.success(Comment("The Elasticsearch index does not exist, have you trained yet?"))
-                  case Some(i) => sendUpdate(i)
+                  case Some(_) => sendUpdate
                 }
             case 404 =>
               logger.warn(msg404)
