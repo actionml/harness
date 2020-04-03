@@ -221,8 +221,12 @@ class URAlgorithm private (
   }
 
   override def destroy(): Unit = {
-    // todo: delete the model, only the algorithm knows where it is
-    es.deleteIndex()
+    try {
+      // todo: delete the model, only the algorithm knows where it is
+      es.deleteIndex()
+    } finally {
+      es.close
+    }
   }
 
   override def input(datum: UREvent): Validated[ValidateError, Response] = {

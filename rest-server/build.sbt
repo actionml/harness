@@ -13,13 +13,9 @@ lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoJavaDriverVersion = "3.10.2"
 lazy val mongoScalaDriverVersion = "2.6.0"
-//lazy val mongoScalaDriverVersion = "2.2.1"
-//lazy val mongoSparkConnecterVersion = "2.2.4"
 lazy val mongoSparkConnectorVersion = "2.4.1"
 lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
-//lazy val sparkVersion = "2.1.3"
-//lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
@@ -97,8 +93,8 @@ lazy val core = (project in file("core")).
       "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
       "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
 
-      "dev.zio" %% "zio" % "1.0.0-RC18-1",
-      "dev.zio" %% "zio-streams" % "1.0.0-RC18-1",
+      "dev.zio" %% "zio" % "1.0.0-RC18-2",
+      "dev.zio" %% "zio-streams" % "1.0.0-RC18-2",
       "io.etcd" % "jetcd-core" % "0.5.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"

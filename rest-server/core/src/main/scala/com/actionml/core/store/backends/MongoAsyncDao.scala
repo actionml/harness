@@ -26,12 +26,12 @@ import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
-import org.mongodb.scala.{Completed, MongoCollection, Observer}
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonInt32, BsonValue}
-import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts, Updates}
-import zio.{IO, Promise}
+import org.mongodb.scala.model._
+import zio.IO
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -78,16 +78,9 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
     }
   }
 
-  def insertIO(o: T): IO[ValidateError, Unit] = {
-    (for {
-      p <- Promise.make[Throwable, Unit]
-      _ = collection.insertOne(o).subscribe(new Observer[Any] {
-        override def onError(e: Throwable): Unit = p.fail(e)
-        override def onComplete(): Unit = ()
-        override def onNext(result: Any): Unit = p.succeed(())
-      })
-      _ <- p.await
-    } yield ()).mapError(_ => ValidRequestExecutionError())
+  override def insertIO(o: T): IO[ValidateError, Unit] = {
+    IO.fromFuture(implicit ec => collection.insertOne(o).toFuture()).unit
+      .mapError(_ => ValidRequestExecutionError())
   }
 
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {

@@ -20,7 +20,9 @@ package com.actionml.core.store
 import java.util.concurrent.Executors
 
 import com.actionml.core.store.DaoQuery.QueryCondition
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import zio.IO
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -54,6 +56,7 @@ trait AsyncDao[T] {
     findManyAsync(DaoQuery(filter = filter, offset = offset, limit = limit, orderBy = orderBy))
   def insertAsync(o: T)(implicit ec: ExecutionContext): Future[Unit]
   def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit]
+  def insertIO(o: T): IO[ValidateError, Unit]
   def updateAsync(filter: (String, QueryCondition)*)(update: (String, Any)*)(implicit ec: ExecutionContext): Future[Unit]
   def saveOneByIdAsync(id: String, o: T)(implicit ec: ExecutionContext): Future[Unit]
   def saveOneAsync(filter: (String, QueryCondition), o: T)(implicit ec: ExecutionContext): Future[Unit]

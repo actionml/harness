@@ -18,7 +18,7 @@
 package com.actionml.admin
 
 import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Invalid
 import com.actionml.core.engine.Engine
 import com.actionml.core.engine.backend.EnginesBackend
 import com.actionml.core.jobs.JobManager
@@ -26,20 +26,21 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{drawActionML, drawInfo}
 import com.typesafe.scalalogging.LazyLogging
-import zio.{DefaultRuntime, IO, Task, ZIO}
+import zio.{IO, ZIO, ZLayer}
 
 import scala.util.Properties
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 trait Administrator extends LazyLogging with JsonSupport {
   this: EnginesBackend[String, EngineMetadata, _] =>
-  protected var engines = Map.empty[String, Engine]
-  private val rt = new DefaultRuntime{}
-  private def updateEngines(): Unit = {
+  var engines = Map.empty[String, Engine]
+  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
+  private val updateEngines: () => Unit = () => {
     rt.unsafeRunSync(listEngines.map { l =>
       engines = l.map(e => e.engineId -> newEngineInstance(e.engineFactory, e.params)).toMap
-    })
+    }).fold[Unit](cause => cause.failureOption.foreach(e => logger.error("Update engines error", e)), _ => ())
   }
+
   onChange(updateEngines)
 
   drawActionML
@@ -59,7 +60,6 @@ trait Administrator extends LazyLogging with JsonSupport {
   // instantiates all stored engine instances with restored state
   def init() = {
     // ask engines to init
-    updateEngines()
     JobManager.abortExecutingJobs
     drawInfo("Harness Server Init", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),

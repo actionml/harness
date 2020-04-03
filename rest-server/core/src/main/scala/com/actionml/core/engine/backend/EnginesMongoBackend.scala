@@ -17,37 +17,62 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
+import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.mongodb.CursorType
+import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
-import org.mongodb.scala.Document
-import zio.IO
+import org.mongodb.scala.model.CreateCollectionOptions
+import org.mongodb.scala.{Document, Observer}
+import zio.{IO, Task, ZLayer}
 
-import scala.reflect.runtime.universe._
+import scala.concurrent.Future
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 
 
-abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[String, A, Document] {
+abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[String, A, Document] with LazyLogging {
   import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
   private lazy val enginesCollection = storage.createDao[A]("engines")
-  private var callback: () => Unit = () => ()
+  private val engineEventsName = "engines_events"
+  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
+  private val enginesEventsDao: DAO[Document] = rt.unsafeRunSync {
+    IO.fromFuture { implicit ec =>
+      val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
+      import storage.db
+      for {
+        names <- db.listCollectionNames().toFuture()
+        _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
+             else db.createCollection(engineEventsName, opts).toFuture
+      } yield storage.createDao[Document](engineEventsName)
+    }
+  }.fold(c => throw c.failureOption.get, a => a)
+
+  private def logAndIgnore: Task[_] => IO[ValidateError, Unit] = _.catchAll { e =>
+    IO.effectTotal(logger.error("Engines events error", e))
+  }.map(a => logger.info(s"Task completed with result $a"))
 
   override def addEngine(id: String, data: A): IO[ValidateError, Unit] = {
-    enginesCollection.asInstanceOf[MongoAsyncDao[A]].insertIO(data).map(_ => callback())
+    for {
+      _ <- enginesCollection.insertIO(data)
+      _ <- enginesEventsDao.insertIO(mkEvent(id, "add"))
+    } yield ()
   }
 
   override def updateEngine(id: String, data: A): IO[ValidateError, Unit] = {
     IO.effect(enginesCollection.saveOne("engineId" === id, data))
-      .map(_ => callback())
       .mapError(_ => ValidRequestExecutionError())
   }
 
   override def deleteEngine(id: String): IO[ValidateError, Unit] = {
-    IO.effect(enginesCollection.removeOne("engineId" === id)).unit
-      .map(_ => callback())
-      .mapError(_ => ValidRequestExecutionError())
+    for {
+      _ <- IO.effect(enginesCollection.removeOne("engineId" === id)).unit
+        .mapError(_ => ValidRequestExecutionError())
+      _ <- enginesEventsDao.insertIO(mkEvent(id, "delete"))
+    } yield ()
   }
 
   override def findEngine(id: String): IO[ValidateError, A] = {
@@ -60,7 +85,38 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def onChange(callback: () => Unit): Unit = this.callback = callback
+  override def onChange(callback: () => Unit): Unit = {
+    startWatching(callback)
+  }
+
+  private def startWatching(callback: () => Unit): Unit = {
+    enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
+      .collection
+      .find()
+      .cursorType(CursorType.TailableAwait)
+      .noCursorTimeout(true)
+      .subscribe(new Observer[Document] {
+        override def onNext(result: Document): Unit = {
+          try {
+            callback()
+          } catch {
+            case NonFatal(e) => logger.error("Engines events watch error", e)
+          }
+        }
+        override def onError(e: Throwable): Unit = {
+          logger.error(s"$engineEventsName watch error", e)
+          startWatching(callback)
+        }
+        override def onComplete(): Unit = {}
+      })
+  }
 
   def codecs: List[CodecProvider]
+
+
+  private def mkEvent(id: String, eventName: String) = Document(
+    "id" -> id,
+    "action" -> eventName,
+    "timestamp" -> new java.util.Date()
+  )
 }

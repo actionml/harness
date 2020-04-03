@@ -33,7 +33,7 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 
-class MongoStorage(db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
+class MongoStorage(val db: MongoDatabase, codecs: List[CodecProvider]) extends Store with LazyLogging {
   import MongoStorage.codecRegistry
 
   import scala.concurrent.ExecutionContext.Implicits.global

@@ -32,7 +32,7 @@ import com.actionml.router.service._
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
-import zio.{DefaultRuntime, IO}
+import zio.{IO, ZLayer}
 
 import scala.concurrent.{Future, Promise}
 
@@ -97,7 +97,7 @@ class EnginesRouter(engineService: EngineServiceImpl)(implicit inj: Injector) ex
     }
   }
 
-  private val rt = new DefaultRuntime{}
+  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
   private implicit def io2future[A](io: IO[ValidateError, A]): Future[Validated[ValidateError, A]] = {
     val p = Promise[Validated[ValidateError, A]]()
     rt.unsafeRunAsync{ io.map { a =>
