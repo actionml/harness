@@ -88,6 +88,20 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   import ElasticSearchClient.ESVersions._
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
+  private val esVersion: ESVersions.Value = {
+    import ESVersions._
+    Try {
+      val response = client.performRequest(new Request("GET", "/"))
+      val version = (JsonMethods.parse(response.getEntity.getContent) \ "version" \ "number").as[String]
+      if (version.startsWith("5.")) v5
+      else if (version.startsWith("6.")) v6
+      else if (version.startsWith("7.")) v7
+      else {
+        logger.warn("Unsupported Elastic Search version: $version")
+        v5
+      }
+    }.getOrElse(v5)
+  }
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
   override def close: Unit = client.close()
@@ -445,21 +459,6 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
   private def refreshIndexByName(indexName: String): Unit = {
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
-  }
-
-  private lazy val esVersion: ESVersions.Value = {
-    import ESVersions._
-    Try(client.performRequest(new Request("GET", "/"))).toOption
-      .flatMap { r =>
-        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
-        if (version.startsWith("5.")) Some(v5)
-        else if (version.startsWith("6.")) Some(v6)
-        else if (version.startsWith("7.")) Some(v7)
-        else {
-          logger.warn("Unsupported Elastic Search version: $version")
-          Option.empty
-        }
-      }.getOrElse(v5)
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
