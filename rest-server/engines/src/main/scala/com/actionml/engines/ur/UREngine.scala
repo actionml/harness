@@ -111,18 +111,30 @@ class UREngine extends Engine with JsonSupport {
     //logger.info("Got JSON body: " + jsonEvent)
     // validation happens as the input goes to the dataset
     //super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { _ =>
-    val response = super.input(jsonEvent).andThen(_ => dataset.input(jsonEvent)).andThen { e =>
-      parseAndValidate[UREvent](jsonEvent).andThen(algo.input)
-    }
+    val response = super.input(jsonEvent)
+      .andThen( _ => dataset.input(jsonEvent))
+      .andThen( _ => parseAndValidate[UREvent](jsonEvent)
+        .andThen(algo.input))
+
+
     //super.input(jsonEvent).andThen(dataset.input(jsonEvent)).andThen(algo.input(jsonEvent)).map(_ => true)
     if(response.isInvalid) logger.info(s"Engine-id: ${engineId}. Bad input ${response.getOrElse(" Whoops, no response string ")}")// else logger.info("Good input")
     response
   }
 
   override def inputAsync(jsonEvent: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
-    dataset
-      .inputAsync(jsonEvent)
-      .fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
+
+    // missing behavior from parseAndValidate, super.input, and algo.input
+    // this disables things like mirroring (super.input)
+
+    val response = super.input(jsonEvent)
+      .andThen( _ => parseAndValidate[UREvent](jsonEvent)
+        .andThen(algo.input))
+
+    if( response.isValid) 
+      dataset.inputAsync(jsonEvent).fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
+    else
+      Future.successful(response)
   }
 
   override def inputMany: Seq[String] => Unit = dataset.inputMany

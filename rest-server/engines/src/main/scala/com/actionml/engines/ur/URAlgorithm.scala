@@ -73,7 +73,7 @@ class URAlgorithm private (
   private var indicatorParams: Seq[IndicatorParams] = _
   private var limit: Int = _
   private var modelEventNames: Seq[String] = _
-  private var blacklistEvents: Seq[String] = _
+  private var blacklistIndicators: Seq[String] = _
   private var returnSelf: Boolean = _
   private var fields: Seq[Rule] = _
   private var randomSeed: Int = _
@@ -144,7 +144,7 @@ class URAlgorithm private (
 
       modelEventNames = params.indicators.map(_.name)
 
-      blacklistEvents = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
+      blacklistIndicators = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
       fields = params.rules.getOrElse(Seq.empty[Rule])
 
@@ -182,8 +182,7 @@ class URAlgorithm private (
 
       drawInfo("URAlgorithm initialization parameters including \"defaults\"", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("ES index name:", esIndex),
-        ("ES type name:", esType),
+        ("ES alias name:", engineId),
         ("RecsModel:", recsModel),
         //("Event names:", modelEventNames),
         ("Indicators:", indicatorParams),
@@ -191,10 +190,11 @@ class URAlgorithm private (
         ("Random seed:", randomSeed),
         ("MaxCorrelatorsPerEventType:", maxCorrelatorsPerEventType),
         ("MaxEventsPerEventType:", maxEventsPerEventType),
-        ("BlacklistEvents:", blacklistEvents),
+        ("BlacklistIndicators:", blacklistIndicators),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("User bias:", userBias),
         ("Item bias:", itemBias),
+        ("Item-set bias", itemSetBias),
         ("Max query events:", maxQueryEvents),
         ("Limit:", limit),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
@@ -612,7 +612,7 @@ class URAlgorithm private (
       queryBlacklistWithItem
     }
 
-    val blacklistByUserHistory = userEvents.filter(event => blacklistEvents.contains(event.event)).map(_.targetEntityId.getOrElse(""))
+    val blacklistByUserHistory = userEvents.filter(event => blacklistIndicators.contains(event.event)).map(_.targetEntityId.getOrElse(""))
     Seq(
       Matcher(
         "id",
