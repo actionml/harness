@@ -245,7 +245,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     val updateSearchEngine = es
       .saveOneByIdAsync(event.entityId, esDoc)
       .map { result =>
-        logger.info(s"Document $esDoc successfully saved to Elasticsearch [$result]")
+        logger.trace(s"Document $esDoc successfully saved to Elasticsearch [$result]")
         result
       }
     updateSearchEngine.onFailure {

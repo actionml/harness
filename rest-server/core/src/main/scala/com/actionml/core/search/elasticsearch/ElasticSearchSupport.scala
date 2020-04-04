@@ -20,6 +20,7 @@ package com.actionml.core.search.elasticsearch
 import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
+import java.util.Scanner
 
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -85,6 +86,22 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   import ElasticSearchClient.ESVersions._
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
+  private val esVersion: ESVersions.Value = {
+    import ESVersions._
+    val ver = Try {
+      val response = client.performRequest(new Request("GET", "/"))
+      val version = (JsonMethods.parse(response.getEntity.getContent) \ "version" \ "number").as[String]
+      if (version.startsWith("5.")) v5
+      else if (version.startsWith("6.")) v6
+      else if (version.startsWith("7.")) v7
+      else {
+        logger.warn("Unsupported Elastic Search version: $version")
+        v5
+      }
+    }.getOrElse(v5)
+    logger.info(s"Detected Elasticsearch version $ver")
+    ver
+  }
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
   override def close: Unit = client.close()
@@ -484,23 +501,6 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
   private def refreshIndexByName(indexName: String): Unit = {
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
-  }
-
-  private val esVersion: ESVersions.Value = {
-    import ESVersions._
-    val ver = Try(client.performRequest(new Request("GET", "/"))).toOption
-      .flatMap { r =>
-        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
-        if (version.startsWith("5.")) Some(v5)
-        else if (version.startsWith("6.")) Some(v6)
-        else if (version.startsWith("7.")) Some(v7)
-        else {
-          logger.warn("Unsupported Elastic Search version: $version")
-          Option.empty
-        }
-      }.getOrElse(v5)
-    logger.info(s"Detected Elasticsearch version $ver")
-    ver
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
