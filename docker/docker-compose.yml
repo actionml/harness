@@ -52,3 +52,5 @@ services:
         HARNESS_SERVER_ADDRESS: harness
     volumes:
     - ${CLI_DATA}:/harness-cli-data
+
+    
