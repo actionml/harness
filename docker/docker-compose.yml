@@ -18,10 +18,10 @@ services:
     volumes:
       - ${HARNESS_LOGS}:/harness/logs
       - ${CLI_DATA}:/harness-cli-data
-
+      
   mongo:
     restart: always
-    image: mongo:3.2
+    image: mongo:4.2
     container_name: mongo
     command: --logappend --logpath=/tmp/mongod.log
     ports:
@@ -32,11 +32,11 @@ services:
 
   elasticsearch:
     restart: always
-    image: elasticsearch:5.6.14-alpine
+    image: elasticsearch:7.6.0
     container_name: elasticsearch
     environment:
       ES_JAVA_OPTS: ${ES_JAVA_OPTS}
-      discovery.zen.ping.unicast.hosts: elasticsearch
+      discovery.seed_hosts: elasticsearch
       discovery.type: single-node
     ports:
       - "9200:9200"
