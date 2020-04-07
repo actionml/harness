@@ -58,7 +58,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
       }
       e
     }.filter(_._2 != null).toMap
-    drawInfo("Harness Server Init", Seq(
+    drawInfo("Harness Administrator initialized", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("Number of Engines: ", engines.size),
       ("Engines: ", engines.map(_._1))))

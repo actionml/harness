@@ -20,7 +20,7 @@ package com.actionml.router.http.routes
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.{ExceptionHandler, Route}
+import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route}
 import akka.pattern.ask
 import cats.data.Validated
 import com.actionml.authserver.ResourceId
@@ -31,10 +31,13 @@ import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.actionml.router.config.AppConfig
 import com.actionml.router.service._
+import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.language.postfixOps
 
 /**
@@ -53,10 +56,10 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 12:53
   */
-class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
-  private val eventService = inject[ActorRef]('EventService)
+class EventsRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives with LazyLogging {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
+  private lazy val eventService: EventService = inject[EventService]
   override val authEnabled = config.auth.enabled
 
   val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
@@ -78,14 +81,14 @@ class EventsRouter(implicit inj: Injector) extends BaseRouter with Authorization
   private def getEvent(datasetId: String, eventId: String, log: LoggingAdapter): Route = get {
     log.debug("Get event: {}, {}", datasetId, eventId)
     completeByValidated(StatusCodes.OK) {
-      (eventService ? GetEvent(datasetId, eventId)).mapTo[Validated[ValidateError, Response]]
+      eventService.getEvent(datasetId, eventId)
     }
   }
 
   private def createEvent(engineId: String, log: LoggingAdapter): Route = ((post | put) & entity(as[JValue])) { event =>
     log.debug("Create event: {}, {}", engineId, event)
     completeByValidated(StatusCodes.Created) {
-      (eventService ? CreateEvent(engineId, JsonMethods.compact(event))).mapTo[Validated[ValidateError, Response]]
+      eventService.createEvent(engineId, JsonMethods.compact(event))
     }
   }
 

@@ -134,6 +134,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
       .andThen(_ => Valid(Comment("Input processed by base Engine")))
   }
 
+  def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
+    Future.successful(Invalid(NotImplemented()))
+  }
+
   def inputMany: Seq[String] => Unit = _.foreach(input)
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {

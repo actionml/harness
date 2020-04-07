@@ -123,11 +123,13 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     */
 
     // todo: ignores interval, need query for this
-    val rdd = eventsRdd.map { e => (e.targetEntityId.getOrElse(""), e.event) }
+    val rdd = eventsRdd
+      .filter(event => eventNames.contains(event.event))
+      .map { e => (e.targetEntityId.getOrElse(""), e.event) }
       .groupByKey()
       .map { case (itemId, itEvents) => (itemId, itEvents.size.toDouble) }
       .reduceByKey(_ + _)
-    val debug = rdd.collect()
+    // val debug = rdd.collect()
     rdd
   }
 
