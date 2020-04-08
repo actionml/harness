@@ -78,7 +78,7 @@ jobs:
               ls -la
               ls -la /
               pwd
-              find / -type d -name ".docker-persistence" 
+              sudo find / -type d -name ".docker-persistence" 
 
 
               chmod -R 777 docker-persistence/es/data
