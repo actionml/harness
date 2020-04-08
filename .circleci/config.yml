@@ -76,6 +76,11 @@ jobs:
               docker-compose up -d --build
               docker-compose ps
               sleep 45
+              
+              curl elasticsearch.sitespect.actionml.cloud:9200
+
+ 
+
 
               docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
      
@@ -91,7 +96,7 @@ jobs:
               echo "harness-cli simple-integration-test finished"
 
 
-              echo "export RESULT=$RESULT" >> $SHELL_ENV
+              echo "export RESULT=1" >> $SHELL_ENV
             ;;
             *)
               echo "export RESULT=1" >> $SHELL_ENV
