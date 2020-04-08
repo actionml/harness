@@ -73,15 +73,9 @@ jobs:
             master|develop|devops)
               cd docker && \
               mv envs .env &&\
-              docker-compose up -d --build
+              docker-compose up -d --build && docker-compose exec elasticsearch bash -c 'chmod -R 777 /usr/share/elasticsearch/data'
               docker-compose ps
-              ls -la
-              ls -la /
-              pwd
-              sudo find / -type d -name ".docker-persistence" 
 
-
-              chmod -R 777 docker-persistence/es/data
               sleep 45
                          
               docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
