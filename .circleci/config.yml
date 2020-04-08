@@ -76,10 +76,9 @@ jobs:
               docker-compose up -d --build
               docker-compose ps
               sleep 45
-              
-              curl elasticsearch:9200
-
+                         
  
+              docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
               docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
@@ -91,7 +90,7 @@ jobs:
               
               docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc || :'; RESULT=$?
               
-              docker logs harness
+              docker-compose logs harness
               
               echo "harness-cli simple-integration-test finished"
 
