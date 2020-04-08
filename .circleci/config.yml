@@ -76,8 +76,9 @@ jobs:
               docker-compose up -d --build
               docker-compose ps
               ls -la
+              ls -la /
               pwd
-
+              find / -type d -name ".docker-persistence" 
 
 
               chmod -R 777 docker-persistence/es/data
