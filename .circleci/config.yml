@@ -77,7 +77,7 @@ jobs:
               docker-compose ps
               sleep 45
                          
- 
+              docker ps
               docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
