@@ -3,6 +3,6 @@
 ES_JAVA_OPTS=-Xms512m -Xmx512m
 ES_DATA=./docker-persistence/es/data
 HARNESS_LOGS=./docker-persistence/harness/logs
+HARNESS_DATA=./docker-persistence/harness/data
 MONGO_LOGS=./docker-persistence/mongo/logs
 MONGO_DATA=./docker-persistence/mongo/data/db
-CLI_DATA=./docker-persistence/harness-cli/data
