@@ -77,7 +77,7 @@ jobs:
               docker-compose ps
               sleep 45
               
-              curl elasticsearch.sitespect.actionml.cloud:9200
+              curl elasticsearch:9200
 
  
 
