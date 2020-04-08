@@ -17,7 +17,7 @@ services:
       - elasticsearch
     volumes:
       - ${HARNESS_LOGS}:/harness/logs
-      - ${CLI_DATA}:/harness-cli-data
+      - ${HARNESS_DATA}:/data
       
   mongo:
     restart: always
@@ -48,9 +48,6 @@ services:
     image: actionml/harness-cli:develop
     container_name: harness-cli
     environment:
-        PATH: "$PATH:/harness-cli/harness-cli"
         HARNESS_SERVER_ADDRESS: harness
     volumes:
-    - ${CLI_DATA}:/harness-cli-data
-
-    
+    - ${HARNESS_DATA}:/data

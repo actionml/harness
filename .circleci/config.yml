@@ -75,9 +75,9 @@ jobs:
               mv envs .env &&\
               docker-compose up -d --build
               docker-compose ps
+              chmod -R 777 docker-persistence/es/data
               sleep 45
                          
-              docker ps
               docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
