@@ -75,6 +75,11 @@ jobs:
               mv envs .env &&\
               docker-compose up -d --build
               docker-compose ps
+              ls -la
+              pwd
+
+
+
               chmod -R 777 docker-persistence/es/data
               sleep 45
                          
