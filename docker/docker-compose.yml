@@ -40,8 +40,6 @@ services:
       discovery.type: single-node
     ports:
       - "9200:9200"
-    volumes:
-      - ${ES_DATA}:/usr/share/elasticsearch/data
 
   harness-cli:
     restart: always

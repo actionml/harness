@@ -73,7 +73,7 @@ jobs:
             master|develop|devops)
               cd docker && \
               mv envs .env &&\
-              docker-compose up -d --build && docker-compose exec elasticsearch bash -c 'chmod -R 777 /usr/share/elasticsearch/data'
+              docker-compose up -d --build
               docker-compose ps
 
               sleep 45
