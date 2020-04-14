@@ -20,7 +20,7 @@ package com.actionml.router.service
 import com.actionml.admin.Administrator
 import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
-import com.actionml.core.utils.ZIOUtil._
+import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ValidatedImplicits._
 import com.typesafe.scalalogging.LazyLogging
 import zio.IO
 

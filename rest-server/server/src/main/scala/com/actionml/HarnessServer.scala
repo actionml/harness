@@ -19,15 +19,15 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.actionml.admin.{Administrator, MongoAdministrator}
-import com.actionml.router.config.AppConfig
+import com.actionml.admin.{Administrator, EtcdAdministrator, MongoAdministrator}
+import com.actionml.authserver.router.AuthServerProxyRouter
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService}
+import com.actionml.core.config.{AppConfig, StoreBackend}
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
-import com.actionml.core.store.backends.MongoStorage
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -71,7 +71,10 @@ class BaseModule extends Module with LazyLogging {
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   lazy val administrator = {
-    val a = new MongoAdministrator
+    val a = config.enginesBackend match {
+      case StoreBackend.etcd => EtcdAdministrator(config.etcdConfig)
+      case StoreBackend.mongo => new MongoAdministrator
+    }
     a.init
     a
   }

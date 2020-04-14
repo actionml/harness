@@ -38,8 +38,7 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
   private lazy val enginesCollection = storage.createDao[A]("engines")
   private val engineEventsName = "engines_events"
-  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
-  private val enginesEventsDao: DAO[Document] = rt.unsafeRunSync {
+  private val enginesEventsDao: DAO[Document] = zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunSync {
     IO.fromFuture { implicit ec =>
       val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
       import storage.db
@@ -50,10 +49,6 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       } yield storage.createDao[Document](engineEventsName)
     }
   }.fold(c => throw c.failureOption.get, a => a)
-
-  private def logAndIgnore: Task[_] => IO[ValidateError, Unit] = _.catchAll { e =>
-    IO.effectTotal(logger.error("Engines events error", e))
-  }.map(a => logger.info(s"Task completed with result $a"))
 
   override def addEngine(id: String, data: A): IO[ValidateError, Unit] = {
     for {

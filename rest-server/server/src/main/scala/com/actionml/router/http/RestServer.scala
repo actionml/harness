@@ -17,24 +17,23 @@
 
 package com.actionml.router.http
 
-import java.io.{File, FileInputStream}
+import java.io.FileInputStream
 import java.security.{KeyStore, SecureRandom}
 
-import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.DebuggingDirectives
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import scaldi.Injector
 import scaldi.akka.AkkaInjectable
 

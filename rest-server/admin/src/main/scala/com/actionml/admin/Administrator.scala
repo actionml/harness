@@ -98,7 +98,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   }
 
   def updateEngine(json: String): IO[ValidateError, Response] = {
-    import com.actionml.core.utils.ZIOUtil._
+    import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ValidatedImplicits._
     for {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- engines.get(params.engineId)

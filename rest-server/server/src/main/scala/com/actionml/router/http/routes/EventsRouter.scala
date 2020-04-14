@@ -17,27 +17,19 @@
 
 package com.actionml.router.http.routes
 
-import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.{Directives, ExceptionHandler, Route}
-import akka.pattern.ask
-import cats.data.Validated
+import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.core.model.Response
-import com.actionml.core.validate.ValidateError
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.service._
-import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scala.language.postfixOps
 
 /**

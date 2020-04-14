@@ -17,10 +17,24 @@
 
 package com.actionml.admin
 
+import com.actionml.core.config.EtcdConfig
 import com.actionml.core.engine.backend.EnginesEtcdBackend
-import com.actionml.core.validate.JsonSupport
+import com.actionml.core.validate.{JsonSupport, ValidateError}
+import zio.IO
 
-class EtcdAdministrator extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
+class EtcdAdministrator private(_config: EtcdConfig) extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
+
   override protected def encode: EngineMetadata => String = toJsonString
-  override protected def decode: String => Option[EngineMetadata] = parseAndValidate[EngineMetadata](_).toOption
+  override protected def decode: String => IO[ValidateError, EngineMetadata] = parseAndValidateIO[EngineMetadata](_)
+
+  override protected def config: EtcdConfig = _config
+}
+
+object EtcdAdministrator {
+  def apply(config: Option[EtcdConfig]) = {
+    config
+      .filter(_.endpoints.nonEmpty)
+      .map(new EtcdAdministrator(_))
+      .getOrElse(throw new RuntimeException("ERROR: "))
+  }
 }

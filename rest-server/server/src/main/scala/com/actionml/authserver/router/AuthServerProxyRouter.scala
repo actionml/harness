@@ -18,7 +18,7 @@
 package com.actionml.authserver.router
 
 import com.actionml.authserver.services.AuthServerProxyService
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
 import scaldi.Injector
 

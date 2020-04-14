@@ -17,20 +17,47 @@
 
 package com.actionml.core.utils
 
+import java.util.concurrent.CompletableFuture
+
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import zio.{IO, ZIO}
 
+import scala.compat.java8.FunctionConverters.asJavaBiFunction
+
 object ZIOUtil {
 
-  implicit def validated2IO(v: => Validated[ValidateError, Response]): IO[ValidateError, Response] = {
-    IO.effect {
-      v match {
-        case Valid(resp) => IO.succeed(resp)
-        case Invalid(e) => ZIO.fail(e)
+  object ImplicitConversions {
+
+    object ValidatedImplicits {
+      implicit def validated2IO(v: => Validated[ValidateError, Response]): IO[ValidateError, Response] = {
+        IO.effect {
+          v match {
+            case Valid(resp) => IO.succeed(resp)
+            case Invalid(e) => ZIO.fail(e)
+          }
+        }.mapError(e => ValidRequestExecutionError(e.getMessage)).flatten
       }
-    }.mapError(e => ValidRequestExecutionError(e.getMessage)).flatten
+    }
+
+    object ZioImplicits {
+
+      implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
+        def toIO = completableFuture2IO(f)
+      }
+
+      implicit def completableFuture2IO[T](f: CompletableFuture[T]): IO[ValidateError, T] =
+        IO.effectAsync { cb =>
+          f.handle[Unit](asJavaBiFunction((r, err) => {
+            err match {
+              case null => cb.apply(IO.succeed(r))
+              case e => cb.apply(IO.fail(ValidRequestExecutionError()))
+            }
+          }))
+        }
+    }
+
   }
 }
