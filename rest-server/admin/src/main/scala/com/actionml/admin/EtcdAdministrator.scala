@@ -35,6 +35,6 @@ object EtcdAdministrator {
     config
       .filter(_.endpoints.nonEmpty)
       .map(new EtcdAdministrator(_))
-      .getOrElse(throw new RuntimeException("ERROR: "))
+      .getOrElse(throw new RuntimeException("ERROR: Etcd administrator can't be created"))
   }
 }

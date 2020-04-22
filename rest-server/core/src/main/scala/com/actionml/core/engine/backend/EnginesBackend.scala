@@ -17,9 +17,16 @@
 
 package com.actionml.core.engine.backend
 
+import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 import zio.IO
 
+/*
+ * type parameters:
+ *   I - type of engine id
+ *   D - application level type of engine's metadata
+ *   S - storage level type of engine's metadata
+ */
 trait EnginesBackend[I,D,S] {
   def addEngine(id: I, data: D): IO[ValidateError, Unit]
   def updateEngine(id: I, data: D): IO[ValidateError, Unit]

@@ -23,7 +23,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
-import zio.{IO, ZIO}
+import zio.{IO, Task, ZIO}
 
 import scala.compat.java8.FunctionConverters.asJavaBiFunction
 
@@ -46,6 +46,7 @@ object ZIOUtil {
 
       implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
         def toIO = completableFuture2IO(f)
+        def toTask = completableFuture2Task(f)
       }
 
       implicit def completableFuture2IO[T](f: CompletableFuture[T]): IO[ValidateError, T] =
@@ -54,6 +55,16 @@ object ZIOUtil {
             err match {
               case null => cb.apply(IO.succeed(r))
               case e => cb.apply(IO.fail(ValidRequestExecutionError()))
+            }
+          }))
+        }
+
+      def completableFuture2Task[T](f: CompletableFuture[T]): Task[T] =
+        IO.effectAsync { cb =>
+          f.handle[Unit](asJavaBiFunction((r, err) => {
+            err match {
+              case null => cb.apply(IO.succeed(r))
+              case e => cb.apply(IO.fail(e))
             }
           }))
         }

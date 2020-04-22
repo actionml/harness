@@ -18,70 +18,158 @@
 package com.actionml.core.engine.backend
 
 import java.nio.charset.Charset
+import java.util.UUID
 import java.util.function.Consumer
 
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError}
-import io.etcd.jetcd.options.{GetOption, WatchOption}
+import com.typesafe.scalalogging.LazyLogging
+import io.etcd.jetcd._
+import io.etcd.jetcd.lease.LeaseKeepAliveResponse
+import io.etcd.jetcd.options.{GetOption, PutOption, WatchOption}
 import io.etcd.jetcd.watch.WatchResponse
-import io.etcd.jetcd.{ByteSequence, Client}
-import zio.{IO, ZIO, ZLayer}
+import io.grpc.stub.StreamObserver
+import zio.duration._
+import zio.logging._
+import zio.logging.slf4j._
+import zio.{Cause, IO, Schedule, ZIO, ZLayer}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
-trait EnginesEtcdBackend[A] extends EnginesBackend[String, A, String] {
+trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
+  import EnginesEtcdBackend._
+  import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ZioImplicits._
   protected def config: EtcdConfig
+  private var _callback: () => Unit = () => ()
 
   private val etcdClient: IO[ValidateError, Client] =
     IO.effect(Client.builder.endpoints(config.endpoints: _*).build)
-      .mapError(e => ValidRequestExecutionError())
-  private val kv = etcdClient.map(_.getKVClient)
-  private val watch = etcdClient.map(_.getWatchClient)
-  private val prefix = "/harness_meta_store/engines/"
-  private val etcdCharset = Charset.forName("UTF-8")
-  private implicit def toByteSequence(s: String): ByteSequence = ByteSequence.from(s.getBytes)
-  import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ZioImplicits._
-
-  protected def encode: A => String
-  protected def decode: String => IO[ValidateError, A]
-
-  override def addEngine(id: String, data: A): IO[ValidateError, Unit] = {
+      .flatMapError { e =>
+        log.error("Etcd client error", Cause.die(e))
+          .provideLayer { Slf4jLogger.make{(context, message) =>
+            val logFormat = "[correlation-id = %s] %s"
+            val correlationId = LogAnnotation.CorrelationId.render(context.get(LogAnnotation.CorrelationId))
+            logFormat.format(correlationId, message)
+          }}
+          .map(_ => ValidRequestExecutionError())
+      }
+  private val getKV = etcdClient.map(_.getKVClient)
+  private val getWatch = etcdClient.map(_.getWatchClient)
+  private val getLease = etcdClient.map(_.getLeaseClient)
+  private var harnessId: Long = _
+  private var keepAliveClient: CloseableClient = _
+  private val observer = new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+    override def onCompleted(): Unit = {
+      run(registerHarness)
+    }
+    override def onNext(resp: LeaseKeepAliveResponse): Unit = harnessId = resp.getID
+    override def onError(e: Throwable): Unit = {
+      logger.error("Etcd keep-alive error", e)
+      run(registerHarness)
+    }
+  }
+  val registerHarness: IO[ValidateError, Unit] = {
     for {
-      client <- kv
-      _ <- client.put(prefix + id, encode(data)).unit
+      // "register" as an instance with lease id, keep-alive
+      lease <- getLease
+      _ <- cleanPreviousRegistration(lease)
+      resp <- lease.grant(10).toIO
+      leaseId = resp.getID
+      instanceKey = s"${servicesPrefix}harness-$leaseId"
+      kv <- getKV
+      kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
+      _ <- kv.put(instanceKey, "", kOpt)
+      // subscribe to new actions
+      watch <- getWatch
+      _ = startActionsWatcher(watch, kv, instanceKey, kOpt)
+//      _ <- log.info(s"GOT harnessId=$leaseId")
+    } yield {
+      keepAliveClient = lease.keepAlive(leaseId, observer)
+      harnessId = leaseId
+    }
+  }
+
+  private def startActionsWatcher(watch: Watch, kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): Unit = {
+    val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
+    def _onNext(response: WatchResponse): Unit = {
+      _callback()
+      kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
+    }
+    def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger): Unit = {
+      logger.error("Actions watch error", e)
+      startWatcher()
+    }
+    def _onCompleted(logger: com.typesafe.scalalogging.Logger): Unit = {
+      logger.debug("Actions watcher completed")
+      startWatcher()
+    }
+    def mkActionsListener = new Watch.Listener with LazyLogging {
+      override def onNext(response: WatchResponse): Unit = _onNext(response)
+      override def onError(e: Throwable): Unit = _onError(e, logger)
+      override def onCompleted(): Unit = _onCompleted(logger)
+    }
+    def startWatcher() = watch.watch(actionsPrefix, wOpt, mkActionsListener)
+
+    startWatcher()
+  }
+
+  private def cleanPreviousRegistration(lease: Lease): IO[ValidateError, Unit] = {
+    for {
+      _ <- lease.revoke(harnessId).ignore.fork
+      _ <- IO.effect(keepAliveClient.close()).ignore.fork
     } yield ()
   }
 
-  override def updateEngine(id: String, data: A): IO[ValidateError, Unit] = {
+  run(registerHarness)
+
+  protected def encode: D => String
+  protected def decode: String => IO[ValidateError, D]
+
+  override def addEngine(id: String, data: D): IO[ValidateError, Unit] = {
     for {
-      client <- kv
-      _ <- client.put(prefix + id, encode(data)).unit
+      kv <- getKV
+      _ <- kv.put(enginesPrefix + id, encode(data)).unit
+      actionId = UUID.randomUUID()
+      _ <- updateActionsInfo(actionId)
+      _ <- findUpdated(actionId)
+    } yield ()
+  }
+
+  override def updateEngine(id: String, data: D): IO[ValidateError, Unit] = {
+    for {
+      kv <- getKV
+      _ <- kv.put(enginesPrefix + id, encode(data)).unit
+      actionId = UUID.randomUUID()
+      _ <- updateActionsInfo(actionId)
+      _ <- findUpdated(actionId)
     } yield ()
   }
 
   override def deleteEngine(id: String): IO[ValidateError, Unit] = {
     for {
-      client <- kv
-      _ <- client.delete(prefix + id).unit
+      kv <- getKV
+      _ <- kv.delete(enginesPrefix + id).unit
+      actionId = UUID.randomUUID()
+      _ <- updateActionsInfo(actionId)
+      _ <- findUpdated(actionId)
     } yield ()
   }
 
-  override def findEngine(id: String): IO[ValidateError, A] = {
+  override def findEngine(id: String): IO[ValidateError, D] = {
     for {
-      client <- kv
-      r <- client.get(id)
-      e <- r.getKvs.asScala.headOption.fold[IO[ValidateError, A]](IO.fail(ResourceNotFound(s"Engine $id not found"))) { e =>
+      kv <- getKV
+      r <- kv.get(id)
+      e <- r.getKvs.asScala.headOption.fold[IO[ValidateError, D]](IO.fail(ResourceNotFound(s"Engine $id not found"))) { e =>
         decode(e.getKey.toString(etcdCharset))
       }
     } yield e
   }
 
-  override def listEngines: IO[ValidateError, Iterable[A]] = {
-    val opts = GetOption.newBuilder().withPrefix(prefix).build()
+  override def listEngines: IO[ValidateError, Iterable[D]] = {
     for {
-      client <- kv
-      response <- client.get(prefix, opts)
+      kv <- getKV
+      response <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
       result <- ZIO.collectAll(response.getKvs.asScala.map { v =>
         decode(v.getValue.toString(etcdCharset))
       })
@@ -89,12 +177,63 @@ trait EnginesEtcdBackend[A] extends EnginesBackend[String, A, String] {
   }
 
   override def onChange(callback: () => Unit): Unit = {
-    val watchOptions = WatchOption.newBuilder().withPrefix(prefix).build
+    this._callback = callback
     zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunSync {
-      watch.map(_.watch(ByteSequence.EMPTY, watchOptions, new Consumer[WatchResponse] {
+      getWatch.map(_.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Consumer[WatchResponse] {
         override def accept(t: WatchResponse): Unit = callback()
       }))
     }
     callback()
+  }
+
+  private def updateActionsInfo(actionId: UUID): IO[ValidateError, Unit] = {
+    for {
+      kv <- getKV
+      _ <- kv.put(s"${actionsPrefix}$actionId", "")
+    } yield ()
+  }
+
+  // waits for all instances to update their state
+  private def findUpdated(actionUuid: UUID): IO[ValidateError, Unit] = {
+    val actionId = actionUuid.toString
+    val fetchAllOpt = GetOption.newBuilder().withMinModRevision(1).build // fetch all from the beginning
+    def waitForAction(instanceKey: ByteSequence, kv: KV): IO[ValidateError, Unit] = {
+      (for {
+        olderKeys <- kv.get(instanceKey, fetchAllOpt)
+        _ <- if (olderKeys.getKvs.asScala.exists(_.getValue.toString(etcdCharset) == actionId)) IO.unit
+             else kv.get(instanceKey, fetchAllOpt)
+               .toIO
+               .repeat(Schedule.linear(500.milliseconds).untilInput(_.getKvs.asScala.exists(_.getValue.toString(etcdCharset) == actionId)))
+               .timeout(3.seconds)
+      } yield ()).provideLayer(zio.clock.Clock.live)
+    }
+    for {
+      kv <- getKV
+      // fetch all registered harness instances
+      instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
+      // wait for them to update
+      _ <- ZIO.collectAll(instances.getKvs.asScala.map { i =>
+        if (i.getValue.toString(etcdCharset) == actionId) IO.unit
+        else waitForAction(i.getKey, kv)
+      })
+    } yield ()
+  }
+}
+
+object EnginesEtcdBackend {
+  private implicit def toByteSequence(s: String): ByteSequence =
+    if (s.isEmpty) ByteSequence.EMPTY
+    else ByteSequence.from(s.getBytes)
+
+  private val enginesPrefix = "/harness_meta_store/engines/"
+  private val servicesPrefix = "/services/harness/instances/"
+  private val actionsPrefix = "/services/harness/actions/"
+  private val etcdCharset = Charset.forName("UTF-8")
+  private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build
+  private def watchPrefixOpt(prefix: String) = WatchOption.newBuilder().withPrefix(prefix).build
+
+  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
+  private def run(io: IO[ValidateError, Unit]) = {
+    rt.unsafeRunSync(io)
   }
 }
