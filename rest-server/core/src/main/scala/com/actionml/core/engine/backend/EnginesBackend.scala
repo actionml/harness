@@ -17,9 +17,8 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
-import zio.IO
+import zio.{IO, Queue}
 
 /*
  * type parameters:
@@ -33,5 +32,5 @@ trait EnginesBackend[I,D,S] {
   def deleteEngine(id: I): IO[ValidateError, Unit]
   def findEngine(id: I): IO[ValidateError, D]
   def listEngines: IO[ValidateError, Iterable[D]]
-  def onChange(callback: () => Unit): Unit = ()
+  def changesQueue: IO[ValidateError, Queue[Unit]]
 }

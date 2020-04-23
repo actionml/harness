@@ -25,7 +25,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
-import zio.{IO, Task, ZLayer}
+import zio.{IO, Queue, ZLayer}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -80,11 +80,14 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def onChange(callback: () => Unit): Unit = {
-    startWatching(callback)
+  override def changesQueue: IO[ValidateError, Queue[Unit]] = {
+    for {
+      q <- Queue.unbounded[Unit]
+      _ = startWatching(q)
+    } yield q
   }
 
-  private def startWatching(callback: () => Unit): Unit = {
+  private def startWatching(queue: Queue[Unit]): Unit = {
     enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
       .collection
       .find()
@@ -92,15 +95,11 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .noCursorTimeout(true)
       .subscribe(new Observer[Document] {
         override def onNext(result: Document): Unit = {
-          try {
-            callback()
-          } catch {
-            case NonFatal(e) => logger.error("Engines events watch error", e)
-          }
+          queue.offer(())
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)
-          startWatching(callback)
+          startWatching(queue)
         }
         override def onComplete(): Unit = {}
       })

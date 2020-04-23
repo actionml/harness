@@ -26,6 +26,7 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{drawActionML, drawInfo}
 import com.typesafe.scalalogging.LazyLogging
+import zio.stream.ZStream
 import zio.{IO, ZIO, ZLayer}
 
 import scala.util.Properties
@@ -34,16 +35,21 @@ import scala.util.Properties
 trait Administrator extends LazyLogging with JsonSupport {
   this: EnginesBackend[String, EngineMetadata, _] =>
   var engines = Map.empty[String, Engine]
-  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
-  private val updateEngines: () => Unit = () => {
-    rt.unsafeRunSync(listEngines.map { l =>
+  private val updateEngines: ZIO[Any, ValidateError, Unit] = {
+    listEngines.map { l =>
       engines = l.map(e => e.engineId -> newEngineInstance(e.engineFactory, e.params)).toMap
-    }).fold[Unit](cause => cause.failureOption.foreach(e => logger.error("Update engines error", e)), _ => ())
+    }
   }
 
-  onChange(updateEngines)
+  zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunAsync {
+    for {
+      q <- changesQueue
+      notifications = ZStream.fromQueue(q)
+      _ <- notifications.foreach(_ => updateEngines)
+    } yield ()
+  }(_ => logger.warn("FINISHED UPDATING ENGINES"))
 
-  drawActionML
+  drawActionML()
 
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
     Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.TRUE).asInstanceOf[Engine]

@@ -19,7 +19,6 @@ package com.actionml.core.engine.backend
 
 import java.nio.charset.Charset
 import java.util.UUID
-import java.util.function.Consumer
 
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError}
@@ -32,7 +31,7 @@ import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
 import zio.logging.slf4j._
-import zio.{Cause, IO, Schedule, ZIO, ZLayer}
+import zio.{Cause, IO, Queue, Schedule, ZIO, ZLayer}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -41,7 +40,6 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   import EnginesEtcdBackend._
   import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ZioImplicits._
   protected def config: EtcdConfig
-  private var _callback: () => Unit = () => ()
 
   private val etcdClient: IO[ValidateError, Client] =
     IO.effect(Client.builder.endpoints(config.endpoints: _*).build)
@@ -59,17 +57,17 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   private val getLease = etcdClient.map(_.getLeaseClient)
   private var harnessId: Long = _
   private var keepAliveClient: CloseableClient = _
-  private val observer = new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+  private def observer(q: Queue[Unit]) = new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
     override def onCompleted(): Unit = {
-      run(registerHarness)
+      q.offer(())
     }
     override def onNext(resp: LeaseKeepAliveResponse): Unit = harnessId = resp.getID
     override def onError(e: Throwable): Unit = {
       logger.error("Etcd keep-alive error", e)
-      run(registerHarness)
     }
   }
-  val registerHarness: IO[ValidateError, Unit] = {
+
+  override def changesQueue: IO[ValidateError, Queue[Unit]] = {
     for {
       // "register" as an instance with lease id, keep-alive
       lease <- getLease
@@ -82,19 +80,24 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       _ <- kv.put(instanceKey, "", kOpt)
       // subscribe to new actions
       watch <- getWatch
-      _ = startActionsWatcher(watch, kv, instanceKey, kOpt)
+      q <- Queue.unbounded[Unit]
+      _ = startActionsWatcher(watch, q, kv, instanceKey, kOpt)
 //      _ <- log.info(s"GOT harnessId=$leaseId")
     } yield {
-      keepAliveClient = lease.keepAlive(leaseId, observer)
+      println(s"GOT harnessId=$leaseId")
+      keepAliveClient = lease.keepAlive(leaseId, observer(q))
       harnessId = leaseId
+      q
     }
   }
 
-  private def startActionsWatcher(watch: Watch, kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): Unit = {
+  private def startActionsWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): Unit = {
     val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
-    def _onNext(response: WatchResponse): Unit = {
-      _callback()
-      kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
+    def _onNext(response: WatchResponse): Unit = run {
+      for {
+        _ <- queue.offer(())
+        _ <- kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
+      } yield ()
     }
     def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger): Unit = {
       logger.error("Actions watch error", e)
@@ -120,8 +123,6 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       _ <- IO.effect(keepAliveClient.close()).ignore.fork
     } yield ()
   }
-
-  run(registerHarness)
 
   protected def encode: D => String
   protected def decode: String => IO[ValidateError, D]
@@ -174,16 +175,6 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
         decode(v.getValue.toString(etcdCharset))
       })
     } yield result
-  }
-
-  override def onChange(callback: () => Unit): Unit = {
-    this._callback = callback
-    zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunSync {
-      getWatch.map(_.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Consumer[WatchResponse] {
-        override def accept(t: WatchResponse): Unit = callback()
-      }))
-    }
-    callback()
   }
 
   private def updateActionsInfo(actionId: UUID): IO[ValidateError, Unit] = {
