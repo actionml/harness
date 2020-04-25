@@ -507,7 +507,7 @@ class URAlgorithm private (
       eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
         limit = maxQueryEvents
       )("entityId" === user).map { uh =>
-        val userHistory = uh.toSeq.view
+        //val userHistory = uh.toSeq.view
         val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
         // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
         // strength. DO NOT document, only for tests
@@ -515,7 +515,7 @@ class URAlgorithm private (
         val userHistBias = query.userBias.getOrElse(userBias)
         val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-        userHistory
+        val userHistory = uh.toSeq
           // .distinct // these will be distinct so this is redundant
           .filter { event =>
             queryEventNamesFilter.contains(event.event)
@@ -528,7 +528,8 @@ class URAlgorithm private (
           .groupBy(_.event)
           .flatMap { case (name, events) =>
             events.sortBy(_.eventTime) // implicit ordering
-              .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+              .take(indicatorsMap(name)
+                .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
           }.toSeq
 
         val userEvents = modelEventNames.map { name =>
