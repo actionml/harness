@@ -24,6 +24,7 @@ import java.util.{Date, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
@@ -107,7 +108,7 @@ trait JsonSupport extends LazyLogging {
 
   def parseAndValidateIO[T](json: String,
                             errorMsg: String = "",
-                            transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): IO[ValidateError, T] = {
+                            transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): HIO[T] = {
     lazy val msg = if (errorMsg.isEmpty) {
       tag.tpe match {
         case TypeRef(_, _, args) =>

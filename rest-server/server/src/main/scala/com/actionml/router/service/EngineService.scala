@@ -18,6 +18,7 @@
 package com.actionml.router.service
 
 import com.actionml.admin.Administrator
+import com.actionml.core.HIO
 import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ValidatedImplicits._
@@ -32,25 +33,25 @@ import zio.IO
   */
 
 trait EngineService {
-  def getSystemInfo: IO[ValidateError, Response]
-  def status(engineId: String): IO[ValidateError, Response]
-  def statuses(): IO[ValidateError, List[Response]]
-  def addEngine(engineJson: String): IO[ValidateError, Response]
-  def updateEngine(engineJson: String): IO[ValidateError, Response]
-  def train(engineId: String): IO[ValidateError, Response]
-  def importFromPath(engineId: String, importPath: String): IO[ValidateError, Response]
-  def deleteEngine(engineId: String): IO[ValidateError, Response]
-  def cancelJob(engineId: String, jobId: String): IO[ValidateError, Response]
+  def getSystemInfo: HIO[Response]
+  def status(engineId: String): HIO[Response]
+  def statuses(): HIO[List[Response]]
+  def addEngine(engineJson: String): HIO[Response]
+  def updateEngine(engineJson: String): HIO[Response]
+  def train(engineId: String): HIO[Response]
+  def importFromPath(engineId: String, importPath: String): HIO[Response]
+  def deleteEngine(engineId: String): HIO[Response]
+  def cancelJob(engineId: String, jobId: String): HIO[Response]
 }
 
 class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLogging {
-  override def getSystemInfo: IO[ValidateError, Response] = admin.systemInfo()
-  override def status(engineId: String): IO[ValidateError, Response] = admin.status(engineId)
-  override def statuses(): IO[ValidateError, List[Response]] =  admin.statuses()
-  override def addEngine(engineJson: String): IO[ValidateError, Response] = admin.addEngine(engineJson)
-  override def updateEngine(engineJson: String): IO[ValidateError, Response] = admin.updateEngine(engineJson)
-  override def train(engineId: String): IO[ValidateError, Response] = admin.updateEngineWithTrain(engineId)
-  override def importFromPath(engineId: String, importPath: String): IO[ValidateError, Response] = admin.updateEngineWithImport(engineId, importPath)
-  override def deleteEngine(engineId: String): IO[ValidateError, Response] = admin.removeEngine(engineId)
-  override def cancelJob(engineId: String, jobId: String): IO[ValidateError, Response] = admin.cancelJob(engineId = engineId, jobId = jobId)
+  override def getSystemInfo: HIO[Response] = admin.systemInfo()
+  override def status(engineId: String): HIO[Response] = admin.status(engineId)
+  override def statuses(): HIO[List[Response]] =  admin.statuses()
+  override def addEngine(engineJson: String): HIO[Response] = admin.addEngine(engineJson)
+  override def updateEngine(engineJson: String): HIO[Response] = admin.updateEngine(engineJson)
+  override def train(engineId: String): HIO[Response] = admin.updateEngineWithTrain(engineId)
+  override def importFromPath(engineId: String, importPath: String): HIO[Response] = admin.updateEngineWithImport(engineId, importPath)
+  override def deleteEngine(engineId: String): HIO[Response] = admin.removeEngine(engineId)
+  override def cancelJob(engineId: String, jobId: String): HIO[Response] = admin.cancelJob(engineId = engineId, jobId = jobId)
 }

@@ -17,8 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.validate.ValidateError
-import zio.{IO, Queue}
+import com.actionml.core.{HIO, HStream}
 
 /*
  * type parameters:
@@ -27,10 +26,10 @@ import zio.{IO, Queue}
  *   S - storage level type of engine's metadata
  */
 trait EnginesBackend[I,D,S] {
-  def addEngine(id: I, data: D): IO[ValidateError, Unit]
-  def updateEngine(id: I, data: D): IO[ValidateError, Unit]
-  def deleteEngine(id: I): IO[ValidateError, Unit]
-  def findEngine(id: I): IO[ValidateError, D]
-  def listEngines: IO[ValidateError, Iterable[D]]
-  def changesQueue: IO[ValidateError, Queue[Unit]]
+  def addEngine(id: I, data: D): HIO[Unit]
+  def updateEngine(id: I, data: D): HIO[Unit]
+  def deleteEngine(id: I): HIO[Unit]
+  def findEngine(id: I): HIO[D]
+  def listEngines: HIO[Iterable[D]]
+  def modificationEventsQueue: HStream[Unit]
 }

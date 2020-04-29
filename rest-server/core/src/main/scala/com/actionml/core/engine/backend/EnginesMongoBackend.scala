@@ -17,6 +17,7 @@
 
 package com.actionml.core.engine.backend
 
+import com.actionml.core.{HIO, HStream}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
@@ -25,12 +26,12 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
+import zio.stream.ZStream
 import zio.{IO, Queue, ZLayer}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-import scala.util.control.NonFatal
 
 
 abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[String, A, Document] with LazyLogging {
@@ -50,19 +51,19 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
     }
   }.fold(c => throw c.failureOption.get, a => a)
 
-  override def addEngine(id: String, data: A): IO[ValidateError, Unit] = {
+  override def addEngine(id: String, data: A): HIO[Unit] = {
     for {
       _ <- enginesCollection.insertIO(data)
       _ <- enginesEventsDao.insertIO(mkEvent(id, "add"))
     } yield ()
   }
 
-  override def updateEngine(id: String, data: A): IO[ValidateError, Unit] = {
+  override def updateEngine(id: String, data: A): HIO[Unit] = {
     IO.effect(enginesCollection.saveOne("engineId" === id, data))
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def deleteEngine(id: String): IO[ValidateError, Unit] = {
+  override def deleteEngine(id: String): HIO[Unit] = {
     for {
       _ <- IO.effect(enginesCollection.removeOne("engineId" === id)).unit
         .mapError(_ => ValidRequestExecutionError())
@@ -70,7 +71,7 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
     } yield ()
   }
 
-  override def findEngine(id: String): IO[ValidateError, A] = {
+  override def findEngine(id: String): HIO[A] = {
     IO.effect(enginesCollection.findOne("engineId" === id).get)
       .mapError(_ => ValidRequestExecutionError())
   }
@@ -80,11 +81,11 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def changesQueue: IO[ValidateError, Queue[Unit]] = {
-    for {
+  override def modificationEventsQueue: HStream[Unit] = {
+    ZStream.fromEffect(for {
       q <- Queue.unbounded[Unit]
       _ = startWatching(q)
-    } yield q
+    } yield ZStream.fromQueue(q))
   }
 
   private def startWatching(queue: Queue[Unit]): Unit = {

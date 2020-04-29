@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import zio.{IO, Task, ZIO}
@@ -32,7 +33,7 @@ object ZIOUtil {
   object ImplicitConversions {
 
     object ValidatedImplicits {
-      implicit def validated2IO(v: => Validated[ValidateError, Response]): IO[ValidateError, Response] = {
+      implicit def validated2IO(v: => Validated[ValidateError, Response]): HIO[Response] = {
         IO.effect {
           v match {
             case Valid(resp) => IO.succeed(resp)
@@ -49,7 +50,7 @@ object ZIOUtil {
         def toTask = completableFuture2Task(f)
       }
 
-      implicit def completableFuture2IO[T](f: CompletableFuture[T]): IO[ValidateError, T] =
+      implicit def completableFuture2IO[T](f: CompletableFuture[T]): HIO[T] =
         IO.effectAsync { cb =>
           f.handle[Unit](asJavaBiFunction((r, err) => {
             err match {

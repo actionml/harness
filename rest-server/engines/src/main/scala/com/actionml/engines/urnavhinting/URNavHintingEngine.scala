@@ -19,7 +19,7 @@ package com.actionml.engines.urnavhinting
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
@@ -98,7 +98,7 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with URNavHintingEngine's status
-  override def status(): IO[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logStatus(params)
     IO.effect(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
       .mapError { e =>

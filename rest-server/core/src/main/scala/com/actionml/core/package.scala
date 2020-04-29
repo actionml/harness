@@ -1,6 +1,12 @@
 package com.actionml
 
+import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import zio.{Has, ZIO, ZLayer}
+import zio.clock.Clock
+import zio.logging.{LogAnnotation, Logging}
+import zio.logging.slf4j.Slf4jLogger
+import zio.stream.ZStream
 
 package object core  extends LazyLogging {
 
@@ -51,5 +57,12 @@ package object core  extends LazyLogging {
 
   case class BadParamsException(message: String) extends Exception(message)
 
+  type HEnv = Clock with Logging
+  type HIO[A] = ZIO[HEnv, ValidateError, A]
+  type HStream[A] = ZStream[HEnv, ValidateError, A]
 
+  val harnessRuntime = zio.Runtime.unsafeFromLayer {
+    Slf4jLogger.make((c, s) => s) ++
+    Clock.live
+  }
 }

@@ -17,6 +17,7 @@
 
 package com.actionml.admin
 
+import com.actionml.core.HIO
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.engine.backend.EnginesEtcdBackend
 import com.actionml.core.validate.{JsonSupport, ValidateError}
@@ -25,7 +26,7 @@ import zio.IO
 class EtcdAdministrator private(_config: EtcdConfig) extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
 
   override protected def encode: EngineMetadata => String = toJsonString
-  override protected def decode: String => IO[ValidateError, EngineMetadata] = parseAndValidateIO[EngineMetadata](_)
+  override protected def decode: String => HIO[EngineMetadata] = parseAndValidateIO[EngineMetadata](_)
 
   override protected def config: EtcdConfig = _config
 }

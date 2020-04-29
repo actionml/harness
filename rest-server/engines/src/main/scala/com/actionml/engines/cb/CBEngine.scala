@@ -19,7 +19,7 @@ package com.actionml.engines.cb
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine._
 import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
@@ -80,7 +80,7 @@ class CBEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): IO[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     val status = CBStatus(
       engineParams = this.params,

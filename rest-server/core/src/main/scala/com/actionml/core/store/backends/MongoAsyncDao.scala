@@ -19,7 +19,7 @@ package com.actionml.core.store.backends
 
 import java.util.concurrent.TimeUnit
 
-import com.actionml.core.store
+import com.actionml.core.{HIO, store}
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
@@ -78,7 +78,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
     }
   }
 
-  override def insertIO(o: T): IO[ValidateError, Unit] = {
+  override def insertIO(o: T): HIO[Unit] = {
     IO.fromFuture(implicit ec => collection.insertOne(o).toFuture()).unit
       .mapError(_ => ValidRequestExecutionError())
   }

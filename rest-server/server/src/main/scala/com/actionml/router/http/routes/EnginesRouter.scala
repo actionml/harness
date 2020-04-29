@@ -27,12 +27,12 @@ import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.core.config.AppConfig
+import com.actionml.core.{HIO, harnessRuntime}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.actionml.router.service._
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
-import zio.{IO, ZLayer}
 
 import scala.concurrent.{Future, Promise}
 
@@ -97,10 +97,9 @@ class EnginesRouter(engineService: EngineServiceImpl)(implicit inj: Injector) ex
     }
   }
 
-  private val rt = zio.Runtime.unsafeFromLayer(ZLayer.succeed())
-  private implicit def io2future[A](io: IO[ValidateError, A]): Future[Validated[ValidateError, A]] = {
+  private implicit def io2future[A](io: HIO[A]): Future[Validated[ValidateError, A]] = {
     val p = Promise[Validated[ValidateError, A]]()
-    rt.unsafeRunAsync{ io.map { a =>
+    harnessRuntime.unsafeRunAsync{ io.map { a =>
       Valid(a)
     }.mapError { e => Invalid(e)}} {
       case zio.Exit.Success(a) => p.success(a)

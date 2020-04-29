@@ -24,37 +24,33 @@ import com.actionml.core.engine.backend.EnginesBackend
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
-import com.actionml.core.{drawActionML, drawInfo}
+import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
-import zio.stream.ZStream
-import zio.{IO, ZIO, ZLayer}
+import zio.{IO, ZIO}
 
+import scala.collection.mutable
 import scala.util.Properties
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 trait Administrator extends LazyLogging with JsonSupport {
   this: EnginesBackend[String, EngineMetadata, _] =>
   var engines = Map.empty[String, Engine]
-  private val updateEngines: ZIO[Any, ValidateError, Unit] = {
-    listEngines.map { l =>
-      engines = l.map(e => e.engineId -> newEngineInstance(e.engineFactory, e.params)).toMap
-    }
-  }
 
-  zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunAsync {
-    for {
-      q <- changesQueue
-      notifications = ZStream.fromQueue(q)
-      _ <- notifications.foreach(_ => updateEngines)
-    } yield ()
-  }(_ => logger.warn("FINISHED UPDATING ENGINES"))
+  harnessRuntime.unsafeRunAsync {
+    modificationEventsQueue.foreach { _ =>
+      listEngines.flatMap { l =>
+        ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
+          .map(l => engines = l.map(e => e.engineId -> e).toMap)
+      }
+    }
+  }(_ => logger.warn("Engines updates stopped"))
 
   drawActionML()
 
   private def newEngineInstance(engineFactory: String, json: String): Engine = {
     Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.TRUE).asInstanceOf[Engine]
   }
-  private def newEngineInstanceIO(engineFactory: String, json: String): IO[ValidateError, Engine] = {
+  private def newEngineInstanceIO(engineFactory: String, json: String): HIO[Engine] = {
     val error = ParseError(jsonComment(s"Unable to create Engine the config JSON seems to be in error"))
     IO.effect(newEngineInstance(engineFactory, json))
       .mapError { e =>
@@ -74,9 +70,7 @@ trait Administrator extends LazyLogging with JsonSupport {
     this
   }
 
-  def getEngine(engineId: String): Option[Engine] = {
-    engines.get(engineId)
-  }
+  def getEngine(engineId: String): Option[Engine] = engines.get(engineId)
 
   // engine management
   /*
@@ -86,7 +80,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   Success/failure indicated in the HTTP return code
   Action: creates or modifies an existing engine
   */
-  def addEngine(json: String): IO[ValidateError, Response] = {
+  def addEngine(json: String): HIO[Response] = {
     for {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- getEngine(params.engineId).fold {
@@ -103,12 +97,12 @@ trait Administrator extends LazyLogging with JsonSupport {
     } yield result
   }
 
-  def updateEngine(json: String): IO[ValidateError, Response] = {
+  def updateEngine(json: String): HIO[Response] = {
     import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ValidatedImplicits._
     for {
       params <- parseAndValidateIO[GenericEngineParams](json)
-      result <- engines.get(params.engineId)
-          .fold[IO[ValidateError,Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
+      result <- getEngine(params.engineId)
+          .fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
             updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).flatMap { _ =>
               existingEngine.init(json, update = true)
             }.mapError(e => ValidRequestExecutionError())
@@ -117,13 +111,13 @@ trait Administrator extends LazyLogging with JsonSupport {
   }
 
   def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, Response] = {
-    engines.get(engineId).fold[Validated[ValidateError, Response]](
+    getEngine(engineId).fold[Validated[ValidateError, Response]](
       Invalid(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
     )(_.batchInput(importPath))
   }
 
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
-    val eid = engines.get(engineId)
+    val eid = getEngine(engineId)
     if (eid.isDefined) {
       eid.get.train()
     } else {
@@ -131,8 +125,8 @@ trait Administrator extends LazyLogging with JsonSupport {
     }
   }
 
-  def removeEngine(engineId: String): IO[ValidateError, Response] = {
-    engines.get(engineId).fold[IO[ValidateError, Response]] {
+  def removeEngine(engineId: String): HIO[Response] = {
+    getEngine(engineId).fold[HIO[Response]] {
       logger.warn(s"Cannot removeOne, non-existent engine for engineId: $engineId")
       IO.fail(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     } { deadEngine =>
@@ -147,7 +141,7 @@ trait Administrator extends LazyLogging with JsonSupport {
     }
   }
 
-  def systemInfo(): IO[ValidateError, Response] = {
+  def systemInfo(): HIO[Response] = {
     logger.trace("Getting Harness system info")
     // todo: do we want to check connectons to services here?
     IO.effect(SystemInfo(
@@ -163,12 +157,12 @@ trait Administrator extends LazyLogging with JsonSupport {
     }
   }
 
-  def statuses(): IO[ValidateError, List[Response]] = {
+  def statuses(): HIO[List[Response]] = {
     logger.trace("Getting status for all Engines")
     ZIO.collectAll(engines.map(_._2.status()))
   }
 
-  def status(resourceId: String): IO[ValidateError, Response] = {
+  def status(resourceId: String): HIO[Response] = {
     if (engines.contains(resourceId)) {
       logger.trace(s"Getting status for $resourceId")
       engines(resourceId).status()
@@ -179,7 +173,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   }
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = {
-    engines.get(engineId).map { engine =>
+    getEngine(engineId).map { engine =>
       engine.cancelJob(engineId, jobId)
     }.getOrElse {
       logger.error(s"Non-existent engine-id: $engineId")

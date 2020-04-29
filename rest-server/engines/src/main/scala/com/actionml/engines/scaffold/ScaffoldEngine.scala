@@ -19,7 +19,7 @@ package com.actionml.engines.scaffold
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine._
 import com.actionml.core.model._
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
@@ -77,7 +77,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): IO[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
     IO.succeed(this.params)
   }

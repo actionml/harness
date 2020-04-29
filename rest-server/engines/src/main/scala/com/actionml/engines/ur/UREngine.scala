@@ -21,7 +21,7 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
@@ -129,7 +129,7 @@ class UREngine extends Engine with JsonSupport {
   override def inputMany: Seq[String] => Unit = dataset.inputMany
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): IO[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logStatus(params)
     IO.effect(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
       .mapError { e =>
