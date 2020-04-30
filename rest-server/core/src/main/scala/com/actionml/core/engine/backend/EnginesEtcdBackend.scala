@@ -33,7 +33,7 @@ import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
 import zio.stream.ZStream
-import zio.{Cause, IO, Queue, Schedule, ZIO}
+import zio.{Cause, Exit, IO, Queue, Schedule, ZIO}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -56,25 +56,29 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient)
 
   private def mkObserver: HStream[Long] = ZStream.fromEffect {
+    keepAlive.onExit {
+      case Exit.Success((_, client)) => ZIO.effect(client.close()).fork
+    }.map { case (q, _) => q }
+  }.flatMap(ZStream.fromQueue)
+
+  private def keepAlive: HIO[(Queue[Long], CloseableClient)] = {
     for {
-      harnessIdQ <- Queue.dropping[Long](1)
+      harnessIdQ <- Queue.sliding[Long](1)
       lease <- getLease
       leaseId <- lease.grant(10).toIO.map(_.getID)
-      _ <- harnessIdQ.offer(leaseId).unit
+      _ <- harnessIdQ.offer(leaseId)
       observer = new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-        override def onCompleted(): Unit = {
-          // todo: do something
-          ???
+        override def onCompleted(): Unit = {}
+        override def onNext(resp: LeaseKeepAliveResponse): Unit = harnessRuntime.unsafeRunSync {
+          harnessIdQ.offer(resp.getID)
         }
-        override def onNext(resp: LeaseKeepAliveResponse): Unit = harnessIdQ.offer(resp.getID)
         override def onError(e: Throwable): Unit = {
           logger.error("Etcd keep-alive error", e)
         }
       }
-      _ = lease.keepAlive(leaseId, observer)
-    } yield harnessIdQ
-  }.flatMap(ZStream.fromQueue)
-
+      kaClient = lease.keepAlive(leaseId, observer)
+    } yield (harnessIdQ, kaClient)
+  }
 
 
   override def modificationEventsQueue: HStream[Unit] = {
@@ -83,28 +87,28 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
 
   private def startActionsWatcher(harnessIds: HStream[Long]): HStream[Unit] = {
     def startWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): Watcher = {
-      val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
-      def _onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRunSync {
-        for {
-          _ <- queue.offer(())
-          _ <- kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
-        } yield ()
-      }
-      def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger): Unit = {
+      def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
         logger.error("Actions watch error", e)
+        prevWatcher.close()
         startWatcher()
       }
-      def _onCompleted(logger: com.typesafe.scalalogging.Logger): Unit = {
+      def _onCompleted(logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
         logger.debug("Actions watcher completed")
         startWatcher()
       }
       def startWatcher() = {
-        val listener = new Watch.Listener with LazyLogging {
-          override def onNext(response: WatchResponse): Unit = _onNext(response)
-          override def onError(e: Throwable): Unit = _onError(e, logger)
-          override def onCompleted(): Unit = _onCompleted(logger)
-        }
-        watch.watch(actionsPrefix, wOpt, listener)
+        val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
+        lazy val w: Watcher = watch.watch(actionsPrefix, wOpt, new Watch.Listener with LazyLogging {
+          override def onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRunSync {
+            for {
+              _ <- queue.offer(())
+              _ <- kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
+            } yield ()
+          }
+          override def onError(e: Throwable): Unit = _onError(e, logger, w)
+          override def onCompleted(): Unit = _onCompleted(logger, w)
+        })
+        w
       }
 
       startWatcher()
@@ -114,13 +118,13 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       ZStream.fromEffect {
         for {
           _ <- log.info(s"GOT harnessId=$harnessId")
-          notificationsQ <- Queue.unbounded[Unit]
+          notificationsQ <- Queue.sliding[Unit](1)
           kv <- getKV
           kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
           _ <- kv.put(instanceKey, "", kOpt)
           // subscribe to new actions
           watch <- getWatch
-          _ = startWatcher(watch, notificationsQ, kv, instanceKey, kOpt) // todo: make this an effect
+          _ = startWatcher(watch, notificationsQ, kv, instanceKey, kOpt)
         } yield notificationsQ
       }.flatMap(ZStream.fromQueue)
     }

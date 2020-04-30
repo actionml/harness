@@ -28,7 +28,6 @@ import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
 import zio.{IO, ZIO}
 
-import scala.collection.mutable
 import scala.util.Properties
 
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
