@@ -88,7 +88,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   implicit val _ = DefaultFormats
   private val esVersion: ESVersions.Value = {
     import ESVersions._
-    val ver = Try {
+    val ver = try {
       val response = client.performRequest(new Request("GET", "/"))
       val version = (JsonMethods.parse(response.getEntity.getContent) \ "version" \ "number").as[String]
       if (version.startsWith("5.")) v5
@@ -98,7 +98,11 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
         logger.warn("Unsupported Elastic Search version: $version")
         v5
       }
-    }.getOrElse(v5)
+    } catch {
+      case NonFatal(e) =>
+        logger.error("Elasticsearch version can't be determined. v5 will be used.", e)
+        v5
+    }
     logger.info(s"Detected Elasticsearch version $ver")
     ver
   }
@@ -374,7 +378,8 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       indexRDD
     }
 
-    val newIndexURI = "/" + newIndex + "/" + indexType
+    val newIndexURI = if (esVersion != v7) s"/$newIndex/$indexType"
+                      else s"/$newIndex"
     val esConfig = Map("es.mapping.id" -> "id")
     repartitionedIndexRDD.saveToEs(newIndexURI, esConfig)
 
@@ -437,10 +442,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
-    client.performRequest(new Request("HEAD", s"/$indexName"))
-      .getStatusLine.getStatusCode match {
+    Try(client.performRequest(new Request("HEAD", s"/$indexName")).getStatusLine.getStatusCode)
+      .getOrElse(404) match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
-          val body = JObject(
+          val body = JsonMethods.compact(JObject(
             JField("mappings",
               JObject(indexType ->
                 JObject("properties" -> {
@@ -453,11 +458,11 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
                 })
               )
             ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
-          )
+          ))
 
           val request = new Request("PUT", s"/$indexName")
           if (esVersion == v7) request.addParameter("include_type_name", "true")
-          request.setJsonEntity(JsonMethods.compact(body))
+          request.setJsonEntity(body)
           client.performRequest(request)
             .getStatusLine.
             getStatusCode match {
