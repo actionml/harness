@@ -21,8 +21,8 @@ import java.nio.charset.Charset
 import java.util.UUID
 
 import com.actionml.core.config.EtcdConfig
-import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError}
-import com.actionml.core.{HIO, HStream, harnessRuntime}
+import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.{HEnv, HIO, HStream, harnessRuntime}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
@@ -33,10 +33,11 @@ import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
 import zio.stream.ZStream
-import zio.{Cause, Exit, IO, Queue, Schedule, ZIO}
+import zio.{Cause, Exit, IO, Managed, Queue, Schedule, ZIO}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
+import scala.util.Try
 
 trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
 
@@ -55,48 +56,48 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   private val getWatch: HIO[Watch] = etcdClient.map(_.getWatchClient)
   private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient)
 
-  private def mkObserver: HStream[Long] = ZStream.fromEffect {
-    keepAlive.onExit {
-      case Exit.Success((_, client)) => ZIO.effect(client.close()).fork
-    }.map { case (q, _) => q }
-  }.flatMap(ZStream.fromQueue)
-
-  private def keepAlive: HIO[(Queue[Long], CloseableClient)] = {
-    for {
-      harnessIdQ <- Queue.sliding[Long](1)
-      lease <- getLease
-      leaseId <- lease.grant(10).toIO.map(_.getID)
-      _ <- harnessIdQ.offer(leaseId)
-      observer = new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-        override def onCompleted(): Unit = {}
-        override def onNext(resp: LeaseKeepAliveResponse): Unit = harnessRuntime.unsafeRunSync {
-          harnessIdQ.offer(resp.getID)
+  private def mkHarnessId(): HStream[Long] = ZStream.fromEffect {
+    (ZIO.effectAsync[HEnv, ValidateError, Long](cb => harnessRuntime.unsafeRunAsync_ {
+      for {
+        lease <- getLease
+        id <- lease.grant(10).toIO.map(_.getID).map { leaseId =>
+          def cleanup() = {
+            Try(ka.close())
+            cb(ZIO.interrupt)
+          }
+          lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+            override def onCompleted(): Unit = {
+              logger.info(s"Keep-alive completed for harness-$leaseId")
+              cleanup()
+            }
+            override def onNext(resp: LeaseKeepAliveResponse): Unit = cb(ZIO.succeed(resp.getID))
+            override def onError(e: Throwable): Unit = {
+              logger.error("Etcd keep-alive error", e)
+              cleanup()
+            }
+          })
+          ka
+          leaseId
         }
-        override def onError(e: Throwable): Unit = {
-          logger.error("Etcd keep-alive error", e)
-        }
-      }
-      kaClient = lease.keepAlive(leaseId, observer)
-    } yield (harnessIdQ, kaClient)
+      } yield id
+    }).retry(Schedule.exponential(1.second)))
   }
 
-
   override def modificationEventsQueue: HStream[Unit] = {
-    ZStream.succeed(()) merge startActionsWatcher(mkObserver)
+    ZStream.succeed(()) merge startActionsWatcher(mkHarnessId())
   }
 
   private def startActionsWatcher(harnessIds: HStream[Long]): HStream[Unit] = {
-    def startWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): Watcher = {
+    def startWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): HIO[Unit] = {
       def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
         logger.error("Actions watch error", e)
         prevWatcher.close()
-        startWatcher()
       }
       def _onCompleted(logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
         logger.debug("Actions watcher completed")
-        startWatcher()
+        prevWatcher.close()
       }
-      def startWatcher() = {
+      ZIO.effect {
         val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
         lazy val w: Watcher = watch.watch(actionsPrefix, wOpt, new Watch.Listener with LazyLogging {
           override def onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRunSync {
@@ -108,15 +109,12 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
           override def onError(e: Throwable): Unit = _onError(e, logger, w)
           override def onCompleted(): Unit = _onCompleted(logger, w)
         })
-        w
-      }
-
-      startWatcher()
+      }.toHIO
     }
     harnessIds.flatMap { harnessId =>
       val instanceKey = s"${servicesPrefix}harness-$harnessId"
       ZStream.fromEffect {
-        for {
+        (for {
           _ <- log.info(s"GOT harnessId=$harnessId")
           notificationsQ <- Queue.sliding[Unit](1)
           kv <- getKV
@@ -124,8 +122,8 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
           _ <- kv.put(instanceKey, "", kOpt)
           // subscribe to new actions
           watch <- getWatch
-          _ = startWatcher(watch, notificationsQ, kv, instanceKey, kOpt)
-        } yield notificationsQ
+          _ <- startWatcher(watch, notificationsQ, kv, instanceKey, kOpt)
+        } yield notificationsQ).retry(Schedule.exponential(1.second))
       }.flatMap(ZStream.fromQueue)
     }
   }

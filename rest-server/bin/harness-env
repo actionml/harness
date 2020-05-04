@@ -105,10 +105,10 @@ export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${AD
 # =============================================================
 
 # Spark Job Server (Apache Livy) setup
-export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}
+export SPARK_JOB_SERVER_URL="${SPARK_JOB_SERVER_URL:-http://localhost:8998}"
 
 # Harness engines setup. Engines can be stored in 'mongo' or 'etcd'
-export HARNESS_ENGINES_BACKEND="mongo"
+export HARNESS_ENGINES_BACKEND="${HARNESS_ENGINES_BACKEND:-mongo}"
 
 # Comma separated list of etcd endpoints
-export HARNESS_ETCD_ENDPOINTS="http://localhost:2379"
+export HARNESS_ETCD_ENDPOINTS="${HARNESS_ETCD_ENDPOINTS:-http://localhost:2379}"
