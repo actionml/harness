@@ -18,11 +18,12 @@
 package com.actionml.core.engine.backend
 
 import java.nio.charset.Charset
+import java.time.Instant
 import java.util.UUID
 
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError}
-import com.actionml.core.{HEnv, HIO, HStream, harnessRuntime}
+import com.actionml.core.{HEnv, HIO, harnessRuntime}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
@@ -32,8 +33,7 @@ import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
-import zio.stream.ZStream
-import zio.{Cause, Exit, IO, Managed, Queue, Schedule, ZIO}
+import zio.{Cause, IO, Queue, Schedule, UIO, ZIO}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -51,81 +51,86 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       .flatMapError { e =>
         log.error("Etcd client error", Cause.die(e))
           .map(_ => ValidRequestExecutionError())
-      }
-  private val getKV: HIO[KV] = etcdClient.map(_.getKVClient)
-  private val getWatch: HIO[Watch] = etcdClient.map(_.getWatchClient)
-  private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient)
+      }.retry(Schedule.linear(5.seconds))
+  private val getKV: HIO[KV] = etcdClient.map(_.getKVClient).retry(Schedule.linear(5.second))
+  private val getWatch: HIO[Watch] = etcdClient.map(_.getWatchClient).retry(Schedule.linear(5.second))
+  private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient).retry(Schedule.linear(5.second))
 
-  private def mkHarnessId(): HStream[Long] = ZStream.fromEffect {
-    (ZIO.effectAsync[HEnv, ValidateError, Long](cb => harnessRuntime.unsafeRunAsync_ {
+  private def mkHarnessId: HIO[Queue[Long]] = {
+    def keepAlive(q: Queue[Long]): HIO[Unit] =
       for {
         lease <- getLease
-        id <- lease.grant(10).toIO.map(_.getID).map { leaseId =>
-          def cleanup() = {
-            Try(ka.close())
-            cb(ZIO.interrupt)
-          }
-          lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+        leaseId <- lease.grant(5).toIO.map(_.getID)
+        _ <- q.offer(leaseId)
+        _ <- ZIO.effectAsync[HEnv, ValidateError, Any] { cb =>
+          lazy val kaClient: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
             override def onCompleted(): Unit = {
               logger.info(s"Keep-alive completed for harness-$leaseId")
-              cleanup()
+              Try(kaClient.close())
+              cb(ZIO.fail(ValidRequestExecutionError()))
             }
-            override def onNext(resp: LeaseKeepAliveResponse): Unit = cb(ZIO.succeed(resp.getID))
+            override def onNext(resp: LeaseKeepAliveResponse): Unit = {}
             override def onError(e: Throwable): Unit = {
               logger.error("Etcd keep-alive error", e)
-              cleanup()
+              Try(kaClient.close())
+              cb(ZIO.fail(ValidRequestExecutionError()))
             }
           })
-          ka
-          leaseId
+          kaClient
         }
-      } yield id
-    }).retry(Schedule.exponential(1.second)))
+      } yield ()
+    for {
+      q <- Queue.sliding[Long](1)
+      _ <- keepAlive(q).retry(Schedule.linear(3.seconds)).fork
+    } yield q
   }
 
-  override def modificationEventsQueue: HStream[Unit] = {
-    ZStream.succeed(()) merge startActionsWatcher(mkHarnessId())
-  }
+  override def modificationEventsQueue: HIO[Queue[Unit]] = mkHarnessId.flatMap(q => startActionsWatcher(q))
 
-  private def startActionsWatcher(harnessIds: HStream[Long]): HStream[Unit] = {
-    def startWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): HIO[Unit] = {
-      def _onError(e: Throwable, logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
-        logger.error("Actions watch error", e)
-        prevWatcher.close()
-      }
-      def _onCompleted(logger: com.typesafe.scalalogging.Logger, prevWatcher: => Watcher): Unit = {
-        logger.debug("Actions watcher completed")
-        prevWatcher.close()
-      }
-      ZIO.effect {
+  private def startActionsWatcher(harnessIds: Queue[Long]): HIO[Queue[Unit]] = {
+    def watchActions(notificationsQ: Queue[Unit]): HIO[Unit] =
+      for {
+        watch <- getWatch
+        kv <- getKV
+        harnessId <- harnessIds.take
+        instanceKey = s"${servicesPrefix}harness-$harnessId"
+        _ <- log.info(s"Got harnessId=$harnessId")
+        kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
+        _ <- kv.put(instanceKey, "", kOpt)
+        // subscribe to new actions
+        _ <- startWatcher(watch, notificationsQ, kv, instanceKey, kOpt).retry(Schedule.linear(3.second)).forever.fork
+      } yield ()
+    def startWatcher(watch: Watch, queue: Queue[Unit], kv: KV, instanceKey: ByteSequence, kvOptions: PutOption): HIO[Any] =
+      ZIO.effectAsync[HEnv, ValidateError, Any] { cb =>
         val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
         lazy val w: Watcher = watch.watch(actionsPrefix, wOpt, new Watch.Listener with LazyLogging {
-          override def onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRunSync {
+          override def onNext(response: WatchResponse): Unit = cb {
             for {
+              _ <- log.info(s"Engines actions detected ${response.getEvents.asScala}")
+              events = response.getEvents.asScala.map(_.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length)).toList
+              _ <- ZIO.collectAllPar(events.map(kv.put(instanceKey, _, kvOptions).toIO))
               _ <- queue.offer(())
-              _ <- kv.put(instanceKey, response.getEvents.asScala.head.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length), kvOptions)
             } yield ()
           }
-          override def onError(e: Throwable): Unit = _onError(e, logger, w)
-          override def onCompleted(): Unit = _onCompleted(logger, w)
+          override def onError(e: Throwable): Unit = {
+            logger.error("Actions watch error", e)
+            Try(w.close())
+            cb(ZIO.fail(ValidRequestExecutionError()))
+          }
+          override def onCompleted(): Unit = {
+            logger.debug("Actions watcher completed")
+            Try(w.close())
+            cb(ZIO.fail(ValidRequestExecutionError()))
+          }
         })
-      }.toHIO
-    }
-    harnessIds.flatMap { harnessId =>
-      val instanceKey = s"${servicesPrefix}harness-$harnessId"
-      ZStream.fromEffect {
-        (for {
-          _ <- log.info(s"GOT harnessId=$harnessId")
-          notificationsQ <- Queue.sliding[Unit](1)
-          kv <- getKV
-          kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
-          _ <- kv.put(instanceKey, "", kOpt)
-          // subscribe to new actions
-          watch <- getWatch
-          _ <- startWatcher(watch, notificationsQ, kv, instanceKey, kOpt)
-        } yield notificationsQ).retry(Schedule.exponential(1.second))
-      }.flatMap(ZStream.fromQueue)
-    }
+        w
+      }
+
+    for {
+      notificationsQ <- Queue.sliding[Unit](1)
+      _ <- notificationsQ.offer ()
+      _ <- watchActions(notificationsQ).forever.fork
+    } yield notificationsQ
   }
 
   protected def encode: D => String
@@ -136,7 +141,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       kv <- getKV
       _ <- kv.put(enginesPrefix + id, encode(data)).unit
       actionId = UUID.randomUUID()
-      _ <- updateActionsInfo(actionId)
+      _ <- updateActionsInfo("add", actionId)
       _ <- findUpdated(actionId)
     } yield ()
   }
@@ -146,7 +151,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       kv <- getKV
       _ <- kv.put(enginesPrefix + id, encode(data)).unit
       actionId = UUID.randomUUID()
-      _ <- updateActionsInfo(actionId)
+      _ <- updateActionsInfo("update", actionId)
       _ <- findUpdated(actionId)
     } yield ()
   }
@@ -156,7 +161,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
       kv <- getKV
       _ <- kv.delete(enginesPrefix + id).unit
       actionId = UUID.randomUUID()
-      _ <- updateActionsInfo(actionId)
+      _ <- updateActionsInfo("delete", actionId)
       _ <- findUpdated(actionId)
     } yield ()
   }
@@ -181,19 +186,19 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
     } yield result
   }
 
-  private def updateActionsInfo(actionId: UUID): HIO[Unit] = {
+  private def updateActionsInfo(action: String, actionId: UUID): HIO[Unit] = {
     for {
       kv <- getKV
       lease <- getLease
       id <- lease.grant(600)
       opt = PutOption.newBuilder().withLeaseId(id.getID).build
-      _ <- kv.put(s"${actionsPrefix}$actionId", "", opt)
+      _ <- kv.put(s"${actionsPrefix}$actionId", s"""{"action":"$action","timestamp":"${Instant.now}"}""", opt)
     } yield ()
   }
 
   // waits for all instances to update their state
-  private def findUpdated(actionUuid: UUID): HIO[Unit] = {
-    val actionId = actionUuid.toString
+  private def findUpdated(actionUUID: UUID): HIO[Unit] = {
+    val actionId = actionUUID.toString
     val fetchAllOpt = GetOption.newBuilder().withMinModRevision(1).build // fetch all from the beginning
     def waitForAction(instanceKey: ByteSequence, kv: KV): HIO[Unit] = {
       for {

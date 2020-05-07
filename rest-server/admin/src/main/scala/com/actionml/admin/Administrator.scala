@@ -26,8 +26,10 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
-import zio.{IO, Schedule, ZIO}
 import zio.duration._
+import zio.logging.log
+import zio.stream.ZStream
+import zio.{IO, Schedule, ZIO}
 
 import scala.util.Properties
 
@@ -37,13 +39,15 @@ trait Administrator extends LazyLogging with JsonSupport {
   var engines = Map.empty[String, Engine]
 
   harnessRuntime.unsafeRunAsync {
-    modificationEventsQueue.foreach { _ =>
-      listEngines.flatMap { l =>
-        ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
-          .map(l => engines = l.map(e => e.engineId -> e).toMap)
+    ZStream.fromEffect(modificationEventsQueue)
+      .flatMap(q => ZStream.fromQueue(q))
+      .foreach { _ =>
+        listEngines.flatMap { l =>
+          ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
+            .map(l => engines = l.map(e => e.engineId -> e).toMap)
+        }
       }
-    }
-  }(_ => logger.warn("Engines updates stopped"))
+  }(_ => logger.error("Engines updates stopped"))
 
   drawActionML()
 

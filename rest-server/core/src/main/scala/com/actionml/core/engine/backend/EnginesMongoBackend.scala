@@ -81,11 +81,11 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def modificationEventsQueue: HStream[Unit] = {
-    ZStream.fromEffect(for {
+  override def modificationEventsQueue: HIO[Queue[Unit]] = {
+    for {
       q <- Queue.unbounded[Unit]
       _ = startWatching(q)
-    } yield ZStream.fromQueue(q))
+    } yield q
   }
 
   private def startWatching(queue: Queue[Unit]): Unit = {
