@@ -213,7 +213,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     } catch {
       case NonFatal(e) => logger.error(s"Engine-id: ${engineId}. Can't insert events $data", e)
     }
-    items.foreach(insertProperty)
+    items.foldLeft(Future.successful(())) ((f, item) =>
+      f.flatMap(_ => insertProperty(item))
+    )
   }
 
   private def insertProperty(event: UREvent): Future[Unit] = {
