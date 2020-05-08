@@ -17,7 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.{HIO, HStream}
+import com.actionml.core.HIO
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
@@ -26,7 +26,6 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
-import zio.stream.ZStream
 import zio.{IO, Queue, ZLayer}
 
 import scala.concurrent.Future

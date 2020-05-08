@@ -23,7 +23,7 @@ import java.util.UUID
 
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError}
-import com.actionml.core.{HEnv, HIO, harnessRuntime}
+import com.actionml.core.{HEnv, HIO}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
@@ -33,7 +33,7 @@ import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
-import zio.{Cause, IO, Queue, Schedule, UIO, ZIO}
+import zio.{Cause, IO, Queue, Schedule, ZIO}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions

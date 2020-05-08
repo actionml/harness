@@ -17,7 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.{HIO, HStream}
+import com.actionml.core.HIO
 import zio.Queue
 
 /*

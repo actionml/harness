@@ -26,10 +26,8 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
-import zio.duration._
-import zio.logging.log
 import zio.stream.ZStream
-import zio.{IO, Schedule, ZIO}
+import zio.{IO, ZIO}
 
 import scala.util.Properties
 
