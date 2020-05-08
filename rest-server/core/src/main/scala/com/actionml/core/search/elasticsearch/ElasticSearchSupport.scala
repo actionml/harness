@@ -20,6 +20,7 @@ package com.actionml.core.search.elasticsearch
 import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
+import java.util.Scanner
 
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -85,6 +86,26 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   import ElasticSearchClient.ESVersions._
   import ElasticSearchClient._
   implicit val _ = DefaultFormats
+  private val esVersion: ESVersions.Value = {
+    import ESVersions._
+    val ver = try {
+      val response = client.performRequest(new Request("GET", "/"))
+      val version = (JsonMethods.parse(response.getEntity.getContent) \ "version" \ "number").as[String]
+      if (version.startsWith("5.")) v5
+      else if (version.startsWith("6.")) v6
+      else if (version.startsWith("7.")) v7
+      else {
+        logger.warn("Unsupported Elastic Search version: $version")
+        v5
+      }
+    } catch {
+      case NonFatal(e) =>
+        logger.error("Elasticsearch version can't be determined. v5 will be used.", e)
+        v5
+    }
+    logger.info(s"Detected Elasticsearch version $ver")
+    ver
+  }
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
   override def close: Unit = client.close()
@@ -357,7 +378,8 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       indexRDD
     }
 
-    val newIndexURI = "/" + newIndex + "/" + indexType
+    val newIndexURI = if (esVersion != v7) s"/$newIndex/$indexType"
+                      else s"/$newIndex"
     val esConfig = Map("es.mapping.id" -> "id")
     repartitionedIndexRDD.saveToEs(newIndexURI, esConfig)
 
@@ -420,10 +442,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
-    client.performRequest(new Request("HEAD", s"/$indexName"))
-      .getStatusLine.getStatusCode match {
+    Try(client.performRequest(new Request("HEAD", s"/$indexName")).getStatusLine.getStatusCode)
+      .getOrElse(404) match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
-          val body = JObject(
+          val body = JsonMethods.compact(JObject(
             JField("mappings",
               JObject(indexType ->
                 JObject("properties" -> {
@@ -436,11 +458,11 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
                 })
               )
             ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
-          )
+          ))
 
           val request = new Request("PUT", s"/$indexName")
           if (esVersion == v7) request.addParameter("include_type_name", "true")
-          request.setJsonEntity(JsonMethods.compact(body))
+          request.setJsonEntity(body)
           client.performRequest(request)
             .getStatusLine.
             getStatusCode match {
@@ -484,23 +506,6 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
   private def refreshIndexByName(indexName: String): Unit = {
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
-  }
-
-  private val esVersion: ESVersions.Value = {
-    import ESVersions._
-    val ver = Try(client.performRequest(new Request("GET", "/"))).toOption
-      .flatMap { r =>
-        val version = (JsonMethods.parse(r.getEntity.getContent) \ "version" \ "number").as[String]
-        if (version.startsWith("5.")) Some(v5)
-        else if (version.startsWith("6.")) Some(v6)
-        else if (version.startsWith("7.")) Some(v7)
-        else {
-          logger.warn("Unsupported Elastic Search version: $version")
-          Option.empty
-        }
-      }.getOrElse(v5)
-    logger.info(s"Detected Elasticsearch version $ver")
-    ver
   }
 
   private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {

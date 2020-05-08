@@ -73,7 +73,7 @@ class URAlgorithm private (
   private var indicatorParams: Seq[IndicatorParams] = _
   private var limit: Int = _
   private var modelEventNames: Seq[String] = _
-  private var blacklistEvents: Seq[String] = _
+  private var blacklistIndicators: Seq[String] = _
   private var returnSelf: Boolean = _
   private var fields: Seq[Rule] = _
   private var randomSeed: Int = _
@@ -144,7 +144,7 @@ class URAlgorithm private (
 
       modelEventNames = params.indicators.map(_.name)
 
-      blacklistEvents = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
+      blacklistIndicators = params.blacklistIndicators.getOrElse(Seq(modelEventNames.head)) // empty Seq[String] means no blacklist
       returnSelf = params.returnSelf.getOrElse(DefaultURAlgoParams.ReturnSelf)
       fields = params.rules.getOrElse(Seq.empty[Rule])
 
@@ -182,8 +182,7 @@ class URAlgorithm private (
 
       drawInfo("URAlgorithm initialization parameters including \"defaults\"", Seq(
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("ES index name:", esIndex),
-        ("ES type name:", esType),
+        ("ES alias name:", engineId),
         ("RecsModel:", recsModel),
         //("Event names:", modelEventNames),
         ("Indicators:", indicatorParams),
@@ -191,14 +190,15 @@ class URAlgorithm private (
         ("Random seed:", randomSeed),
         ("MaxCorrelatorsPerEventType:", maxCorrelatorsPerEventType),
         ("MaxEventsPerEventType:", maxEventsPerEventType),
-        ("BlacklistEvents:", blacklistEvents),
+        ("BlacklistIndicators:", blacklistIndicators),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
         ("User bias:", userBias),
         ("Item bias:", itemBias),
+        ("Item-set bias", itemSetBias),
         ("Max query events:", maxQueryEvents),
         ("Limit:", limit),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.get, x.name)))
+        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x.name)))
 
       Valid(isOK)
     }
@@ -511,7 +511,7 @@ class URAlgorithm private (
       eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
         limit = maxQueryEvents
       )("entityId" === user).map { uh =>
-        val userHistory = uh.toSeq.view
+        //val userHistory = uh.toSeq.view
         val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
         // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
         // strength. DO NOT document, only for tests
@@ -519,7 +519,7 @@ class URAlgorithm private (
         val userHistBias = query.userBias.getOrElse(userBias)
         val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-        userHistory
+        val userHistory = uh.toSeq
           // .distinct // these will be distinct so this is redundant
           .filter { event =>
             queryEventNamesFilter.contains(event.event)
@@ -532,7 +532,8 @@ class URAlgorithm private (
           .groupBy(_.event)
           .flatMap { case (name, events) =>
             events.sortBy(_.eventTime) // implicit ordering
-              .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+              .take(indicatorsMap(name)
+                .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
           }.toSeq
 
         val userEvents = modelEventNames.map { name =>
@@ -616,7 +617,7 @@ class URAlgorithm private (
       queryBlacklistWithItem
     }
 
-    val blacklistByUserHistory = userEvents.filter(event => blacklistEvents.contains(event.event)).map(_.targetEntityId.getOrElse(""))
+    val blacklistByUserHistory = userEvents.filter(event => blacklistIndicators.contains(event.event)).map(_.targetEntityId.getOrElse(""))
     Seq(
       Matcher(
         "id",

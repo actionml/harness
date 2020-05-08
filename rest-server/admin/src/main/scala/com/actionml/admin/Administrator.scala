@@ -67,7 +67,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   def init() = {
     // ask engines to init
     JobManager.abortExecutingJobs
-    drawInfo("Harness Server Init", Seq(
+    drawInfo("Harness Administrator initialized", Seq(
       ("════════════════════════════════════════", "══════════════════════════════════════"),
       ("Number of Engines: ", engines.size),
       ("Engines: ", engines.keys)))

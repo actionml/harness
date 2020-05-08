@@ -86,11 +86,15 @@ abstract class Engine extends LazyLogging with JsonSupport {
       mType match {
         case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
           mirroring = new FSMirror(container, engineId)
+          logger.info(s"Engine-id: ${engineId} localfs mirroring")
           Valid(Comment("Mirror to localfs"))
         case "hdfs" | "HDFS" =>
           mirroring = new HDFSMirror(container, engineId)
+          logger.info(s"Engine-id: ${engineId} HDFS mirroring")
           Valid(Comment("Mirror to HDFS"))
-        case mt => Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
+        case mt =>
+          logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
+          Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
       Invalid(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
@@ -125,10 +129,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
     IO.succeed(EngineStatus(engineId, "This Engine does not implement the status API"))
   }
 
-  /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
+  /** Every input is processed by the Engine first, which may pass on to an Algorithm and/or Dataset for further
     * processing. Must be inherited and extended.
     * @param json Input defined by each engine
-    * @return Validated[ValidateError, ]status with error message
+    * @return Validated[ValidateError, Response] status with error message
     */
   def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
@@ -140,7 +144,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     Future.successful(Invalid(NotImplemented()))
   }
 
-  def inputMany: Seq[String] => Unit = _.foreach(input)
+  def inputMany(data: Seq[String]): Unit = data.foreach(input)
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)

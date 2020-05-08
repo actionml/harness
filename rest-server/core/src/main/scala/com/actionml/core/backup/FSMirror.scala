@@ -17,7 +17,7 @@
 
 package com.actionml.core.backup
 
-import java.io.{File, FileWriter, IOException, PrintWriter}
+import java.io._
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
@@ -39,6 +39,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
   // java.io.IOException could be thrown here in case of system errors
   override def mirrorEvent(json: String): Validated[ValidateError, String] = {
     // Todo: this should be rewritten for the case where mirroring is only used for import
+    // todo: is this best implemented in a non-blocking way for the engine.inputAsync case?
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
 
@@ -48,7 +49,9 @@ class FSMirror(mirrorContainer: String, engineId: String)
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
         if (!resourceCollection.exists()) new File(s"$containerName").mkdir()
         val fn = batchName
-        val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
+        // pat: old method used PrintWriter, new method uses BufferedWriter
+        // val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
+        val pw = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
         try {
           pw.write(json)
         } finally {
