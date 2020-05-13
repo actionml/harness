@@ -132,17 +132,13 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Input defined by each engine
     * @return Validated[ValidateError, Response] status with error message
     */
-  def input(json: String): Validated[ValidateError, Response] = {
-    // flatten the event into one string per line as per Spark json collection spec
-    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-      .andThen(_ => Valid(Comment("Input processed by base Engine")))
-  }
+  def input(json: String): Validated[ValidateError, Response] = mirror(json)
 
   def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
     Future.successful(Invalid(NotImplemented()))
   }
 
-  def inputMany(data: Seq[String]): Unit = data.foreach(this.input)
+  def inputMany(data: Seq[String]): Unit = data.foreach(mirror)
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
@@ -160,6 +156,12 @@ abstract class Engine extends LazyLogging with JsonSupport {
   private def notImplemented(message: String) = {
     logger.warn(message)
     Invalid(NotImplemented(jsonComment(message)))
+  }
+
+  private def mirror(json: String): Validated[ValidateError, Response] = {
+    // flatten the event into one string per line as per Spark json collection spec
+    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
+      .andThen(_ => Valid(Comment("Input processed by base Engine")))
   }
 }
 
