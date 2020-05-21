@@ -121,11 +121,13 @@ class FSMirror(mirrorContainer: String, engineId: String)
   private def importFromFile(file: File, engine: Engine): Long = {
     var eventsProcessed = 0
     val src = Source.fromFile(file)
+    val mirrorWriter = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
     try {
       src.getLines().sliding(512, 512).foreach { lines =>
         eventsProcessed += lines.size
         try {
           engine.inputMany(lines)
+          lines.foreach(l => mirrorWriter.write(s"$l\n"))
         } catch {
           case e: IOException =>
             logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
@@ -137,7 +139,8 @@ class FSMirror(mirrorContainer: String, engineId: String)
         logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.getMessage}", e)
         eventsProcessed
     } finally {
-      src.close
+      src.close()
+      mirrorWriter.close()
     }
   }
 }
