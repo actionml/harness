@@ -26,12 +26,13 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
+import zio.duration._
+import zio.logging.log
 import zio.stream.ZStream
-import zio.{IO, ZIO}
+import zio.{IO, Schedule, ZIO}
 
 import scala.util.Properties
 
-/** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 trait Administrator extends LazyLogging with JsonSupport {
   this: EnginesBackend[String, EngineMetadata, _] =>
   var engines = Map.empty[String, Engine]
@@ -39,11 +40,14 @@ trait Administrator extends LazyLogging with JsonSupport {
   harnessRuntime.unsafeRunAsync {
     ZStream.fromEffect(modificationEventsQueue)
       .flatMap(q => ZStream.fromQueue(q))
-      .foreach { _ =>
-        listEngines.flatMap { l =>
-          ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
+      .foreach { case (harnessId, actionId) =>
+        for {
+          l <- listEngines
+          _ <- ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
             .map(l => engines = l.map(e => e.engineId -> e).toMap)
-        }
+          _ <- updateState(harnessId, actionId).ignore
+          _ <- log.info(s"Engines updated at harness-$harnessId after action $actionId")
+        } yield ()
       }
   }(_ => logger.error("Engines updates stopped"))
 

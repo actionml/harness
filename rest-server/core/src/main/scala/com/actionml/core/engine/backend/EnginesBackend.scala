@@ -17,8 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.HIO
-import zio.Queue
+import com.actionml.core.{HIO, HQueue}
 
 /*
  * type parameters:
@@ -32,5 +31,6 @@ trait EnginesBackend[I,D,S] {
   def deleteEngine(id: I): HIO[Unit]
   def findEngine(id: I): HIO[D]
   def listEngines: HIO[Iterable[D]]
-  def modificationEventsQueue: HIO[Queue[Unit]]
+  def modificationEventsQueue: HIO[HQueue[String, (Long, String)]]
+  def updateState(harnessId: Long, actionId: String): HIO[Unit]
 }

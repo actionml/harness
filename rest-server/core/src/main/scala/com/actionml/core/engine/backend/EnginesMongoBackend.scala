@@ -17,7 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.HIO
+import com.actionml.core.{HEnv, HIO}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
@@ -26,7 +26,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
-import zio.{IO, Queue, ZLayer}
+import zio.{IO, Queue, ZLayer, ZQueue}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -80,14 +80,17 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def modificationEventsQueue: HIO[Queue[Unit]] = {
+  override def modificationEventsQueue: HIO[ZQueue[Nothing, HEnv, Any, Nothing, String, (Long, String)]] = {
     for {
-      q <- Queue.unbounded[Unit]
+      q <- Queue.unbounded[String]
       _ = startWatching(q)
-    } yield q
+    } yield q.map(0L -> _)
   }
 
-  private def startWatching(queue: Queue[Unit]): Unit = {
+  override def updateState(harnessId: Long, actionId: String): HIO[Unit] = IO.unit
+
+
+  private def startWatching(queue: Queue[String]): Unit = {
     enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
       .collection
       .find()
@@ -95,7 +98,7 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
       .noCursorTimeout(true)
       .subscribe(new Observer[Document] {
         override def onNext(result: Document): Unit = {
-          queue.offer(())
+          queue.offer(getActionValue(result))
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)
@@ -113,4 +116,8 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
     "action" -> eventName,
     "timestamp" -> new java.util.Date()
   )
+  private def getActionValue(doc: Document): String = (for {
+    a <- doc.get("action")
+    action <- util.Try(a.asString().getValue).toOption
+  } yield action).getOrElse("")
 }
