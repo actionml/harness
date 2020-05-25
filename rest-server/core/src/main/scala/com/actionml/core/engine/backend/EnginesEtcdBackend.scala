@@ -58,44 +58,38 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   private val getWatch: HIO[Watch] = etcdClient.map(_.getWatchClient).retry(etcdRetrySchedule)
   private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient).retry(etcdRetrySchedule)
 
-  private def mkHarnessId: HIO[Queue[Long]] = {
+  private def mkHarnessId: HIO[Long] = {
     for {
-      q <- Queue.sliding[Long](1)
-      keepAlive = for {
-        lease <- getLease
-        leaseId <- lease.grant(5).toIO.map(_.getID)
-        _ <- q.offer(leaseId)
-        _ <- ZIO.effectAsync[HEnv, ValidateError, Any] { cb =>
-          lazy val kaClient: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-            override def onCompleted(): Unit = {
-              logger.info(s"Keep-alive completed for harness-$leaseId")
-              Try(kaClient.close())
-              cb(ZIO.fail(ValidRequestExecutionError()))
-            }
-            override def onNext(resp: LeaseKeepAliveResponse): Unit = {}
-            override def onError(e: Throwable): Unit = {
-              logger.error("Etcd keep-alive error", e)
-              Try(kaClient.close())
-              cb(ZIO.fail(ValidRequestExecutionError()))
-            }
-          })
-          kaClient
-        }
-      } yield ()
-      _ <- keepAlive.fork
-    } yield q
+      lease <- getLease
+      leaseId <- lease.grant(5).toIO.map(_.getID)
+      _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb => Try {
+        lazy val keepAlive: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+          override def onCompleted(): Unit = {
+            logger.info(s"Keep-alive completed for harness-$leaseId")
+            cb(ZIO.fail(keepAlive))
+          }
+
+          override def onNext(resp: LeaseKeepAliveResponse): Unit = {}
+
+          override def onError(e: Throwable): Unit = {
+            logger.error("Etcd keep-alive error", e)
+            cb(ZIO.fail(keepAlive))
+          }
+        })
+        keepAlive
+      }}.mapError { ka => Try(ka.close()); ValidRequestExecutionError() }.fork
+    } yield leaseId
   }
 
   override def modificationEventsQueue: HIO[HQueue[String, (Long, String)]] = {
     for {
-      harnessIds <- mkHarnessId
+      harnessId <- mkHarnessId
+      _ <- registerInstance(harnessId)
       actionsQ <- Queue.sliding[String](1000)
       _ <- watchActions(actionsQ).forever.fork
-      harnessId <- harnessIds.take
-      _ <- registerInstance(harnessId)
       _ <- actionsQ.offer("")
     } yield actionsQ.map(harnessId -> _)
-  }.retry(Schedule.linear(2.seconds))
+  }
 
   override def updateState(harnessId: Long, actionId: String): HIO[Unit] = {
     for {
@@ -119,7 +113,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
   private def watchActions(actionsQ: Queue[String]): HIO[Unit] =
     for {
       watch <- getWatch
-      watcher <- ZIO.effectAsync[HEnv, ValidateError, Watcher] { cb => Try {
+      _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb => Try {
         val wOpt = WatchOption.newBuilder().withPrefix(actionsPrefix).build()
         lazy val w: Watcher = watch.watch(actionsPrefix, wOpt, new Watch.Listener with LazyLogging {
           override def onNext(response: WatchResponse): Unit = cb {
@@ -131,17 +125,16 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
           }
           override def onError(e: Throwable): Unit = {
             logger.error("Actions watch error", e)
-            Try(w.close())
-            cb(ZIO.fail(ValidRequestExecutionError()))
+            cb(ZIO.fail(w))
           }
           override def onCompleted(): Unit = {
             logger.debug("Actions watcher completed")
-            Try(w.close())
-            cb(ZIO.fail(ValidRequestExecutionError()))
+            cb(ZIO.fail(w))
           }
         })
         w
-      }}
+      }}.onError(_.failureOption.fold(IO.unit)(w => IO.effect(Try(w.close())).ignore))
+        .mapErrorCause(_ => Cause.fail(ValidRequestExecutionError()))
     } yield ()
 
   protected def encode: D => String
