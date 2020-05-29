@@ -91,8 +91,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     val ver = try {
       val response = client.performRequest(new Request("GET", "/"))
       val version = (JsonMethods.parse(response.getEntity.getContent) \ "version" \ "number").as[String]
-      if (version.startsWith("5.")) v5
-      else if (version.startsWith("6.")) v6
+      if (version.startsWith("5.") || version.startsWith("6.")) v5
       else if (version.startsWith("7.")) v7
       else {
         logger.warn("Unsupported Elastic Search version: $version")
@@ -101,14 +100,14 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     } catch {
       case NonFatal(e) =>
         logger.error("Elasticsearch version can't be determined. v5 will be used.", e)
-        v5
+        v7
     }
     logger.info(s"Detected Elasticsearch version $ver")
     ver
   }
   private val indexType = if (esVersion != v7) "items" else "_doc"
 
-  override def close: Unit = client.close()
+  override def close(): Unit = client.close()
 
   override def createIndex(
     fieldNames: List[String],
@@ -644,7 +643,6 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
 
   private object ESVersions extends Enumeration {
     val v5 = Value(5)
-    val v6 = Value(6)
     val v7 = Value(7)
   }
 
