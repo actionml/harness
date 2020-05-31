@@ -95,12 +95,12 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       else if (version.startsWith("6.")) v6
       else if (version.startsWith("7.")) v7
       else {
-        logger.warn("Unsupported Elastic Search version: $version")
+        logger.debug(s"Elastic Search version: $version")
         v7
       }
     } catch {
       case NonFatal(e) =>
-        logger.error("Elasticsearch version can't be determined. v5 will be used.", e)
+        logger.error("Elasticsearch version can't be determined. v7 will be used.", e)
         v7
     }
     logger.info(s"Detected Elasticsearch version $ver")
@@ -618,13 +618,6 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
           uri.getHost,
           uri.getPort,
           uri.getScheme))
-//      builder.setHttpClientConfigCallback(new HttpClientConfigCallback {
-//        override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder = {
-//          httpClientBuilder.setMaxConnPerRoute(100)
-//          httpClientBuilder.setMaxConnTotal(300)
-//        }
-//      })
-
       if (config.hasPath("elasticsearch.auth")) {
         val authConfig = config.getConfig("elasticsearch.auth")
         builder.setHttpClientConfigCallback(new BasicAuthProvider(
