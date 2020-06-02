@@ -118,6 +118,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
+  @deprecated
   override def saveOneById(id: String, doc: EsDocument): Boolean = {
     client.performRequest(new Request(
       "HEAD",
@@ -147,8 +148,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
   def saveOneByIdAsync(id: String, doc: EsDocument): Future[Comment] = {
     val promise = Promise[Comment]()
     val msg404 = "The Elasticsearch index does not exist, have you trained yet?"
+    val updateUri = if (esVersion == ESVersions.v7) s"/$alias/$indexType/${encodeURIFragment(id)}/_update"
+                    else s"/$alias/_update/${encodeURIFragment(id)}"
     def sendUpdate = {
-      val updateRequest = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
+      val updateRequest = new Request("POST", updateUri)
       updateRequest.setJsonEntity(
         JsonMethods.compact(JObject(
           "doc" -> JsonMethods.asJValue(doc),

@@ -138,10 +138,7 @@ class UREngine extends Engine with JsonSupport {
       Future.successful(response)
   }
 
-  override def inputMany(data: Seq[String]): Unit = {
-    super.inputMany(data)
-    dataset.inputMany(data)
-  }
+  override def inputMany(data: Seq[String]): Unit = dataset.inputMany(data)
 
   // todo: should merge base engine status with UREngine's status
   override def status(): HIO[Response] = {

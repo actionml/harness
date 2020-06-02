@@ -76,19 +76,19 @@ abstract class Engine extends LazyLogging with JsonSupport {
     */
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
-    if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
+    if (params.mirrorContainer.isEmpty || params.mirrorType.isEmpty) {
       logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
-      mType match {
-        case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
+      mType.toLowerCase match {
+        case "localfs" | "local_fs" =>
           mirroring = new FSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
           Valid(Comment("Mirror to localfs"))
-        case "hdfs" | "HDFS" =>
+        case "hdfs" =>
           mirroring = new HDFSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} HDFS mirroring")
           Valid(Comment("Mirror to HDFS"))
@@ -144,7 +144,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     Future.successful(Invalid(NotImplemented()))
   }
 
-  def inputMany(data: Seq[String]): Unit = data.foreach(input)
+  def inputMany(data: Seq[String]): Unit = {}
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
