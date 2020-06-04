@@ -26,6 +26,7 @@ import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
+import scala.concurrent.duration._
 import scala.util.{Properties, Try}
 
 
@@ -40,25 +41,19 @@ case class AppConfig(
   actorSystem: ActorSystemConfig,
   auth: AuthConfig,
   jobs: JobManagerConfig,
-  etcdConfig: Option[EtcdConfig],
+  etcdConfig: EtcdConfig,
   enginesBackend: StoreBackend
 )
 
-case class RestServerConfig(
-                             host: String,
-                             port: Int,
-                             sslEnabled: Boolean
-                           )
-case class ActorSystemConfig(
-                              name: String
-                            )
+case class RestServerConfig(host: String, port: Int, sslEnabled: Boolean)
+case class ActorSystemConfig(name: String, timeout: FiniteDuration)
 
 case class AuthConfig(enabled: Boolean,
                       serverUrl: String,
                       clientId: String,
                       clientSecret: String)
 
-case class EtcdConfig(endpoints: Seq[String])
+case class EtcdConfig(endpoints: Seq[String], timeout: FiniteDuration)
 
 object AppConfig {
   private val config = ConfigFactory.load()
@@ -67,15 +62,17 @@ object AppConfig {
     val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))
     val backend: StoreBackend = Try(StoreBackend.withName(sys.env("HARNESS_ENGINES_BACKEND")))
       .getOrElse(throw new RuntimeException("ERROR: no HARNESS_ENGINES_BACKEND set"))
-    val etcdConfig: Option[EtcdConfig] = {
+    val etcdConfig: EtcdConfig = {
+      val defaultTimeout = 5.seconds
       val config = Properties
         .envOrNone("HARNESS_ETCD_ENDPOINTS")
-        .map(s => EtcdConfig(s.split(",").map(_.trim).filter(_.nonEmpty)))
-      if (backend == StoreBackend.etcd && config.forall(_.endpoints.isEmpty))
+        .map(s => EtcdConfig(s.split(",").map(_.trim).filter(_.nonEmpty), defaultTimeout))
+        .getOrElse(EtcdConfig(Seq("http://localhost:2379"), defaultTimeout))
+      if (backend == StoreBackend.etcd && config.endpoints.isEmpty)
       throw new RuntimeException("ERROR: no HARNESS_ETCD_ENDPOINTS set")
       config
     }
-    new AppConfig(
+    AppConfig(
       // restServer = config.as[RestServerConfig]("rest-server"), // this has bad config if not taken from env
 
       // Since these must be set in the env, it is a hard error if they are not found

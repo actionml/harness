@@ -21,7 +21,7 @@ import java.nio.charset.Charset
 import java.time.Instant
 import java.util.UUID
 
-import com.actionml.core.config.EtcdConfig
+import com.actionml.core.config.{AppConfig, EtcdConfig}
 import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.core.{HEnv, HIO, HQueue}
 import com.typesafe.scalalogging.LazyLogging
@@ -247,7 +247,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
     for {
       kv <- getKV
       watch <- getWatch
-      timeout = 4.seconds
+      timeout = Duration.fromScala(AppConfig.apply.etcdConfig.timeout)
       // fetch all registered harness instances
       instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
       // wait for them to update

@@ -32,10 +32,5 @@ class EtcdAdministrator private(_config: EtcdConfig) extends EnginesEtcdBackend[
 }
 
 object EtcdAdministrator {
-  def apply(config: Option[EtcdConfig]) = {
-    config
-      .filter(_.endpoints.nonEmpty)
-      .map(new EtcdAdministrator(_))
-      .getOrElse(throw new RuntimeException("ERROR: Etcd administrator can't be created"))
-  }
+  def apply(config: EtcdConfig) = new EtcdAdministrator(config)
 }
