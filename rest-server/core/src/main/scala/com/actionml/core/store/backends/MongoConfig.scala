@@ -17,11 +17,8 @@
 
 package com.actionml.core.store.backends
 
-import com.mongodb.MongoClientURI
 
-
-case class MongoConfig(private val uriString: String) {
-  val uri = new MongoClientURI(uriString)
+case class MongoConfig(uri: String) {
 }
 
 object MongoConfig {
