@@ -17,11 +17,13 @@
 
 package com.actionml.core.store.backends
 
+import com.mongodb.MongoClientURI
 
-case class MongoConfig(uri: String) {
+
+case class MongoConfig(uri: MongoClientURI) {
 }
 
 object MongoConfig {
 
-  val mongo = MongoConfig(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set")))
+  val mongo = MongoConfig(new MongoClientURI(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set"))))
 }

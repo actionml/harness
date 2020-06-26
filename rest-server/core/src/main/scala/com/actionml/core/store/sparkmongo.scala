@@ -55,7 +55,7 @@ object sparkmongo {
         val writeConfig = WriteConfig(
           databaseName = dao.dbName,
           collectionName = dao.collectionName,
-          connectionString = Some(MongoConfig.mongo.uri),
+          connectionString = Some(MongoConfig.mongo.uri.toString),
           replaceDocument = true,
           forceInsert = true
         )

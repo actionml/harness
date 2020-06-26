@@ -27,18 +27,20 @@ import org.bson.codecs.configuration.CodecProvider
 import scala.reflect.ClassTag
 
 
-class GenericMongoConnector[T](uri: String, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
+class GenericMongoConnector[T](uri: MongoClientURI, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
   extends MongoConnector(new GenericMongoClientFactory(uri, options, codecs, ct))
     with Serializable {}
 
-class GenericMongoClientFactory[T](uri: String, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
+class GenericMongoClientFactory[T](uri: MongoClientURI, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
   extends MongoClientFactory {
 
   override def create(): MongoClient = new GenericMongoClient[T](uri, options, codecs, ct)
 }
 
-class GenericMongoClient[T](uri: String, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
-  extends MongoClient(uri, options) with LazyLogging {
+class GenericMongoClient[T](uri: MongoClientURI, options: MongoClientOptions, codecs: List[CodecProvider], ct: ClassTag[T])
+  extends MongoClient(uri) with LazyLogging {
+
+  override def getMongoClientOptions: MongoClientOptions = options
 
   override def getDatabase(databaseName: String): MongoDatabase =
     super.getDatabase(databaseName).withCodecRegistry(MongoStorage.codecRegistry(codecs)(ct))
