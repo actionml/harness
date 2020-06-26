@@ -19,7 +19,7 @@ package com.actionml.core.store
 
 import com.actionml.core.spark.GenericMongoConnector
 import com.actionml.core.store.backends.MongoConfig
-import com.mongodb.{ConnectionString, MongoClientOptions, MongoClientSettings}
+import com.mongodb.MongoClientOptions
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkContext
@@ -30,11 +30,6 @@ import scala.reflect.ClassTag
 
 
 object sparkmongo {
-  private val mongoOptions = MongoClientOptions.builder()
-    .connectionsPerHost(2)
-    .retryWrites(true)
-    .threadsAllowedToBlockForConnectionMultiplier(20)
-    .build
 
   object syntax {
     implicit class DaoSparkOps[D <: DAO[_]](dao: D) {
@@ -44,7 +39,7 @@ object sparkmongo {
           .builder()
           .sparkContext(sc)
           .readConfig(ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName))
-          .connector(new GenericMongoConnector(MongoConfig.mongo.uri, mongoOptions, codecs, ct))
+          .connector(new GenericMongoConnector(MongoConfig.mongo.uri, codecs, ct))
           .build
           .toRDD()
       }
