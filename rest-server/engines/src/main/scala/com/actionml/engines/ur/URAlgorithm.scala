@@ -464,7 +464,8 @@ class URAlgorithm private (
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
     for {
-      ((userHistoryMatchers, userEvents), similarItemsMatchers) <- getUserHistMatcher(query) zip getSimilarItemsMatchers(query)
+      (userHistoryMatchers, userEvents) <- getUserHistMatcher(query)
+      similarItemsMatchers <- getSimilarItemsMatchers(query)
     } yield {
       val shouldMatchers =
         userHistoryMatchers ++
