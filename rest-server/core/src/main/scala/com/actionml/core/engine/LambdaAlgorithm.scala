@@ -22,6 +22,8 @@ import com.actionml.core.model.Response
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.ExecutionContext
+
 /** Adds a method for train, which is expected to update the model through some potentially long lived task,
   *  usually in a batch or background mode.
   */
@@ -37,6 +39,6 @@ trait LambdaAlgorithm[T] extends LazyLogging {
     * Override to use the queuing method to create the model
     * @return
     */
-  def train(): Validated[ValidateError, Response]
+  def train(implicit ec: ExecutionContext): Validated[ValidateError, Response]
 }
 

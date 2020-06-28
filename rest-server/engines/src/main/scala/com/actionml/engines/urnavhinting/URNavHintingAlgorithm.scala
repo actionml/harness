@@ -252,7 +252,7 @@ class URNavHintingAlgorithm private (
     }
   }
 
-  override def train(): Validated[ValidateError, Response] = {
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[URNavHintingEvent]))
     f.map { implicit sc =>
       val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)

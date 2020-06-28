@@ -57,7 +57,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
     *
-    * @param json Format defined by the Engine
+    * @param jsonQuery Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
   def query(jsonQuery: String): Validated[ValidateError, Response]
@@ -152,7 +152,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
   }
 
   /** train is only used in Lambda offline learners */
-  def train(): Validated[ValidateError, Response] = notImplemented(s"Train is not a valid operation for engineId: $engineId")
+  def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = notImplemented(s"Train is not a valid operation for engineId: $engineId")
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = notImplemented(s"Cancel is not a valid operation for engineId: $engineId")
 

@@ -43,7 +43,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
 
-    if (mirrorContainer != ""){
+    if (Option(mirrorContainer).map(_.trim).exists(_.nonEmpty)){
       try {
         val resourceCollection = new File(containerName)
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
