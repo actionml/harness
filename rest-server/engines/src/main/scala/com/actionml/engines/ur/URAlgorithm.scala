@@ -498,47 +498,48 @@ class URAlgorithm private (
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] = {
-    import DaoQuery.syntax._
-    eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
-      limit = maxQueryEvents
-    )("entityId" === query.user.getOrElse("")).map { uh =>
-      //val userHistory = uh.toSeq.view
-      val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
-      // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
-      // strength. DO NOT document, only for tests
+  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] =
+    query.user.fold[Future[(Seq[Matcher], Seq[UREvent])]](Future.successful((Seq.empty, Seq.empty))) { user =>
+      import DaoQuery.syntax._
+      eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
+        limit = maxQueryEvents
+      )("entityId" === user).map { uh =>
+        //val userHistory = uh.toSeq.view
+        val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
+        // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
+        // strength. DO NOT document, only for tests
 
-      val userHistBias = query.userBias.getOrElse(userBias)
-      val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
+        val userHistBias = query.userBias.getOrElse(userBias)
+        val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-      val userHistory = uh.toSeq
-        // .distinct // these will be distinct so this is redundant
-        .filter { event =>
-          queryEventNamesFilter.contains(event.event)
+        val userHistory = uh.toSeq
+          // .distinct // these will be distinct so this is redundant
+          .filter { event =>
+            queryEventNamesFilter.contains(event.event)
+          }
+          .map { event => // rename aliased events to the group name
+            // logger.info(s"History: ${event}")
+            val queryEventName = queryEventNames(event.event)
+            event.copy(event = queryEventName)
+          }
+          .groupBy(_.event)
+          .flatMap { case (name, events) =>
+            events.sortBy(_.eventTime) // implicit ordering
+              .take(indicatorsMap(name)
+                .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
+          }.toSeq
+
+        val userEvents = modelEventNames.map { name =>
+          (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
         }
-        .map { event => // rename aliased events to the group name
-          // logger.info(s"History: ${event}")
-          val queryEventName = queryEventNames(event.event)
-          event.copy(event = queryEventName)
-        }
-        .groupBy(_.event)
-        .flatMap { case (name, events) =>
-          events.sortBy(_.eventTime) // implicit ordering
-            .take(indicatorsMap(name)
-              .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
-        }.toSeq
 
-      val userEvents = modelEventNames.map { name =>
-        (name, userHistory.filter(_.event == name).map(_.targetEntityId.get).distinct)
+        // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
+        // logger.info(s"Indicators in ES query: ${userEvents}")
+
+        val userHistMatchers = userEvents.map { case (name, hist) => Matcher(name, hist, userEventsBoost) }
+        (userHistMatchers, userHistory)
       }
-
-      // logger.info(s"Number of user history indicators in ES query: ${userEvents.size}")
-      // logger.info(s"Indicators in ES query: ${userEvents}")
-
-      val userHistMatchers = userEvents.map { case (name, hist) => Matcher(name, hist, userEventsBoost) }
-      (userHistMatchers, userHistory)
     }
-  }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
   def getSimilarItemsMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
