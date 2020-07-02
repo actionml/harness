@@ -32,12 +32,14 @@ import com.typesafe.scalalogging.LazyLogging
   */
 abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
 
+  protected val isMirroring = !mirrorContainer.isEmpty
+
   def mirrorEvent(json: String): Validated[ValidateError, String]
   def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
-    * for mirrored files of events. It means differnent things so other types of Mirrors
+    * for mirrored files of events. Used differently for other types of Mirrors
     *
     * @return timestamp-based name
     */

@@ -120,27 +120,55 @@ class FSMirror(mirrorContainer: String, engineId: String)
 
   private def importFromFile(file: File, engine: Engine): Long = {
     var eventsProcessed = 0
-    val src = Source.fromFile(file)
-    val mirrorWriter = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
-    try {
-      src.getLines().sliding(512, 512).foreach { lines =>
-        eventsProcessed += lines.size
-        try {
-          engine.inputMany(lines)
-          lines.foreach(l => mirrorWriter.write(s"$l\n"))
-        } catch {
-          case e: IOException =>
-            logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
+    val mirrorBatch = s"$containerName/$batchName.json"
+    if (isMirroring) { // if a mirror is setup for writing
+      try {
+        val src = Source.fromFile(file)
+        val mirrorWriter = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
+        src.getLines().sliding(512, 512).foreach { lines =>
+          eventsProcessed += lines.size
+          try {
+            engine.inputMany(lines) // todo: noooo. mirror should not call Engine, it should only be called by Engine this needs to be refactored
+            lines.foreach(l => mirrorWriter.write(s"$l\n"))
+          } catch {
+            case e: IOException =>
+              logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
+          }
         }
-      }
-      eventsProcessed
-    } catch {
-      case e: IOException =>
-        logger.error(s"Engine-id: ${engine.engineId}. Reading file: ${file.getName} exception ${e.getMessage}", e)
+        src.close()
+        mirrorWriter.close()
         eventsProcessed
-    } finally {
-      src.close()
-      mirrorWriter.close()
+      } catch {
+        case e: IOException =>
+          logger.error(s"Engine-id: ${engine.engineId}. " +
+            s"Importing from file: ${file.getName} Writing to mirror: $mirrorBatch. \n" +
+            s"exception ${e.getMessage}", e)
+          eventsProcessed
+      }
+    } else { // no write to mirror so don't bother creating a writer, NOT DRY, should refactor
+      // todo: this impl is very ugly tangling up mirror writing with importing
+      try {
+        val src = Source.fromFile(file)
+        src.getLines().sliding(512, 512).foreach { lines =>
+          eventsProcessed += lines.size
+          try {
+            engine.inputMany(lines) // todo: noooo. mirror should not call Engine, it should only be called by Engine this needs to be refactored
+          } catch {
+            case e: IOException =>
+              logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
+          }
+        }
+        src.close()
+        eventsProcessed
+      } catch {
+        case e: IOException =>
+          logger.error(s"Engine-id: ${engine.engineId}. " +
+            s"Importing from file: ${file.getName} No mirror location. \n" +
+            s"exception ${e.getMessage}", e)
+          eventsProcessed
+      }
+
     }
+
   }
 }
