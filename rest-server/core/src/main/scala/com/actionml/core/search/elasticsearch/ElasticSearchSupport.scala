@@ -118,37 +118,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     createIndexByName(indexName, indexType, fieldNames, typeMappings, refresh)
   }
 
-  @deprecated
-  override def saveOneById(id: String, doc: EsDocument): Boolean = {
-    client.performRequest(new Request(
-      "HEAD",
-      s"/_alias/$alias"))
-      .getStatusLine
-      .getStatusCode match {
-      case 200 =>
-        try {
-          val request = new Request("POST", s"/$alias/$indexType/${encodeURIFragment(id)}/_update")
-          request.setJsonEntity(
-            JsonMethods.compact(JObject(
-              "doc" -> JsonMethods.asJValue(doc),
-              "doc_as_upsert" -> JBool(true)
-            )))
-          val response = client.performRequest(request)
-          val responseJValue = parse(EntityUtils.toString(response.getEntity))
-          (responseJValue \ "result").getAs[String].contains("updated")
-        } catch {
-          case NonFatal(e) =>
-            logger.error(s"Can't upsert $doc with id $id", e)
-            false
-        }
-      case _ => false
-    }
-  }
-
   def saveOneByIdAsync(id: String, doc: EsDocument): Future[Comment] = {
     val promise = Promise[Comment]()
     val msg404 = "The Elasticsearch index does not exist, have you trained yet?"
-    val updateUri = if (esVersion == ESVersions.v7) s"/$alias/$indexType/${encodeURIFragment(id)}/_update"
+    val updateUri = if (esVersion != ESVersions.v7) s"/$alias/$indexType/${encodeURIFragment(id)}/_update"
                     else s"/$alias/_update/${encodeURIFragment(id)}"
     def sendUpdate = {
       val updateRequest = new Request("POST", updateUri)
