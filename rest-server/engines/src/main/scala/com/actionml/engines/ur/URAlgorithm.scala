@@ -561,7 +561,7 @@ class URAlgorithm private (
 
   private def getItemSetMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
     if(query.itemSet.getOrElse(Seq.empty).size != 1){
-      Future(query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
+      Future.successful(query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
         modelEventNames.head, // only look for items that have been converted on
         query.itemSet.getOrElse(Seq.empty),
         params.itemSetBias))
