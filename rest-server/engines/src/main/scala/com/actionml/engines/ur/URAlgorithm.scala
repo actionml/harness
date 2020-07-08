@@ -567,11 +567,10 @@ class URAlgorithm private (
         params.itemSetBias))
       )
     } else { // one item in the set so better to use an item query
-      val newBias = if(query.itemSetBias.nonEmpty) query.itemSetBias else params.itemSetBias
       getSimilarItemsMatchers(
         query.copy(
           item = query.itemSet.get.headOption,
-          itemBias = newBias
+          itemBias = query.itemSetBias.orElse(params.itemSetBias)
         )
       )
     }
