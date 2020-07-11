@@ -106,3 +106,5 @@ export ADMIN_USER_SECRET_LOCATION=${ADMIN_USER_SECRET_LOCATION:-"$HOME/.ssh/${AD
 
 # Spark Job Server (Apache Livy) setup
 export SPARK_JOB_SERVER_URL=${SPARK_JOB_SERVER_URL:-http://localhost:8998}
+
+export SPARK_MONGO_URI=${SPARK_MONGO_URI:-$MONGO_URI}
