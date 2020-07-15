@@ -462,11 +462,11 @@ class URAlgorithm private (
     val numResults = query.num.getOrElse(limit)
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    getUserHistMatcher(query).zip(getSimilarItemsMatchers(query)).map { case ((userHistoryMatchers, userEvents), similarItemsMatchers) =>
+    getUserHistMatcher(query).zip(getSimilarItemsMatchers(query)).zip(getItemSetMatchers(query)).map { case (((userHistoryMatchers, userEvents), similarItemsMatchers), itemSetMatchers ) =>
       val shouldMatchers =
         userHistoryMatchers ++
         similarItemsMatchers ++
-        getItemSetMatchers(query) ++
+        itemSetMatchers ++
         getBoostedRulesMatchers(aggregatedRules)
 
       val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
@@ -558,11 +558,22 @@ class URAlgorithm private (
     }
   }
 
-  private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
-    query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
-      modelEventNames.head, // only look for items that have been converted on
-      query.itemSet.getOrElse(Seq.empty),
-      params.itemSetBias))
+
+  private def getItemSetMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
+    if(query.itemSet.getOrElse(Seq.empty).size != 1){
+      Future.successful(query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
+        modelEventNames.head, // only look for items that have been converted on
+        query.itemSet.getOrElse(Seq.empty),
+        params.itemSetBias))
+      )
+    } else { // one item in the set so better to use an item query
+      getSimilarItemsMatchers(
+        query.copy(
+          item = query.itemSet.get.headOption,
+          itemBias = query.itemSetBias.orElse(params.itemSetBias)
+        )
+      )
+    }
   }
 
 
@@ -574,6 +585,7 @@ class URAlgorithm private (
         Some(rule.bias))
     }
   }
+
 
   private def getExcludeRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
     aggregatedRules.filter(rule => rule.bias == 0).map { rule =>
