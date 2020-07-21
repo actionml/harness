@@ -59,7 +59,7 @@ jobs:
           echo "DATE_BUILD $DATE_BUILD"
 
           case "${CIRCLE_BRANCH}" in
-            master|develop|devops)
+            master|develop|devops|experimental)
               docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
             ;;
             *)
@@ -116,7 +116,7 @@ jobs:
               "master")
                 docker image push actionml/harness:latest
               ;;
-              develop|devops)
+              develop|devops|experimental)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 docker tag actionml/harness:latest actionml/harness:$BRANCH
                 docker image push actionml/harness:$BRANCH
