@@ -17,6 +17,7 @@
 
 package com.actionml.admin
 
+import akka.actor.ActorSystem
 import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.core.engine.Engine
@@ -26,16 +27,19 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
-import zio.duration._
 import zio.logging.log
 import zio.stream.ZStream
-import zio.{IO, Schedule, ZIO}
+import zio.{IO, ZIO}
 
+import scala.concurrent.ExecutionContext
 import scala.util.Properties
+
 
 trait Administrator extends LazyLogging with JsonSupport {
   this: EnginesBackend[String, EngineMetadata, _] =>
-  var engines = Map.empty[String, Engine]
+  def system: ActorSystem
+  private var engines = Map.empty[String, Engine]
+  private val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
 
   harnessRuntime.unsafeRunAsync {
     ZStream.fromEffect(modificationEventsQueue)
@@ -125,7 +129,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
     val eid = getEngine(engineId)
     if (eid.isDefined) {
-      eid.get.train()
+      eid.get.train(trainEC)
     } else {
       Invalid(WrongParams(jsonComment(s"Unable to train Engine: $engineId, the engine does not exist")))
     }

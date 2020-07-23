@@ -112,3 +112,5 @@ export HARNESS_ENGINES_BACKEND="${HARNESS_ENGINES_BACKEND:-mongo}"
 
 # Comma separated list of etcd endpoints
 export HARNESS_ETCD_ENDPOINTS="${HARNESS_ETCD_ENDPOINTS:-http://localhost:2379}"
+
+export SPARK_MONGO_URI=${SPARK_MONGO_URI:-$MONGO_URI}

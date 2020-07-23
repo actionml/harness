@@ -107,8 +107,8 @@ class URNavHintingEngine extends Engine with JsonSupport {
       }
   }
 
-  override def train(): Validated[ValidateError, Response] = {
-    algo.train()
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
+    algo.train(ec)
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */

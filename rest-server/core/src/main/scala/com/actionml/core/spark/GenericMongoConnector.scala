@@ -18,7 +18,7 @@
 package com.actionml.core.spark
 
 import com.actionml.core.store.backends.MongoStorage
-import com.mongodb.{MongoClient, MongoClientURI}
+import com.mongodb.{MongoClient, MongoClientOptions, MongoClientURI}
 import com.mongodb.client.MongoDatabase
 import com.mongodb.spark.{MongoClientFactory, MongoConnector}
 import com.typesafe.scalalogging.LazyLogging
@@ -31,11 +31,14 @@ class GenericMongoConnector[T](uri: MongoClientURI, codecs: List[CodecProvider],
   extends MongoConnector(new GenericMongoClientFactory(uri, codecs, ct))
     with Serializable {}
 
-class GenericMongoClientFactory[T](uri: MongoClientURI, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClientFactory {
+class GenericMongoClientFactory[T](uri: MongoClientURI, codecs: List[CodecProvider], ct: ClassTag[T])
+  extends MongoClientFactory {
+
   override def create(): MongoClient = new GenericMongoClient[T](uri, codecs, ct)
 }
 
-class GenericMongoClient[T](uri: MongoClientURI, codecs: List[CodecProvider], ct: ClassTag[T]) extends MongoClient(uri) with LazyLogging {
+class GenericMongoClient[T](uri: MongoClientURI, codecs: List[CodecProvider], ct: ClassTag[T])
+  extends MongoClient(uri) with LazyLogging {
 
   override def getDatabase(databaseName: String): MongoDatabase =
     super.getDatabase(databaseName).withCodecRegistry(MongoStorage.codecRegistry(codecs)(ct))

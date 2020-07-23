@@ -19,9 +19,10 @@ package com.actionml.core.store
 
 import com.actionml.core.spark.GenericMongoConnector
 import com.actionml.core.store.backends.MongoConfig
-import com.mongodb.{ConnectionString, MongoClientSettings}
+import com.mongodb.spark.config._
+import com.mongodb.{MongoClientOptions, ReadPreference, TaggableReadPreference}
 import com.mongodb.spark.MongoSpark
-import com.mongodb.spark.config.{ReadConfig, WriteConfig}
+import com.mongodb.spark.config.{ReadConfig, ReadPreferenceConfig, WriteConfig}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bson.codecs.configuration.CodecProvider
@@ -30,6 +31,7 @@ import scala.reflect.ClassTag
 
 
 object sparkmongo {
+
   object syntax {
     implicit class DaoSparkOps[D <: DAO[_]](dao: D) {
       def readRdd[T: ClassTag](codecs: List[CodecProvider] = List.empty)(implicit sc: SparkContext): RDD[T] = {
@@ -38,7 +40,7 @@ object sparkmongo {
           .builder()
           .sparkContext(sc)
           .readConfig(ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName))
-          .connector(new GenericMongoConnector(MongoConfig.mongo.uri, codecs, ct))
+          .connector(new GenericMongoConnector(MongoConfig.mongo.sparkUri, codecs, ct))
           .build
           .toRDD()
       }
@@ -49,7 +51,7 @@ object sparkmongo {
         val writeConfig = WriteConfig(
           databaseName = dao.dbName,
           collectionName = dao.collectionName,
-          connectionString = Some(MongoConfig.mongo.uri.toString),
+          connectionString = Some(MongoConfig.mongo.sparkUri.toString),
           replaceDocument = true,
           forceInsert = true
         )

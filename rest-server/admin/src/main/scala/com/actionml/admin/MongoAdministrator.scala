@@ -17,8 +17,9 @@
 
 package com.actionml.admin
 
+import akka.actor.ActorSystem
 import com.actionml.core.engine.backend.EnginesMongoBackend
 
-class MongoAdministrator extends EnginesMongoBackend[EngineMetadata] with Administrator {
+class MongoAdministrator(override val system: ActorSystem) extends EnginesMongoBackend[EngineMetadata] with Administrator {
   override def codecs = MongoStorageHelper.codecs
 }

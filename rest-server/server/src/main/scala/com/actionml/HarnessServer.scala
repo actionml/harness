@@ -72,8 +72,8 @@ class BaseModule extends Module with LazyLogging {
 
   lazy val administrator = {
     val a = config.enginesBackend match {
-      case StoreBackend.etcd => EtcdAdministrator(config.etcdConfig)
-      case StoreBackend.mongo => new MongoAdministrator
+      case StoreBackend.etcd => EtcdAdministrator(config.etcdConfig, system)
+      case StoreBackend.mongo => new MongoAdministrator(system)
     }
     a.init
     a

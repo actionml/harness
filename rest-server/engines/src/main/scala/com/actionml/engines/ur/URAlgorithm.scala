@@ -253,8 +253,7 @@ class URAlgorithm private (
     }
   }
 
-  override def train(): Validated[ValidateError, Response] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -467,14 +466,12 @@ class URAlgorithm private (
     val numResults = query.num.getOrElse(limit)
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    for {
-      ((userHistoryMatchers, userEvents), similarItemsMatchers) <- getUserHistMatcher(query) zip getSimilarItemsMatchers(query)
-    } yield {
+    getUserHistMatcher(query).zip(getSimilarItemsMatchers(query)).zip(getItemSetMatchers(query)).map { case (((userHistoryMatchers, userEvents), similarItemsMatchers), itemSetMatchers ) =>
       val shouldMatchers =
         userHistoryMatchers ++
-          similarItemsMatchers ++
-          getItemSetMatchers(query) ++
-          getBoostedRulesMatchers(aggregatedRules)
+        similarItemsMatchers ++
+        itemSetMatchers ++
+        getBoostedRulesMatchers(aggregatedRules)
 
       val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
       val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
@@ -505,7 +502,7 @@ class URAlgorithm private (
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] = {
+  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] =
     query.user.fold[Future[(Seq[Matcher], Seq[UREvent])]](Future.successful((Seq.empty, Seq.empty))) { user =>
       import DaoQuery.syntax._
       eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
@@ -547,7 +544,6 @@ class URAlgorithm private (
         (userHistMatchers, userHistory)
       }
     }
-  }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
   def getSimilarItemsMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
@@ -566,11 +562,22 @@ class URAlgorithm private (
     }
   }
 
-  private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
-    query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
-      modelEventNames.head, // only look for items that have been converted on
-      query.itemSet.getOrElse(Seq.empty),
-      params.itemSetBias))
+
+  private def getItemSetMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
+    if(query.itemSet.getOrElse(Seq.empty).size != 1){
+      Future.successful(query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
+        modelEventNames.head, // only look for items that have been converted on
+        query.itemSet.getOrElse(Seq.empty),
+        params.itemSetBias))
+      )
+    } else { // one item in the set so better to use an item query
+      getSimilarItemsMatchers(
+        query.copy(
+          item = query.itemSet.get.headOption,
+          itemBias = query.itemSetBias.orElse(params.itemSetBias)
+        )
+      )
+    }
   }
 
 
@@ -582,6 +589,7 @@ class URAlgorithm private (
         Some(rule.bias))
     }
   }
+
 
   private def getExcludeRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
     aggregatedRules.filter(rule => rule.bias == 0).map { rule =>
