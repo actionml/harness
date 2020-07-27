@@ -21,8 +21,7 @@ import akka.actor.ActorSystem
 import com.actionml.core.HIO
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.engine.backend.EnginesEtcdBackend
-import com.actionml.core.validate.{JsonSupport, ValidateError}
-import zio.IO
+import com.actionml.core.validate.JsonSupport
 
 class EtcdAdministrator private(_config: EtcdConfig, override val system: ActorSystem) extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
 

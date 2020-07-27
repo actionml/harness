@@ -63,7 +63,8 @@ class BaseModule extends Module with LazyLogging {
   bind[ExecutionContext] to system.dispatcher
   bind[ActorMaterializer] to ActorMaterializer()
 
-  bind[RestServer] to new RestServer
+  lazy val server = new RestServer
+  bind[RestServer] to server
 
   bind[CheckRouter] to new CheckRouter
   bind[QueriesRouter] to new QueriesRouter
@@ -78,18 +79,21 @@ class BaseModule extends Module with LazyLogging {
     a.init
     a
   }
-  bind[Administrator] identifiedBy 'Administrator to administrator
+  bind[Administrator] to administrator
 
-  val eventService = new EventServiceImpl(administrator)
-  val engineService =  new EngineServiceImpl(administrator)
+  lazy val eventService = new EventServiceImpl(administrator)
+  lazy val engineService =  new EngineServiceImpl(administrator)
+  lazy val eventsRouter = new EventsRouter(eventService)
   bind[EventService] to eventService
-  bind[EventsRouter] to new EventsRouter(eventService)
+  bind[EventsRouter] to eventsRouter
   bind[EngineService] to engineService
 
   bind[EnginesRouter] to new EnginesRouter(engineService)
 
-  bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
-  bind[AuthorizationService] to new CachedAuthorizationService
+  lazy val authService = new CachedAuthorizationService
+  lazy val authServerProxy = new AuthServerProxyServiceImpl
+  bind[AuthServerProxyService] to authServerProxy
+  bind[AuthorizationService] to authService
 
   bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
