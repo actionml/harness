@@ -20,7 +20,7 @@ package com.actionml.core.store
 import com.actionml.core.spark.GenericMongoConnector
 import com.actionml.core.store.backends.MongoConfig
 import com.mongodb.spark.config._
-import com.mongodb.{MongoClientOptions, ReadPreference, TaggableReadPreference}
+import com.mongodb.{MongoClientOptions, MongoClientURI, ReadPreference, TaggableReadPreference}
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.{ReadConfig, ReadPreferenceConfig, WriteConfig}
 import org.apache.spark.SparkContext
@@ -35,12 +35,13 @@ object sparkmongo {
   object syntax {
     implicit class DaoSparkOps[D <: DAO[_]](dao: D) {
       def readRdd[T: ClassTag](codecs: List[CodecProvider] = List.empty)(implicit sc: SparkContext): RDD[T] = {
+        val uri = sc.getConf.getOption("spark.mongodb.input.uri").map(new MongoClientURI(_)).getOrElse(MongoConfig.mongo.sparkUri)
         val ct = implicitly[ClassTag[T]]
         MongoSpark
           .builder()
           .sparkContext(sc)
           .readConfig(ReadConfig(databaseName = dao.dbName, collectionName = dao.collectionName))
-          .connector(new GenericMongoConnector(MongoConfig.mongo.sparkUri, codecs, ct))
+          .connector(new GenericMongoConnector(uri, codecs, ct))
           .build
           .toRDD()
       }
