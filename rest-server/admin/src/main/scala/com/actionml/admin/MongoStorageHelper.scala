@@ -17,6 +17,7 @@
 
 package com.actionml.admin
 
+import com.actionml.core.engine.backend.EngineMetadata
 import org.bson.codecs.configuration.CodecProvider
 
 object MongoStorageHelper {

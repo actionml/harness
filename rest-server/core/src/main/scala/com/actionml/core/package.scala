@@ -1,8 +1,11 @@
 package com.actionml
 
+import com.actionml.core.config.{AppConfig, EtcdConfig}
+import com.actionml.core.engine.EnginesBackend
+import com.actionml.core.engine.backend.EnginesEtcdBackend
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
-import zio.{Has, ZIO, ZLayer, ZQueue}
+import zio.{Has, Layer, ZIO, ZLayer, ZQueue}
 import zio.clock.Clock
 import zio.logging.{LogAnnotation, Logging}
 import zio.logging.slf4j.Slf4jLogger
@@ -57,13 +60,19 @@ package object core  extends LazyLogging {
 
   case class BadParamsException(message: String) extends Exception(message)
 
-  type HEnv = Clock with Logging
+  type HEnv = EnginesBackend with Clock with Logging
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
   type HQueue[A,B] = ZQueue[Nothing, HEnv, Any, Nothing, A, B]
 
+  val enginesBackend: Layer[Nothing, EnginesBackend] = ZLayer.succeed(
+    new EnginesEtcdBackend {
+      override def config: EtcdConfig = AppConfig.apply.etcdConfig
+    }
+  )
   val harnessRuntime = zio.Runtime.unsafeFromLayer {
     Slf4jLogger.make((c, s) => s) ++
-    Clock.live
+    Clock.live ++
+    enginesBackend
   }
 }

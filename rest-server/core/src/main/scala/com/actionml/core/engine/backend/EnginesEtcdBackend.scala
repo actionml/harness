@@ -22,7 +22,8 @@ import java.time.Instant
 import java.util.UUID
 
 import com.actionml.core.config.{AppConfig, EtcdConfig}
-import com.actionml.core.validate.{ResourceNotFound, ValidRequestExecutionError, ValidateError, WrongParams}
+import com.actionml.core.engine.EnginesBackend
+import com.actionml.core.validate.{JsonSupport, ResourceNotFound, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.core.{HEnv, HIO, HQueue}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
@@ -41,12 +42,12 @@ import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 import scala.util.Try
 
-trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
+trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   import EnginesEtcdBackend._
   import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ZioImplicits._
 
-  protected def config: EtcdConfig
+  def config: EtcdConfig
 
   private val etcdClient: HIO[Client] =
     IO.effect(Client.builder.endpoints(config.endpoints: _*).build)
@@ -137,10 +138,11 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
         .mapErrorCause(_ => Cause.fail(ValidRequestExecutionError()))
     } yield ()
 
-  protected def encode: D => String
-  protected def decode: String => HIO[D]
 
-  override def addEngine(id: String, data: D): HIO[Unit] = {
+  private def encode: EngineMetadata => String = toJsonString
+  private def decode: String => HIO[EngineMetadata] = parseAndValidateIO[EngineMetadata](_)
+
+  override def addEngine(id: String, data: EngineMetadata): HIO[Unit] = {
     import com.vladkopanev.zio.saga.Saga._
     val engineKey = s"$enginesPrefix$id"
     for {
@@ -164,7 +166,7 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
     } yield ()
   }
 
-  override def updateEngine(id: String, data: D): HIO[Unit] = {
+  override def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = {
     for {
       kv <- getKV
       _ <- kv.put(enginesPrefix + id, encode(data)).unit
@@ -186,17 +188,17 @@ trait EnginesEtcdBackend[D] extends EnginesBackend[String, D, String] {
     } yield ()
   }
 
-  override def findEngine(id: String): HIO[D] = {
+  override def findEngine(id: String): HIO[EngineMetadata] = {
     for {
       kv <- getKV
       r <- kv.get(id)
-      e <- r.getKvs.asScala.headOption.fold[HIO[D]](IO.fail(ResourceNotFound(s"Engine $id not found"))) { e =>
+      e <- r.getKvs.asScala.headOption.fold[HIO[EngineMetadata]](IO.fail(ResourceNotFound(s"Engine $id not found"))) { e =>
         decode(e.getKey.toString(etcdCharset))
       }
     } yield e
   }
 
-  override def listEngines: HIO[Iterable[D]] = {
+  override def listEngines: HIO[Iterable[EngineMetadata]] = {
     for {
       kv <- getKV
       response <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
@@ -275,3 +277,8 @@ object EnginesEtcdBackend {
 
   private def now: Duration = Duration.fromInstant(Instant.now)
 }
+
+
+case class EngineMetadata(engineId: String,
+                          engineFactory: String,
+                          params: String)

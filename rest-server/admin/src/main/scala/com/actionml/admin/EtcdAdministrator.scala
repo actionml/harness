@@ -18,18 +18,11 @@
 package com.actionml.admin
 
 import akka.actor.ActorSystem
-import com.actionml.core.HIO
 import com.actionml.core.config.EtcdConfig
 import com.actionml.core.engine.backend.EnginesEtcdBackend
-import com.actionml.core.validate.JsonSupport
 
-class EtcdAdministrator private(_config: EtcdConfig, override val system: ActorSystem) extends EnginesEtcdBackend[EngineMetadata] with Administrator with JsonSupport {
-
-  override protected def encode: EngineMetadata => String = toJsonString
-  override protected def decode: String => HIO[EngineMetadata] = parseAndValidateIO[EngineMetadata](_)
-
-  override protected def config: EtcdConfig = _config
-}
+class EtcdAdministrator(override val config: EtcdConfig, override val system: ActorSystem)
+  extends EnginesEtcdBackend with Administrator
 
 object EtcdAdministrator {
   def apply(config: EtcdConfig, system: ActorSystem) = new EtcdAdministrator(config, system)

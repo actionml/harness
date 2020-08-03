@@ -21,7 +21,7 @@ import akka.actor.ActorSystem
 import cats.data.Validated
 import cats.data.Validated.Invalid
 import com.actionml.core.engine.Engine
-import com.actionml.core.engine.backend.EnginesBackend
+import com.actionml.core.engine.backend.EngineMetadata
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
@@ -36,10 +36,11 @@ import scala.util.Properties
 
 
 trait Administrator extends LazyLogging with JsonSupport {
-  this: EnginesBackend[String, EngineMetadata, _] =>
   def system: ActorSystem
   private var engines = Map.empty[String, Engine]
   private val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
+  import com.actionml.core.engine.EnginesBackend
+  import com.actionml.core.engine.EnginesBackend._
 
   harnessRuntime.unsafeRunAsync {
     ZStream.fromEffect(modificationEventsQueue)
@@ -95,7 +96,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- getEngine(params.engineId).fold {
         newEngineInstanceIO(params.engineFactory, json).flatMap(_ =>
-          addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).map { _ =>
+          EnginesBackend.addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).map { _ =>
             logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
             Comment(s"EngineId: ${params.engineId} created")
           }
@@ -113,7 +114,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- getEngine(params.engineId)
           .fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
-            updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).flatMap { _ =>
+            EnginesBackend.updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).flatMap { _ =>
               existingEngine.init(json, update = true)
             }.mapError(e => ValidRequestExecutionError())
           }
@@ -193,11 +194,6 @@ trait Administrator extends LazyLogging with JsonSupport {
 }
 
 case class EnginesStatuses(statuses: List[Response]) extends Response
-
-case class EngineMetadata(
-                           engineId: String,
-                           engineFactory: String,
-                           params: String)
 
 case class SystemInfo(
                        buildVersion: String,
