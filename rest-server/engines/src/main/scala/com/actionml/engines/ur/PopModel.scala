@@ -17,6 +17,8 @@
 
 package com.actionml.engines.ur
 
+import java.util.Date
+
 import com.actionml.engines.ur.UREngine.UREvent
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkContext
@@ -90,7 +92,7 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
              |Use one of the available parameter values ($RankingType).""".stripMargin)
         sc.emptyRDD
     }
-    calcPopular(eventsRdd, eventNames, interval)
+    //calcPopular(eventsRdd, eventNames, interval)
 
   }
 
@@ -123,13 +125,22 @@ class PopModel(fieldsRDD: RDD[(ItemID, PropertyMap)])(implicit sc: SparkContext)
     */
 
     // todo: ignores interval, need query for this
-    val rdd = eventsRdd
+    val start = interval.getStart.toDate
+    val end = interval.getEnd.toDate
+    val intervalEventsRdd = eventsRdd.filter {x =>
+      x.eventTime.after(start) &&
+      x.eventTime.before(end)
+    }
+    //val debug = intervalEventsRdd.collect()
+    val rdd = intervalEventsRdd
       .filter(event => eventNames.contains(event.event))
       .map { e => (e.targetEntityId.getOrElse(""), e.event) }
       .groupByKey()
-      .map { case (itemId, itEvents) => (itemId, itEvents.size.toDouble) }
+      .map {
+        case (itemId, itEvents) => (itemId, itEvents.size.toDouble)
+      }
       .reduceByKey(_ + _)
-    // val debug = rdd.collect()
+    //val debug = rdd.collect()
     rdd
   }
 
