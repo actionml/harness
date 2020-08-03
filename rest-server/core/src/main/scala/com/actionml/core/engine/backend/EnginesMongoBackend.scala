@@ -17,6 +17,7 @@
 
 package com.actionml.core.engine.backend
 
+import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.{HEnv, HIO}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
@@ -33,10 +34,10 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 
-abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[String, A, Document] with LazyLogging {
+abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLogging {
   import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
-  private lazy val enginesCollection = storage.createDao[A]("engines")
+  private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   private val engineEventsName = "engines_events"
   private val enginesEventsDao: DAO[Document] = zio.Runtime.unsafeFromLayer(ZLayer.succeed()).unsafeRunSync {
     IO.fromFuture { implicit ec =>
@@ -50,14 +51,14 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
     }
   }.fold(c => throw c.failureOption.get, a => a)
 
-  override def addEngine(id: String, data: A): HIO[Unit] = {
+  override def addEngine(id: String, data: EngineMetadata): HIO[Unit] = {
     for {
       _ <- enginesCollection.insertIO(data)
       _ <- enginesEventsDao.insertIO(mkEvent(id, "add"))
     } yield ()
   }
 
-  override def updateEngine(id: String, data: A): HIO[Unit] = {
+  override def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = {
     IO.effect(enginesCollection.saveOne("engineId" === id, data))
       .mapError(_ => ValidRequestExecutionError())
   }
@@ -70,12 +71,12 @@ abstract class EnginesMongoBackend[A: TypeTag: ClassTag] extends EnginesBackend[
     } yield ()
   }
 
-  override def findEngine(id: String): HIO[A] = {
+  override def findEngine(id: String): HIO[EngineMetadata] = {
     IO.effect(enginesCollection.findOne("engineId" === id).get)
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def listEngines: IO[ValidateError, Iterable[A]] = {
+  override def listEngines: IO[ValidateError, Iterable[EngineMetadata]] = {
     IO.effect(enginesCollection.findMany())
       .mapError(_ => ValidRequestExecutionError())
   }
