@@ -61,12 +61,12 @@ class UREngine extends Engine with JsonSupport {
         ).foreach { p =>
           def eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
           p.ttl.fold[Validated[ValidateError, _]] {
-            eventsDao.createIndexes(365.days)
+            eventsDao.createIndexesAsync(365.days)
             Valid(p)
           } { ttlString =>
             Try(Duration(ttlString)).toOption.map { ttl =>
               // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-              eventsDao.createIndexes(ttl)
+              eventsDao.createIndexesAsync(ttl)
               logger.debug(s"Got a dataset.ttl = $ttl")
               Valid(p)
             }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
