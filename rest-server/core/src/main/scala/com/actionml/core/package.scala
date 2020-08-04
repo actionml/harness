@@ -1,10 +1,27 @@
+/*
+ * Copyright ActionML, LLC under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * ActionML licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.actionml
 
-import com.actionml.core.config.{AppConfig, EtcdConfig}
+import com.actionml.core.config.{AppConfig, EtcdConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.engine.backend.EnginesEtcdBackend
+import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
+import org.bson.codecs.configuration.CodecProvider
 import zio.{Has, Layer, ZIO, ZLayer, ZQueue}
 import zio.clock.Clock
 import zio.logging.{LogAnnotation, Logging}
@@ -65,11 +82,19 @@ package object core  extends LazyLogging {
   type HStream[A] = ZStream[HEnv, ValidateError, A]
   type HQueue[A,B] = ZQueue[Nothing, HEnv, Any, Nothing, A, B]
 
-  val enginesBackend: Layer[Nothing, EnginesBackend] = ZLayer.succeed(
-    new EnginesEtcdBackend {
-      override def config: EtcdConfig = AppConfig.apply.etcdConfig
-    }
-  )
+  val enginesBackend: Layer[Nothing, EnginesBackend] = {
+    val config = AppConfig.apply
+    ZLayer.succeed(
+      config.enginesBackend match {
+        case StoreBackend.mongo => new EnginesMongoBackend {
+          override def codecs: List[CodecProvider] = MongoStorageHelper.codecs
+        }
+        case StoreBackend.etcd => new EnginesEtcdBackend {
+          override def config: EtcdConfig = AppConfig.apply.etcdConfig
+        }
+      }
+    )
+  }
   val harnessRuntime = zio.Runtime.unsafeFromLayer {
     Slf4jLogger.make((c, s) => s) ++
     Clock.live ++

@@ -202,7 +202,7 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     for {
       kv <- getKV
       response <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
-      result <- ZIO.collectAll(response.getKvs.asScala.map { v =>
+      result <- ZIO.collectAll(response.getKvs.asScala.toSeq.map { v =>
         decode(v.getValue.toString(etcdCharset))
       })
     } yield result
@@ -253,7 +253,7 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
       // fetch all registered harness instances
       instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
       // wait for them to update
-      _ <- ZIO.collectAllPar(instances.getKvs.asScala.map { i =>
+      _ <- ZIO.collectAllPar(instances.getKvs.asScala.toSeq.map { i =>
         if (i.getValue.toString(etcdCharset) == actionId) IO.unit
         else waitForAction(i.getKey, watch, now, timeout)
       })
@@ -277,8 +277,3 @@ object EnginesEtcdBackend {
 
   private def now: Duration = Duration.fromInstant(Instant.now)
 }
-
-
-case class EngineMetadata(engineId: String,
-                          engineFactory: String,
-                          params: String)

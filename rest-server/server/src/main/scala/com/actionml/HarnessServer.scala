@@ -19,11 +19,11 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.actionml.admin.{Administrator, EtcdAdministrator, MongoAdministrator}
+import com.actionml.admin.Administrator
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService}
-import com.actionml.core.config.{AppConfig, StoreBackend}
+import com.actionml.core.config.AppConfig
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
@@ -57,10 +57,10 @@ class BaseModule extends Module with LazyLogging {
   val config = AppConfig.apply
   bind[AppConfig] to config
 
-  implicit lazy val system = ActorSystem(inject[AppConfig].actorSystem.name)
-  bind[ActorSystem] to system destroyWith(terminateActorSystem)
+  implicit lazy val actorSystem = ActorSystem(inject[AppConfig].actorSystem.name)
+  bind[ActorSystem] to actorSystem destroyWith(terminateActorSystem)
 
-  bind[ExecutionContext] to system.dispatcher
+  bind[ExecutionContext] to actorSystem.dispatcher
   bind[ActorMaterializer] to ActorMaterializer()
 
   lazy val server = new RestServer
@@ -72,9 +72,8 @@ class BaseModule extends Module with LazyLogging {
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   lazy val administrator = {
-    val a = config.enginesBackend match {
-      case StoreBackend.etcd => EtcdAdministrator(config.etcdConfig, system)
-      case StoreBackend.mongo => new MongoAdministrator(system)
+    val a = new Administrator{
+      override def system: ActorSystem = actorSystem
     }
     a.init
     a
@@ -95,7 +94,7 @@ class BaseModule extends Module with LazyLogging {
   bind[AuthServerProxyService] to authServerProxy
   bind[AuthorizationService] to authService
 
-  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
+  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, actorSystem)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
 

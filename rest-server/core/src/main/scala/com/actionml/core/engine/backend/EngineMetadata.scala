@@ -14,16 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.actionml.core.engine.backend
 
-package com.actionml.admin
+import org.bson.codecs.configuration.CodecProvider
 
-import akka.actor.ActorSystem
-import com.actionml.core.config.EtcdConfig
-import com.actionml.core.engine.backend.EnginesEtcdBackend
 
-class EtcdAdministrator(override val config: EtcdConfig, override val system: ActorSystem)
-  extends EnginesEtcdBackend with Administrator
+case class EngineMetadata(engineId: String,
+                          engineFactory: String,
+                          params: String)
 
-object EtcdAdministrator {
-  def apply(config: EtcdConfig, system: ActorSystem) = new EtcdAdministrator(config, system)
+
+object MongoStorageHelper {
+  val codecs: List[CodecProvider] = {
+    import org.mongodb.scala.bson.codecs.Macros._
+    List(classOf[EngineMetadata])
+  }
 }

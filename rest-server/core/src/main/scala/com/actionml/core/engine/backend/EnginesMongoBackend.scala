@@ -27,7 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
-import zio.{IO, Queue, ZLayer, ZQueue}
+import zio.{CanFail, IO, Queue, ZIO, ZLayer, ZQueue}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -84,14 +84,14 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
   override def modificationEventsQueue: HIO[ZQueue[Nothing, HEnv, Any, Nothing, String, (Long, String)]] = {
     for {
       q <- Queue.unbounded[String]
-      _ = startWatching(q)
+      _ <- startWatching(q)
     } yield q.map(0L -> _)
   }
 
   override def updateState(harnessId: Long, actionId: String): HIO[Unit] = IO.unit
 
 
-  private def startWatching(queue: Queue[String]): Unit = {
+  private def startWatching(queue: Queue[String]): HIO[Unit] = IO.effectAsync { cb =>
     enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
       .collection
       .find()
@@ -99,13 +99,13 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
       .noCursorTimeout(true)
       .subscribe(new Observer[Document] {
         override def onNext(result: Document): Unit = {
-          queue.offer(getActionValue(result))
+          cb.apply(queue.offer(getActionValue(result)).orElseFail(ValidRequestExecutionError())(CanFail.canFail).unit)
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)
           startWatching(queue)
         }
-        override def onComplete(): Unit = {}
+        override def onComplete(): Unit = cb.apply(ZIO.unit)
       })
   }
 

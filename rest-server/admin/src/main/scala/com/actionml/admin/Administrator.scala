@@ -170,7 +170,7 @@ trait Administrator extends LazyLogging with JsonSupport {
 
   def statuses(): HIO[List[Response]] = {
     logger.trace("Getting status for all Engines")
-    ZIO.collectAll(engines.map(_._2.status()))
+    ZIO.collectAllPar(engines.map(_._2.status()).toList)
   }
 
   def status(resourceId: String): HIO[Response] = {
