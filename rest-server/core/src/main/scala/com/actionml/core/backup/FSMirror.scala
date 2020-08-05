@@ -47,7 +47,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
       try {
         val resourceCollection = new File(containerName)
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-        if (!resourceCollection.exists()) new File(s"$containerName").mkdir()
+        if (!resourceCollection.exists()) new File(s"$containerName").mkdirs()
         val fn = batchName
         // pat: old method used PrintWriter, new method uses BufferedWriter
         // val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
