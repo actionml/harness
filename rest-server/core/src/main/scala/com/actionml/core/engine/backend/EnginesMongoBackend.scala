@@ -30,8 +30,6 @@ import org.mongodb.scala.{Document, Observer}
 import zio.{CanFail, IO, Queue, ZIO, ZLayer, ZQueue}
 
 import scala.concurrent.Future
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
 
 
 abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLogging {
@@ -84,7 +82,7 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
   override def modificationEventsQueue: HIO[ZQueue[Nothing, HEnv, Any, Nothing, String, (Long, String)]] = {
     for {
       q <- Queue.unbounded[String]
-      _ <- startWatching(q)
+      _ <- startWatching(q).fork
     } yield q.map(0L -> _)
   }
 
@@ -103,7 +101,7 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)
-          startWatching(queue)
+          cb.apply(ZIO.fail(ValidRequestExecutionError(e.getMessage)))
         }
         override def onComplete(): Unit = cb.apply(ZIO.unit)
       })

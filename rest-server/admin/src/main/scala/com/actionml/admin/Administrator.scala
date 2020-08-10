@@ -48,7 +48,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       .foreach { case (harnessId, actionId) =>
         for {
           l <- listEngines
-          _ <- ZIO.collectAll(l.map(e => newEngineInstanceIO(e.engineFactory, e.params)))
+          _ <- ZIO.foreach(l)(e => newEngineInstanceIO(e.engineFactory, e.params))
             .map(l => engines = l.map(e => e.engineId -> e).toMap)
           _ <- updateState(harnessId, actionId).ignore
           _ <- log.info(s"Engines updated at harness-$harnessId after action $actionId")
