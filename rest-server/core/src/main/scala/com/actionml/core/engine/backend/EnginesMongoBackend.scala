@@ -18,7 +18,7 @@
 package com.actionml.core.engine.backend
 
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.{HEnv, HIO}
+import com.actionml.core.{HEnv, HIO, harnessRuntime}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
@@ -27,6 +27,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
+import zio.stream.ZStream
 import zio.{CanFail, IO, Queue, ZIO, ZLayer, ZQueue}
 
 import scala.concurrent.Future
@@ -97,13 +98,13 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
       .noCursorTimeout(true)
       .subscribe(new Observer[Document] {
         override def onNext(result: Document): Unit = {
-          cb.apply(queue.offer(getActionValue(result)).orElseFail(ValidRequestExecutionError())(CanFail.canFail).unit)
+          harnessRuntime.unsafeRunSync(queue.offer(getActionValue(result)))
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)
           cb.apply(ZIO.fail(ValidRequestExecutionError(e.getMessage)))
         }
-        override def onComplete(): Unit = cb.apply(ZIO.unit)
+        override def onComplete(): Unit = cb.apply(ZIO.fail(ValidRequestExecutionError("Engines backend error")))
       })
   }
 
