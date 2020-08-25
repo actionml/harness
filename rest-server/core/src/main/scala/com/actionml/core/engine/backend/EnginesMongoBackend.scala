@@ -80,7 +80,7 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def modificationEventsQueue: HIO[ZQueue[Nothing, HEnv, Any, Nothing, String, (Long, String)]] = {
+  override def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, Long with String, (Long, String)]] = {
     for {
       q <- Queue.unbounded[String]
       _ <- startWatching(q).fork

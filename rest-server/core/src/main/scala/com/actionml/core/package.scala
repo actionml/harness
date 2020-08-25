@@ -80,7 +80,7 @@ package object core  extends LazyLogging {
   type HEnv = EnginesBackend with Clock with Logging
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
-  type HQueue[A,B] = ZQueue[Nothing, HEnv, Any, Nothing, A, B]
+  type HQueue[A] = ZQueue[Nothing, HEnv, Any, Nothing, A, A]
 
   val enginesBackend: Layer[Nothing, EnginesBackend] = {
     val config = AppConfig.apply

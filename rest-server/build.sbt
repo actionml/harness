@@ -95,9 +95,9 @@ lazy val core = (project in file("core")).
 
       "dev.zio" %% "zio" % "1.0.0",
       "dev.zio" %% "zio-streams" % "1.0.0",
-      "dev.zio" %% "zio-logging" % "0.3.2",
-      "dev.zio" %% "zio-logging-slf4j" % "0.3.2",
-      "com.vladkopanev" %% "zio-saga-core" % "0.3.0",
+      "dev.zio" %% "zio-logging" % "0.4.0",
+      "dev.zio" %% "zio-logging-slf4j" % "0.4.0",
+      "com.vladkopanev" %% "zio-saga-core" % "0.4.0",
 
       "io.etcd" % "jetcd-core" % "0.5.3",
 

@@ -24,7 +24,7 @@ import java.util.UUID
 import com.actionml.core.config.{AppConfig, EtcdConfig}
 import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.validate.{JsonSupport, ResourceNotFound, ValidRequestExecutionError, ValidateError, WrongParams}
-import com.actionml.core.{HEnv, HIO, HQueue}
+import com.actionml.core.{HEnv, HIO, HQueue, harnessRuntime}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
@@ -34,9 +34,10 @@ import io.etcd.jetcd.options.{DeleteOption, GetOption, PutOption, WatchOption}
 import io.etcd.jetcd.support.CloseableClient
 import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
+import zio.clock.Clock
 import zio.duration._
 import zio.logging._
-import zio.{Cause, IO, Queue, Schedule, ZIO}
+import zio.{CanFail, Cause, IO, Queue, Schedule, ZIO, ZQueue}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -49,43 +50,66 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   def config: EtcdConfig
 
-  private val etcdClient: HIO[Client] =
+  private val etcdClient: ZIO[Logging with Clock, Throwable, Client] =
     IO.effect(Client.builder.endpoints(config.endpoints: _*).build)
-      .flatMapError { e =>
-        log.error("Etcd client error", Cause.die(e))
-          .map(_ => ValidRequestExecutionError())
+      .catchAll { e =>
+        log.error("Etcd client error", Cause.die(e)) *> etcdClient
       }.retry(etcdRetrySchedule)
-  private val getKV: HIO[KV] = etcdClient.map(_.getKVClient).retry(etcdRetrySchedule)
+  private val getKV: HIO[KV] = etcdClient.map(_.getKVClient)
+    .catchAll { e =>
+      log.error("Etcd client error", Cause.die(e)) *> getKV
+    }.retry(etcdRetrySchedule)
   private val getWatch: HIO[Watch] = etcdClient.map(_.getWatchClient).retry(etcdRetrySchedule)
+    .catchAll { e =>
+      log.error("Etcd client error", Cause.die(e)) *> getWatch
+    }.retry(etcdRetrySchedule)
   private val getLease: HIO[Lease] = etcdClient.map(_.getLeaseClient).retry(etcdRetrySchedule)
+    .catchAll { e =>
+      log.error("Etcd client error", Cause.die(e)) *> getLease
+    }.retry(etcdRetrySchedule)
 
-  private def mkHarnessId: HIO[Long] = {
+  private def mkHarnessIds: HIO[Queue[Long]] = {
+    def runObserver(lease: Lease, q: Queue[Long]): ZIO[HEnv, ValidateError, Unit] = {
+      for {
+        leaseId <- lease.grant(5).toIO.map(_.getID)
+        _ <- log.info(s"GOT HARNESS ID $leaseId")
+        _ <- q.offer(leaseId)
+        _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb =>
+          Try {
+            lazy val keepAlive: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+              var currentId = 0L
+              override def onCompleted(): Unit = {
+                logger.info(s"Keep-alive completed for harness-$leaseId")
+                cb(ZIO.fail(keepAlive))
+              }
+              override def onNext(resp: LeaseKeepAliveResponse): Unit = {
+                harnessRuntime.unsafeRunSync(q.offer(resp.getID))
+              }
+              override def onError(e: Throwable): Unit = {
+                logger.error("Etcd keep-alive error", e)
+                cb(ZIO.fail(keepAlive))
+              }
+            })
+            keepAlive
+          }
+        }.catchAll { ka =>
+          Try(ka.close())
+          runObserver(lease, q).delay(3.seconds)
+        }.retry(Schedule.fixed(3.seconds))
+      } yield ()
+    }
+
     for {
       lease <- getLease
-      leaseId <- lease.grant(5).toIO.map(_.getID)
-      _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb => Try {
-        lazy val keepAlive: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-          override def onCompleted(): Unit = {
-            logger.info(s"Keep-alive completed for harness-$leaseId")
-            cb(ZIO.fail(keepAlive))
-          }
-
-          override def onNext(resp: LeaseKeepAliveResponse): Unit = {}
-
-          override def onError(e: Throwable): Unit = {
-            logger.error("Etcd keep-alive error", e)
-            cb(ZIO.fail(keepAlive))
-          }
-        })
-        keepAlive
-      }}.mapError { ka => Try(ka.close()); ValidRequestExecutionError() }.fork
-    } yield leaseId
+      q <- ZQueue.unbounded[Long]
+      _ <- runObserver(lease, q).fork
+    } yield q
   }
 
-  override def modificationEventsQueue: HIO[HQueue[String, (Long, String)]] = {
+  override def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, String, (Long, String)]] = {
     for {
-      harnessId <- mkHarnessId
-      _ <- registerInstance(harnessId)
+      idQ <- mkHarnessIds
+      harnessId <- registerInstance(idQ)
       actionsQ <- Queue.sliding[String](1000)
       _ <- watchActions(actionsQ).forever.fork
       _ <- actionsQ.offer("")
@@ -102,14 +126,15 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   }
 
 
-  private def registerInstance(harnessId: Long): HIO[Unit] =
+  private def registerInstance(harnessIds: Queue[Long]): HIO[Long] =
     for {
       kv <- getKV
+      harnessId <- harnessIds.take
       instanceKey = s"${servicesPrefix}harness-$harnessId"
       _ <- log.info(s"Got harnessId=$harnessId")
       kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
       _ <- kv.put(instanceKey, "", kOpt)
-    } yield ()
+    } yield harnessId
 
   private def watchActions(actionsQ: Queue[String]): HIO[Unit] =
     for {
@@ -273,7 +298,7 @@ object EnginesEtcdBackend {
   private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build
   private def watchPrefixOpt(prefix: String) = WatchOption.newBuilder().withPrefix(prefix).build
 
-  private val etcdRetrySchedule = Schedule.linear(3.second)
+  private val etcdRetrySchedule = Schedule.fixed(3.second)
 
   private def now: Duration = Duration.fromInstant(Instant.now)
 }

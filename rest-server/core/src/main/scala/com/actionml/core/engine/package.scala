@@ -1,7 +1,7 @@
 package com.actionml.core
 
 import com.actionml.core.engine.backend.EngineMetadata
-import zio.{Has, ZIO}
+import zio.{Has, ZIO, ZQueue}
 
 package object engine {
 
@@ -15,7 +15,7 @@ package object engine {
       def deleteEngine(id: String): HIO[Unit]
       def findEngine(id: String): HIO[EngineMetadata]
       def listEngines: HIO[Iterable[EngineMetadata]]
-      def modificationEventsQueue: HIO[HQueue[String, (Long, String)]]
+      def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, Long with String, (Long, String)]]
       def updateState(harnessId: Long, actionId: String): HIO[Unit]
     }
 
@@ -24,7 +24,7 @@ package object engine {
     def deleteEngine(id: String): HIO[Unit] = ZIO.accessM(_.get.deleteEngine(id))
     def findEngine(id: String): HIO[EngineMetadata] = ZIO.accessM(_.get.findEngine(id))
     def listEngines: HIO[Iterable[EngineMetadata]] = ZIO.accessM(_.get.listEngines)
-    def modificationEventsQueue: HIO[HQueue[String, (Long, String)]] = ZIO.accessM(_.get.modificationEventsQueue)
+    def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, Long with String, (Long, String)]] = ZIO.accessM(_.get.modificationEventsQueue)
     def updateState(harnessId: Long, actionId: String): HIO[Unit] = ZIO.accessM(_.get.updateState(harnessId, actionId))
   }
 }
