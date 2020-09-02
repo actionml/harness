@@ -18,7 +18,7 @@
 package com.actionml.core.engine.backend
 
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.{HEnv, HIO, harnessRuntime}
+import com.actionml.core.{HEnv, HIO, enginesBackend, harnessRuntime}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
@@ -80,17 +80,17 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
       .mapError(_ => ValidRequestExecutionError())
   }
 
-  override def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, Long with String, (Long, String)]] = {
+  override def modificationEventsQueue: HIO[Queue[(Long, String)]] = {
     for {
-      q <- Queue.unbounded[String]
+      q <- Queue.unbounded[(Long, String)]
       _ <- startWatching(q).fork
-    } yield q.map(0L -> _)
+    } yield q
   }
 
   override def updateState(harnessId: Long, actionId: String): HIO[Unit] = IO.unit
 
 
-  private def startWatching(queue: Queue[String]): HIO[Unit] = IO.effectAsync { cb =>
+  private def startWatching(queue: Queue[(Long, String)]): HIO[Unit] = IO.effectAsync { cb =>
     enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
       .collection
       .find()
@@ -98,7 +98,7 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
       .noCursorTimeout(true)
       .subscribe(new Observer[Document] {
         override def onNext(result: Document): Unit = {
-          harnessRuntime.unsafeRunSync(queue.offer(getActionValue(result)))
+          harnessRuntime.unsafeRunSync(queue.offer(0L -> getActionValue(result)))
         }
         override def onError(e: Throwable): Unit = {
           logger.error(s"$engineEventsName watch error", e)

@@ -23,8 +23,8 @@ import java.util.UUID
 
 import com.actionml.core.config.{AppConfig, EtcdConfig}
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.validate.{JsonSupport, ResourceNotFound, ValidRequestExecutionError, ValidateError, WrongParams}
-import com.actionml.core.{HEnv, HIO, HQueue, harnessRuntime}
+import com.actionml.core.validate._
+import com.actionml.core.{HEnv, HIO, harnessRuntime}
 import com.typesafe.scalalogging.LazyLogging
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
@@ -37,7 +37,7 @@ import io.grpc.stub.StreamObserver
 import zio.clock.Clock
 import zio.duration._
 import zio.logging._
-import zio.{CanFail, Cause, IO, Queue, Schedule, ZIO, ZQueue}
+import zio.{Cause, IO, Queue, Ref, Schedule, ZIO, ZQueue}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -52,9 +52,6 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   private val etcdClient: ZIO[Logging with Clock, Throwable, Client] =
     IO.effect(Client.builder.endpoints(config.endpoints: _*).build)
-      .catchAll { e =>
-        log.error("Etcd client error", Cause.die(e)) *> etcdClient
-      }.retry(etcdRetrySchedule)
   private val getKV: HIO[KV] = etcdClient.map(_.getKVClient)
     .catchAll { e =>
       log.error("Etcd client error", Cause.die(e)) *> getKV
@@ -68,22 +65,25 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
       log.error("Etcd client error", Cause.die(e)) *> getLease
     }.retry(etcdRetrySchedule)
 
-  private def mkHarnessIds: HIO[Queue[Long]] = {
-    def runObserver(lease: Lease, q: Queue[Long]): ZIO[HEnv, ValidateError, Unit] = {
+  private def registerHarnessIds(harnessId: Ref[Long]): HIO[Unit] = {
+    def runObserver(lease: Lease): ZIO[HEnv, ValidateError, Unit] = {
       for {
         leaseId <- lease.grant(5).toIO.map(_.getID)
-        _ <- log.info(s"GOT HARNESS ID $leaseId")
-        _ <- q.offer(leaseId)
+        _ <- harnessId.set(leaseId)
+        _ <- log.info(s"Got harnessId=$leaseId")
+        kv <- getKV
+        instanceKey = s"${servicesPrefix}harness-$leaseId"
+        kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
+        _ <- kv.put(instanceKey, "", kOpt)
         _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb =>
           Try {
             lazy val keepAlive: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-              var currentId = 0L
               override def onCompleted(): Unit = {
                 logger.info(s"Keep-alive completed for harness-$leaseId")
                 cb(ZIO.fail(keepAlive))
               }
               override def onNext(resp: LeaseKeepAliveResponse): Unit = {
-                harnessRuntime.unsafeRunSync(q.offer(resp.getID))
+                harnessRuntime.unsafeRunSync(harnessId.set(resp.getID))
               }
               override def onError(e: Throwable): Unit = {
                 logger.error("Etcd keep-alive error", e)
@@ -92,51 +92,43 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
             })
             keepAlive
           }
-        }.catchAll { ka =>
+        }.mapError { ka =>
           Try(ka.close())
-          runObserver(lease, q).delay(3.seconds)
-        }.retry(Schedule.fixed(3.seconds))
+          ValidRequestExecutionError()
+        }
       } yield ()
     }
 
     for {
       lease <- getLease
-      q <- ZQueue.unbounded[Long]
-      _ <- runObserver(lease, q).fork
-    } yield q
-  }
+      _ <- runObserver(lease)
+    } yield ()
+  }.retry(Schedule.linear(1.second))
 
-  override def modificationEventsQueue: HIO[ZQueue[Any, Any, Nothing, Nothing, String, (Long, String)]] = {
+  override def modificationEventsQueue: HIO[Queue[(Long, String)]] = {
     for {
-      idQ <- mkHarnessIds
-      harnessId <- registerInstance(idQ)
-      actionsQ <- Queue.sliding[String](1000)
-      _ <- watchActions(actionsQ).forever.fork
-      _ <- actionsQ.offer("")
-    } yield actionsQ.map(harnessId -> _)
+      harnessId <- Ref.make(0L)
+      _ <- registerHarnessIds(harnessId).fork
+      actionsQ <- Queue.sliding[(Long, String)](1000)
+      _ <- watchActions(actionsQ, harnessId).retry(Schedule.linear(1.second)).forever.fork
+      id <- harnessId.get
+      _ <- actionsQ.offer(id -> "")
+    } yield actionsQ
   }
 
   override def updateState(harnessId: Long, actionId: String): HIO[Unit] = {
-    for {
-      kv <- getKV
-      instanceKey = s"${servicesPrefix}harness-$harnessId"
-      opt = PutOption.newBuilder().withLeaseId(harnessId).build()
-      _ <- kv.put(instanceKey, actionId, opt)
-    } yield ()
+    if (harnessId > 0)
+      for {
+        kv <- getKV
+        instanceKey = s"${servicesPrefix}harness-$harnessId"
+        opt = PutOption.newBuilder().withLeaseId(harnessId).build()
+        _ <- kv.put(instanceKey, actionId, opt)
+      } yield ()
+    else IO.unit
   }
 
 
-  private def registerInstance(harnessIds: Queue[Long]): HIO[Long] =
-    for {
-      kv <- getKV
-      harnessId <- harnessIds.take
-      instanceKey = s"${servicesPrefix}harness-$harnessId"
-      _ <- log.info(s"Got harnessId=$harnessId")
-      kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
-      _ <- kv.put(instanceKey, "", kOpt)
-    } yield harnessId
-
-  private def watchActions(actionsQ: Queue[String]): HIO[Unit] =
+  private def watchActions(actionsQ: Queue[(Long, String)], harnessId: Ref[Long]): HIO[Unit] =
     for {
       watch <- getWatch
       _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb => Try {
@@ -144,9 +136,10 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
         lazy val w: Watcher = watch.watch(actionsPrefix, wOpt, new Watch.Listener with LazyLogging {
           override def onNext(response: WatchResponse): Unit = cb {
             for {
+              id <- harnessId.get
               _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
               actionIds = response.getEvents.asScala.map(_.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length))
-              _ <- actionsQ.offerAll(actionIds)
+              _ <- actionsQ.offerAll(actionIds.map(a => id -> a))
             } yield w
           }
           override def onError(e: Throwable): Unit = {
