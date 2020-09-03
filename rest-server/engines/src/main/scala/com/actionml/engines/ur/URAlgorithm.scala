@@ -198,7 +198,7 @@ class URAlgorithm private (
         ("Max query events:", maxQueryEvents),
         ("Limit:", limit),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x.name)))
+        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x)))
 
       Valid(isOK)
     }
@@ -363,7 +363,7 @@ class URAlgorithm private (
 
     val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
       val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
-      //val colledtedFileds = data.fieldsRdd.collect()
+      //val debugColledtedFileds = data.fieldsRdd.collect()
       //colledtedFileds.foreach { f => logger.info(s"$f") }
       //val collectedRanks = ranksRdd.collect()
       //collectedRanks.foreach { f => logger.info(s"$f") }
@@ -384,6 +384,7 @@ class URAlgorithm private (
     val allMappings = getMappings ++ propertiesMappings
 
     logger.trace(s"Engine-id: ${engineId}. Correlators created now putting into URModel")
+    //val debug = propertiesRDD.collect()
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
@@ -675,7 +676,7 @@ class URAlgorithm private (
       rankingFieldName -> rankRdd
     }
     logger.info(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
-    rankRDDs
+    val retval =rankRDDs
       .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
       case (leftRdd, (fieldName, rightRdd)) =>
         leftRdd.fullOuterJoin(rightRdd).map {
@@ -685,6 +686,8 @@ class URAlgorithm private (
           case (itemId, _)                           => itemId -> Map.empty
         }
     }.filter { case (itemId, props) => convertedItems.contains(itemId) }
+    //val debug = retval.collect()
+    retval
   }
 
   def getMappings: Map[String, (String, Boolean)] = {
