@@ -46,7 +46,7 @@ import scala.util.Try
 trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   import EnginesEtcdBackend._
-  import com.actionml.core.utils.ZIOUtil.ImplicitConversions.ZioImplicits._
+  import com.actionml.core.utils.ZIOUtil.ZioImplicits._
 
   def config: EtcdConfig
 
@@ -168,7 +168,7 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
       actionId = UUID.randomUUID()
       actionKey = s"${actionsPrefix}$actionId"
       // todo: use transaction for action too
-      _ <- kv.put(engineKey, encode(data)).toHIO
+      _ <- kv.put(engineKey, encode(data)).toIO
         .map(r => (r.getPrevKv.getModRevision, r.getPrevKv.getCreateRevision))
         .filterOrFail { case (0, 0) => true } (WrongParams(s"Engine $id already exists, use update"))
       waitForOthers = for {
@@ -179,7 +179,7 @@ trait EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
         // mod and create revisions equal to 0 means that no changes were made to the engine's meta information, so we can delete it (rollback)
         .If(new Cmp(engineKey, Cmp.Op.EQUAL, CmpTarget.modRevision(0)), new Cmp(engineKey, Cmp.Op.EQUAL, CmpTarget.createRevision(0)))
         .Then(Op.delete(engineKey, DeleteOption.newBuilder().build), Op.delete(actionKey, DeleteOption.newBuilder().build))
-        .commit().toHIO.unit
+        .commit().toIO.unit
       _ <- (waitForOthers compensate removeEngineAndAction).transact
     } yield ()
   }

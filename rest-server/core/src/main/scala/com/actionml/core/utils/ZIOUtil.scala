@@ -24,74 +24,26 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
-import zio.logging.log
-import zio.{Cause, IO, Task, ZIO}
-
-import scala.compat.java8.FunctionConverters.asJavaBiFunction
+import zio.{IO, Task, ZIO}
 
 object ZIOUtil {
 
-  object ImplicitConversions {
-
-    object ValidatedImplicits {
-      implicit def validated2IO(v: => Validated[ValidateError, Response]): HIO[Response] = {
-        IO.effect {
-          v match {
-            case Valid(resp) => IO.succeed(resp)
-            case Invalid(e) => ZIO.fail(e)
-          }
-        }.mapError(e => ValidRequestExecutionError(e.getMessage)).flatten
-      }
+  object ValidatedImplicits {
+    implicit def validated2IO(v: => Validated[ValidateError, Response]): HIO[Response] = {
+      IO.effect {
+        v match {
+          case Valid(resp) => IO.succeed(resp)
+          case Invalid(e) => ZIO.fail(e)
+        }
+      }.mapError(e => ValidRequestExecutionError(e.getMessage)).flatten
     }
-
-    object ZioImplicits {
-
-      implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
-        def toHIO = completableFuture2HIO(f)
-        def toIO = completableFuture2IO(f)
-        def toTask = completableFuture2Task(f)
-      }
-
-      implicit def completableFuture2HIO[T](f: CompletableFuture[T]): HIO[T] =
-        IO.effectAsync { cb =>
-          f.handle[Unit](asJavaBiFunction((r, err) => {
-            err match {
-              case null => cb.apply(IO.succeed(r))
-              case e => cb.apply(IO.fail(ValidRequestExecutionError()))
-            }
-          }))
-        }
-
-      def completableFuture2IO[T](f: CompletableFuture[T]): IO[ValidateError, T] = IO.effectAsync { cb =>
-          f.handle[Unit](asJavaBiFunction((r, err) => {
-            err match {
-              case null => cb.apply(IO.succeed(r))
-              case e => cb.apply(IO.fail(ValidRequestExecutionError()))
-            }
-          }))
-        }
-
-      def completableFuture2Task[T](f: CompletableFuture[T]): Task[T] =
-        IO.effectAsync { cb =>
-          f.handle[Unit](asJavaBiFunction((r, err) => {
-            err match {
-              case null => cb.apply(IO.succeed(r))
-              case e => cb.apply(IO.fail(e))
-            }
-          }))
-        }
-
-      implicit class Task2HIO[T](t: Task[T]) {
-        def toHIO = task2Hio(t)
-      }
-
-      def task2Hio[A](t: Task[A]): HIO[A] = {
-        t.mapError { e =>
-          log.error(s"$t error", Cause.die(e))
-          ValidRequestExecutionError()
-        }
-      }
+  }
+  object ZioImplicits {
+    implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
+      def toIO: IO[ValidateError, T] = ZIO.fromCompletionStage(f).mapError(e => ValidRequestExecutionError())
+      def toTask: Task[T] = ZIO.fromCompletionStage(f)
     }
-
+    implicit def completableFuture2HIO[T](f: CompletableFuture[T]): HIO[T] =
+      ZIO.fromCompletionStage(f).mapError(e => ValidRequestExecutionError())
   }
 }

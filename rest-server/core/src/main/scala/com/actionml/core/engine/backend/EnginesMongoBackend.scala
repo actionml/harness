@@ -18,17 +18,16 @@
 package com.actionml.core.engine.backend
 
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.{HEnv, HIO, enginesBackend, harnessRuntime}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.{HIO, harnessRuntime}
 import com.mongodb.CursorType
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
-import zio.stream.ZStream
-import zio.{CanFail, IO, Queue, ZIO, ZLayer, ZQueue}
+import zio.{IO, Queue, ZIO, ZLayer}
 
 import scala.concurrent.Future
 
