@@ -24,26 +24,33 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
 import com.actionml.core.model.Response
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.typesafe.scalalogging.LazyLogging
 import zio.{IO, Task, ZIO}
 
-object ZIOUtil {
+object ZIOUtil extends LazyLogging {
 
   object ValidatedImplicits {
     implicit def validated2IO(v: => Validated[ValidateError, Response]): HIO[Response] = {
-      IO.effect {
+      mapError(IO.effect {
         v match {
           case Valid(resp) => IO.succeed(resp)
           case Invalid(e) => ZIO.fail(e)
         }
-      }.mapError(e => ValidRequestExecutionError(e.getMessage)).flatten
+      }).flatten
     }
   }
   object ZioImplicits {
     implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
-      def toIO: IO[ValidateError, T] = ZIO.fromCompletionStage(f).mapError(e => ValidRequestExecutionError())
+      def toIO: HIO[T] = completableFuture2HIO(f)
       def toTask: Task[T] = ZIO.fromCompletionStage(f)
     }
     implicit def completableFuture2HIO[T](f: CompletableFuture[T]): HIO[T] =
-      ZIO.fromCompletionStage(f).mapError(e => ValidRequestExecutionError())
+      mapError(ZIO.fromCompletionStage(f))
+  }
+
+
+  private def mapError[A]: Task[A] => HIO[A] = _.mapError { e =>
+    logger.error(e.getMessage, e)
+    ValidRequestExecutionError(e.getMessage)
   }
 }

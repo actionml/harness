@@ -113,10 +113,10 @@ trait Administrator extends LazyLogging with JsonSupport {
     for {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- getEngine(params.engineId)
-          .fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
-            (EnginesBackend.updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)) *>
-              existingEngine.init(json, update = true)).mapError(e => ValidRequestExecutionError())
-          }
+        .fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
+          (EnginesBackend.updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json)) *>
+            existingEngine.init(json, update = true)).mapError(e => ValidRequestExecutionError())
+        }
     } yield result
   }
 
