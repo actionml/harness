@@ -43,11 +43,11 @@ class FSMirror(mirrorContainer: String, engineId: String)
     def mirrorEventError(errMsg: String) =
       Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
 
-    if (Option(mirrorContainer).map(_.trim).exists(_.nonEmpty)){
+    if (Option(mirrorContainer).map(_.trim).exists(_.nonEmpty)) {
       try {
         val resourceCollection = new File(containerName)
         //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-        if (!resourceCollection.exists()) new File(s"$containerName").mkdir()
+        if (!resourceCollection.exists()) resourceCollection.mkdirs()
         val fn = batchName
         // pat: old method used PrintWriter, new method uses BufferedWriter
         // val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
@@ -124,6 +124,8 @@ class FSMirror(mirrorContainer: String, engineId: String)
     if (isMirroring) { // if a mirror is setup for writing
       try {
         val src = Source.fromFile(file)
+        val containerDir = new File(containerName)
+        if (!containerDir.exists()) containerDir.mkdirs()
         val mirrorWriter = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
         src.getLines().sliding(512, 512).foreach { lines =>
           eventsProcessed += lines.size

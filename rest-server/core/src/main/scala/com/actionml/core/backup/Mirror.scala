@@ -17,6 +17,7 @@
 
 package com.actionml.core.backup
 
+import java.io.File
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
@@ -54,7 +55,7 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
     * @param engineId Engine ID
     * @return directory name
     */
-  protected def containerName: String = s"$mirrorContainer/$engineId"
+  protected def containerName: String = s"$mirrorContainer${File.separator}$engineId"
 
 }
 
