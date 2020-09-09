@@ -2,7 +2,13 @@
 
 Harness is a complete end-to-end Machine Learning and Artificial Intelligence server in early maturity. Meaning all minimum viable product features are included and tested in production deployments. It includes several Engines including, most notably, The Universal Recommender. It is built to allow custom Engines employing flexible learning styles.
 
-## 0.5.1 (current stable containerized)
+## 0.6.0 (current stable)
+
+New features include:
+
+ - Realtime changes to item properties via modifying the model during the $set of properties.
+
+## 0.5.1 (containerized)
 
 In production at several locations and in high demand situations. This is the first full containerized release. Improvements include:
 
