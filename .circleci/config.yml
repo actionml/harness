@@ -65,42 +65,41 @@ jobs:
             *)
             ;;
           esac
-    # TODO: Enable integration test after test fixed
-    # - run:
-    #     name: Test docker image
-    #     command: |
+    - run:
+        name: Test docker image
+        command: |
 
-    #       case "${CIRCLE_BRANCH}" in
-    #         master|develop|devops)
-    #           cd docker && \
-    #           mv envs .env &&\
-    #           docker-compose up -d --build
-    #           docker-compose ps
+          case "${CIRCLE_BRANCH}" in
+            master|develop|devops)
+              cd docker && \
+              mv envs .env &&\
+              docker-compose up -d --build
+              docker-compose ps
 
-    #           sleep 45
+              sleep 45
                          
-    #           docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
+              docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
-    #           docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
+              docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
      
-    #           docker-compose logs harness
+              docker-compose logs harness
 
-    #           docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
-    #           docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
               
-    #           docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
+              docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
                             
-    #           echo "harness-cli simple-integration-test finished"
+              echo "harness-cli simple-integration-test finished"
 
-    #           echo "export RESULT=$RESULT" >> $SHELL_ENV
-    #         ;;
-    #         *)
-    #           echo "export RESULT=1" >> $SHELL_ENV
-    #         ;;
-    #       esac
+              echo "export RESULT=$RESULT" >> $SHELL_ENV
+            ;;
+            *)
+              echo "export RESULT=1" >> $SHELL_ENV
+            ;;
+          esac
           
-    #       source $SHELL_ENV
+          source $SHELL_ENV
     - run:
         name: Publish docker image
         command: |
