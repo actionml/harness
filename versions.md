@@ -4,7 +4,7 @@ Harness is a complete end-to-end Machine Learning and Artificial Intelligence se
 
 ## 0.6.0 (current stable)
 
-New features include:
+New features include:  
 
  - Realtime changes to item properties via modifying the model during the $set of properties.
 
