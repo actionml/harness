@@ -43,7 +43,7 @@ services:
 
   harness-cli:
     restart: always
-    image: actionml/harness-cli:develop
+    image: actionml/harness-cli:latest
     container_name: harness-cli
     environment:
         HARNESS_SERVER_ADDRESS: harness
