@@ -1,8 +1,10 @@
-# Versions
+# Harness Versions
 
 Harness is a complete end-to-end mature Machine Learning server tested in live production deployments. It includes several Engines, most notably, The Universal Recommender. It is designed to allow custom Engines employing flexible learning styles.
 
-# Harness
+## harness-1.0.0-SNAPSHOT (current work-in-progress)
+
+In the "develop" branch of the git repo this will be somewhat unstable at first due to some fundamental changes to synchronizing multiple Harness Servers behind a load balancer. We are also adding the ability to push the "Spark Driver" process into the Spark cluster. These changes are primarily to support very large datasets and very heavy load environments.
 
 ## harness-0.6.0 (current stable)
 
@@ -81,20 +83,3 @@ Bug fix release.
  - User permission management complete
  - Provisioning is done by hand installation
  - Async APIs for DB access are implemented only in the Auth-Server and the REST API with accompanying SDKs. Many DB access calls in the Engines are synchronous only. 
-
-# The Universal Recommender
-
-## UR-0.9.0
-
- - improved requests per second for input and queries
- - Elasticsearch 6.x and 7 support
- - ES 7 has scoring differences and the integration test has not been updated to reflect these so do not trust the test on ES 7
- - Realtime property changes for $set, no need to re-train to have them updated in the model
- - Background index updates for Mongo when changing the TTL in a dataset
- - New statuses for long lived Jobs, these are now persistent over a restart of Harness. Spark Jobs now have a "completed" or "failed" status.
- - Extended JSON for Engine Instance Config files, which pulls values from env.
-
-## UR-0.8.0
-
- - feature parity with the PIO version 0.7.3
-
