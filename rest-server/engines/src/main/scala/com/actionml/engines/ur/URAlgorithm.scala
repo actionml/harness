@@ -758,7 +758,7 @@ object URAlgorithm extends JsonSupport {
       duration: Option[String] = Some(DefaultURAlgoParams.BackfillDuration)) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
-         |_id: $name,
+         |name: $name,
          |type: ${`type`},
          |indicatorParams: $indicatorNames,
          |offsetDate: $offsetDate,

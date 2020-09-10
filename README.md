@@ -204,3 +204,7 @@ There are several ways to install and run Harness. The primary method we release
 
  - [**Docker-Compose Installation**](https://actionml.com/docs/harness_container_guide) to install an entire system using containers for all services on a single machine,
  - [**Source Build**](https://actionml.com/docs/harness_install)
+
+# Versions
+
+See [versions.md](https://github.com/actionml/harness/blob/master/versions.md) for **released** versions, or look in the "develop" branch for works in progress.
