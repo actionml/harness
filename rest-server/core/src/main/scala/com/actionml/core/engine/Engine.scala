@@ -19,7 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
+import com.actionml.core.backup.{DataTransfer, FSMirror, HDFSMirror, Mirror}
 import com.actionml.core.jobs.{JobManager, JobStatuses}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
@@ -33,7 +33,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * and sent the correct case class E extending Event of the extending
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
-abstract class Engine extends LazyLogging with JsonSupport {
+abstract class Engine extends LazyLogging with JsonSupport with DataTransfer {
 
   var engineId: String = _
   private var mirroring: Mirror = _
@@ -146,7 +146,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
-    Future(mirroring.importEvents(this, inputPath))
+    importEvents(inputPath)
       .onComplete(_ => JobManager.finishJob(jobDescription.jobId))
     Valid(jobDescription)
   }

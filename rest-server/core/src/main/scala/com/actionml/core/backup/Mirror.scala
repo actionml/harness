@@ -22,7 +22,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 
 import cats.data.Validated
-import com.actionml.core.engine.Engine
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 
@@ -36,7 +35,6 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
   protected val isMirroring = !mirrorContainer.isEmpty
 
   def mirrorEvent(json: String): Validated[ValidateError, String]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
@@ -47,16 +45,6 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
   protected def batchName: String =
     // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
     DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
-
-  /**
-    * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
-    * semantics do not apply
-    *
-    * @param engineId Engine ID
-    * @return directory name
-    */
-  protected def containerName: String = s"$mirrorContainer${File.separator}$engineId"
-
 }
 
 /** Used when mirroring is config selectable */
