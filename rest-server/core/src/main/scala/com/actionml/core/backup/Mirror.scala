@@ -36,7 +36,7 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
   protected val isMirroring = !mirrorContainer.isEmpty
 
   def mirrorEvent(json: String): Validated[ValidateError, String]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
+  def importEvents(location: String): Iterator[String]
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
@@ -52,7 +52,6 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
     * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
     * semantics do not apply
     *
-    * @param engineId Engine ID
     * @return directory name
     */
   protected def containerName: String = s"$mirrorContainer${File.separator}$engineId"
