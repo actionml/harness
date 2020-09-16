@@ -57,7 +57,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
     *
-    * @param json Format defined by the Engine
+    * @param jsonQuery Format defined by the Engine
     * @return a string of JSON query result formated as defined by the Engine, may also be ValidateError if a bad query
     */
   def query(jsonQuery: String): Validated[ValidateError, Response]
@@ -74,21 +74,25 @@ abstract class Engine extends LazyLogging with JsonSupport {
     */
   private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
     engineId = params.engineId
-    if (!params.mirrorContainer.isDefined || !params.mirrorType.isDefined) {
+    if (params.mirrorContainer.isEmpty || params.mirrorType.isEmpty) {
       logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
       mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
-      mType match {
-        case "localfs" | "localFs" | "LOCALFS" | "local_fs" | "localFS" | "LOCAL_FS" =>
+      mType.toLowerCase match {
+        case "localfs" | "local_fs" =>
           mirroring = new FSMirror(container, engineId)
+          logger.info(s"Engine-id: ${engineId} localfs mirroring")
           Valid(Comment("Mirror to localfs"))
-        case "hdfs" | "HDFS" =>
+        case "hdfs" =>
           mirroring = new HDFSMirror(container, engineId)
+          logger.info(s"Engine-id: ${engineId} HDFS mirroring")
           Valid(Comment("Mirror to HDFS"))
-        case mt => Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
+        case mt =>
+          logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
+          Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
       Invalid(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
@@ -123,10 +127,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
     Valid(EngineStatus(engineId, "This Engine does not implement the status API"))
   }
 
-  /** Every input is processed by the Engine first, which may pass on to and Algorithm and/or Dataset for further
+  /** Every input is processed by the Engine first, which may pass on to an Algorithm and/or Dataset for further
     * processing. Must be inherited and extended.
     * @param json Input defined by each engine
-    * @return Validated[ValidateError, ]status with error message
+    * @return Validated[ValidateError, Response] status with error message
     */
   def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
@@ -138,7 +142,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     Future.successful(Invalid(NotImplemented()))
   }
 
-  def inputMany: Seq[String] => Unit = _.foreach(input)
+  def inputMany(data: Seq[String]): Unit = {}
 
   def batchInput(inputPath: String): Validated[ValidateError, Response] = {
     val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
@@ -148,7 +152,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
   }
 
   /** train is only used in Lambda offline learners */
-  def train(): Validated[ValidateError, Response] = notImplemented(s"Train is not a valid operation for engineId: $engineId")
+  def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = notImplemented(s"Train is not a valid operation for engineId: $engineId")
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = notImplemented(s"Cancel is not a valid operation for engineId: $engineId")
 

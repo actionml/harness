@@ -2,7 +2,7 @@ import sbt.Keys.resolvers
 
 name := "harness"
 
-version in ThisBuild := "0.5.2-SNAPSHOT"
+version in ThisBuild := "1.0.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
@@ -11,14 +11,12 @@ lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
-lazy val mongoJavaDriverVersion = "3.10.2"
-lazy val mongoScalaDriverVersion = "2.6.0"
-//lazy val mongoScalaDriverVersion = "2.2.1"
-//lazy val mongoSparkConnecterVersion = "2.2.4"
-lazy val mongoSparkConnectorVersion = "2.4.1"
+lazy val mongoJavaDriverVersion = "3.12.5"
+lazy val mongoScalaDriverVersion = "2.9.0"
+lazy val mongoSparkConnectorVersion = "2.4.2"
 lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
-//lazy val sparkVersion = "2.1.3"
+//lazy val sparkVersion = "2.1.3" 
 //lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"

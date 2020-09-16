@@ -17,6 +17,7 @@
 
 package com.actionml.admin
 
+import akka.actor.ActorSystem
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core._
@@ -26,11 +27,14 @@ import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
+
+import scala.concurrent.ExecutionContext
 import scala.util.Properties
 
-class MongoAdministrator extends Administrator with JsonSupport {
+class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSupport {
   import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = MongoStorageHelper.codecs)
+  val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
 
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   @volatile private var engines = Map.empty[String, Engine]
@@ -119,7 +123,7 @@ class MongoAdministrator extends Administrator with JsonSupport {
   override def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
     val eid = engines.get(engineId)
     if (eid.isDefined) {
-      eid.get.train()
+      eid.get.train(trainEC)
     } else {
       Invalid(WrongParams(jsonComment(s"Unable to train Engine: $engineId, the engine does not exist")))
     }

@@ -24,7 +24,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
+import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
@@ -34,9 +34,9 @@ import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 
 class UREngine extends Engine with JsonSupport {
@@ -49,6 +49,7 @@ class UREngine extends Engine with JsonSupport {
   override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
     super.init(jsonConfig).andThen { _ =>
       parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
+        import ExecutionContext.Implicits.global
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
@@ -61,12 +62,18 @@ class UREngine extends Engine with JsonSupport {
         ).foreach { p =>
           def eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
           p.ttl.fold[Validated[ValidateError, _]] {
-            eventsDao.createIndexes(365.days)
+            eventsDao.createIndexesAsync(365.days).onComplete {
+              case Success(_) => logger.info("Indexes created successfully with default ttl")
+              case Failure(e) => logger.error("Create index error (with default ttl)", e)
+            }
             Valid(p)
           } { ttlString =>
             Try(Duration(ttlString)).toOption.map { ttl =>
               // We assume the DAO will check to see if this is a change and no do the reindex if not needed
-              eventsDao.createIndexes(ttl)
+              eventsDao.createIndexesAsync(ttl).onComplete {
+                case Success(_) => logger.info(s"Indexes created successfully with ttl=$ttlString")
+                case Failure(e) => logger.error(s"Create index error (ttl=$ttlString)", e)
+              }
               logger.debug(s"Got a dataset.ttl = $ttl")
               Valid(p)
             }.getOrElse(Invalid(ParseError(s"Can't parse ttl $ttlString")))
@@ -137,7 +144,7 @@ class UREngine extends Engine with JsonSupport {
       Future.successful(response)
   }
 
-  override def inputMany: Seq[String] => Unit = dataset.inputMany
+  override def inputMany(data: Seq[String]): Unit = dataset.inputMany(data)
 
   // todo: should merge base engine status with UREngine's status
   override def status(): Validated[ValidateError, Response] = {
@@ -145,8 +152,8 @@ class UREngine extends Engine with JsonSupport {
     Valid(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
   }
 
-  override def train(): Validated[ValidateError, Response] = {
-    algo.train()
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
+    algo.train(ec)
   }
 
   /** triggers parse, validation of the query then returns the result as JSONharness */

@@ -20,11 +20,15 @@ package com.actionml.core.store.backends
 import com.mongodb.MongoClientURI
 
 
-case class MongoConfig(private val uriString: String) {
-  val uri = new MongoClientURI(uriString)
-}
+case class MongoConfig(uri: MongoClientURI, sparkUri: MongoClientURI)
 
 object MongoConfig {
 
-  val mongo = MongoConfig(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set")))
+  val mongo = {
+    val mongoUri =
+      new MongoClientURI(sys.env.getOrElse("MONGO_URI", throw new RuntimeException("Environment variable MONGO_URI must be set")))
+    val sparkMongoUri = sys.env.get("SPARK_MONGO_URI").fold(mongoUri)(new MongoClientURI(_))
+
+    MongoConfig(uri = mongoUri, sparkUri = sparkMongoUri)
+  }
 }

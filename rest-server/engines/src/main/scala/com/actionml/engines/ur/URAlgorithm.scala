@@ -198,7 +198,7 @@ class URAlgorithm private (
         ("Max query events:", maxQueryEvents),
         ("Limit:", limit),
         ("════════════════════════════════════════", "══════════════════════════════════════"),
-        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x.name)))
+        ("Rankings:", "")) ++ rankingsParams.map(x => (x.`type`.getOrElse("Missing name"), x)))
 
       Valid(isOK)
     }
@@ -249,8 +249,7 @@ class URAlgorithm private (
     }
   }
 
-  override def train(): Validated[ValidateError, Response] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -360,7 +359,7 @@ class URAlgorithm private (
 
     val propertiesRDD: RDD[(ItemID, PropertyMap)] = if (calcPopular) {
       val ranksRdd = getRanksRDD(data.fieldsRdd, eventsRdd, convertedItems)
-      //val colledtedFileds = data.fieldsRdd.collect()
+      //val debugColledtedFileds = data.fieldsRdd.collect()
       //colledtedFileds.foreach { f => logger.info(s"$f") }
       //val collectedRanks = ranksRdd.collect()
       //collectedRanks.foreach { f => logger.info(s"$f") }
@@ -381,6 +380,7 @@ class URAlgorithm private (
     val allMappings = getMappings ++ propertiesMappings
 
     logger.trace(s"Engine-id: ${engineId}. Correlators created now putting into URModel")
+    //val debug = propertiesRDD.collect()
     new URModel(
       coocurrenceMatrices = cooccurrenceCorrelators,
       propertiesRDDs = Seq(propertiesRDD),
@@ -463,14 +463,12 @@ class URAlgorithm private (
     val numResults = query.num.getOrElse(limit)
 
     // create a list of all query correlators that can have a bias (boost or filter) attached
-    for {
-      ((userHistoryMatchers, userEvents), similarItemsMatchers) <- getUserHistMatcher(query) zip getSimilarItemsMatchers(query)
-    } yield {
+    getUserHistMatcher(query).zip(getSimilarItemsMatchers(query)).zip(getItemSetMatchers(query)).map { case (((userHistoryMatchers, userEvents), similarItemsMatchers), itemSetMatchers ) =>
       val shouldMatchers =
         userHistoryMatchers ++
-          similarItemsMatchers ++
-          getItemSetMatchers(query) ++
-          getBoostedRulesMatchers(aggregatedRules)
+        similarItemsMatchers ++
+        itemSetMatchers ++
+        getBoostedRulesMatchers(aggregatedRules)
 
       val mustMatchers = getIncludeRulesMatchers(aggregatedRules)
       val mustNotMatchers = getExcludeRulesMatchers(aggregatedRules) ++ getBlacklistedItemsMatchers(query, userEvents)
@@ -501,13 +499,13 @@ class URAlgorithm private (
   }
 
   /** Get recent events of the user on items to create the personalizing form of the recommendations query */
-  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] = {
+  private def getUserHistMatcher(query: URQuery)(implicit ec: ExecutionContext): Future[(Seq[Matcher], Seq[UREvent])] =
     query.user.fold[Future[(Seq[Matcher], Seq[UREvent])]](Future.successful((Seq.empty, Seq.empty))) { user =>
       import DaoQuery.syntax._
       eventsDao.findManyAsync(orderBy = Some(OrderBy(Ordering.desc, fieldNames = "eventTime")),
         limit = maxQueryEvents
       )("entityId" === user).map { uh =>
-        val userHistory = uh.toSeq.view
+        //val userHistory = uh.toSeq.view
         val queryEventNamesFilter = query.indicatorNames.getOrElse(modelEventNames) // indicatorParams in query take precedence
         // these are used in the MAP@k test to limit the indicators used for the query to measure the indicator's predictive
         // strength. DO NOT document, only for tests
@@ -515,7 +513,7 @@ class URAlgorithm private (
         val userHistBias = query.userBias.getOrElse(userBias)
         val userEventsBoost = if (userHistBias > 0 && userHistBias != 1) Some(userHistBias) else None
 
-        userHistory
+        val userHistory = uh.toSeq
           // .distinct // these will be distinct so this is redundant
           .filter { event =>
             queryEventNamesFilter.contains(event.event)
@@ -528,7 +526,8 @@ class URAlgorithm private (
           .groupBy(_.event)
           .flatMap { case (name, events) =>
             events.sortBy(_.eventTime) // implicit ordering
-              .take(indicatorsMap(name).maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxEventsPerEventType))
+              .take(indicatorsMap(name)
+                .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
           }.toSeq
 
         val userEvents = modelEventNames.map { name =>
@@ -542,7 +541,6 @@ class URAlgorithm private (
         (userHistMatchers, userHistory)
       }
     }
-  }
 
   /** Get similar items for an item, these are already in the eventName correlators in ES */
   def getSimilarItemsMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
@@ -561,11 +559,22 @@ class URAlgorithm private (
     }
   }
 
-  private def getItemSetMatchers(query: URQuery): Seq[Matcher] = {
-    query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
-      modelEventNames.head, // only look for items that have been converted on
-      query.itemSet.getOrElse(Seq.empty),
-      params.itemSetBias))
+
+  private def getItemSetMatchers(query: URQuery)(implicit ec: ExecutionContext): Future[Seq[Matcher]] = {
+    if(query.itemSet.getOrElse(Seq.empty).size != 1){
+      Future.successful(query.itemSet.getOrElse(Seq.empty).map(item => Matcher(
+        modelEventNames.head, // only look for items that have been converted on
+        query.itemSet.getOrElse(Seq.empty),
+        params.itemSetBias))
+      )
+    } else { // one item in the set so better to use an item query
+      getSimilarItemsMatchers(
+        query.copy(
+          item = query.itemSet.get.headOption,
+          itemBias = query.itemSetBias.orElse(params.itemSetBias)
+        )
+      )
+    }
   }
 
 
@@ -577,6 +586,7 @@ class URAlgorithm private (
         Some(rule.bias))
     }
   }
+
 
   private def getExcludeRulesMatchers(aggregatedRules: Seq[Rule] = Seq.empty): Seq[Matcher] = {
     aggregatedRules.filter(rule => rule.bias == 0).map { rule =>
@@ -662,7 +672,7 @@ class URAlgorithm private (
       rankingFieldName -> rankRdd
     }
     logger.info(s"RankRDDs[${rankRDDs.size}]\n${rankRDDs.map(_._1).mkString(", ")}\n${rankRDDs.map(_._2.take(25).mkString("\n")).mkString("\n\n")}")
-    rankRDDs
+    val retval =rankRDDs
       .foldLeft[RDD[(ItemID, PropertyMap)]](sc.emptyRDD) {
       case (leftRdd, (fieldName, rightRdd)) =>
         leftRdd.fullOuterJoin(rightRdd).map {
@@ -672,6 +682,8 @@ class URAlgorithm private (
           case (itemId, _)                           => itemId -> Map.empty
         }
     }.filter { case (itemId, props) => convertedItems.contains(itemId) }
+    //val debug = retval.collect()
+    retval
   }
 
   def getMappings: Map[String, (String, Boolean)] = {
@@ -742,7 +754,7 @@ object URAlgorithm extends JsonSupport {
       duration: Option[String] = Some(DefaultURAlgoParams.BackfillDuration)) { // duration worth of events to use in calculation of backfill
     override def toString: String = {
       s"""
-         |_id: $name,
+         |name: $name,
          |type: ${`type`},
          |indicatorParams: $indicatorNames,
          |offsetDate: $offsetDate,

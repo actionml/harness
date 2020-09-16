@@ -72,7 +72,7 @@ class BaseModule extends Module with LazyLogging {
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   lazy val administrator = {
-    val a = new MongoAdministrator
+    val a = new MongoAdministrator(system)
     a.init
     a
   }

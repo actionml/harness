@@ -116,7 +116,7 @@ class ScaffoldEngine extends Engine with JsonSupport {
     Valid(event)
   }
 
-  override def train(): Validated[ValidateError, Response] = {
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
     logger.info("got to Scaffold.train")
     Valid(Comment("Training requested of the ScaffoldEngine"))
   }
