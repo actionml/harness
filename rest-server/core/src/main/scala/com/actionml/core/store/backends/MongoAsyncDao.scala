@@ -19,17 +19,19 @@ package com.actionml.core.store.backends
 
 import java.util.concurrent.TimeUnit
 
-import com.actionml.core.store
+import com.actionml.core.{HIO, store}
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonInt32, BsonValue}
-import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Sorts, Updates}
+import org.mongodb.scala.model._
+import zio.IO
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -74,6 +76,11 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
         logger.error(s"Can't insert value $o to collection ${collection.namespace}")
         Future.failed(new RuntimeException(s"Can't insert value $o to collection ${collection.namespace}"))
     }
+  }
+
+  override def insertIO(o: T): HIO[Unit] = {
+    IO.fromFuture(implicit ec => collection.insertOne(o).toFuture()).unit
+      .mapError(_ => ValidRequestExecutionError())
   }
 
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {

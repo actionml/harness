@@ -24,6 +24,7 @@ import java.util.{Date, TimeZone}
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
@@ -31,6 +32,7 @@ import org.json4s.JsonAST.JString
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
+import zio.IO
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -104,6 +106,29 @@ trait JsonSupport extends LazyLogging {
     }
   }
 
+  def parseAndValidateIO[T](json: String,
+                            errorMsg: String = "",
+                            transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): HIO[T] = {
+    lazy val msg = if (errorMsg.isEmpty) {
+      tag.tpe match {
+        case TypeRef(_, _, args) =>
+          s"Error $args from JSON:"
+        case _ => "JSON parse error"
+      }
+    } else { errorMsg }
+    def handleError: Throwable => ValidateError = {
+      case e: MappingException =>
+        logger.error(s"$msg $json", e)
+        ParseError(s"""{"comment":"$msg $json"}""")
+      case NonFatal(e) =>
+        logger.error(msg + s"$json", e)
+        ValidRequestExecutionError(msg)
+    }
+
+    IO.effect(transform(parse(json)).extract[T])
+      .mapError(handleError)
+  }
+
   def prettify(jsonString: String): String = {
     val mapper = new ObjectMapper()
     try {
@@ -127,6 +152,8 @@ trait JsonSupport extends LazyLogging {
     // todo: create then pretty print instead
     "[\n    " + jsonStrings.mkString(",\n    ") + "\n]"
   }
+
+  def toJsonString[A <: AnyRef](a: A): String = org.json4s.native.Serialization.write(a)
 
 
   private val env = s"system.env.(.*)".r

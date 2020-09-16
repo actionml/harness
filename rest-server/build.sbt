@@ -16,8 +16,6 @@ lazy val mongoScalaDriverVersion = "2.9.0"
 lazy val mongoSparkConnectorVersion = "2.4.2"
 lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
-//lazy val sparkVersion = "2.1.3" 
-//lazy val json4sVersion = "3.6.0"
 lazy val json4sVersion = "3.5.1"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
@@ -34,6 +32,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 lazy val commonSettings = Seq(
   organization := "com.actionml",
   scalaVersion := "2.11.12",
+  scalacOptions := Seq("-target:jvm-1.8"),
   updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += Resolver.bintrayRepo("hseeberger", "maven"),
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -79,6 +78,7 @@ lazy val core = (project in file("core")).
 
       "org.apache.livy" % "livy-client-http" % "0.6.0-incubating",
 
+      "org.json4s" %% "json4s-native" % json4sVersion,
       "org.json4s" %% "json4s-jackson" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,
 
@@ -92,6 +92,14 @@ lazy val core = (project in file("core")).
 
       "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
       "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
+
+      "dev.zio" %% "zio" % "1.0.1",
+      "dev.zio" %% "zio-streams" % "1.0.1",
+      "dev.zio" %% "zio-logging" % "0.4.0",
+      "dev.zio" %% "zio-logging-slf4j" % "0.4.0",
+      "com.vladkopanev" %% "zio-saga-core" % "0.4.0",
+
+      "io.etcd" % "jetcd-core" % "0.5.3",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),

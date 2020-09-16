@@ -24,7 +24,7 @@ import akka.parboiled2.ParserInput
 import akka.stream.Materializer
 import com.actionml.authserver._
 import com.actionml.circe.CirceSupport
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}

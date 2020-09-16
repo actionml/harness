@@ -19,15 +19,15 @@ package com.actionml
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.actionml.admin.{Administrator, MongoAdministrator}
-import com.actionml.router.config.AppConfig
+import com.actionml.admin.Administrator
+import com.actionml.authserver.router.AuthServerProxyRouter
+import com.actionml.authserver.service.AuthorizationService
+import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService}
+import com.actionml.core.config.AppConfig
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService, ClientAuthorizationService}
-import com.actionml.core.store.backends.MongoStorage
 import com.typesafe.scalalogging.LazyLogging
 import scaldi.Module
 import scaldi.akka.AkkaInjectable
@@ -57,35 +57,44 @@ class BaseModule extends Module with LazyLogging {
   val config = AppConfig.apply
   bind[AppConfig] to config
 
-  implicit lazy val system = ActorSystem(inject[AppConfig].actorSystem.name)
-  bind[ActorSystem] to system destroyWith(terminateActorSystem)
+  implicit lazy val actorSystem = ActorSystem(inject[AppConfig].actorSystem.name)
+  bind[ActorSystem] to actorSystem destroyWith(terminateActorSystem)
 
-  bind[ExecutionContext] to system.dispatcher
+  bind[ExecutionContext] to actorSystem.dispatcher
   bind[ActorMaterializer] to ActorMaterializer()
 
-  bind[RestServer] to new RestServer
+  lazy val server = new RestServer
+  bind[RestServer] to server
 
   bind[CheckRouter] to new CheckRouter
-  bind[EnginesRouter] to new EnginesRouter
   bind[QueriesRouter] to new QueriesRouter
   bind[CommandsRouter] to new CommandsRouter
   bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
 
   lazy val administrator = {
-    val a = new MongoAdministrator(system)
+    val a = new Administrator{
+      override def system: ActorSystem = actorSystem
+    }
     a.init
     a
   }
-  bind[Administrator] identifiedBy 'Administrator to administrator
+  bind[Administrator] to administrator
 
-  bind[EventService] to new EventServiceImpl(administrator)
-  bind[EventsRouter] to new EventsRouter
-  bind[EngineService] to new EngineServiceImpl
+  lazy val eventService = new EventServiceImpl(administrator)
+  lazy val engineService =  new EngineServiceImpl(administrator)
+  lazy val eventsRouter = new EventsRouter(eventService)
+  bind[EventService] to eventService
+  bind[EventsRouter] to eventsRouter
+  bind[EngineService] to engineService
 
-  bind[AuthServerProxyService] to new AuthServerProxyServiceImpl
-  bind[AuthorizationService] to new CachedAuthorizationService
+  bind[EnginesRouter] to new EnginesRouter(engineService)
 
-  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, system)
+  lazy val authService = new CachedAuthorizationService
+  lazy val authServerProxy = new AuthServerProxyServiceImpl
+  bind[AuthServerProxyService] to authServerProxy
+  bind[AuthorizationService] to authService
+
+  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, actorSystem)
   binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
 
 

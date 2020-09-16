@@ -19,16 +19,17 @@ package com.actionml.engines.urnavhinting
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.SingleIndex
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -97,9 +98,13 @@ class URNavHintingEngine extends Engine with JsonSupport {
   }
 
   // todo: should merge base engine status with URNavHintingEngine's status
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logStatus(params)
-    Valid(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+    IO.effect(URNavHintingEngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+      .mapError { e =>
+        logger.error("Get status error", e)
+        ValidRequestExecutionError("Get status error")
+      }
   }
 
   override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {

@@ -51,7 +51,6 @@ class IndexesSupportSpec extends FlatSpec with Matchers {
       case (_, CompoundIndex(fields)) => fields
       case _ => List.empty
     }
-    println(requiredCompound)
     requiredCompound should contain theSameElementsAs expectedCompound
   }
 }
