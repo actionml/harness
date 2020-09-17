@@ -61,7 +61,7 @@ object AppConfig {
   def apply: AppConfig = {
     val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))
     val backend: StoreBackend = Try(StoreBackend.withName(sys.env("HARNESS_ENGINES_BACKEND")))
-      .getOrElse(throw new RuntimeException("ERROR: no HARNESS_ENGINES_BACKEND set"))
+      .getOrElse(StoreBackend.mongo)
     val etcdConfig: EtcdConfig = {
       val defaultTimeout = 5.seconds
       val config = Properties
