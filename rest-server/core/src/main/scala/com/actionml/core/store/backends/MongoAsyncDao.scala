@@ -79,8 +79,7 @@ class MongoAsyncDao[T: TypeTag](val collection: MongoCollection[T])(implicit ct:
   }
 
   override def insertIO(o: T): HIO[Unit] = {
-    IO.fromFuture(implicit ec => collection.insertOne(o).toFuture()).unit
-      .mapError(_ => ValidRequestExecutionError())
+    IO.fromFuture(implicit ec => collection.insertOne(o).toFuture()).unit.orElseFail(ValidRequestExecutionError())
   }
 
   override def insertManyAsync(c: Seq[T])(implicit ec: ExecutionContext): Future[Unit] = {
