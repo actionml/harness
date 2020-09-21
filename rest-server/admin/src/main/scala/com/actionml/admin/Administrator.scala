@@ -195,10 +195,10 @@ trait Administrator extends LazyLogging with JsonSupport {
 case class EnginesStatuses(statuses: List[Response]) extends Response
 
 case class SystemInfo(
-                       buildVersion: String,
-                       gitBranch: String,
-                       gitHash: String,
-                       harnessURI: String,
-                       mongoURI: String,
-                       elasticsearchURI: String
-                     ) extends Response
+  buildVersion: String,
+  gitBranch: String,
+  gitHash: String,
+  harnessURI: String,
+  mongoURI: String,
+  elasticsearchURI: String
+) extends Response

@@ -106,9 +106,8 @@ trait JsonSupport extends LazyLogging {
     }
   }
 
-  def parseAndValidateIO[T](json: String,
-                            errorMsg: String = "",
-                            transform: JValue => JValue = a => a)(implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): HIO[T] = {
+  def parseAndValidateIO[T](json: String, errorMsg: String = "", transform: JValue => JValue = a => a)
+                           (implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): HIO[T] = {
     lazy val msg = if (errorMsg.isEmpty) {
       tag.tpe match {
         case TypeRef(_, _, args) =>

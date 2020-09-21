@@ -48,10 +48,12 @@ case class AppConfig(
 case class RestServerConfig(host: String, port: Int, sslEnabled: Boolean)
 case class ActorSystemConfig(name: String, timeout: FiniteDuration)
 
-case class AuthConfig(enabled: Boolean,
-                      serverUrl: String,
-                      clientId: String,
-                      clientSecret: String)
+case class AuthConfig(
+  enabled: Boolean,
+  serverUrl: String,
+  clientId: String,
+  clientSecret: String
+)
 
 case class EtcdConfig(endpoints: Seq[String], timeout: FiniteDuration)
 

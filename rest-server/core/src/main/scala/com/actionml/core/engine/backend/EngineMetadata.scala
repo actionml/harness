@@ -19,9 +19,11 @@ package com.actionml.core.engine.backend
 import org.bson.codecs.configuration.CodecProvider
 
 
-case class EngineMetadata(engineId: String,
-                          engineFactory: String,
-                          params: String)
+case class EngineMetadata(
+  engineId: String,
+  engineFactory: String,
+  params: String
+)
 
 
 object MongoStorageHelper {
