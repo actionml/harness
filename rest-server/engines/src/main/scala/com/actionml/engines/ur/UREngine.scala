@@ -21,18 +21,19 @@ import java.util.Date
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
-import com.actionml.core.validate.{JsonSupport, ParseError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
+import zio.IO
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -147,9 +148,13 @@ class UREngine extends Engine with JsonSupport {
   override def inputMany(data: Seq[String]): Unit = dataset.inputMany(data)
 
   // todo: should merge base engine status with UREngine's status
-  override def status(): Validated[ValidateError, Response] = {
+  override def status(): HIO[Response] = {
     logStatus(params)
-    Valid(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+    IO.effect(UREngineStatus(params, JobManager.getActiveJobDescriptions(engineId)))
+      .mapError { e =>
+        logger.error("Get status error", e)
+        ValidRequestExecutionError("Get status error")
+      }
   }
 
   override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {

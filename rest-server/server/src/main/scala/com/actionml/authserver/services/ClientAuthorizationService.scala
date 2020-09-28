@@ -27,13 +27,13 @@ import akka.util.ByteString
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
 import com.actionml.circe.CirceSupport
-import com.actionml.router.config.AppConfig
+import com.actionml.core.config.AppConfig
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scaldi.{Injectable, Injector}
 
-import scala.collection.{immutable, mutable}
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport

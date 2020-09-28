@@ -19,11 +19,12 @@ package com.actionml.engines.navhinting
 
 import cats.data.Validated
 import cats.data.Validated.Valid
-import com.actionml.core.drawInfo
+import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
 import com.actionml.core.validate.{JsonSupport, ValidateError}
+import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -75,9 +76,9 @@ class NavHintingEngine extends Engine with JsonSupport {
     }
   }
 
-  override def status(): Validated[ValidateError, NavHintingStatus] = {
+  override def status(): HIO[NavHintingStatus] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    Valid(NavHintingStatus(
+    IO.succeed(NavHintingStatus(
       engineParams = this.params,
       algorithmParams = algo.params))
   }

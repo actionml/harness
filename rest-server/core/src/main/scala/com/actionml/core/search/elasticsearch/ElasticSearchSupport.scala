@@ -20,7 +20,6 @@ package com.actionml.core.search.elasticsearch
 import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
-import java.util.Scanner
 
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
@@ -43,6 +42,7 @@ import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
+import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
@@ -100,7 +100,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       }
     } catch {
       case NonFatal(e) =>
-        logger.error("Elasticsearch version can't be determined. v7 will be used.", e)
+        logger.error(s"Elasticsearch version can't be determined. v7 will be used for nodes ${client.getNodes.map(_.getHost).mkString(",")}", e)
         v7
     }
     logger.info(s"Detected Elasticsearch version $ver")

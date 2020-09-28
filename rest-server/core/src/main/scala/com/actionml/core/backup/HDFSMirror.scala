@@ -36,7 +36,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
 
   private val rootMirrorDir = if(hdfs.exists(new Path("/mirrors"))) {
     val engineEventMirrorPath = new Path(mirrorContainer, engineId)
-    if(!hdfs.exists(engineEventMirrorPath)) {
+    if (!hdfs.exists(engineEventMirrorPath)) {
       try {
         hdfs.mkdirs(new Path(mirrorContainer, engineId))
         Some(engineEventMirrorPath)
@@ -49,7 +49,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
           logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
           throw unknownException
       }
-    } else if(hdfs.isDirectory(engineEventMirrorPath)) Some(engineEventMirrorPath) else None
+    } else Some(engineEventMirrorPath).filter(hdfs.isDirectory)
   } else None // None == no mirroring allowed
 
 

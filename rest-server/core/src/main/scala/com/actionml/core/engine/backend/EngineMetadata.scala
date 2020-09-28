@@ -14,13 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package com.actionml.admin
+package com.actionml.core.engine.backend
 
 import org.bson.codecs.configuration.CodecProvider
 
-object MongoStorageHelper {
 
+case class EngineMetadata(
+  engineId: String,
+  engineFactory: String,
+  params: String
+)
+
+
+object MongoStorageHelper {
   val codecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
     List(classOf[EngineMetadata])

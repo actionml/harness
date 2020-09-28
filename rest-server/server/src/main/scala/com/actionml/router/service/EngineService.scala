@@ -18,8 +18,10 @@
 package com.actionml.router.service
 
 import com.actionml.admin.Administrator
-import com.actionml.router.ActorInjectable
-import scaldi.Injector
+import com.actionml.core.HIO
+import com.actionml.core.model.Response
+import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
+import com.typesafe.scalalogging.LazyLogging
 
 /**
   *
@@ -28,61 +30,26 @@ import scaldi.Injector
   * 28.01.17 14:49
   */
 
-trait EngineService extends ActorInjectable
-
-class EngineServiceImpl(implicit inj: Injector) extends EngineService{
-
-  private val admin = inject[Administrator]('Administrator)
-
-  override def receive: Receive = {
-    case GetSystemInfo() =>
-      sender() ! admin.systemInfo()
-
-    case GetEngine(engineId) =>
-      log.info("Get engine, {}", engineId)
-      sender() ! admin.status(engineId)
-
-    case GetEngines =>
-      log.info("Get one or all engine status")
-      sender() ! admin.statuses()
-
-    case CreateEngine(engineJson) =>
-      log.info("Create new engine, {}", engineJson)
-      sender() ! admin.addEngine(engineJson)
-
-    case UpdateEngine(engineJson) =>
-      log.info(s"Update existing engine, $engineJson")
-      sender() ! admin.updateEngine(engineJson)
-
-    case UpdateEngineWithTrain(engineId) =>
-      log.info(s"Update existing engine, $engineId")
-      sender() ! admin.updateEngineWithTrain(engineId)
-
-    case UpdateEngineWithImport(engineId, inputPath) =>
-      log.info(s"Update existing engine by importing, $inputPath")
-      sender() ! admin.updateEngineWithImport(engineId, inputPath)
-
-    case DeleteEngine(engineId) =>
-      log.info("Delete existing engine, {}", engineId)
-      sender() ! admin.removeEngine(engineId)
-
-    case CancelJob(engineId, jobId) =>
-      log.info(s"Cancel job $jobId for engine $engineId")
-      sender() ! admin.cancelJob(engineId = engineId, jobId = jobId)
-  }
+trait EngineService {
+  def getSystemInfo: HIO[Response]
+  def status(engineId: String): HIO[Response]
+  def statuses(): HIO[List[Response]]
+  def addEngine(engineJson: String): HIO[Response]
+  def updateEngine(engineJson: String): HIO[Response]
+  def train(engineId: String): HIO[Response]
+  def importFromPath(engineId: String, importPath: String): HIO[Response]
+  def deleteEngine(engineId: String): HIO[Response]
+  def cancelJob(engineId: String, jobId: String): HIO[Response]
 }
 
-sealed trait EngineAction
-case class GetSystemInfo() extends EngineAction
-case class GetEngine(engineId: String) extends EngineAction
-case object GetEngines extends EngineAction
-case class CreateEngine(engineJson: String) extends EngineAction
-case class UpdateEngine(engineJson: String) extends EngineAction
-case class UpdateEngineWithTrain(engineId: String) extends EngineAction
-case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
-case class CancelJob(engineId: String, jobId: String) extends EngineAction
-
-// keeping update simple, only allow sending new json config
-//case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
-//case class UpdateEngineWithId(engineId: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction
-case class DeleteEngine(engineId: String) extends EngineAction
+class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLogging {
+  override def getSystemInfo: HIO[Response] = admin.systemInfo()
+  override def status(engineId: String): HIO[Response] = admin.status(engineId)
+  override def statuses(): HIO[List[Response]] =  admin.statuses()
+  override def addEngine(engineJson: String): HIO[Response] = admin.addEngine(engineJson)
+  override def updateEngine(engineJson: String): HIO[Response] = admin.updateEngine(engineJson)
+  override def train(engineId: String): HIO[Response] = admin.updateEngineWithTrain(engineId)
+  override def importFromPath(engineId: String, importPath: String): HIO[Response] = admin.updateEngineWithImport(engineId, importPath)
+  override def deleteEngine(engineId: String): HIO[Response] = admin.removeEngine(engineId)
+  override def cancelJob(engineId: String, jobId: String): HIO[Response] = admin.cancelJob(engineId = engineId, jobId = jobId)
+}

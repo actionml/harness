@@ -24,6 +24,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.config.AppConfig
 import com.actionml.core.model.Response
 import com.actionml.core.validate._
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
@@ -43,7 +44,7 @@ abstract class BaseRouter(implicit inj: Injector) extends AkkaInjectable with Js
   implicit protected val actorSystem: ActorSystem = inject[ActorSystem]
   implicit protected val executor: ExecutionContext = actorSystem.dispatcher
   implicit protected val materializer: ActorMaterializer = ActorMaterializer()
-  implicit protected val timeout = Timeout(5 seconds)
+  implicit protected val timeout = Timeout(AppConfig.apply.actorSystem.timeout)
   protected val putOrPost: Directive[Unit] = post | put
 
   implicit val serialization = jackson.Serialization
