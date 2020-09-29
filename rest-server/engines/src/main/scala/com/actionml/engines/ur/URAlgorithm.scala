@@ -250,10 +250,9 @@ class URAlgorithm private (
   }
 
   override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
-    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
-    f.map { implicit sc =>
+    lazy val jobDescription = SparkContextSupport.withSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent])) { implicit sc: SparkContext =>
       logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
-      try {
+      Future {
         val eventsRdd = eventsDao.readRdd[UREvent](MongoStorageHelper.codecs).repartition(sc.defaultParallelism)
         val itemsRdd = itemsDao.readRdd[URItemProperties](MongoStorageHelper.codecs)
 
@@ -293,17 +292,10 @@ class URAlgorithm private (
 
         // todo: for now ignore properties and only calc popularity, then save to ES
         calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-        JobManager.finishJob(jobDescription.jobId)
-      } catch {
-        case NonFatal(e) =>
-          logger.error(s"Spark computation failed for engine $engineId with params {$initParams}", e)
-          JobManager.markJobFailed(jobDescription.jobId)
-      } finally {
-        SparkContextSupport.stopAndClean(sc)
       }
     }
     logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
-    Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
+    jobDescription.map(TrainResponse(_, "Started train Job on Spark"))
   }
 
   /*

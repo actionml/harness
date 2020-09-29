@@ -253,59 +253,61 @@ class URNavHintingAlgorithm private (
   }
 
   override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
-    val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[URNavHintingEvent]))
-    f.map { implicit sc =>
-      val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
+    val jobDescription = SparkContextSupport.withSparkContext(initParams, engineId, kryoClasses = Array(classOf[URNavHintingEvent])) { implicit sc =>
+      Future {
+        val eventsRdd = eventsDao.readRdd[URNavHintingEvent](MongoStorageHelper.codecs)
 
-      // todo: this should work but not tested and not used in any case
-      /*
+        // todo: this should work but not tested and not used in any case
+        /*
       val fieldsRdd = readRdd[ItemProperties](sc, MongoStorageHelper.codecs, Some(dataset.getItemsDbName), Some(dataset.getItemsCollectionName)).map { itemProps =>
         (itemProps._id, itemProps.properties)
       }
       */
 
-      val trainingData = URNavHintingPreparator.mkTraining(modelEventNames, eventsRdd)
+        val trainingData = URNavHintingPreparator.mkTraining(modelEventNames, eventsRdd)
 
-      //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
-      //val collectedFields = trainingData.fieldsRDD.collect()
-      val data = URNavHintingPreparator.prepareData(trainingData)
+        //val collectedActions = trainingData.actions.map { case (en, rdd) => (en, rdd.collect()) }
+        //val collectedFields = trainingData.fieldsRDD.collect()
+        val data = URNavHintingPreparator.prepareData(trainingData)
 
-      val model = recsModel match {
-        case RecsModels.All => calcAll(data, eventsRdd)
-        case RecsModels.CF => calcAll(data, eventsRdd, calcPopular = false)
-        // todo: no support for pure popular model
-        // case RecsModels.BF  => calcPop(data)(sc)
-        // error, throw an exception
-        case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
-          // from Spark or any part fo the UR. These were allowed in PIO--not here!
-          throw new IllegalArgumentException(
-            s"""
-               |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
-               |Use one of the available parameter values ($recsModel).""".stripMargin)
+        val model = recsModel match {
+          case RecsModels.All => calcAll(data, eventsRdd)
+          case RecsModels.CF => calcAll(data, eventsRdd, calcPopular = false)
+          // todo: no support for pure popular model
+          // case RecsModels.BF  => calcPop(data)(sc)
+          // error, throw an exception
+          case unknownRecsModel => // todo: this better not be fatal. we need a way to disallow fatal excpetions
+            // from Spark or any part fo the UR. These were allowed in PIO--not here!
+            throw new IllegalArgumentException(
+              s"""
+                 |Bad algorithm param recsModel=[$unknownRecsModel] in engine definition params, possibly a bad json value.
+                 |Use one of the available parameter values ($recsModel).""".stripMargin)
+        }
+
+        //val data = getIndicators(modelEventNames, eventsRdd)
+
+        logger.info("======================================== Contents of Indicators ========================================")
+        data.actions.foreach { case (name, id) =>
+          val ids = id.asInstanceOf[IndexedDatasetSpark]
+          logger.info(s"Event name: $name")
+          logger.info(s"Num users/rows = ${ids.matrix.nrow}")
+          logger.info(s"Num items/columns = ${ids.matrix.ncol}")
+          logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
+          logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
+        }
+        logger.info("======================================== done ========================================")
+
+        // todo: for now ignore properties and only calc popularity, then save to ES
+        calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
       }
-
-      //val data = getIndicators(modelEventNames, eventsRdd)
-
-      logger.info("======================================== Contents of Indicators ========================================")
-      data.actions.foreach { case (name, id) =>
-        val ids = id.asInstanceOf[IndexedDatasetSpark]
-        logger.info(s"Event name: $name")
-        logger.info(s"Num users/rows = ${ids.matrix.nrow}")
-        logger.info(s"Num items/columns = ${ids.matrix.ncol}")
-        logger.info(s"User dictionary: ${ids.rowIDs.toMap.keySet}")
-        logger.info(s"Item dictionary: ${ids.columnIDs.toMap.keySet}")
-      }
-      logger.info("======================================== done ========================================")
-
-      // todo: for now ignore properties and only calc popularity, then save to ES
-      calcAll(data, eventsRdd).save(dateNames, esIndex, esType, numESWriteConnections)
-
-      //sc.stop() // no more use of sc will be tolerated ;-)
     }
 
-    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Furute
-    logger.debug(s"Starting train $this with spark")
-    Valid(Comment("Started train Job on Spark"))
+    // todo: EsClient.close() can't be done because the Spark driver might be using it unless its done in the Future
+
+    jobDescription.map { jd =>
+      logger.debug(s"Started train $this with spark. Job id ${jd.jobId}")
+      Comment("Started train Job on Spark. Job id ${jobDescription.jobId}")
+    }
   }
 
   /*
