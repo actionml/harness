@@ -89,49 +89,5 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
 
     } else mirrorEventError("Problem mirroring input to HDFS. No valid mirror location.")
   }
-
-  // todo: should read in a thread and return at once after checking parameters
-  // todo: decouple importEvents from mirrorEvents
-  /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
-    def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
-      jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
-         | $errMsg""".stripMargin)))
-
-    if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
-      logger.error(s"Engine-id: ${engineId}. Reading from the mirror location will cause an infinite loop." +
-        "\nTry moving the files to a new location before doing a batch import.")
-      importEventsError(s"Engine-id: ${engineId}. Reading from the mirror location will cause in infinite loop." +
-        "\nTry moving the files to a new location before doing a batch import.")
-    } else if (!location.isEmpty) {
-      try {
-        val filesStatuses = hdfs.listStatus(new Path(location))
-        val filePaths = filesStatuses.map(_.getPath())
-        if(filePaths.size > 0) {
-          logger.trace(s"Engine-id: ${engineId}. Number of files in dir: ${filePaths.size} values include: ${filePaths.head.getName}")
-          for (filePath <- filePaths) {
-            val file = hdfs.open(filePath)
-            val lineReader = new BufferedReader(new InputStreamReader(file))
-            var line = lineReader.readLine()
-            while (line != null) {
-              // logger.info(s"Event from HDFS file ${filePath.getName}\n$line")
-              engine.input(line)
-              line = lineReader.readLine()
-            }
-          }
-          Valid(jsonComment("Event mirrored"))
-        } else {
-          logger.warn(s"Engine-id: ${engineId}. No event files in location $location. No Events imported")
-          importEventsError(s"No event files in location $location. No Events imported!")
-        }
-      } catch {
-        case ex: IOException =>
-          val errMsg = "Problem reading input from HDFS"
-          logger.error(errMsg, ex)
-          importEventsError(s"$errMsg: ${ex.getMessage}")
-      }
-    } else importEventsError("No location to read import files from")
-  }
-
 }
 

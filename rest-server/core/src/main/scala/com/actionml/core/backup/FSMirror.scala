@@ -21,10 +21,7 @@ import java.io._
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
-
-import scala.io.Source
 
 /**
   * Mirror implementation for local FS.
@@ -63,114 +60,7 @@ class FSMirror(mirrorContainer: String, engineId: String)
           logger.error(errMsg, ex)
           mirrorEventError(s"$errMsg: ${ex.getMessage}")
       }
-
     }
-
     Valid(jsonComment("Event mirrored"))
-  }
-
-  /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
-    def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
-      jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${ engine.engineId }.
-         | $errMsg""".stripMargin)))
-    try {
-      val mirrorLocation = new File(containerName)
-      val resourceCollection = new File(location)
-      if (mirrorLocation.getCanonicalPath.compare(resourceCollection.getCanonicalPath) != 0) {
-        if (resourceCollection.exists() && resourceCollection.isDirectory) { // read all files as json and input
-          // val flist = new java.io.File(location).listFiles.filterNot(_.getName.contains(".")) // Spark json will be
-          // part-xxxxx files with no extension otherwise use .filter(_.getName.endsWith(".json"))
-          // not mirrored with Spark, but may import from some source that creates a spark-like directory of part files
-          // Todo: update for Spark
-          val flist = new java.io.File(location).listFiles.filterNot(_.getName.startsWith(".")) // importing files that do not start with a dot like .DStore on Mac
-          logger.trace(s"Engine-id: ${engineId}. Reading files from directory: ${location}")
-          var filesRead = 0
-          var eventsProcessed = 0L
-          for (file <- flist) {
-            filesRead += 1
-            logger.trace(s"Engine-id: ${engineId}. Importing from file: ${file.getName}")
-            eventsProcessed = eventsProcessed + importFromFile(file, engine)
-          }
-          if(filesRead == 0 || eventsProcessed == 0)
-            logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $location ?")
-          else
-            logger.trace(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
-        } else if (resourceCollection.exists()) { // single file
-          val eventsProcessed = importFromFile(new File(location), engine)
-          logger.info(s"Engine-id: ${engineId}. Import processed $eventsProcessed events.")
-        }
-      } else {
-        val errMsg =
-          s"""Engine-id: ${engineId}. Cannot import from mirroring location: $location since imported files are also
-             |mirrored causing an infinite loop. Copy or move them first.""".stripMargin
-        logger.error(errMsg)
-        importEventsError(errMsg)
-      }
-    } catch {
-      case e: IOException =>
-        val errMsg = s"Engine-id: $engineId. Problem while importing saved events from $location, exception ${e.getMessage}"
-        logger.error(errMsg, e)
-        importEventsError(errMsg)
-    } finally {
-      logger.info(s"Engine-id: $engineId. Completed importing. Check logs for any data errors.")
-    }
-    Valid(jsonComment("Job created to import events in the background."))
-  }
-
-  private def importFromFile(file: File, engine: Engine): Long = {
-    var eventsProcessed = 0
-    val mirrorBatch = s"$containerName/$batchName.json"
-    if (isMirroring) { // if a mirror is setup for writing
-      try {
-        val src = Source.fromFile(file)
-        val containerDir = new File(containerName)
-        if (!containerDir.exists()) containerDir.mkdirs()
-        val mirrorWriter = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
-        src.getLines().sliding(512, 512).foreach { lines =>
-          eventsProcessed += lines.size
-          try {
-            engine.inputMany(lines) // todo: noooo. mirror should not call Engine, it should only be called by Engine this needs to be refactored
-            lines.foreach(l => mirrorWriter.write(s"$l\n"))
-          } catch {
-            case e: IOException =>
-              logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
-          }
-        }
-        src.close()
-        mirrorWriter.close()
-        eventsProcessed
-      } catch {
-        case e: IOException =>
-          logger.error(s"Engine-id: ${engine.engineId}. " +
-            s"Importing from file: ${file.getName} Writing to mirror: $mirrorBatch. \n" +
-            s"exception ${e.getMessage}", e)
-          eventsProcessed
-      }
-    } else { // no write to mirror so don't bother creating a writer, NOT DRY, should refactor
-      // todo: this impl is very ugly tangling up mirror writing with importing
-      try {
-        val src = Source.fromFile(file)
-        src.getLines().sliding(512, 512).foreach { lines =>
-          eventsProcessed += lines.size
-          try {
-            engine.inputMany(lines) // todo: noooo. mirror should not call Engine, it should only be called by Engine this needs to be refactored
-          } catch {
-            case e: IOException =>
-              logger.error(s"Engine-id: ${engine.engineId}. Found a bad event and is ignoring it: $lines exception ${e.getMessage}", e)
-          }
-        }
-        src.close()
-        eventsProcessed
-      } catch {
-        case e: IOException =>
-          logger.error(s"Engine-id: ${engine.engineId}. " +
-            s"Importing from file: ${file.getName} No mirror location. \n" +
-            s"exception ${e.getMessage}", e)
-          eventsProcessed
-      }
-
-    }
-
   }
 }

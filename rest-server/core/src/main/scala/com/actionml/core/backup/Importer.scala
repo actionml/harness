@@ -1,6 +1,12 @@
 package com.actionml.core.backup
 
-import com.actionml.core.engine.Engine
+import java.io.{File, FileInputStream, IOException, _}
+
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
+import zio.blocking.Blocking
+import zio.stream.{ZStream, ZTransducer}
+import zio.{IO, Task, ZManaged}
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -22,11 +28,42 @@ import com.actionml.core.engine.Engine
 /** Imports JSON events through the input method of the engine, works with any of several filesystems. HDFS, local FS
   * and in the future perhaps others like Kafka
   */
-object Importer {
+object Importer extends LazyLogging {
 
-  def importEvents(engine: Engine, location: String): Unit = {
-    // determine which filesystem is specified
-    //todo: finish this refactor to decouple import from mirror, import from anywhere, mirror as the engine config says
+  def importEvents(location: String): Task[(Int, ZStream[Blocking, Throwable, String])] = {
+    if (location.trim.startsWith("hdfs")) hdfsStream(location)
+    else fsStream(location)
+  }.map { case (filesRead, stream) =>
+    filesRead -> stream.transduce(ZTransducer.utf8Decode).transduce(ZTransducer.splitLines).filter(_.trim.nonEmpty)
+  }
+
+
+  import collection.JavaConverters._
+  private def fsStream(location: String): Task[(Int, ZStream[Blocking, IOException, Byte])] = {
+    val io = IO.effect {
+      val l = new File(location)
+      if (l.isDirectory) {
+        val files = l.listFiles().filterNot(_.getName.startsWith(".")).map(new FileInputStream(_)) // importing files that do not start with a dot like .DStore on Mac
+        (files.length, new SequenceInputStream(asJavaEnumerationConverter(files.toIterator).asJavaEnumeration))
+      } else (1, new FileInputStream(location))
+    }
+    io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
+      ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
+        .mapError(e => new IOException(e))
+    }}
+  }
+
+  private val hdfs = HDFSFactory.hdfs
+  private def hdfsStream(location: String): Task[(Int, ZStream[Blocking, Throwable, Byte])] = {
+    val filesStatuses = hdfs.listStatus(new Path(location))
+    val filePaths = filesStatuses.map(_.getPath())
+    val io = IO.effect(
+      filePaths.size -> new SequenceInputStream(asJavaEnumerationConverter(filePaths.toIterator.map(f => hdfs.open(f).getWrappedStream)).asJavaEnumeration)
+    )
+    io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
+      ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
+        .mapError(e => new IOException(e))
+    }}
   }
 
 }

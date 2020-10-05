@@ -97,16 +97,6 @@ class EnginesRouter(engineService: EngineServiceImpl)(implicit inj: Injector) ex
     }
   }
 
-  private implicit def io2future[A](io: HIO[A]): Future[Validated[ValidateError, A]] = {
-    val p = Promise[Validated[ValidateError, A]]()
-    harnessRuntime.unsafeRunAsync{ io.map { a =>
-      Valid(a)
-    }.mapError { e => Invalid(e)}} {
-      case zio.Exit.Success(a) => p.success(a)
-      case zio.Exit.Failure(e) => p.success(e.failureOption.getOrElse(Invalid(ValidRequestExecutionError())))
-    }
-    p.future
-  }
 
   private def getSystemInfo(implicit log: LoggingAdapter): Route = get {
     log.info("Get system info")

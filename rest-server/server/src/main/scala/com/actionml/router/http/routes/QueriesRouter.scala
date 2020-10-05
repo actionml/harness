@@ -20,11 +20,14 @@ package com.actionml.router.http.routes
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{ExceptionHandler, Route}
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.core.config.AppConfig
+import com.actionml.core.validate.ValidRequestExecutionError
 import com.actionml.router.service._
+import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
@@ -40,7 +43,7 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 25.02.17 11:10
   */
-class QueriesRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
+class QueriesRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives with LazyLogging {
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
   override val authEnabled = config.auth.enabled
@@ -62,10 +65,14 @@ class QueriesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   /** Creates a Query in REST so status = 201 */
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
-    onSuccess(queryService.queryAsync(engineId, JsonMethods.compact(query))) { r => complete(r) }
-//    completeByValidated(StatusCodes.Created) {
-//      (queryService ? GetPrediction(engineId, JsonMethods.compact(query))).mapTo[Validated[ValidateError, Response]]
-//    }
+    completeByValidated(StatusCodes.Created) {
+      queryService.queryAsync(engineId, JsonMethods.compact(query))
+        .map(Valid(_))
+        .recover { case e =>
+          logger.error("Prediction error", e)
+          Invalid(ValidRequestExecutionError("Prediction error"))
+        }
+    }
   }
 
   private def exceptionHandler(log: LoggingAdapter) = ExceptionHandler {

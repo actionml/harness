@@ -20,14 +20,16 @@ package com.actionml.core.engine
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
-import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
+import com.actionml.core.backup.{FSMirror, HDFSMirror, Importer, Mirror}
 import com.actionml.core.jobs.{JobManager, JobStatuses}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
-import zio.IO
+import zio.Exit.{Failure, Success}
+import zio.blocking.Blocking
+import zio.stream.ZSink
+import zio.{IO, UIO, ZIO}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -146,11 +148,31 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def inputMany(data: Seq[String]): Unit = {}
 
-  def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
-    Future(mirroring.importEvents(this, inputPath))
-      .onComplete(_ => JobManager.finishJob(jobDescription.jobId))
-    Valid(jobDescription)
+  def batchInputIO(path: String): UIO[Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")
+    for {
+      r <- Importer.importEvents(path).flatMapError(e => UIO.die(e))
+      (filesRead, stream) = r
+      jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
+      _ = zio.Runtime.unsafeFromLayer(Blocking.live).unsafeRunAsync {
+        stream.chunkN(50)
+          .run {
+            ZSink.foldChunksM(0L)(_ => true)((n, c) =>
+              ZIO.effect(this.inputMany(c)).map(_ => n + c.length)
+            )
+          }
+      } {
+        case Success(eventsProcessed) =>
+          if(filesRead == 0 || eventsProcessed == 0)
+            logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $path?")
+          else
+            logger.info(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
+        case Failure(c) =>
+          c.failures.foreach { e =>
+            logger.error(s"Import error for $engineId from path $path - ${e.getMessage}", e)
+          }
+      }
+    } yield jobDescription
   }
 
   /** train is only used in Lambda offline learners */
