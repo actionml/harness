@@ -134,7 +134,7 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       // the dynamic lib must be hand installed for this Java JNI wrapper to find it
       "com.github.johnlangford" % "vw-jni" % "8.4.1",
 
-      // libs for URNavHinting and UR
+      // libs for URNavHinting and UR 
       // Mahout's Spark libs. They're custom compiled for Scala 2.11
       // and included in the local Maven repo in the .custom-scala-m2/repo resolver below
       /* for 0.13.0 */
