@@ -123,6 +123,11 @@ jobs:
                 
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
                 docker image push actionml/harness:$BRANCH-$DATE_BUILD
+                
+                HARNES_VERSION=$(cat version)
+                docker tag actionml/harness:latest actionml/harness:$BRANCH-$HARNES_VERSION
+                docker image push actionml/harness:$BRANCH-$HARNES_VERSION
+
               ;;
               *)
               ;;
