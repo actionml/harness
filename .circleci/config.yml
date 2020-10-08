@@ -114,6 +114,13 @@ jobs:
             case "${CIRCLE_BRANCH}" in
               "master")
                 docker image push actionml/harness:latest
+
+                docker tag actionml/harness:latest actionml/harness:master-$SHORT_GIT_HASH
+                docker image push actionml/harness:master-$SHORT_GIT_HASH
+                
+                HARNES_VERSION=$(cat version)
+                docker tag actionml/harness:latest actionml/harness:$HARNES_VERSION
+                docker image push actionml/harness:$HARNES_VERSION
               ;;
               develop|devops|experimental)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
