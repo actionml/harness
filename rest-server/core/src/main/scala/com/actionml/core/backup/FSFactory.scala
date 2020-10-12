@@ -17,6 +17,8 @@
 
 package com.actionml.core.backup
 
+import java.net.URI
+
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -25,8 +27,7 @@ import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
 
-object HDFSFactory {
-
+object FSFactory {
 
   case class HDFSConfig(master: String, port: Int, configDir: String)
 
@@ -46,5 +47,5 @@ object HDFSFactory {
     config
   }
 
-  lazy val hdfs: FileSystem = FileSystem.get(conf)
+  def newInstance(uri: URI): FileSystem = FileSystem.get(uri, conf)
 }

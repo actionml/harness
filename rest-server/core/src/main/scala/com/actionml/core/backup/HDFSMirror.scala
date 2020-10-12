@@ -21,24 +21,20 @@ import java.io._
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.engine.Engine
 import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import org.apache.hadoop.fs.Path
 
-/**
-  * Mirror implementation for HDFS.
-  */
 
 class HDFSMirror(mirrorContainer: String, engineId: String)
   extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
-  private val hdfs = HDFSFactory.hdfs
+  private lazy val fs: org.apache.hadoop.fs.FileSystem = ???
 
-  private val rootMirrorDir = if(hdfs.exists(new Path("/mirrors"))) {
+  private val rootMirrorDir = if (fs.exists(new Path("/mirrors"))) {
     val engineEventMirrorPath = new Path(mirrorContainer, engineId)
-    if (!hdfs.exists(engineEventMirrorPath)) {
+    if (!fs.exists(engineEventMirrorPath)) {
       try {
-        hdfs.mkdirs(new Path(mirrorContainer, engineId))
+        fs.mkdirs(new Path(mirrorContainer, engineId))
         Some(engineEventMirrorPath)
       } catch {
         case ex: IOException =>
@@ -49,7 +45,7 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
           logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
           throw unknownException
       }
-    } else Some(engineEventMirrorPath).filter(hdfs.isDirectory)
+    } else Some(engineEventMirrorPath).filter(fs.isDirectory)
   } else None // None == no mirroring allowed
 
 
@@ -63,10 +59,10 @@ class HDFSMirror(mirrorContainer: String, engineId: String)
     if(rootMirrorDir.isDefined) {
       try {
         val batchFilePath = new Path(rootMirrorDir.get, batchName)
-        val eventsFile = if(hdfs.exists(batchFilePath)) {
-          hdfs.append(batchFilePath)
+        val eventsFile = if(fs.exists(batchFilePath)) {
+          fs.append(batchFilePath)
         } else {
-          hdfs.create(batchFilePath)
+          fs.create(batchFilePath)
         }
         // following pattern from:
         // https://blog.knoldus.com/simple-java-program-to-append-to-a-file-in-hdfs/

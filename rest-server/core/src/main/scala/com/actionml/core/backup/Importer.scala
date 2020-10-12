@@ -1,12 +1,13 @@
 package com.actionml.core.backup
 
-import java.io.{File, FileInputStream, IOException, _}
+import java.io.{IOException, SequenceInputStream}
+import java.net.URI
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
 import zio.blocking.Blocking
 import zio.stream.{ZStream, ZTransducer}
-import zio.{IO, Task, ZManaged}
+import zio.{IO, Managed, Task, UIO, ZManaged}
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -31,39 +32,26 @@ import zio.{IO, Task, ZManaged}
 object Importer extends LazyLogging {
 
   def importEvents(location: String): Task[(Int, ZStream[Blocking, Throwable, String])] = {
-    if (location.trim.startsWith("hdfs")) hdfsStream(location)
-    else fsStream(location)
+    def cleanUp: FileSystem => UIO[Unit] = fs => IO.effect(fs.close()).mapError { e =>
+      logger.error(s"File system error [URI=$location]", e)
+    }.ignore
+
+    val uri = if (!location.contains("://")) s"file://$location" else location
+    Managed.make(IO.effect(FSFactory.newInstance(new URI(uri))))(cleanUp).use { fs =>
+      val filesStatuses = fs.listStatus(new Path(uri))
+      val filePaths = filesStatuses.map(_.getPath())
+      val io = IO.effect {
+        import collection.JavaConverters._
+        filePaths.length -> new SequenceInputStream(
+          asJavaEnumerationConverter(filePaths.toIterator.map(f => fs.open(f))).asJavaEnumeration
+        )
+      }
+      io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
+        ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
+          .mapError(e => new IOException(e))
+      }}
+    }
   }.map { case (filesRead, stream) =>
     filesRead -> stream.transduce(ZTransducer.utf8Decode).transduce(ZTransducer.splitLines).filter(_.trim.nonEmpty)
   }
-
-
-  import collection.JavaConverters._
-  private def fsStream(location: String): Task[(Int, ZStream[Blocking, IOException, Byte])] = {
-    val io = IO.effect {
-      val l = new File(location)
-      if (l.isDirectory) {
-        val files = l.listFiles().filterNot(_.getName.startsWith(".")).map(new FileInputStream(_)) // importing files that do not start with a dot like .DStore on Mac
-        (files.length, new SequenceInputStream(asJavaEnumerationConverter(files.toIterator).asJavaEnumeration))
-      } else (1, new FileInputStream(location))
-    }
-    io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
-      ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
-        .mapError(e => new IOException(e))
-    }}
-  }
-
-  private val hdfs = HDFSFactory.hdfs
-  private def hdfsStream(location: String): Task[(Int, ZStream[Blocking, Throwable, Byte])] = {
-    val filesStatuses = hdfs.listStatus(new Path(location))
-    val filePaths = filesStatuses.map(_.getPath())
-    val io = IO.effect(
-      filePaths.size -> new SequenceInputStream(asJavaEnumerationConverter(filePaths.toIterator.map(f => hdfs.open(f).getWrappedStream)).asJavaEnumeration)
-    )
-    io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
-      ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
-        .mapError(e => new IOException(e))
-    }}
-  }
-
 }

@@ -1,7 +1,7 @@
 package com.actionml.core
 
 import com.actionml.core.engine.backend.EngineMetadata
-import zio.{Has, Queue, ZIO, ZQueue}
+import zio.{Has, Queue, ZIO}
 
 package object engine {
 
