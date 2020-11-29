@@ -37,7 +37,7 @@ object Importer extends LazyLogging {
     }.ignore
 
     val uri = if (!location.contains("://")) s"file://$location" else location
-    Managed.make(IO.effect(HDFSFactory.newInstance(new URI(uri))))(cleanUp).use { fs => // FileSystem can be used here for read
+    Managed.make(IO.effect(HDFSFactory.newInstance(new URI(uri))))(cleanUp).use { fs =>
       val filesStatuses = fs.listStatus(new Path(uri))
       val filePaths = filesStatuses.map(_.getPath())
       val io = IO.effect {
