@@ -19,48 +19,35 @@ package com.actionml.core.backup
 
 import java.io._
 
-import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.JsonSupport
+import zio.{IO, Task}
+
+import scala.util.Try
 
 /**
   * Mirror implementation for local FS.
   */
+class FSMirror(mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
-class FSMirror(mirrorContainer: String, engineId: String)
-  extends Mirror(mirrorContainer, engineId) with JsonSupport {
-
-  private val f = if(mirrorContainer.isEmpty) None else Some(new File(mirrorContainer))
-  if (f.isDefined && f.get.exists() && f.get.isDirectory) logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $mirrorContainer")
-
-  // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
-    // Todo: this should be rewritten for the case where mirroring is only used for import
-    // todo: is this best implemented in a non-blocking way for the engine.inputAsync case?
-    def mirrorEventError(errMsg: String) =
-      Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event: $errMsg")))
-
-    if (Option(mirrorContainer).map(_.trim).exists(_.nonEmpty)) {
-      try {
-        val resourceCollection = new File(containerName)
-        //logger.info(s"${containerName(engineId)} exists: ${resourceCollection.exists()}")
-        if (!resourceCollection.exists()) resourceCollection.mkdirs()
-        val fn = batchName
-        // pat: old method used PrintWriter, new method uses BufferedWriter
-        // val pw = new PrintWriter(new FileWriter(s"$containerName/$batchName.json", true))
-        val pw = new BufferedWriter(new FileWriter(s"$containerName/$batchName.json", true))
-        try {
-          pw.write(json)
-        } finally {
-          pw.close()
-        }
-      } catch {
-        case ex: Exception =>
-          val errMsg = "Problem mirroring while input"
-          logger.error(errMsg, ex)
-          mirrorEventError(s"$errMsg: ${ex.getMessage}")
-      }
-    }
-    Valid(jsonComment("Event mirrored"))
+  private val out = Try {
+    val f = new File(containerName)
+    if (!f.exists()) f.mkdirs()
+    logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $mirrorContainer")
+    new BufferedWriter(new PrintWriter(s"$containerName/$batchName.json", "UTF-8"))
   }
+
+  override def mirrorEvent(event: String): Task[Unit] = {
+    for {
+      o <- IO.fromTry(out)
+      _ <- IO.effect(o.write(event))
+    } yield ()
+  }.onError { c =>
+    c.failures.foreach(e => logger.error("Problem mirroring while input", e))
+    IO.unit
+  }
+
+  override def cleanup(): Task[Unit] =
+    for {
+      o <- IO.fromTry(out)
+    } yield o.close
 }

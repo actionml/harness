@@ -27,11 +27,11 @@ import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import zio.Exit.{Failure, Success}
 import zio.blocking.Blocking
+import zio.duration._
 import zio.stream.ZSink
 import zio.{IO, UIO, ZIO}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -55,8 +55,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit = {
-    Await.result(JobManager.removeAllJobs(engineId), 5.minutes)
+  def destroy(): Unit = zio.Runtime.default.unsafeRunSync {
+    ZIO.fromFuture(_ => JobManager.removeAllJobs(engineId))
+      .zipPar(mirroring.cleanup())
+      .timeoutFail(new RuntimeException("Engine failed to destroy"))(5.minutes)
   }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
@@ -86,6 +88,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
       val container = params.mirrorContainer.get
       val mType = params.mirrorType.get
       mType.toLowerCase match {
+        // todo: maybe we should use URI instead of type+path
         case "localfs" | "local_fs" =>
           mirroring = new FSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
@@ -138,13 +141,11 @@ abstract class Engine extends LazyLogging with JsonSupport {
     */
   def input(json: String): Validated[ValidateError, Response] = {
     // flatten the event into one string per line as per Spark json collection spec
-    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-      .andThen(_ => Valid(Comment("Input processed by base Engine")))
+    zio.Runtime.default.unsafeRunSync(mirroring.mirrorEvent(json.replace("\n", " ") + "\n"))
+    Valid(Comment("Input processed by base Engine"))
   }
 
-  def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
-    Future.successful(Invalid(NotImplemented()))
-  }
+  def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = Future(input(json))
 
   def inputMany(data: Seq[String]): Unit = {}
 
@@ -158,7 +159,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
         stream.chunkN(50)
           .run {
             ZSink.foldChunksM(0L)(_ => true)((n, c) =>
-              ZIO.effect(this.inputMany(c)).map(_ => n + c.length)
+              ZIO.effect(this.inputMany(c)).as(n + c.length)
             )
           }
       } {
