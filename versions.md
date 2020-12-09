@@ -4,12 +4,18 @@ Harness is a complete end-to-end mature Machine Learning server tested in live p
 
 # Harness
 
-## harness-0.6.0 (current stable)
+## harness-0.6.1 (current stable)
+
+Bug fix release:
+
+ - Fixes a bug where moore than 30 items in an itemset query will cause spurious clauses in the ES query and return a server error from Harness/UR
+ - Fixes cases where Spark jobs are not marked with the correct status when they abort
+
+## harness-0.6.0
 
 New features include:  
 
  - Realtime changes to item properties via modifying the model during the $set of properties.
- - 
 
 ## harness-0.5.1 (containerized)
 
