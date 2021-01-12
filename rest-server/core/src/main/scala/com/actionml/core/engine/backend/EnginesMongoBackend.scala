@@ -28,12 +28,12 @@ import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
 import zio.duration._
-import zio.{IO, Queue, Schedule, ZIO, ZLayer}
+import zio.{IO, Queue, Schedule, UIO, ZIO, ZLayer}
 
 import scala.concurrent.Future
 
 
-abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLogging {
+abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesBackend.Service with LazyLogging {
   import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
@@ -87,6 +87,8 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
 
   override def updateState(harnessId: Long, actionId: String): HIO[Unit] = IO.unit
 
+  override def close: UIO[Unit] = IO.unit
+
 
   private def startWatching(queue: Queue[(Long, String)]): HIO[Unit] = IO.effectAsync { cb =>
     enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
@@ -108,9 +110,6 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
         }
       })
   }
-
-  def codecs: List[CodecProvider]
-
 
   private def mkEvent(id: String, eventName: String) = Document(
     "id" -> id,

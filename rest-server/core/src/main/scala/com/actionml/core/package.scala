@@ -14,19 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.actionml
 
-import com.actionml.core.config.{AppConfig, EtcdConfig, StoreBackend}
+import com.actionml.core.config.{AppConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
-import org.bson.codecs.configuration.CodecProvider
-import zio.{Has, Layer, ZIO, ZLayer, ZQueue}
+import io.etcd.jetcd._
 import zio.clock.Clock
-import zio.logging.{LogAnnotation, Logging}
+import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 import zio.stream.ZStream
+import zio.{IO, Layer, ZIO, ZLayer, ZManaged}
 
 package object core  extends LazyLogging {
 
@@ -80,20 +81,21 @@ package object core  extends LazyLogging {
   type HEnv = EnginesBackend with Clock with Logging
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
-  type HQueue[A] = ZQueue[Nothing, HEnv, Any, Nothing, A, A]
 
-  val enginesBackend: Layer[Nothing, EnginesBackend] = {
+  val enginesBackend: Layer[Throwable, EnginesBackend] = {
     val config = AppConfig.apply
-    ZLayer.succeed(
-      config.enginesBackend match {
-        case StoreBackend.mongo => new EnginesMongoBackend {
-          override def codecs: List[CodecProvider] = MongoStorageHelper.codecs
-        }
-        case StoreBackend.etcd => new EnginesEtcdBackend {
-          override def config: EtcdConfig = AppConfig.apply.etcdConfig
-        }
+    ZLayer.fromManaged {
+      {
+        ZManaged.make {
+          config.enginesBackend match {
+            case StoreBackend.etcd => IO.effect { new EnginesEtcdBackend(
+              Client.builder.endpoints(config.etcdConfig.endpoints: _*).build
+            )}
+            case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
+          }
+        }(x => x.close)
       }
-    )
+    }
   }
   val harnessRuntime = zio.Runtime.unsafeFromLayer {
     Slf4jLogger.make((c, s) => s) ++
