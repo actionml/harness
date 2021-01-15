@@ -95,12 +95,12 @@ trait Administrator extends LazyLogging with JsonSupport {
     for {
       params <- parseAndValidateIO[GenericEngineParams](json)
       result <- getEngine(params.engineId).fold {
-        newEngineInstanceIO(params.engineFactory, json).flatMap(_ =>
-          EnginesBackend.addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).map { _ =>
+        newEngineInstanceIO(params.engineFactory, json) *> {
+          EnginesBackend.addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json)).as {
             logger.debug(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
             Comment(s"EngineId: ${params.engineId} created")
           }
-        )
+        }
       } { _ =>
         logger.warn(s"Ignored, engine for resource-id: ${params.engineId} already exists, use update")
         IO.fail(WrongParams(s"Engine ${params.engineId} already exists, use update"))

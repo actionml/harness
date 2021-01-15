@@ -50,14 +50,14 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
   private val watch = etcdClient.getWatchClient
   private val lease = etcdClient.getLeaseClient
 
-  private def registerHarnessIds(harnessId: Ref[Long]): HIO[Unit] = {
+  private def registerHarnessIds(harnessId: Queue[Long]): HIO[Unit] = {
     for {
       leaseId <- lease.grant(5).toIO.map(_.getID)
-      _ <- harnessId.set(leaseId)
+      _ <- harnessId.offer(leaseId)
       _ <- log.info(s"Got harnessId=$leaseId")
       instanceKey = s"${servicesPrefix}harness-$leaseId"
       kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
-      _ = kv.put(instanceKey, "", kOpt)
+      _ <- kv.put(instanceKey, "", kOpt)
       _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb =>
         Try {
           lazy val keepAlive: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
@@ -66,7 +66,7 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
               cb(ZIO.fail(keepAlive))
             }
             override def onNext(resp: LeaseKeepAliveResponse): Unit = {
-              harnessRuntime.unsafeRunSync(harnessId.set(resp.getID))
+              harnessRuntime.unsafeRunSync(harnessId.offer(resp.getID))
             }
             override def onError(e: Throwable): Unit = {
               logger.error("Etcd keep-alive error", e)
@@ -84,11 +84,11 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
 
   override def modificationEventsQueue: HIO[Queue[(Long, String)]] = {
     for {
-      harnessId <- Ref.make(0L)
+      harnessId <- Queue.bounded[Long](1)
       _ <- registerHarnessIds(harnessId).fork
       actionsQ <- Queue.sliding[(Long, String)](1000)
       _ <- watchActions(actionsQ, harnessId).retry(Schedule.linear(1.second)).forever.fork
-      id <- harnessId.get
+      id <- harnessId.take
       _ <- actionsQ.offer(id -> "")
     } yield actionsQ
   }
@@ -100,24 +100,29 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
   }.when(harnessId > 0)
 
 
-  private def watchActions(actionsQ: Queue[(Long, String)], harnessId: Ref[Long]): HIO[Unit] =
+  private def watchActions(actionsQ: Queue[(Long, String)], harnessId: Queue[Long]): HIO[Unit] =
     ZIO.effectAsync[HEnv, Watcher, Unit] { cb => Try {
       lazy val w: Watcher = watch.watch(actionsPrefix, watchPrefixOpt(actionsPrefix), new Watch.Listener with LazyLogging {
-        override def onNext(response: WatchResponse): Unit = cb {
+        override def onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRunSync {
           for {
-            id <- harnessId.get
+            id <- harnessId.take
             _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
             actionIds = response.getEvents.asScala.map(_.getKeyValue.getKey.toString(etcdCharset).drop(actionsPrefix.length))
-            _ <- actionsQ.offerAll(actionIds.map(a => id -> a))
+            _ <- if (actionIds.nonEmpty) actionsQ.offerAll(actionIds.map(a => id -> a))
+                 else actionsQ.offer(id -> "")
           } yield w
         }
-        override def onError(e: Throwable): Unit = {
-          logger.error("Actions watch error", e)
-          cb(ZIO.fail(w))
+        override def onError(e: Throwable): Unit = cb {
+          for {
+            _ <- log.error("Actions watch error", Cause.fail(e))
+            _ <- ZIO.fail(w)
+          } yield ()
         }
-        override def onCompleted(): Unit = {
-          logger.debug("Actions watcher completed")
-          cb(ZIO.fail(w))
+        override def onCompleted(): Unit = cb {
+          for {
+            _ <- log.info("Actions watcher completed")
+            _ <- ZIO.fail(w)
+          } yield ()
         }
       })
       w
@@ -136,18 +141,17 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
     for {
       // todo: use transaction for action too
       _ <- kv.put(engineKey, encode(data)).toIO
-        .map(r => (r.getPrevKv.getModRevision, r.getPrevKv.getCreateRevision))
-        .filterOrFail { case (0, 0) => true } (WrongParams(s"Engine $id already exists, use update"))
+        .filterOrFail(_.hasPrevKv)(WrongParams(s"Engine $id already exists, use update"))
       waitForOthers = for {
         _ <- updateActionsInfo("add", actionKey)
         _ <- findUpdated(actionId)
       } yield ()
-      removeEngineAndAction = kv.txn()
+      removeEngine = kv.txn()
         // mod and create revisions equal to 0 means that no changes were made to the engine's meta information, so we can delete it (rollback)
         .If(new Cmp(engineKey, Cmp.Op.EQUAL, CmpTarget.modRevision(0)), new Cmp(engineKey, Cmp.Op.EQUAL, CmpTarget.createRevision(0)))
         .Then(Op.delete(engineKey, DeleteOption.newBuilder().build), Op.delete(actionKey, DeleteOption.newBuilder().build))
-        .commit().toIO.unit
-      _ <- (waitForOthers compensate removeEngineAndAction).transact
+        .commit().unit
+      _ <- (waitForOthers compensate removeEngine).transact
     } yield ()
   }
 
@@ -161,15 +165,13 @@ class EnginesEtcdBackend(etcdClient: Client) extends EnginesBackend.Service with
     } yield ()
   }
 
-  override def deleteEngine(id: String): HIO[Unit] = {
-    for {
-      _ <- kv.delete(enginesPrefix + id).unit
-      actionId = UUID.randomUUID()
-      actionKey = s"${actionsPrefix}$actionId"
-      _ <- updateActionsInfo("delete", actionKey)
-      _ <- findUpdated(actionId)
-    } yield ()
-  }
+  override def deleteEngine(id: String): HIO[Unit] = for {
+    _ <- kv.delete(enginesPrefix + id)
+    actionId = UUID.randomUUID()
+    actionKey = s"${actionsPrefix}$actionId"
+    _ <- updateActionsInfo("delete", actionKey)
+    _ <- findUpdated(actionId)
+  } yield ()
 
   override def findEngine(id: String): HIO[EngineMetadata] = {
     for {
@@ -252,7 +254,12 @@ object EnginesEtcdBackend {
   private val actionsPrefix = "/services/harness/actions/"
   private val etcdCharset = Charset.forName("UTF-8")
   private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build
-  private def watchPrefixOpt(prefix: String) = WatchOption.newBuilder().withPrefix(prefix).build
+  private def watchPrefixOpt(prefix: String) =
+    WatchOption
+      .newBuilder()
+      .withPrevKV(true)
+      .withPrefix(prefix)
+      .build
 
   private def now: Duration = Duration.fromInstant(Instant.now)
 }
