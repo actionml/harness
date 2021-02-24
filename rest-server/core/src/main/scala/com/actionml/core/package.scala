@@ -22,7 +22,6 @@ import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
-import io.etcd.jetcd._
 import zio.clock.Clock
 import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
@@ -88,12 +87,10 @@ package object core  extends LazyLogging {
       {
         ZManaged.make {
           config.enginesBackend match {
-            case StoreBackend.etcd => IO.effect { new EnginesEtcdBackend(
-              Client.builder.endpoints(config.etcdConfig.endpoints: _*).build
-            )}
+            case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
             case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
           }
-        }(x => x.close)
+        }(_ => IO.unit)
       }
     }
   }

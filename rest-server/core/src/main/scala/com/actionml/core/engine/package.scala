@@ -18,7 +18,10 @@
 package com.actionml.core
 
 import com.actionml.core.engine.backend.EngineMetadata
-import zio.{Has, Queue, UIO, ZIO}
+import zio.{Has, ZIO}
+
+import java.time.Instant
+import java.util.UUID
 
 package object engine {
 
@@ -30,19 +33,25 @@ package object engine {
       def addEngine(id: String, data: EngineMetadata): HIO[Unit]
       def updateEngine(id: String, data: EngineMetadata): HIO[Unit]
       def deleteEngine(id: String): HIO[Unit]
-      def findEngine(id: String): HIO[EngineMetadata]
-      def listEngines: HIO[Iterable[EngineMetadata]]
-      def modificationEventsQueue: HIO[Queue[(Long, String)]]
-      def updateState(harnessId: Long, actionId: String): HIO[Unit]
-      def close: UIO[Unit]
+      def watchActions(callback: Action => Unit): HIO[Unit]
     }
 
     def addEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.addEngine(id, data))
     def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.updateEngine(id, data))
     def deleteEngine(id: String): HIO[Unit] = ZIO.accessM(_.get.deleteEngine(id))
-    def findEngine(id: String): HIO[EngineMetadata] = ZIO.accessM(_.get.findEngine(id))
-    def listEngines: HIO[Iterable[EngineMetadata]] = ZIO.accessM(_.get.listEngines)
-    def modificationEventsQueue: HIO[Queue[(Long, String)]] = ZIO.accessM(_.get.modificationEventsQueue)
-    def updateState(harnessId: Long, actionId: String): HIO[Unit] = ZIO.accessM(_.get.updateState(harnessId, actionId))
+    def watchActions(callback: Action => Unit): HIO[Unit] = ZIO.accessM(_.get.watchActions(callback))
   }
+
+
+  sealed trait Action {
+    val id: String
+    val timestamp: Instant = Instant.now
+    val meta: EngineMetadata
+  }
+  object Action {
+    def isDelete(action: String): Boolean = action.contains(""""action":"delete"""")
+  }
+  case class Add(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
+  case class Update(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
+  case class Delete(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
 }
