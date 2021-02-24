@@ -54,4 +54,12 @@ package object engine {
   case class Add(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
   case class Update(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
   case class Delete(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
+
+  object ActionNames extends Enumeration {
+    type ActionName = Value
+
+    val add = Value("add")
+    val update = Value("update")
+    val delete = Value("delete")
+  }
 }

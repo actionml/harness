@@ -19,9 +19,13 @@ package com.actionml.core.engine.backend
 
 import com.actionml.core.config.AppConfig
 import com.actionml.core.engine._
+import com.actionml.core.engine.ActionNames._
 import com.actionml.core.validate._
 import com.actionml.core.{HEnv, HIO}
 import com.typesafe.scalalogging.LazyLogging
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
+import io.circe.syntax._
 import io.etcd.jetcd.Watch.Watcher
 import io.etcd.jetcd._
 import io.etcd.jetcd.lease.LeaseKeepAliveResponse
@@ -52,7 +56,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   private def registerHarnessIds(harnessIdQueue: Queue[Long]): HIO[Unit] = {
     for {
-      leaseId <- lease.grant(15).toIO.map(_.getID)
+      leaseId <- lease.grant(5).toIO.map(_.getID)
       _ <- harnessIdQueue.offer(leaseId)
       _ <- log.info(s"Got harnessId=$leaseId")
       instanceKey = mkServiceKey(leaseId)
@@ -63,14 +67,14 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
           lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
             override def onCompleted(): Unit = {
               logger.warn(s"Keep-alive completed for harness-$leaseId")
-              cb(ZIO.effect(ka.close).ignore *> harnessIdQueue.shutdown)
+              cb(ZIO.effect(ka.close()).ignore *> harnessIdQueue.shutdown)
             }
             override def onNext(resp: LeaseKeepAliveResponse): Unit = {
               logger.debug(s"NEXT ${resp.getID} (ttl=${resp.getTTL})")
             }
             override def onError(e: Throwable): Unit = {
               logger.error("Etcd keep-alive error", e)
-              cb(ZIO.effect(ka.close).ignore *> harnessIdQueue.shutdown)
+              cb(ZIO.effect(ka.close()).ignore *> harnessIdQueue.shutdown)
             }
           })
           ka
@@ -86,7 +90,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     for {
       harnessIdQ <- Queue.bounded[Long](1)
       actions <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
-                   .map(_.getKvs.asScala.toSeq.flatMap(s => decode(s.getValue)))
+                   .map(_.getKvs.asScala.flatMap(s => decode(s.getValue)))
       _ = actions.foreach {
         case a: Add => callback(a)
         case u: Update => callback(u)
@@ -139,11 +143,11 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   }
 
 
-  private def encode(m: EngineMetadata): String = toJsonString(m)
+  private def encode(m: EngineMetadata): String = m.asJson.noSpaces
   private def encode(a: Action): String = a match {
-    case Add(meta, id) => s"""{"action":"add","actionId":"$id","config":${encode(meta)}}"""
-    case Update(meta, id) => s"""{"action":"update","actionId":"$id","config":${encode(meta)}}"""
-    case Delete(meta, id) => s"""{"action":"delete","actionId":"$id","config":${encode(meta)}}"""
+    case Add(meta, id) => actionToJsonString(add, id, meta, a.timestamp)
+    case Update(meta, id) => actionToJsonString(update, id, meta, a.timestamp)
+    case Delete(meta, id) => actionToJsonString(delete, id, meta, a.timestamp)
   }
   private val decode: String => Option[Action] = s => {
     import io.circe.generic.auto._
@@ -153,12 +157,12 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
       case Right(j) =>
         for {
           e <- j.hcursor.get[EngineMetadata]("config").right.toOption
-          a <- j.hcursor.get[String]("action").right.toOption
+          a <- j.hcursor.get[ActionName]("action").right.toOption
           id <- j.hcursor.get[String]("actionId").right.toOption
         } yield a match {
-          case "add" => Add(e, id)
-          case "update" => Update(e, id)
-          case "delete" => Delete(e, id)
+          case ActionNames.add => Add(e, id)
+          case ActionNames.update => Update(e, id)
+          case ActionNames.delete => Delete(e, id)
         }
       case _ => None
     }
@@ -186,7 +190,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
           .map(_.getKvs.asScala.collectFirst {
             case kv if decode(kv.getValue).exists(a => a.isInstanceOf[Add] || a.isInstanceOf[Update]) => decode(kv.getValue).map(a => a.meta).get
           }.get)
-        _ <- kv.put(key, s"""{"action":"delete","actionId":"${a.id}","config":${encode(meta)},"timestamp":"${a.timestamp}"}""")
+        _ <- kv.put(key, actionToJsonString(delete, a.id, meta, a.timestamp))
       } yield ()
     case Add(meta, _) =>
       for {
@@ -198,12 +202,15 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
             .headOption
             .forall(k => Action.isDelete(k.getValue))
           } (WrongParams(s"Engine ${meta.engineId} already exists, use update"))
-        _ <- kv.put(mkEngineKey(meta.engineId), s"""{"action":"add","actionId":"${a.id}","config":${encode(meta)},"timestamp":"${a.timestamp}"}""")
+        _ <- kv.put(mkEngineKey(meta.engineId), actionToJsonString(add, a.id, meta, a.timestamp))
       } yield ()
     case Update(meta, _) =>
-      kv.put(mkEngineKey(meta.engineId), s"""{"action":"update","actionId":"${a.id}","config":"${encode(meta)}","timestamp":"${a.timestamp}"}""")
-        .toIO
+      kv.put(mkEngineKey(meta.engineId), actionToJsonString(update, a.id, meta, a.timestamp)).toIO
   }).as(a.id)
+
+  private def actionToJsonString(actionName: ActionName, actionId: String, engineMetadata: EngineMetadata, timestamp: Instant): String = {
+    s"""{"action":"$actionName","actionId":"$actionId","config":"${encode(engineMetadata)}","timestamp":"$timestamp"}"""
+  }
 
   // waits for all instances to update their state
   private def findUpdated(actionId: String): HIO[Unit] = {
@@ -266,4 +273,7 @@ object EnginesEtcdBackend {
       .build
 
   private def now: Duration = Duration.fromInstant(Instant.now)
+
+  implicit val actionNameDecoder: Decoder[ActionNames.Value] = Decoder.enumDecoder(ActionNames)
+  implicit val metaEncoder: Encoder[EngineMetadata] = deriveEncoder[EngineMetadata]
 }
