@@ -48,7 +48,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   import EnginesEtcdBackend._
   import com.actionml.core.utils.ZIOUtil.ZioImplicits._
 
-  val config = AppConfig.apply
+  private val config = AppConfig.apply
   private val etcdClient = Client.builder.endpoints(config.etcdConfig.endpoints: _*).build
   private val kv = etcdClient.getKVClient
   private val watch = etcdClient.getWatchClient
@@ -97,7 +97,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
         case _ =>
       }
       _ <- registerHarnessIds(harnessIdQ).fork
-      _ <- watchEngines(harnessIdQ, callback).retry(Schedule.linear(1.second)).forever
+      _ <- watchEngines(harnessIdQ, callback)
     } yield ()
   }
 
@@ -110,15 +110,13 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
           lazy val w: Watcher = watch.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Watch.Listener with LazyLogging {
             override def onNext(response: WatchResponse): Unit = {
               logger.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
-              val kOpt = PutOption.newBuilder().withLeaseId(harnessId).build()
               response.getEvents.asScala
                 .flatMap(event => decode(event.getKeyValue.getValue.toString(etcdCharset)))
                 .foreach { a =>
                   callback(a)
-                  kv.put(mkServiceKey(harnessId), encode(a), kOpt)
+                  kv.put(mkServiceKey(harnessId), encode(a), PutOption.newBuilder().withLeaseId(harnessId).build())
                 }
             }
-
             override def onError(e: Throwable): Unit = cb {
               for {
                 _ <- log.error("Actions watch error", Cause.fail(e))
@@ -126,7 +124,6 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
                 _ <- ZIO.fail(w)
               } yield ()
             }
-
             override def onCompleted(): Unit = cb {
               for {
                 _ <- log.info("Actions watcher completed")
@@ -142,8 +139,6 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     } yield ()
   }
 
-
-  private def encode(m: EngineMetadata): String = m.asJson.noSpaces
   private def encode(a: Action): String = a match {
     case Add(meta, id) => actionToJsonString(add, id, meta, a.timestamp)
     case Update(meta, id) => actionToJsonString(update, id, meta, a.timestamp)
@@ -175,41 +170,29 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   override def deleteEngine(id: String): HIO[Unit] = updateEtcdEngine(Delete(EngineMetadata(id, "", ""))) >>= findUpdated
 
 
-  private def updateEtcdEngine(a: Action): HIO[String] = (a match {
-    case Delete(meta, _) =>
+  private val updateEtcdEngine: Action => HIO[String] = a => { a match {
+    case Delete(meta, actionId) =>
+      kv.put(mkEngineKey(meta.engineId), actionToJsonString(delete, actionId, meta, a.timestamp)).toIO
+    case Add(meta, _) =>
       val key = mkEngineKey(meta.engineId)
       for {
-        meta <- kv.get(mkEngineKey(meta.engineId))
-          .filterOrFail { _.getKvs
-            .iterator()
-            .asScala
-            .toStream
-            .headOption
-            .forall(k => !Action.isDelete(k.getValue))
-          } (WrongParams(s"Engine ${meta.engineId} does not exist"))
-          .map(_.getKvs.asScala.collectFirst {
-            case kv if decode(kv.getValue).exists(a => a.isInstanceOf[Add] || a.isInstanceOf[Update]) => decode(kv.getValue).map(a => a.meta).get
-          }.get)
-        _ <- kv.put(key, actionToJsonString(delete, a.id, meta, a.timestamp))
+        _ <- kv.get(key)
+          .filterOrFail {
+            _.getKvs
+              .iterator()
+              .asScala
+              .toStream
+              .headOption
+              .forall(k => Action.isDelete(k.getValue))
+          }(WrongParams(s"Engine ${meta.engineId} already exists, use update"))
+        _ <- kv.put(key, actionToJsonString(add, a.id, meta, a.timestamp))
       } yield ()
-    case Add(meta, _) =>
-      for {
-        _ <- kv.get(mkEngineKey(meta.engineId))
-          .filterOrFail { _.getKvs
-            .iterator()
-            .asScala
-            .toStream
-            .headOption
-            .forall(k => Action.isDelete(k.getValue))
-          } (WrongParams(s"Engine ${meta.engineId} already exists, use update"))
-        _ <- kv.put(mkEngineKey(meta.engineId), actionToJsonString(add, a.id, meta, a.timestamp))
-      } yield ()
-    case Update(meta, _) =>
-      kv.put(mkEngineKey(meta.engineId), actionToJsonString(update, a.id, meta, a.timestamp)).toIO
-  }).as(a.id)
+    case Update(meta, actionId) =>
+      kv.put(mkEngineKey(meta.engineId), actionToJsonString(update, actionId, meta, a.timestamp)).toIO
+  }}.as(a.id)
 
   private def actionToJsonString(actionName: ActionName, actionId: String, engineMetadata: EngineMetadata, timestamp: Instant): String = {
-    s"""{"action":"$actionName","actionId":"$actionId","config":"${encode(engineMetadata)}","timestamp":"$timestamp"}"""
+    s"""{"action":"$actionName","actionId":"$actionId","config":${engineMetadata.asJson.noSpaces},"timestamp":"$timestamp"}"""
   }
 
   // waits for all instances to update their state
@@ -220,10 +203,10 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
         def cleanUp(): Unit = Try(w.close())
         lazy val w = watch.watch(instanceKey, watchAllOpt, new Watch.Listener {
           override def onNext(response: WatchResponse): Unit = {
-            if (response.getEvents.asScala.exists(event => decode(event.getKeyValue.getValue.toString(etcdCharset)).get.id == actionId)) {
+            if (response.getEvents.asScala.exists(event => decode(event.getKeyValue.getValue.toString(etcdCharset)).exists(_.id == actionId))) {
               cleanUp()
               cb(ZIO.unit)
-            } else if (now > (start + timeout)) {
+            } else {
               cleanUp()
               cb(ZIO.fail(ValidRequestExecutionError()))
             }
@@ -234,7 +217,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
           }
           override def onCompleted(): Unit = {
             cleanUp()
-            cb(ZIO.fail(ValidRequestExecutionError()))
+            cb(ZIO.unit)
           }
         })
         w
@@ -245,9 +228,7 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
       // fetch all registered harness instances
       instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
       // wait for them to update
-      _ <- ZIO.foreachPar_(instances.getKvs.asScala) { i =>
-          waitForAction(i.getKey, now, timeout).unless(decode(i.getValue.toString(etcdCharset)).exists(_.id == actionId))
-      }
+      _ <- ZIO.foreachPar_(instances.getKvs.asScala)(i => waitForAction(i.getKey, now, timeout))
     } yield ()
   }
 }

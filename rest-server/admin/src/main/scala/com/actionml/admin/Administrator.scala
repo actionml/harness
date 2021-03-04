@@ -43,18 +43,16 @@ trait Administrator extends LazyLogging with JsonSupport {
 
   harnessRuntime.unsafeRunAsync {
     def update(meta: EngineMetadata): Unit = {
-      if (engines.exists { case (m, _) => m != meta }) {
-          val e = newEngineInstance(meta.engineFactory, meta.params)
-          engines = engines + (meta -> e)
-      } else {
-        val e = newEngineInstance(meta.engineFactory, meta.params)
-        engines = engines + (meta -> e)
-      }
+      val e = newEngineInstance(meta.engineFactory, meta.params)
+      engines = engines + (meta -> e)
     }
     watchActions {
       case Add(meta, _) => update(meta)
       case Update(meta, _) => update(meta)
-      case Delete(meta, _) => engines = engines.filterNot { case (EngineMetadata(id, _, _), _) => meta.engineId == id }
+      case Delete(meta, _) =>
+        val deletedEngine = engines.filter { case (EngineMetadata(id, _, _), _) => meta.engineId == id }
+        deletedEngine.foreach { case (_, e) => e.destroy() }
+        engines = engines -- deletedEngine.keys
     }.retry(Schedule.linear(2.seconds)).forever
   }(_ => logger.error("Engines updates stopped"))
 
@@ -145,13 +143,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       IO.fail(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     } { deadEngine =>
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
-      for {
-        result <- deleteEngine(engineId).map(_ => Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
-        _ <- IO.effect(deadEngine.destroy()).mapError { e =>
-          logger.error("Destroy engine error", e)
-          ValidRequestExecutionError()
-        }
-      } yield result
+      deleteEngine(engineId).map(_ => Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
     }
   }
 
