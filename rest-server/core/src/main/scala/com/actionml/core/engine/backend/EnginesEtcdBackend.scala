@@ -183,7 +183,10 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
               .asScala
               .toStream
               .headOption
-              .forall(k => Action.isDelete(k.getValue))
+              .forall(k => decode(k.getValue).exists {
+                case Delete(_, _) => true
+                case _ => false
+              })
           }(WrongParams(s"Engine ${meta.engineId} already exists, use update"))
         _ <- kv.put(key, actionToJsonString(add, a.id, meta, a.timestamp))
       } yield ()

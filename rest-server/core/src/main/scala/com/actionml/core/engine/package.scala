@@ -48,9 +48,6 @@ package object engine {
     val timestamp: Instant = Instant.now
     val meta: EngineMetadata
   }
-  object Action {
-    def isDelete(action: String): Boolean = action.contains(""""action":"delete"""")
-  }
   case class Add(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
   case class Update(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
   case class Delete(meta: EngineMetadata, id: String = UUID.randomUUID.toString) extends Action
