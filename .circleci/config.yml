@@ -38,7 +38,7 @@ jobs:
     - attach_workspace:
         at: /root/project/dist
     - run:
-        name: Install Docker Compose and Kubectl
+        name: Install Docker Compose
         command: |
           set -x
           chmod +x docker/config-dependencies.sh
@@ -103,9 +103,7 @@ jobs:
     - run:
         name: Publish docker image
         command: |
-          # TODO: Enable integration test after test fixed
-          echo "export RESULT=0" >> $SHELL_ENV
-          
+
           source $SHELL_ENV
           echo "Result is ${RESULT}"
 
@@ -125,24 +123,6 @@ jobs:
                 
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
                 docker image push actionml/harness:$BRANCH-$DATE_BUILD
-              ;;
-              *)
-              ;;
-            esac
-          fi
-    - run:
-        name: Update kubernetes Deployment
-        command: | 
-          source $SHELL_ENV
-
-          if [ $RESULT -eq 0 ] 
-          then
-           case "${CIRCLE_BRANCH}" in
-              "develop")
-                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-                kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
-              
-                kubectl delete pod harness-0
               ;;
               *)
               ;;
