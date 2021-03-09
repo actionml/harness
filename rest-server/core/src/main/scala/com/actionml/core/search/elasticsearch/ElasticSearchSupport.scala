@@ -418,6 +418,10 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     typeMappings: Map[String, (String, Boolean)],
     refresh: Boolean,
     doNotLinkAlias: Boolean = false): Boolean = {
+    def mkAliasField =
+      if (doNotLinkAlias) Nil
+      else if (esVersion == v7) List(JField("aliases", JObject("alias" -> JString(alias))))
+      else List(JField("aliases", JObject(alias -> JObject())))
     Try(client.performRequest(new Request("HEAD", s"/$indexName")).getStatusLine.getStatusCode)
       .getOrElse(404) match {
         case 404 => { // should always be a unique index name so fail unless we get a 404
@@ -433,7 +437,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
                   }.reduce(_ ~ _)
                 })
               )
-            ) :: (if (doNotLinkAlias) Nil else List(JField("aliases", JObject(alias -> JObject()))))
+            ) :: mkAliasField
           ))
 
           val request = new Request("PUT", s"/$indexName")
