@@ -17,37 +17,44 @@
 
 package com.actionml.core.backup
 
-import java.io._
-
 import com.actionml.core.validate.JsonSupport
-import zio.{IO, Task}
+import zio.duration._
+import zio.{IO, Queue, Schedule, Task, ZIO}
 
-import scala.util.Try
+import java.io._
+import java.nio.charset.StandardCharsets
 
 /**
   * Mirror implementation for local FS.
   */
-class FSMirror(mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
+class FSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
-  private val out = Try {
-    val f = new File(containerName)
-    if (!f.exists()) f.mkdirs()
-    logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $mirrorContainer")
-    new BufferedWriter(new PrintWriter(s"$containerName/$batchName.json", "UTF-8"))
-  }
-
-  override def mirrorEvent(event: String): Task[Unit] = {
+  private var putEventToQueue: String => Task[Unit] = _
+  private def runWriteLoop() = {
     for {
-      o <- IO.fromTry(out)
-      _ <- IO.effect(o.write(event))
+      q <- Queue.unbounded[String]
+      _ = putEventToQueue = s => q.offer(s).unit
+      f = new File(containerName)
+      _ = if (!f.exists()) f.mkdirs()
+      _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $containerName")
+      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$containerName/$batchName.json", true)), StandardCharsets.UTF_8))
+      _ <- ZIO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).fork
+      _ <- {
+        for {
+          l <- q.take
+          _ <- ZIO.effect(out.append(l))
+        } yield ()
+      }.forever
     } yield ()
-  }.onError { c =>
-    c.failures.foreach(e => logger.error("Problem mirroring while input", e))
-    IO.unit
-  }
+  }.retry(Schedule.fibonacci(1.milli)).forever
+  zio.Runtime.default.unsafeRunAsync(runWriteLoop())(_ => logger.error("FS mirror write error"))
 
-  override def cleanup(): Task[Unit] =
-    for {
-      o <- IO.fromTry(out)
-    } yield o.close
+  override def mirrorEvent(event: String): Task[Unit] =
+    putEventToQueue(event)
+      .onError { c =>
+        c.failures.foreach(e => logger.error("Problem mirroring while input", e))
+        IO.unit
+      }
+
+  override def cleanup(): Task[Unit] = IO.unit
 }

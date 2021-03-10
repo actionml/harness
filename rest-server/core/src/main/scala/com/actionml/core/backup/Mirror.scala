@@ -18,9 +18,10 @@ package com.actionml.core.backup
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
-
 import org.apache.hadoop.fs.Path
 import zio.Task
+
+import java.io.File
 
 /**
   * Trait for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
@@ -40,13 +41,16 @@ trait Mirror {
     // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
     DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
 
+  protected val mirrorContainer: String
+
   /**
     * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
     * semantics do not apply
     *
     * @return directory name
     */
-  protected val containerName: String = s"$batchName${Path.SEPARATOR}$engineId"
+  protected val containerName: String = s"$mirrorContainer${File.separator}$engineId${File.separator}"
+
 
   def mirrorEvent(event: String): Task[Unit]
   def cleanup(): Task[Unit]

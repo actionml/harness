@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 import scala.util.{Success, Try}
 
 
-class HDFSMirror(mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
+class HDFSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
   private lazy val fs: org.apache.hadoop.fs.FileSystem = HDFSFactory.hdfs
   private val rootMirrorDir = Try {
     val engineEventMirrorPath = new Path(mirrorContainer, engineId)
