@@ -17,32 +17,30 @@
 
 package com.actionml.router.http.routes
 
-import java.util.UUID
+import akka.actor.ActorSystem
 
+import java.util.UUID
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
+import akka.stream.ActorMaterializer
+import com.actionml.core.config.AppConfig
 import io.circe.syntax._
 import org.json4s.JValue
-import scaldi.Injector
+
+import scala.concurrent.ExecutionContext
 
 /**
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
-class CommandsRouter(implicit inj: Injector) extends BaseRouter {
+class CommandsRouter(
+  implicit val actorSystem: ActorSystem,
+  implicit protected val executor: ExecutionContext,
+  implicit protected val materializer: ActorMaterializer,
+  implicit val config: AppConfig
+) extends BaseRouter {
 
   override val route: Route = rejectEmptyResponse {
     pathPrefix("commands") {
-/*      pathPrefix("findMany") { // this is should be done with GET /commands/ or GET /engines/
-        pathPrefix(Segment) { segment ⇒
-          pathEndOrSingleSlash {
-            segment match {
-              case "engines" ⇒ getEngineList
-              case "commands" ⇒ getCommandList
-            }
-          }
-        }
-      } ~
-*/
       pathPrefix("batch-train") {
         runCommand
       } ~ pathPrefix(Segment) { commandId ⇒

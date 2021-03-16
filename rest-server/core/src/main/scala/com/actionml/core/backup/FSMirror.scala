@@ -46,7 +46,7 @@ class FSMirror(override val mirrorContainer: String, override val engineId: Stri
         } yield ()
       }.forever
     } yield ()
-  }.retry(Schedule.fibonacci(1.milli)).forever
+  }//.retry(Schedule.fibonacci(1.milli)).forever
   zio.Runtime.default.unsafeRunAsync(runWriteLoop())(_ => logger.error("FS mirror write error"))
 
   override def mirrorEvent(event: String): Task[Unit] =

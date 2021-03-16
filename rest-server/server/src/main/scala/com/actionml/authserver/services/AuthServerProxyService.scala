@@ -20,12 +20,9 @@ package com.actionml.authserver.services
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.parboiled2.ParserInput
 import akka.stream.Materializer
 import com.actionml.authserver._
-import com.actionml.circe.CirceSupport
 import com.actionml.core.config.AppConfig
-import scaldi.{Injectable, Injector}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -34,11 +31,11 @@ trait AuthServerProxyService {
   def proxyAuthRequest(request: HttpRequest): Future[HttpResponse]
 }
 
-class AuthServerProxyServiceImpl(implicit inj: Injector) extends AuthServerProxyService with CirceSupport with Injectable {
-  private val config = inject[AppConfig]
-  private implicit val ec = inject[ExecutionContext]
-  private implicit val actorSystem = inject[ActorSystem]
-  private implicit val materializer = inject[Materializer]
+class AuthServerProxyServiceImpl(
+  config: AppConfig,
+  implicit val actorSystem: ActorSystem,
+  implicit val materializer: Materializer) extends AuthServerProxyService {
+  implicit private val ec: ExecutionContext = actorSystem.dispatcher
 
   override def proxyAuthRequest(request: HttpRequest): Future[HttpResponse] = {
     val proxyRequest = mkProxyRequest(request)

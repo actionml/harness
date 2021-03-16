@@ -13,13 +13,12 @@ lazy val circeVersion = "0.8.0"
 lazy val scalaTestVersion = "3.0.1"
 lazy val mongoJavaDriverVersion = "3.12.5"
 lazy val mongoScalaDriverVersion = "2.9.0"
-lazy val mongoSparkConnectorVersion = "2.4.2"
+lazy val mongoSparkConnectorVersion = "2.3.5"
 lazy val hdfsVersion = "2.8.1"
 lazy val sparkVersion = "2.3.3"
-lazy val json4sVersion = "3.5.1"
+lazy val json4sVersion = "3.4.2"
 lazy val mahoutVersion = "0.13.0"
 //lazy val mahoutVersion = "0.14.0-SNAPSHOT"
-lazy val elasticSearchVersion = "7.5.2"
 
 //resolvers += "Temp Scala 2.11 build of Mahout" at "https://github.com/actionml/mahout_2.11/raw/mvn-repo"
 
@@ -51,8 +50,8 @@ lazy val commonSettings = Seq(
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   ),
   excludeDependencies ++= Seq(
-    SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
-    SbtExclusionRule("org.slf4j", "slf4j-log4j12")
+    ExclusionRule("org.slf4j", "log4j-over-slf4j"),
+    ExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 )
 
@@ -66,7 +65,7 @@ lazy val core = (project in file("core")).
       "org.mongodb" % "mongodb-driver-core" % mongoJavaDriverVersion,
       "org.mongodb" % "mongodb-driver-async" % mongoJavaDriverVersion,
 
-      "org.apache.spark" % "spark-core_2.11" %sparkVersion,
+      "org.apache.spark" % "spark-core_2.11" % sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.apache.spark" %% "spark-hive" % sparkVersion,
       "org.apache.spark" %% "spark-yarn" % sparkVersion,
@@ -90,8 +89,8 @@ lazy val core = (project in file("core")).
       "de.heikoseeberger" %% "akka-http-circe" % "1.16.0",
       "de.heikoseeberger" %% "akka-http-json4s" % "1.16.0",
 
-      "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
-      "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
+      "org.elasticsearch.client" % "elasticsearch-rest-client" % "7.11.2",
+      "org.elasticsearch" %% "elasticsearch-spark-20" % "7.10.2",
 
       "dev.zio" %% "zio" % "1.0.1",
       "dev.zio" %% "zio-streams" % "1.0.1",
@@ -104,8 +103,8 @@ lazy val core = (project in file("core")).
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
-      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
+      ExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      ExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
@@ -115,12 +114,10 @@ lazy val common = (project in file("common")).dependsOn(core).
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-
-      "org.scaldi" %% "scaldi-akka" % "0.5.8"
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
-      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
+      ExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      ExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
@@ -156,14 +153,24 @@ lazy val engines = (project in file("engines")).dependsOn(core).
       */
     ),
     excludeDependencies ++= Seq(
-      SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
-      SbtExclusionRule("org.slf4j", "slf4j-log4j12")
+      ExclusionRule("org.slf4j", "log4j-over-slf4j"),
+      ExclusionRule("org.slf4j", "slf4j-log4j12")
     )
   )
 
 lazy val admin = (project in file("admin")).dependsOn(core).
   settings(
-    generateBuildInfo,
+    Compile / sourceGenerators += Def.task {
+      val file = (Compile / sourceManaged).value / "com" / "actionml" / "admin" / "BuildInfo.scala"
+      IO.write(
+        file,
+        s"""package com.actionml.admin
+           |object BuildInfo {
+           |  val version = "${version.value}"
+           |}""".stripMargin
+      )
+      Seq(file)
+    }.taskValue,
     commonSettings
   )
 
@@ -175,20 +182,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
     "org.ehcache" % "ehcache" % "3.4.0"
   ),
   excludeDependencies ++= Seq(
-    SbtExclusionRule("org.slf4j", "log4j-over-slf4j"),
-    SbtExclusionRule("org.slf4j", "slf4j-log4j12")
+    ExclusionRule("org.slf4j", "log4j-over-slf4j"),
+    ExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 ).enablePlugins(JavaAppPackaging).aggregate(core, common, engines, admin)
-
-def generateBuildInfo: Setting[_] =
-  sourceGenerators in Compile += Def.task {
-    val file = (sourceManaged in Compile).value / "com" / "actionml" / "admin" / "BuildInfo.scala"
-    IO.write(
-      file,
-      s"""package com.actionml.admin
-         |object BuildInfo {
-         |  val version = "${version.value}"
-         |}""".stripMargin
-    )
-    Seq(file)
-  }.taskValue

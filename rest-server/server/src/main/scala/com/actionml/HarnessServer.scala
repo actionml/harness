@@ -21,88 +21,71 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.actionml.admin.Administrator
 import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.authserver.service.AuthorizationService
-import com.actionml.authserver.services.{AuthServerProxyService, AuthServerProxyServiceImpl, CachedAuthorizationService}
+import com.actionml.authserver.services.{AuthServerProxyServiceImpl, CachedAuthorizationService}
 import com.actionml.core.config.AppConfig
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import com.typesafe.scalalogging.LazyLogging
-import scaldi.Module
-import scaldi.akka.AkkaInjectable
 
 import scala.concurrent.ExecutionContext
 
+
 /**
-  *
-  *
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:54
   */
-object HarnessServer extends App with AkkaInjectable with LazyLogging {
-
-  implicit val injector = new BaseModule
-
-  inject[RestServer].run()
-
+object HarnessServer extends App with LazyLogging {
   sys.addShutdownHook {
     logger.info("Shutting down Harness Server")
     MongoStorage.close
   }
-}
 
-class BaseModule extends Module with LazyLogging {
+  def start() = {
+    implicit val config: AppConfig = AppConfig.apply
 
-  val config = AppConfig.apply
-  bind[AppConfig] to config
-
-  implicit lazy val actorSystem = ActorSystem(inject[AppConfig].actorSystem.name)
-  bind[ActorSystem] to actorSystem destroyWith(terminateActorSystem)
-
-  bind[ExecutionContext] to actorSystem.dispatcher
-  bind[ActorMaterializer] to ActorMaterializer()
-
-  lazy val server = new RestServer
-  bind[RestServer] to server
-
-  bind[CheckRouter] to new CheckRouter
-  bind[QueriesRouter] to new QueriesRouter
-  bind[CommandsRouter] to new CommandsRouter
-  bind[AuthServerProxyRouter] to new AuthServerProxyRouter(config)
-
-  lazy val administrator = {
-    val a = new Administrator{
-      override def system: ActorSystem = actorSystem
-    }
-    a.init
-    a
-  }
-  bind[Administrator] to administrator
-
-  lazy val eventService = new EventServiceImpl(administrator)
-  lazy val engineService =  new EngineServiceImpl(administrator)
-  lazy val eventsRouter = new EventsRouter(eventService)
-  bind[EventService] to eventService
-  bind[EventsRouter] to eventsRouter
-  bind[EngineService] to engineService
-
-  bind[EnginesRouter] to new EnginesRouter(engineService)
-
-  lazy val authService = new CachedAuthorizationService
-  lazy val authServerProxy = new AuthServerProxyServiceImpl
-  bind[AuthServerProxyService] to authServerProxy
-  bind[AuthorizationService] to authService
-
-  bind[QueryService] identifiedBy 'QueryService to new QueryServiceImpl(administrator, actorSystem)
-  binding identifiedBy 'EngineService to AkkaInjectable.injectActorRef[EngineService]("EngineService")
-
-
-  private def terminateActorSystem(system: ActorSystem): Unit = {
-    logger.info("Terminating actor system in the Harness Server...")
-    system.whenTerminated.onComplete { t =>
+    implicit val actorSystem: ActorSystem = ActorSystem(config.actorSystem.name)
+    actorSystem.whenTerminated.onComplete { t =>
       logger.info(s"Actor system terminated: $t")
     }(scala.concurrent.ExecutionContext.Implicits.global)
-    system.terminate
+    implicit val actorMaterializer = ActorMaterializer()(actorSystem)
+    implicit val ec: ExecutionContext = actorSystem.dispatcher
+
+    val administrator = {
+      val a = new Administrator {
+        override def system: ActorSystem = actorSystem
+      }
+      a.init
+      a
+    }
+
+    val authService = new CachedAuthorizationService(config.auth)
+    val authServerProxy = new AuthServerProxyServiceImpl(config, actorSystem, actorMaterializer)
+    val queryService = new QueryServiceImpl(administrator, actorSystem)
+
+    val checkRouter = new CheckRouter
+    val queriesRouter = new QueriesRouter(authService, queryService)
+    val commandsRouter = new CommandsRouter
+    val authServerProxyRouter = new AuthServerProxyRouter(authServerProxy)
+
+    val eventService = new EventServiceImpl(administrator)
+    val engineService = new EngineServiceImpl(administrator)
+    val eventsRouter = new EventsRouter(eventService, authService)
+    val engineRouter = new EnginesRouter(engineService, authService)
+
+    new RestServer(
+      actorSystem,
+      actorMaterializer,
+      config.restServer,
+      checkRouter,
+      commandsRouter,
+      eventsRouter,
+      engineRouter,
+      queriesRouter,
+      authServerProxyRouter
+    ).run()
   }
+
+  start()
 }

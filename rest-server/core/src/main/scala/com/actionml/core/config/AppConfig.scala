@@ -58,7 +58,7 @@ case class AuthConfig(
 case class EtcdConfig(endpoints: Seq[String], timeout: FiniteDuration)
 
 object AppConfig {
-  private val config = ConfigFactory.load()
+  private lazy val config = ConfigFactory.load()
 
   def apply: AppConfig = {
     val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))

@@ -17,20 +17,23 @@
 
 package com.actionml.router.http.routes
 
+import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{ExceptionHandler, Route}
+import akka.stream.ActorMaterializer
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.authserver.Roles
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.core.config.AppConfig
+import com.actionml.core.config.{AppConfig, AuthConfig}
 import com.actionml.core.validate.ValidRequestExecutionError
 import com.actionml.router.service._
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
-import scaldi.Injector
+
+import scala.concurrent.ExecutionContext
 
 /**
   *
@@ -43,11 +46,16 @@ import scaldi.Injector
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 25.02.17 11:10
   */
-class QueriesRouter(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives with LazyLogging {
-  override val authorizationService = inject[AuthorizationService]
-  private val config = inject[AppConfig]
-  override val authEnabled = config.auth.enabled
-  private val queryService = inject[QueryService]('QueryService)
+class QueriesRouter(
+  override val authorizationService: AuthorizationService,
+  queryService: QueryService)(
+  implicit val actorSystem: ActorSystem,
+  implicit protected val executor: ExecutionContext,
+  implicit protected val materializer: ActorMaterializer,
+  implicit val config: AppConfig
+) extends BaseRouter with AuthorizationDirectives with LazyLogging {
+
+  override val authEnabled: Boolean = config.auth.enabled
 
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
     (pathPrefix("engines" / Segment) & extractLog) { (engineId, log) =>
