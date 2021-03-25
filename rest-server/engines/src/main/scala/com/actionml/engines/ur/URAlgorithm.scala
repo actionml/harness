@@ -525,7 +525,7 @@ class URAlgorithm private (
           }
           .groupBy(_.event)
           .flatMap { case (name, events) =>
-            events.sortBy(_.eventTime) // implicit ordering
+            events.sortWith(_.eventTime after _.eventTime) // implicit ordering
               .take(indicatorsMap(name)
                 .maxIndicatorsPerQuery.getOrElse(DefaultURAlgoParams.MaxQueryEvents))
           }.toSeq
