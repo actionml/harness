@@ -117,10 +117,10 @@ jobs:
 
                 docker tag actionml/harness:latest actionml/harness:master-$SHORT_GIT_HASH
                 docker image push actionml/harness:master-$SHORT_GIT_HASH
-                
-                HARNES_VERSION=$(cat version)
-                docker tag actionml/harness:latest actionml/harness:$HARNES_VERSION
-                docker image push actionml/harness:$HARNES_VERSION
+
+                HARNESS_VERSION=$(git describe --tags)
+                docker tag actionml/harness:latest actionml/harness:$HARNESS_VERSION
+                docker image push actionml/harness:$HARNESS_VERSION
               ;;
               develop|devops|experimental)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
