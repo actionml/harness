@@ -144,7 +144,9 @@ object SparkContextSupport extends LazyLogging with JsonSupport {
   private class JobManagerListener(jobManager: JobManagerInterface, engineId: String, jobId: String) extends SparkListener {
     override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
       logger.info(s"Job $jobId completed in ${applicationEnd.time} ms [engine $engineId]")
-      jobManager.finishJob(jobId)
+      jobManager.getActiveJobDescriptions(engineId).foreach { jd =>
+        if (jd.status == JobStatuses.queued && jd.status == JobStatuses.executing) jobManager.finishJob(jobId)
+      }
     }
   }
 
