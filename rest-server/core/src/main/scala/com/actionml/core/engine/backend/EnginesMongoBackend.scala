@@ -30,7 +30,8 @@ import org.mongodb.scala.{Document, Observer}
 import zio.duration._
 import zio.{IO, Queue, Schedule, ZIO, ZLayer}
 
-import scala.concurrent.Future
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.{Await, Future}
 
 
 abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLogging {
@@ -38,19 +39,17 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   private val engineEventsName = "engines_events"
-  private val enginesEventsDao: DAO[Document] = zio.Runtime.default.unsafeRunSync {
-    IO.fromFuture { implicit ec =>
-      val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
-      import storage.db
-      for {
-        names <- db.listCollectionNames().toFuture()
-        _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
-             else db.createCollection(engineEventsName, opts).toFuture
-        dao = storage.createDao[Document](engineEventsName)
-        _ <- dao.insertAsync(mkEvent("", "init")) // a workaround for actions watcher
-      } yield dao
-    }
-  }.fold(c => throw c.failureOption.get, a => a)
+  private val enginesEventsDao: DAO[Document] = Await.result({
+    val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
+    import scala.concurrent.ExecutionContext.Implicits.global
+    import storage.db
+    for {
+      names <- db.listCollectionNames().toFuture()
+      _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
+      else db.createCollection(engineEventsName, opts).toFuture
+      dao = storage.createDao[Document](engineEventsName)
+    } yield dao
+  }, FiniteDuration(5, SECONDS))
 
   override def addEngine(id: String, data: EngineMetadata): HIO[Unit] = {
     for {
