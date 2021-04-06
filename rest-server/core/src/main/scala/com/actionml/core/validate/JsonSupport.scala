@@ -21,10 +21,11 @@ import java.io.IOException
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.{Date, TimeZone}
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
+import com.actionml.core.backup.MirrorTypes
+import com.actionml.core.backup.MirrorTypes.MirrorType
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.LazyLogging
 import org.json4s
@@ -55,7 +56,7 @@ trait JsonSupport extends LazyLogging {
       value.extract[JObject]
     }
   }
-  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all + new StringSystemEnvSerializer
+  implicit val dateFormats: Formats = CustomFormats ++ JodaTimeSerializers.all + new StringSystemEnvSerializer + new MirrorTypesSerializer
   object CustomFormats extends DefaultFormats {
     override val dateFormat: DateFormat = new DateFormat {
       private val readFormat = DateTimeFormatter.ISO_DATE_TIME
@@ -76,12 +77,23 @@ trait JsonSupport extends LazyLogging {
       override def timezone: TimeZone = TimeZone.getTimeZone("UTC")
     }
   }
+
   class StringSystemEnvSerializer extends CustomSerializer[String](format => (
     {
       case JString(s) => enrichViaSystemEnv(s)
     },
     {
       case s: String => JString(s)
+    }
+  ))
+
+  class MirrorTypesSerializer extends CustomSerializer[MirrorType](format => (
+    {
+      case JString("local_fs") => MirrorTypes.localfs
+      case JString(s) => MirrorTypes.withName(s)
+    },
+    {
+      case m: MirrorType => JString(m.toString)
     }
   ))
 

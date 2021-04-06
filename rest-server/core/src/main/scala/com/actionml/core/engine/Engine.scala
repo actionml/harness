@@ -20,7 +20,7 @@ package com.actionml.core.engine
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
-import com.actionml.core.backup.{FSMirror, HDFSMirror, Importer, Mirror}
+import com.actionml.core.backup.{FSMirror, HDFSMirror, Importer, Mirror, MirrorTypes}
 import com.actionml.core.jobs.{JobManager, JobStatuses}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
@@ -29,9 +29,11 @@ import zio.Exit.{Failure, Success}
 import zio.blocking.Blocking
 import zio.duration._
 import zio.stream.ZSink
-import zio.{IO, UIO, ZIO}
+import zio.{Exit, IO, UIO, ZIO}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.Try
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -55,10 +57,13 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit = zio.Runtime.default.unsafeRunSync {
-    ZIO.fromFuture(_ => JobManager.removeAllJobs(engineId))
+  def destroy(): Unit = zio.Runtime.default.unsafeRunAsync {
+    IO.fromFuture(_ => JobManager.removeAllJobs(engineId))
       .zipPar(mirroring.cleanup())
-      .timeoutFail(new RuntimeException("Engine failed to destroy"))(5.minutes)
+      .timeoutFail()(5.minutes)
+  } {
+    case Exit.Success(_) => logger.debug(s"Successfully destroyed engine $engineId")
+    case Exit.Failure(_) => logger.warn(s"Engine $engineId failed to destroy")
   }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
@@ -86,20 +91,18 @@ abstract class Engine extends LazyLogging with JsonSupport {
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
-      val mType = params.mirrorType.get
-      mType.toLowerCase match {
-        // todo: maybe we should use URI instead of type+path
-        case "localfs" | "local_fs" =>
+      params.mirrorType.fold[Validated[ValidateError, Response]] {
+        logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
+        Invalid(WrongParams(jsonComment(s"mirror type unknown or not implemented")))
+      } {
+        case MirrorTypes.localfs =>
           mirroring = new FSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
           Valid(Comment("Mirror to localfs"))
-        case "hdfs" =>
+        case MirrorTypes.hdfs =>
           mirroring = new HDFSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} HDFS mirroring")
           Valid(Comment("Mirror to HDFS"))
-        case mt =>
-          logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
-          Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
       Invalid(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
@@ -139,15 +142,18 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Input defined by each engine
     * @return Validated[ValidateError, Response] status with error message
     */
-  def input(json: String): Validated[ValidateError, Response] = {
-    // flatten the event into one string per line as per Spark json collection spec
-    zio.Runtime.default.unsafeRunSync(mirroring.mirrorEvent(json.replace("\n", " ") + "\n"))
-    Valid(Comment("Input processed by base Engine"))
+  def input(json: String): Validated[ValidateError, Response] =
+    Await.result(inputAsync(json)(ExecutionContext.Implicits.global), FiniteDuration(5, SECONDS))
+
+  def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
+    val p = Promise[Validated[ValidateError, Response]]()
+    zio.Runtime.default.unsafeRunAsync(mirroring.mirrorEvent(json.replace("\n", " ") + "\n")) { _ =>
+      p.complete(Try(Valid(Comment("Input processed by base Engine"))))
+    }
+    p.future
   }
 
-  def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = Future(input(json))
-
-  def inputMany(data: Seq[String]): Unit = {}
+  def inputMany(data: Seq[String]): Unit = data.foreach(input)
 
   def batchInputIO(path: String): UIO[Response] = {
     logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")

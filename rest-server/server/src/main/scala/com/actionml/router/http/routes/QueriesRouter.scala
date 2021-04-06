@@ -74,12 +74,7 @@ class QueriesRouter(
   private def getPrediction(engineId: String, log: LoggingAdapter): Route = (post & entity(as[JValue])) { query =>
     log.debug("Receive query: {}", query)
     completeByValidated(StatusCodes.Created) {
-      queryService.queryAsync(engineId, JsonMethods.compact(query))
-        .map(Valid(_))
-        .recover { case e =>
-          logger.error("Prediction error", e)
-          Invalid(ValidRequestExecutionError("Prediction error"))
-        }
+      queryService.queryAsync(engineId, JsonMethods.compact(query)).map(Valid(_))
     }
   }
 

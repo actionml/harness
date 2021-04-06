@@ -55,3 +55,10 @@ trait Mirror {
   def mirrorEvent(event: String): Task[Unit]
   def cleanup(): Task[Unit]
 }
+
+object MirrorTypes extends Enumeration {
+  type MirrorType = Value
+
+  val localfs: MirrorType = Value("localfs")
+  val hdfs: MirrorType = Value("hdfs")
+}

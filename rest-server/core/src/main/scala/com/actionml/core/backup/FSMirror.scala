@@ -19,7 +19,7 @@ package com.actionml.core.backup
 
 import com.actionml.core.validate.JsonSupport
 import zio.duration._
-import zio.{IO, Queue, Schedule, Task, ZIO}
+import zio.{Exit, IO, Queue, Schedule, Task, ZIO}
 
 import java.io._
 import java.nio.charset.StandardCharsets
@@ -30,24 +30,24 @@ import java.nio.charset.StandardCharsets
 class FSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
   private var putEventToQueue: String => Task[Unit] = _
-  private def runWriteLoop() = {
-    for {
+  if (mirrorContainer.nonEmpty) zio.Runtime.default.unsafeRunAsync {
+    (for {
       q <- Queue.unbounded[String]
       _ = putEventToQueue = s => q.offer(s).unit
-      f = new File(containerName)
-      _ = if (!f.exists()) f.mkdirs()
+      dir = new File(containerName)
+      _ = if (!dir.exists()) dir.mkdirs()
       _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $containerName")
       out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$containerName/$batchName.json", true)), StandardCharsets.UTF_8))
       _ <- ZIO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).fork
-      _ <- {
-        for {
-          l <- q.take
-          _ <- ZIO.effect(out.append(l))
-        } yield ()
-      }.forever
-    } yield ()
-  }//.retry(Schedule.fibonacci(1.milli)).forever
-  zio.Runtime.default.unsafeRunAsync(runWriteLoop())(_ => logger.error("FS mirror write error"))
+      _ <- q.take.map(out.append(_)).forever
+    } yield ()).retryUntil {
+      case _: IOException => false
+      case _ => true
+    }
+  } {
+    case Exit.Success(_) => logger.error("FS mirror write error")
+    case Exit.Failure(e) => logger.error(s"FS mirror write error $e")
+  }
 
   override def mirrorEvent(event: String): Task[Unit] =
     putEventToQueue(event)

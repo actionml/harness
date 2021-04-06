@@ -131,18 +131,15 @@ class UREngine extends Engine with JsonSupport {
   }
 
   override def inputAsync(jsonEvent: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
-
     // missing behavior from parseAndValidate, super.input, and algo.input
     // this disables things like mirroring (super.input)
-
-    val response = super.input(jsonEvent)
-      .andThen( _ => parseAndValidate[UREvent](jsonEvent)
-        .andThen(algo.input))
-
-    if( response.isValid) 
-      dataset.inputAsync(jsonEvent).fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
-    else
-      Future.successful(response)
+    for {
+      response <- super.inputAsync(jsonEvent).map { _.andThen { _ =>
+        parseAndValidate[UREvent](jsonEvent)
+      }.andThen(algo.input)}
+      r <- if (response.isValid) dataset.inputAsync(jsonEvent).fold(a => Future.successful(Invalid(a)), _.map(a => Valid(a)))
+           else Future.successful(response)
+    } yield r
   }
 
   override def inputMany(data: Seq[String]): Unit = dataset.inputMany(data)
