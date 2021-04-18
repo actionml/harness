@@ -19,7 +19,7 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.HIO
+import com.actionml.core.{HIO, validate}
 import com.actionml.core.backup.{FSMirror, HDFSMirror, Importer, Mirror, MirrorTypes}
 import com.actionml.core.jobs.{JobManager, JobStatuses}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
@@ -29,7 +29,7 @@ import zio.Exit.{Failure, Success}
 import zio.blocking.Blocking
 import zio.duration._
 import zio.stream.ZSink
-import zio.{Exit, IO, UIO, ZIO}
+import zio.{Exit, IO, UIO, URIO, ZIO}
 
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -155,30 +155,28 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def inputMany(data: Seq[String]): Unit = data.foreach(input)
 
-  def batchInputIO(path: String): UIO[Response] = {
+  def batchInputIO(path: String): HIO[Response] = {
     logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")
     for {
       r <- Importer.importEvents(path).flatMapError(e => UIO.die(e))
       (filesRead, stream) = r
-      jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
-      _ = zio.Runtime.unsafeFromLayer(Blocking.live).unsafeRunAsync {
-        stream.chunkN(50)
+      f = stream.chunkN(50)
           .run {
             ZSink.foldChunksM(0L)(_ => true)((n, c) =>
               ZIO.effect(this.inputMany(c)).as(n + c.length)
             )
-          }
-      } {
-        case Success(eventsProcessed) =>
-          if(filesRead == 0 || eventsProcessed == 0)
-            logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $path?")
-          else
-            logger.info(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
-        case Failure(c) =>
-          c.failures.foreach { e =>
-            logger.error(s"Import error for $engineId from path $path - ${e.getMessage}", e)
-          }
-      }
+          }.bimap(
+              e => {
+                logger.error(s"Import error for $engineId from path $path - ${e.getMessage}", e)
+                ValidRequestExecutionError(s"Import error. Engine id: $engineId, path: $path")
+              },
+              eventsProcessed =>
+                if(filesRead == 0 || eventsProcessed == 0)
+                  logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $path?")
+                else
+                  logger.info(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
+            )
+      jobDescription <- JobManager.addJob(engineId, f, comment = "batch import, non-Spark job")
     } yield jobDescription
   }
 

@@ -17,15 +17,16 @@
 
 package com.actionml.core.jobs
 
-import java.util.{Date, UUID}
+import com.actionml.core.{HEnv, HIO, harnessRuntime}
 
+import java.util.{Date, UUID}
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.Ordering.asc
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
@@ -40,6 +41,7 @@ import scala.util.control.NonFatal
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+import zio.{Exit, IO, Queue, Schedule, Task}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -49,6 +51,9 @@ trait JobManagerInterface {
              c: Cancellable = Cancellable.noop,
              comment: String = "",
              initStatus: JobStatus = JobStatuses.queued): JobDescription
+  def addJob(engineId: String,
+             f: HIO[Any],
+             comment: String): HIO[JobDescription]
   def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
@@ -71,6 +76,17 @@ object JobManager extends JobManagerInterface with LazyLogging {
   private val jobsStore: DAO[JobRecord] = MongoStorage.getStorage("harness_meta_store", codecs = JobRecord.mongoCodecs).createDao[JobRecord]("jobs")
   // This [duplicate] map stores runtime stuff (futures and cancellables). EngineId is the key
   private val jobDescriptions = TrieMap.empty[String, List[(Cancellable, JobDescription)]]
+  private var putJobToQueue: HIO[Any] => Task[Unit] = _
+  harnessRuntime.unsafeRunAsync {
+    import zio.duration._
+    (for {
+      q <- Queue.unbounded[HIO[Any]]
+      _ = logger.info("Starting Job Manager's execution queue")
+      _ = putJobToQueue = s => q.offer(s).unit
+      job <- q.take
+      _ <- job
+    } yield ()).retry(Schedule.fibonacci(5.seconds)).forever
+  } (_ => logger.error(""))
 
   override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
     val description = JobDescription.create(status = status, comment = comment)
@@ -79,6 +95,15 @@ object JobManager extends JobManagerInterface with LazyLogging {
       (c -> description) :: jobDescriptions.getOrElse(engineId, Nil)
     )
     description
+  }
+
+  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = {
+    putJobToQueue(f).map(_ => JobDescription.create(status = JobStatuses.queued, comment = comment))
+      .mapError { e =>
+        val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
+        logger.error(msg, e)
+        ValidRequestExecutionError(msg)
+      }
   }
 
   override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
