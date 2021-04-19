@@ -23,12 +23,15 @@ import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
 import com.actionml.core.validate.{ValidRequestExecutionError, WrongParams}
 import com.mongodb.CursorType
+import com.mongodb.client.model.Filters
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
+import org.bson.conversions.Bson
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer}
 import zio.{IO, ZIO}
 
+import java.time.Instant
 import scala.concurrent.Future
 
 
@@ -80,7 +83,7 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
     IO.effectAsync { cb =>
       enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
         .collection
-        .find()
+        .find(Filters.gt("timestamp", Instant.now))
         .cursorType(CursorType.TailableAwait)
         .noCursorTimeout(true)
         .subscribe(new Observer[Document] {

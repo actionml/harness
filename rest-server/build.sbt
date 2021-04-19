@@ -93,10 +93,10 @@ lazy val core = (project in file("core")).
       "org.elasticsearch.client" % "elasticsearch-rest-client" % elasticSearchVersion,
       "org.elasticsearch" %% "elasticsearch-spark-20" % elasticSearchVersion,
 
-      "dev.zio" %% "zio" % "1.0.1",
-      "dev.zio" %% "zio-streams" % "1.0.1",
-      "dev.zio" %% "zio-logging" % "0.4.0",
-      "dev.zio" %% "zio-logging-slf4j" % "0.4.0",
+      "dev.zio" %% "zio" % "1.0.6",
+      "dev.zio" %% "zio-streams" % "1.0.6",
+      "dev.zio" %% "zio-logging" % "0.5.2",
+      "dev.zio" %% "zio-logging-slf4j" % "0.5.2",
       "com.vladkopanev" %% "zio-saga-core" % "0.4.0",
 
       "io.etcd" % "jetcd-core" % "0.5.3",
