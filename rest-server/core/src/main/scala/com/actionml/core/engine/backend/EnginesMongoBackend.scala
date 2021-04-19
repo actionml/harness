@@ -94,7 +94,7 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
               case "add" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Add(e)))
               case "update" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Update(e)))
               case "delete" => callback(Delete(EngineMetadata(engineId, "", "")))
-              case _ =>
+              case _ => logger.warn("Unknown engine's action found")
             }
           }
           override def onError(e: Throwable): Unit = cb.apply {
