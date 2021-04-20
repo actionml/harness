@@ -35,6 +35,7 @@ import org.json4s.jackson.JsonMethods
 import scaldi.Injector
 
 import scala.concurrent.{Future, Promise}
+import scala.language.implicitConversions
 
 /**
   *
