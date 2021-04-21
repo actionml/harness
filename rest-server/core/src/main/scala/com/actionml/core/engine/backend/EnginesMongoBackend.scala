@@ -26,9 +26,8 @@ import com.mongodb.CursorType
 import com.mongodb.client.model.Filters
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
-import org.bson.conversions.Bson
 import org.mongodb.scala.model.CreateCollectionOptions
-import org.mongodb.scala.{Document, Observer}
+import org.mongodb.scala.{Document, Observer, SingleObservable}
 import zio.{IO, ZIO}
 
 import java.time.Instant
@@ -42,12 +41,16 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
   private val engineEventsName = "engines_events"
   private val enginesEventsDao: DAO[Document] = zio.Runtime.default.unsafeRunSync {
     IO.fromFuture { implicit ec =>
-      val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
+      val opts = CreateCollectionOptions().capped(true).sizeInBytes(1000000L)
       import storage.db
       for {
         names <- db.listCollectionNames().toFuture()
         _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
-        else db.createCollection(engineEventsName, opts).toFuture
+             else db.createCollection(engineEventsName, opts).toFuture
+        _ <- db.getCollection(engineEventsName).countDocuments().flatMap {
+          case 0L => db.getCollection(engineEventsName).insertOne(mkEvent("", "init")).map(_ => 1L)
+          case _ => SingleObservable(-1L)
+        }.toFuture
       } yield storage.createDao[Document](engineEventsName)
     }
   }.fold(c => throw c.failureOption.get, a => a)
@@ -94,6 +97,7 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
               case "add" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Add(e)))
               case "update" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Update(e)))
               case "delete" => callback(Delete(EngineMetadata(engineId, "", "")))
+              case "init" =>
               case _ => logger.warn("Unknown engine's action found")
             }
           }
