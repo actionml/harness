@@ -17,49 +17,60 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.engine.EnginesBackend
+import com.actionml.core.HIO
+import com.actionml.core.engine.{Action, Add, Delete, EnginesBackend, Update}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
-import com.actionml.core.{HIO, harnessRuntime}
+import com.actionml.core.validate.{ValidRequestExecutionError, WrongParams}
 import com.mongodb.CursorType
+import com.mongodb.client.model.Filters
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
-import org.mongodb.scala.{Document, Observer}
-import zio.duration._
-import zio.{IO, Queue, Schedule, ZIO, ZLayer}
+import org.mongodb.scala.{Document, Observer, SingleObservable}
+import zio.{IO, ZIO}
 
-import scala.concurrent.duration.{FiniteDuration, SECONDS}
-import scala.concurrent.{Await, Future}
+import java.time.Instant
+import scala.concurrent.Future
 
 
-abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLogging {
+abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesBackend.Service with LazyLogging {
   import DaoQuery.syntax._
   private val storage = MongoStorage.getStorage("harness_meta_store", codecs = codecs)
   private lazy val enginesCollection = storage.createDao[EngineMetadata]("engines")
   private val engineEventsName = "engines_events"
-  private val enginesEventsDao: DAO[Document] = Await.result({
-    val opts = CreateCollectionOptions().capped(true).sizeInBytes(9000000000L)
-    import scala.concurrent.ExecutionContext.Implicits.global
-    import storage.db
-    for {
-      names <- db.listCollectionNames().toFuture()
-      _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
-      else db.createCollection(engineEventsName, opts).toFuture
-      dao = storage.createDao[Document](engineEventsName)
-    } yield dao
-  }, FiniteDuration(5, SECONDS))
+  private val enginesEventsDao: DAO[Document] = zio.Runtime.default.unsafeRunSync {
+    IO.fromFuture { implicit ec =>
+      val opts = CreateCollectionOptions().capped(true).sizeInBytes(1000000L)
+      import storage.db
+      for {
+        names <- db.listCollectionNames().toFuture()
+        _ <- if (names.contains(engineEventsName)) Future.successful () // Assumes that collection was already created as capped
+             else db.createCollection(engineEventsName, opts).toFuture
+        _ <- db.getCollection(engineEventsName).countDocuments().flatMap {
+          case 0L => db.getCollection(engineEventsName).insertOne(mkEvent("", "init")).map(_ => 1L)
+          case _ => SingleObservable(-1L)
+        }.toFuture
+      } yield storage.createDao[Document](engineEventsName)
+    }
+  }.fold(c => throw c.failureOption.get, a => a)
 
   override def addEngine(id: String, data: EngineMetadata): HIO[Unit] = {
-    for {
-      _ <- enginesCollection.insertIO(data)
-      _ <- enginesEventsDao.insertIO(mkEvent(id, "add"))
-    } yield ()
+    enginesCollection.findOneById(id).fold {
+      for {
+        _ <- enginesCollection.insertIO(data)
+        _ <- enginesEventsDao.insertIO(mkEvent(id, "add"))
+      } yield ()
+    } { _ =>
+      ZIO.fail(WrongParams(s"Engine $id already exists, use update"))
+    }
   }
 
   override def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = {
-    IO.effect(enginesCollection.saveOne("engineId" === id, data)).orElseFail(ValidRequestExecutionError())
+    for {
+      _ <- IO.effect(enginesCollection.saveOne("engineId" === id, data)).orElseFail(ValidRequestExecutionError())
+      _ <- enginesEventsDao.insertIO(mkEvent(id, "update"))
+    } yield ()
   }
 
   override def deleteEngine(id: String): HIO[Unit] = {
@@ -69,55 +80,49 @@ abstract class EnginesMongoBackend extends EnginesBackend.Service with LazyLoggi
     } yield ()
   }
 
-  override def findEngine(id: String): HIO[EngineMetadata] = {
-    IO.effect(enginesCollection.findOne("engineId" === id).get).orElseFail(ValidRequestExecutionError())
+  override def watchActions(callback: Action => Unit): HIO[Unit] = {
+    import DaoQuery.syntax._
+    enginesCollection.findMany().foreach(e => callback(Add(e)))
+    IO.effectAsync { cb =>
+      enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
+        .collection
+        .find(Filters.gt("timestamp", Instant.now))
+        .cursorType(CursorType.TailableAwait)
+        .noCursorTimeout(true)
+        .subscribe(new Observer[Document] {
+          override def onNext(doc: Document): Unit = {
+            for {
+              (engineId, action) <- getActionValue(doc)
+            } yield action match {
+              case "add" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Add(e)))
+              case "update" => enginesCollection.findOne("engineId" === engineId).foreach(e => callback(Update(e)))
+              case "delete" => callback(Delete(EngineMetadata(engineId, "", "")))
+              case "init" =>
+              case _ => logger.warn("Unknown engine's action found")
+            }
+          }
+          override def onError(e: Throwable): Unit = cb.apply {
+            logger.error(s"$engineEventsName watch error", e)
+            ZIO.fail(ValidRequestExecutionError(e.getMessage))
+          }
+          override def onComplete(): Unit = cb.apply {
+            logger.error("Engines backend error - actions watch completed")
+            ZIO.fail(ValidRequestExecutionError("Engines backend error"))
+          }
+        })
+    }
   }
 
-  override def listEngines: IO[ValidateError, Iterable[EngineMetadata]] = {
-    IO.effect(enginesCollection.findMany()).orElseFail(ValidRequestExecutionError())
-  }
 
-  override def modificationEventsQueue: HIO[Queue[(Long, String)]] = {
-    for {
-      q <- Queue.unbounded[(Long, String)]
-      _ <- startWatching(q).fork
-    } yield q
-  }
-
-  override def updateState(harnessId: Long, actionId: String): HIO[Unit] = IO.unit
-
-
-  private def startWatching(queue: Queue[(Long, String)]): HIO[Unit] = IO.effectAsync { cb =>
-    enginesEventsDao.asInstanceOf[MongoAsyncDao[Document]]
-      .collection
-      .find()
-      .cursorType(CursorType.TailableAwait)
-      .noCursorTimeout(true)
-      .subscribe(new Observer[Document] {
-        override def onNext(result: Document): Unit = {
-          harnessRuntime.unsafeRunSync(queue.offer(0L -> getActionValue(result)))
-        }
-        override def onError(e: Throwable): Unit = {
-          logger.error(s"$engineEventsName watch error", e)
-          cb.apply(ZIO.fail(ValidRequestExecutionError(e.getMessage)))
-        }
-        override def onComplete(): Unit = cb.apply {
-          logger.error("Engines backend error - actions watch completed")
-          ZIO.fail(ValidRequestExecutionError("Engines backend error"))
-        }
-      })
-  }
-
-  def codecs: List[CodecProvider]
-
-
-  private def mkEvent(id: String, eventName: String) = Document(
-    "id" -> id,
+  private def mkEvent(engineId: String, eventName: String) = Document(
+    "engineId" -> engineId,
     "action" -> eventName,
     "timestamp" -> new java.util.Date()
   )
-  private def getActionValue(doc: Document): String = (for {
+  private def getActionValue(doc: Document): Option[(String, String)] = for {
+    engineId <- doc.get("engineId")
     a <- doc.get("action")
+    id <- util.Try(engineId.asString().getValue).toOption
     action <- util.Try(a.asString().getValue).toOption
-  } yield action).getOrElse("")
+  } yield id -> action
 }

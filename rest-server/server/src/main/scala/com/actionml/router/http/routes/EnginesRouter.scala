@@ -36,6 +36,7 @@ import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.language.implicitConversions
 
 /**
   *
