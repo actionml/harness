@@ -22,20 +22,16 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
-import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.core.config.{AppConfig, AuthConfig}
-import com.actionml.core.{HIO, harnessRuntime}
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.config.AppConfig
 import com.actionml.router.service._
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 /**

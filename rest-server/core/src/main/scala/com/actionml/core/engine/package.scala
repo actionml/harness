@@ -18,7 +18,7 @@
 package com.actionml.core
 
 import com.actionml.core.engine.backend.EngineMetadata
-import zio.{Has, Queue, ZIO}
+import zio.{Has, ZIO}
 
 import java.time.Instant
 import java.util.UUID

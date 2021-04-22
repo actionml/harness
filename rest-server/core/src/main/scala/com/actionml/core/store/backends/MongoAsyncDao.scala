@@ -17,14 +17,12 @@
 
 package com.actionml.core.store.backends
 
-import java.util.concurrent.TimeUnit
-
-import com.actionml.core.{HIO, store}
 import com.actionml.core.store.DaoQuery.QueryCondition
 import com.actionml.core.store.indexes.annotations
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.store.{DaoQuery, OrderBy, SyncDao}
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.ValidRequestExecutionError
+import com.actionml.core.{HIO, store}
 import com.typesafe.scalalogging.LazyLogging
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.collection.immutable.Document
@@ -33,6 +31,7 @@ import org.mongodb.scala.bson.{BsonInt32, BsonValue}
 import org.mongodb.scala.model._
 import zio.IO
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag

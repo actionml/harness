@@ -22,14 +22,12 @@ import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
-import org.bson.codecs.configuration.CodecProvider
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 import zio.stream.ZStream
-import zio.{Layer, Runtime, ZIO, ZLayer, ZQueue}
-import zio.{IO, Layer, ZIO, ZLayer, ZManaged}
+import zio.{IO, Layer, Runtime, ZIO, ZLayer, ZManaged}
 
 package object core  extends LazyLogging {
 
