@@ -91,10 +91,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
-      params.mirrorType.fold[Validated[ValidateError, Response]] {
-        logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
-        Invalid(WrongParams(jsonComment(s"mirror type unknown or not implemented")))
-      } {
+      params.mirrorType.get match {
         case MirrorTypes.localfs =>
           mirroring = new FSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
