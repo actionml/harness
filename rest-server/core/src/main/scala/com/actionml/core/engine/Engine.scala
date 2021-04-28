@@ -27,7 +27,7 @@ import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import zio.duration._
 import zio.stream.ZSink
-import zio.{Exit, IO, UIO, ZIO}
+import zio.{Exit, IO, Task, UIO, ZIO}
 
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -142,23 +142,30 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
     val p = Promise[Validated[ValidateError, Response]]()
-    zio.Runtime.default.unsafeRunAsync(mirroring.mirrorEvent(json.replace("\n", " ") + "\n")) { _ =>
+    zio.Runtime.default.unsafeRunAsync(inputIO(json)) { _ =>
       p.complete(Try(Valid(Comment("Input processed by base Engine"))))
     }
     p.future
   }
 
-  def inputMany(data: Seq[String]): Unit = data.foreach(input)
+  def inputIO(json: String): Task[Unit] = {
+    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
+  }
+
+  def inputMany(data: Seq[String]): Task[Unit] = ZIO.foldLeft(data)(())((_, d) => this.inputIO(d))
 
   def batchInputIO(path: String): HIO[Response] = {
     logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")
     for {
-      r <- Importer.importEvents(path).flatMapError(e => UIO.die(e))
+      r <- Importer.importEvents(path).flatMapError { e =>
+        logger.error("Import error", e)
+        UIO.die(e)
+      }
       (filesRead, stream) = r
-      f = stream.chunkN(50)
+      f = stream.chunkN(512)
           .run {
             ZSink.foldChunksM(0L)(_ => true)((n, c) =>
-              ZIO.effect(this.inputMany(c)).as(n + c.length)
+              inputMany(c).as(n + c.length)
             )
           }.bimap(
               e => {

@@ -18,7 +18,6 @@
 package com.actionml.engines.ur
 
 import java.util.Date
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.{HIO, drawInfo}
@@ -33,7 +32,7 @@ import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
-import zio.IO
+import zio.{IO, Task, ZIO}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -142,7 +141,9 @@ class UREngine extends Engine with JsonSupport {
     } yield r
   }
 
-  override def inputMany(data: Seq[String]): Unit = dataset.inputMany(data)
+  override def inputMany(data: Seq[String]): Task[Unit] = {
+    super.inputMany(data).as(dataset.inputMany(data))
+  }
 
   // todo: should merge base engine status with UREngine's status
   override def status(): HIO[Response] = {
