@@ -41,7 +41,7 @@ import scala.util.control.NonFatal
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
-import zio.{Exit, IO, Queue, Schedule, Task, ZIO}
+import zio.{Exit, IO, Queue, Ref, Schedule, Task, ZIO}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -76,7 +76,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   private val jobsStore: DAO[JobRecord] = MongoStorage.getStorage("harness_meta_store", codecs = JobRecord.mongoCodecs).createDao[JobRecord]("jobs")
   private type EngineId = String
   private val jobDescriptions = TrieMap.empty[EngineId, List[(Cancellable, JobDescription)]]
-  private var putJobToQueue: HIO[Any] => Task[Cancellable] = _
+  private var putJobToQueue: (HIO[Any], JobDescription) => Task[Cancellable] = _
   private def mkCancellable: ZIO[Any, Nothing, (zio.Promise[Nothing, Unit], Cancellable)] = {
     for {
       cancelPromise <- zio.Promise.make[Nothing, Unit]
@@ -100,12 +100,20 @@ object JobManager extends JobManagerInterface with LazyLogging {
     (for {
       q <- Queue.unbounded[HIO[Any]]
       _ = logger.info("Starting Job Manager's execution queue")
-      _ = putJobToQueue = f => mkCancellable.flatMap { case (p, c) =>
-            q.offer(f.race(p.await)).map(_ => c)
+      description <- Ref.make(JobDescription.create)
+      _ = putJobToQueue = (f, d) => mkCancellable.flatMap { case (p, c) =>
+        description.set(d) *> q.offer(f.race(p.await)).as(c)
+      }
+      _ <- q.take.flatMap { job =>
+        description.get.flatMap { d => setJobStatus(d.jobId, JobStatuses.executing) *>
+          job *> setJobStatus(d.jobId, JobStatuses.successful)
+          .flatMapError { e =>
+            logger.error(s"Job ${d.jobId} error", e)
+            setJobStatus(d.jobId, JobStatuses.failed).ignore
           }
-      job <- q.take
-      _ <- job
-    } yield ()).retry(Schedule.fibonacci(5.seconds)).forever
+        }
+      }.forever
+    } yield ()).retry(Schedule.fibonacci(5.seconds))
   } (_ => logger.error(""))
 
   override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
@@ -118,18 +126,16 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 
   override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = {
-    for {
-      r <- putJobToQueue(f).map(_ -> JobDescription.create(status = JobStatuses.queued, comment = comment))
-        .mapError { e =>
-          val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
-          logger.error(msg, e)
-          ValidRequestExecutionError(msg)
-        }
-      (c, description) = r
+    (for {
+      description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, comment = comment))
       _ = jobsStore.insert(JobRecord(engineId, description))
+      c <- putJobToQueue(f, description)
       _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
-    } yield description
-
+    } yield description).mapError { e =>
+      val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
+      logger.error(msg, e)
+      ValidRequestExecutionError(msg)
+    }
   }
 
   override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
@@ -221,6 +227,10 @@ object JobManager extends JobManagerInterface with LazyLogging {
     jobDescriptions.collectFirst { case (engineId, jds) =>
       jobDescriptions.update(engineId, jds.filterNot(_._2.jobId == jobId))
     }
+  }
+
+  private def setJobStatus(jobId: String, status: JobStatus): Task[Unit] = {
+    ZIO.fromFuture(_ => jobsStore.updateAsync("jobId" === jobId)("status" -> status))
   }
 }
 
