@@ -17,9 +17,6 @@
 
 package com.actionml.router.http
 
-import java.io.FileInputStream
-import java.security.{KeyStore, SecureRandom}
-
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
@@ -28,36 +25,36 @@ import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.router.AuthServerProxyRouter
-import com.actionml.core.config.AppConfig
+import com.actionml.core.config.RestServerConfig
 import com.actionml.router.http.directives.{CorsSupport, LoggingSupport}
 import com.actionml.router.http.routes._
 import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
-import scaldi.Injector
-import scaldi.akka.AkkaInjectable
 
-import scala.concurrent.Future
+import java.io.FileInputStream
+import java.security.{KeyStore, SecureRandom}
+import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   *
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:56
   */
-class RestServer(implicit inj: Injector) extends AkkaInjectable with CorsSupport with LoggingSupport with LazyLogging {
+class RestServer(
+  actorSystem: ActorSystem,
+  actorMaterializer: ActorMaterializer,
+  config: RestServerConfig,
+  check: CheckRouter,
+  commands: CommandsRouter,
+  events: EventsRouter,
+  engines: EnginesRouter,
+  queries: QueriesRouter,
+  authProxy: AuthServerProxyRouter) extends CorsSupport with LoggingSupport with LazyLogging {
 
-  implicit val actorSystem = inject[ActorSystem]
-  implicit val executor = actorSystem.dispatcher
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
-
-  private val config = inject[AppConfig].restServer
-
-  private val check = inject[CheckRouter]
-  private val commands = inject[CommandsRouter]
-  private val events = inject[EventsRouter]
-  private val engines = inject[EnginesRouter]
-  private val queries = inject[QueriesRouter]
-  private val authProxy = inject[AuthServerProxyRouter]
+  implicit private val _as: ActorSystem = actorSystem
+  implicit private val _am: ActorMaterializer = actorMaterializer
+  implicit private val executor: ExecutionContext = actorSystem.dispatcher
 
   private val route: Route =
     (DebuggingDirectives.logRequest("Root Route", Logging.DebugLevel) & DebuggingDirectives.logRequestResult("Root Route", Logging.DebugLevel)){

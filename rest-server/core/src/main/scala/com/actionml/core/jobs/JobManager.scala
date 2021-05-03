@@ -17,15 +17,16 @@
 
 package com.actionml.core.jobs
 
-import java.util.{Date, UUID}
+import com.actionml.core.{HEnv, HIO, harnessRuntime}
 
+import java.util.{Date, UUID}
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
-import com.actionml.core.store.Ordering.asc
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
@@ -34,12 +35,13 @@ import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+import zio.{Exit, IO, Queue, Ref, Schedule, Task, ZIO}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -49,6 +51,9 @@ trait JobManagerInterface {
              c: Cancellable = Cancellable.noop,
              comment: String = "",
              initStatus: JobStatus = JobStatuses.queued): JobDescription
+  def addJob(engineId: String,
+             f: HIO[Any],
+             comment: String): HIO[JobDescription]
   def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit
   def getActiveJobDescriptions(engineId: String): Iterable[JobDescription]
   @deprecated("Use this method with care. All jobs should be stored with the correct status", since = "0.5.1")
@@ -69,8 +74,47 @@ trait JobManagerInterface {
 object JobManager extends JobManagerInterface with LazyLogging {
   import com.actionml.core.store.DaoQuery.syntax._
   private val jobsStore: DAO[JobRecord] = MongoStorage.getStorage("harness_meta_store", codecs = JobRecord.mongoCodecs).createDao[JobRecord]("jobs")
-  // This [duplicate] map stores runtime stuff (futures and cancellables). EngineId is the key
-  private val jobDescriptions = TrieMap.empty[String, List[(Cancellable, JobDescription)]]
+  private type EngineId = String
+  private val jobDescriptions = TrieMap.empty[EngineId, List[(Cancellable, JobDescription)]]
+  private var putJobToQueue: (HIO[Any], JobDescription) => Task[Cancellable] = _
+  private def mkCancellable: ZIO[Any, Nothing, (zio.Promise[Nothing, Unit], Cancellable)] = {
+    for {
+      cancelPromise <- zio.Promise.make[Nothing, Unit]
+      cancellable = new Cancellable {
+        override def cancel(): Future[Unit] = {
+          val p = Promise[Unit]()
+          zio.Runtime.default.unsafeRunAsync {
+            cancelPromise.complete(IO.unit)
+          } {
+            case Exit.Success(true) => p.completeWith(Future.successful())
+            case _ => p.failure(new RuntimeException("Cancel failed"))
+          }
+          p.future
+        }
+      }
+    } yield cancelPromise -> cancellable
+  }
+
+  harnessRuntime.unsafeRunAsync {
+    import zio.duration._
+    (for {
+      q <- Queue.unbounded[HIO[Any]]
+      _ = logger.info("Starting Job Manager's execution queue")
+      description <- Ref.make(JobDescription.create)
+      _ = putJobToQueue = (f, d) => mkCancellable.flatMap { case (p, c) =>
+        description.set(d) *> q.offer(f.race(p.await)).as(c)
+      }
+      _ <- q.take.flatMap { job =>
+        description.get.flatMap { d => setJobStatus(d.jobId, JobStatuses.executing) *>
+          job *> setJobStatus(d.jobId, JobStatuses.successful)
+          .flatMapError { e =>
+            logger.error(s"Job ${d.jobId} error", e)
+            setJobStatus(d.jobId, JobStatuses.failed).ignore
+          }
+        }
+      }.forever
+    } yield ()).retry(Schedule.fibonacci(5.seconds))
+  } (_ => logger.error(""))
 
   override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
     val description = JobDescription.create(status = status, comment = comment)
@@ -79,6 +123,19 @@ object JobManager extends JobManagerInterface with LazyLogging {
       (c -> description) :: jobDescriptions.getOrElse(engineId, Nil)
     )
     description
+  }
+
+  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = {
+    (for {
+      description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, comment = comment))
+      _ = jobsStore.insert(JobRecord(engineId, description))
+      c <- putJobToQueue(f, description)
+      _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
+    } yield description).mapError { e =>
+      val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
+      logger.error(msg, e)
+      ValidRequestExecutionError(msg)
+    }
   }
 
   override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
@@ -132,7 +189,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
           f.onComplete {
             case Success(_) =>
               jobsStore.update("jobId" === jobId)("status" -> JobStatuses.cancelled)
-              logger.info(s"Job $jobId [engine id $engineId] cancelled")
+              logger.info(s"Job $jobId cancelled. Engine id: $engineId")
             case Failure(NonFatal(e)) =>
               logger.error(s"Cancel job error", e)
           }
@@ -170,6 +227,10 @@ object JobManager extends JobManagerInterface with LazyLogging {
     jobDescriptions.collectFirst { case (engineId, jds) =>
       jobDescriptions.update(engineId, jds.filterNot(_._2.jobId == jobId))
     }
+  }
+
+  private def setJobStatus(jobId: String, status: JobStatus): Task[Unit] = {
+    ZIO.fromFuture(_ => jobsStore.updateAsync("jobId" === jobId)("status" -> status))
   }
 }
 

@@ -17,19 +17,22 @@
 
 package com.actionml.authserver.services
 
-import java.util.concurrent.TimeUnit
-
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.actionml.authserver.{AccessToken, ResourceId, RoleId}
+import com.actionml.core.config.AuthConfig
 import com.typesafe.scalalogging.LazyLogging
-import org.ehcache.{CacheManager, ValueSupplier}
 import org.ehcache.config.builders.{CacheConfigurationBuilder, CacheManagerBuilder, ResourcePoolsBuilder}
-import org.ehcache.expiry.{Duration, Expirations, Expiry}
-import scaldi.{Injectable, Injector}
+import org.ehcache.expiry.{Duration, Expiry}
+import org.ehcache.{CacheManager, ValueSupplier}
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 
-class CachedAuthorizationService(implicit inj: Injector) extends ClientAuthorizationService with LazyLogging with Injectable {
-  private implicit val _ = inject[ExecutionContext]
+class CachedAuthorizationService(override val authConfig: AuthConfig)(
+  implicit val actorSystem: ActorSystem,
+  implicit val materializer: Materializer,
+  implicit val ec: ExecutionContext) extends ClientAuthorizationService with LazyLogging {
   import CachedAuthorizationService.tokenCache
 
   override def authorize(token: AccessToken, roleId: RoleId, resourceId: ResourceId): Future[Boolean] = {

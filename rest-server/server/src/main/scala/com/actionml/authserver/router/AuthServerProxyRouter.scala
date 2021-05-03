@@ -17,15 +17,23 @@
 
 package com.actionml.authserver.router
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.server.Route
+import akka.stream.ActorMaterializer
 import com.actionml.authserver.services.AuthServerProxyService
 import com.actionml.core.config.AppConfig
 import com.actionml.router.http.routes.BaseRouter
-import scaldi.Injector
 
-class AuthServerProxyRouter(config: AppConfig)(implicit inj: Injector) extends BaseRouter {
-  val authProxyService = inject[AuthServerProxyService]
+import scala.concurrent.ExecutionContext
 
-  override val route =
+class AuthServerProxyRouter(authProxyService: AuthServerProxyService)(
+  implicit val actorSystem: ActorSystem,
+  implicit protected val executor: ExecutionContext,
+  implicit protected val materializer: ActorMaterializer,
+  implicit val config: AppConfig
+) extends BaseRouter {
+
+  override val route: Route =
     (pathPrefix("auth") & extractRequest) { req =>
       onSuccess(authProxyService.proxyAuthRequest(req)) {
         complete(_)

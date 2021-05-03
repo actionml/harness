@@ -17,19 +17,21 @@
 
 package com.actionml.router.http.routes
 
+import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{ExceptionHandler, Route}
+import akka.stream.ActorMaterializer
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.event
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
-import com.actionml.core.config.AppConfig
+import com.actionml.core.config.{AppConfig, AuthConfig}
 import com.actionml.router.service._
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
-import scaldi.Injector
 
+import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
 
 /**
@@ -48,9 +50,15 @@ import scala.language.postfixOps
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 12:53
   */
-class EventsRouter(eventService: EventService)(implicit inj: Injector) extends BaseRouter with AuthorizationDirectives {
-  override val authorizationService = inject[AuthorizationService]
-  private val config = inject[AppConfig]
+class EventsRouter(
+  eventService: EventService,
+  override val authorizationService: AuthorizationService)(
+  implicit val actorSystem: ActorSystem,
+  implicit protected val executor: ExecutionContext,
+  implicit protected val materializer: ActorMaterializer,
+  implicit val config: AppConfig
+) extends BaseRouter with AuthorizationDirectives {
+
   override val authEnabled = config.auth.enabled
 
   val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>

@@ -17,6 +17,7 @@
 
 package com.actionml.core.model
 
+import com.actionml.core.backup.MirrorTypes.MirrorType
 import org.json4s.JArray
 
 /* todo: we should come up with a better way of composing or mixing case classes so they can be more
@@ -55,7 +56,7 @@ object User {
 case class GenericEngineParams(
     engineId: String, // required, resourceId for engine
     engineFactory: String,
-    mirrorType: Option[String] = None,
+    mirrorType: Option[MirrorType] = None,
     mirrorContainer: Option[String] = None,
     sharedDBName: Option[String] = None,
     modelContainer: Option[String] = None,

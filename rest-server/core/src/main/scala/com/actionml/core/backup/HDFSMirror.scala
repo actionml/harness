@@ -19,119 +19,76 @@ package com.actionml.core.backup
 
 import java.io._
 
-import cats.data.Validated
-import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.engine.Engine
-import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.JsonSupport
 import org.apache.hadoop.fs.Path
+import zio._
 
-/**
-  * Mirror implementation for HDFS.
-  */
+import scala.language.implicitConversions
+import scala.util.control.NonFatal
+import scala.util.{Success, Try}
 
-class HDFSMirror(mirrorContainer: String, engineId: String)
-  extends Mirror(mirrorContainer, engineId) with JsonSupport {
 
-  private val hdfs = HDFSFactory.hdfs
-
-  private val rootMirrorDir = if(hdfs.exists(new Path("/mirrors"))) {
+class HDFSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
+  private lazy val fs: org.apache.hadoop.fs.FileSystem = HDFSFactory.hdfs
+  private val rootMirrorDir = Try {
     val engineEventMirrorPath = new Path(mirrorContainer, engineId)
-    if (!hdfs.exists(engineEventMirrorPath)) {
+    if (!fs.exists(engineEventMirrorPath)) {
       try {
-        hdfs.mkdirs(new Path(mirrorContainer, engineId))
-        Some(engineEventMirrorPath)
+        fs.mkdirs(new Path(mirrorContainer, engineId))
+        engineEventMirrorPath
       } catch {
         case ex: IOException =>
-          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}")
+          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${engineEventMirrorPath.getName}")
           logger.error(s"Engine-id: ${engineId}. This error is non-fatal but means events will not be mirrored", ex)
-          None
-        case unknownException: Exception =>
-          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${new Path(mirrorContainer, engineId).getName}", unknownException)
+          throw ex
+        case NonFatal(unknownException) =>
+          logger.error(s"Engine-id: ${engineId}. Unable to create the new mirror location ${engineEventMirrorPath.getName}", unknownException)
           throw unknownException
       }
-    } else Some(engineEventMirrorPath).filter(hdfs.isDirectory)
-  } else None // None == no mirroring allowed
-
-
-
-  // java.io.IOException could be thrown here in case of system errors
-  override def mirrorEvent(json: String): Validated[ValidateError, String] = {
-    // Todo: this should be rewritten for the case where mirroring is only used for import
-    def mirrorEventError(errMsg: String) =
-      Invalid(ValidRequestExecutionError(jsonComment(s"Unable to mirror event to HDFS: $errMsg")))
-
-    if(rootMirrorDir.isDefined) {
-      try {
-        val batchFilePath = new Path(rootMirrorDir.get, batchName)
-        val eventsFile = if(hdfs.exists(batchFilePath)) {
-          hdfs.append(batchFilePath)
-        } else {
-          hdfs.create(batchFilePath)
-        }
-        // following pattern from:
-        // https://blog.knoldus.com/simple-java-program-to-append-to-a-file-in-hdfs/
-        val writer = new PrintWriter(eventsFile)
-        writer.append(json)
-        writer.flush()
-        eventsFile.hflush()
-        writer.close()
-        eventsFile.close()
-        //eventsFile.writeUTF(json) // this seems to prepend lines with 0x01 and other chars, UTF?
-        //eventsFile.hflush()
-        //eventsFile.close()
-        Valid(jsonComment("Event mirrored"))
-      } catch {
-        case ex: IOException =>
-          val errMsg = s"Engine-id: ${engineId}. Problem mirroring input to HDFS"
-          logger.error(errMsg, ex)
-          mirrorEventError(s"$errMsg: ${ex.getMessage}")
-      }
-
-    } else mirrorEventError("Problem mirroring input to HDFS. No valid mirror location.")
+    } else if (fs.isDirectory(engineEventMirrorPath)) {
+      engineEventMirrorPath
+    } else {
+      val ex = new RuntimeException("Mirror location is not a directory")
+      logger.error(s"Engine-id: $engineId. Unable to create the new mirror location ${engineEventMirrorPath.getName}", ex)
+      throw ex
+    }
   }
 
-  // todo: should read in a thread and return at once after checking parameters
-  // todo: decouple importEvents from mirrorEvents
-  /** Read json event one per line as a single file or directory of files returning when done */
-  override def importEvents(engine: Engine, location: String): Validated[ValidateError, String] = {
-    def importEventsError(errMsg: String) = Invalid(ValidRequestExecutionError(
-      jsonComment(s"""Unable to import from: $location on the servers file system to engineId: ${engine.engineId}.
-         | $errMsg""".stripMargin)))
-
-    if(rootMirrorDir.isDefined && location == rootMirrorDir.get.toString) {
-      logger.error(s"Engine-id: ${engineId}. Reading from the mirror location will cause an infinite loop." +
-        "\nTry moving the files to a new location before doing a batch import.")
-      importEventsError(s"Engine-id: ${engineId}. Reading from the mirror location will cause in infinite loop." +
-        "\nTry moving the files to a new location before doing a batch import.")
-    } else if (!location.isEmpty) {
-      try {
-        val filesStatuses = hdfs.listStatus(new Path(location))
-        val filePaths = filesStatuses.map(_.getPath())
-        if(filePaths.size > 0) {
-          logger.trace(s"Engine-id: ${engineId}. Number of files in dir: ${filePaths.size} values include: ${filePaths.head.getName}")
-          for (filePath <- filePaths) {
-            val file = hdfs.open(filePath)
-            val lineReader = new BufferedReader(new InputStreamReader(file))
-            var line = lineReader.readLine()
-            while (line != null) {
-              // logger.info(s"Event from HDFS file ${filePath.getName}\n$line")
-              engine.input(line)
-              line = lineReader.readLine()
-            }
-          }
-          Valid(jsonComment("Event mirrored"))
-        } else {
-          logger.warn(s"Engine-id: ${engineId}. No event files in location $location. No Events imported")
-          importEventsError(s"No event files in location $location. No Events imported!")
-        }
-      } catch {
-        case ex: IOException =>
-          val errMsg = "Problem reading input from HDFS"
-          logger.error(errMsg, ex)
-          importEventsError(s"$errMsg: ${ex.getMessage}")
-      }
-    } else importEventsError("No location to read import files from")
+  val Success((eventsFile, writer)) = Try {
+    val batchFilePath = new Path(rootMirrorDir.get, batchName)
+    val eventsFile = if (fs.exists(batchFilePath)) {
+      fs.append(batchFilePath)
+    } else {
+      fs.create(batchFilePath)
+    }
+    // following pattern from:
+    // https://blog.knoldus.com/simple-java-program-to-append-to-a-file-in-hdfs/
+    (eventsFile, new PrintWriter(eventsFile))
   }
 
+
+  override def mirrorEvent(json: String): Task[Unit] = IO.effect {
+    writer.append(json)
+    writer.flush()
+    eventsFile.hflush()
+    //eventsFile.writeUTF(json) // this seems to prepend lines with 0x01 and other chars, UTF?
+  }.onError {
+    case ex =>
+      val errMsg = s"Engine-id: ${engineId}. Problem mirroring input to HDFS"
+      logger.error(errMsg, ex)
+      IO.unit
+  }
+
+  override val cleanup: Task[Unit] = {
+    implicit def catchAllErrors: Unit => UIO[Unit] = a => IO.effect(a).catchAll { e =>
+      logger.error("Cleanup error", e)
+      IO.unit
+    }
+    for {
+      _ <- writer.close()
+      _ <- eventsFile.close()
+      _ <- fs.close()
+    } yield ()
+  }
 }
 

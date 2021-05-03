@@ -122,10 +122,10 @@ trait Administrator extends LazyLogging with JsonSupport {
     } yield result
   }
 
-  def updateEngineWithImport(engineId: String, importPath: String): Validated[ValidateError, Response] = {
-    getEngine(engineId).fold[Validated[ValidateError, Response]](
-      Invalid(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
-    )(_.batchInput(importPath))
+  def updateEngineWithImport(engineId: String, importPath: String): HIO[Response] = {
+    getEngine(engineId).fold[HIO[Response]](
+      IO.fail(ResourceNotFound(jsonComment(s"No Engine instance found for engineId: $engineId")))
+    )(_.batchInputIO(importPath))
   }
 
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
@@ -143,7 +143,13 @@ trait Administrator extends LazyLogging with JsonSupport {
       IO.fail(WrongParams(jsonComment(s"Cannot removeOne non-existent engine for engineId: $engineId")))
     } { deadEngine =>
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
-      deleteEngine(engineId).map(_ => Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
+      for {
+        result <- deleteEngine(engineId).as(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
+        _ <- IO.effect(deadEngine.destroy()).mapError { e =>
+          logger.error("Destroy engine error", e)
+          ValidRequestExecutionError()
+        }
+      } yield result
     }
   }
 

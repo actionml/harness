@@ -14,29 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.actionml.core.backup
 
-import java.io.File
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
+import org.apache.hadoop.fs.Path
+import zio.Task
 
-import cats.data.Validated
-import com.actionml.core.engine.Engine
-import com.actionml.core.validate.ValidateError
-import com.typesafe.scalalogging.LazyLogging
+import java.io.File
 
 /**
-  * Abstract class for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
+  * Trait for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
   * a trait or object extending this.
-  *
   */
-abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLogging {
-
-  protected val isMirroring = !mirrorContainer.isEmpty
-
-  def mirrorEvent(json: String): Validated[ValidateError, String]
-  def importEvents(engine: Engine, location: String): Validated[ValidateError, String]
+trait Mirror {
+  val engineId: String
+  sys.addShutdownHook(zio.Runtime.default.unsafeRunSync(cleanup()))
 
   /**
     * Collection names are formatted with "yy-MM-dd" engine. In a filesystems this is the file name
@@ -44,23 +37,28 @@ abstract class Mirror(mirrorContainer: String, engineId: String) extends LazyLog
     *
     * @return timestamp-based name
     */
-  protected def batchName: String =
+  protected val batchName: String =
     // yearMonthDay is lexicographically sortable and one file per day seems like a good default.
     DateTimeFormatter.ofPattern("yy-MM-dd").format(LocalDateTime.now(ZoneId.of("UTC")))
+
+  protected val mirrorContainer: String
 
   /**
     * Semantics of a Directory name, base dir/engine ID for all the implementations. Override if file/directory
     * semantics do not apply
     *
-    * @param engineId Engine ID
     * @return directory name
     */
-  protected def containerName: String = s"$mirrorContainer${File.separator}$engineId"
+  protected val containerName: String = s"$mirrorContainer${File.separator}$engineId${File.separator}"
 
+
+  def mirrorEvent(event: String): Task[Unit]
+  def cleanup(): Task[Unit]
 }
 
-/** Used when mirroring is config selectable */
-object Mirror {
-  val localfs = "localfs"
-  val hdfs = "hdfs"
+object MirrorTypes extends Enumeration {
+  type MirrorType = Value
+
+  val localfs: MirrorType = Value("localfs")
+  val hdfs: MirrorType = Value("hdfs")
 }

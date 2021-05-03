@@ -1,6 +1,13 @@
 package com.actionml.core.backup
 
-import com.actionml.core.engine.Engine
+import java.io.{IOException, SequenceInputStream}
+import java.net.URI
+
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.{FileSystem, Path}
+import zio.blocking.Blocking
+import zio.stream.{ZStream, ZTransducer}
+import zio.{IO, Managed, Task, UIO, ZManaged}
 
 /*
  * Copyright ActionML, LLC under one or more
@@ -22,11 +29,29 @@ import com.actionml.core.engine.Engine
 /** Imports JSON events through the input method of the engine, works with any of several filesystems. HDFS, local FS
   * and in the future perhaps others like Kafka
   */
-object Importer {
+object Importer extends LazyLogging {
 
-  def importEvents(engine: Engine, location: String): Unit = {
-    // determine which filesystem is specified
-    //todo: finish this refactor to decouple import from mirror, import from anywhere, mirror as the engine config says
+  def importEvents(location: String): Task[(Int, ZStream[Blocking, Throwable, String])] = {
+    def cleanUp: FileSystem => UIO[Unit] = fs => IO.effect(fs.close()).mapError { e =>
+      logger.error(s"File system error [URI=$location]", e)
+    }.ignore
+
+    val uri = if (!location.contains("://")) s"file://$location" else location
+    Managed.make(IO.effect(HDFSFactory.newInstance(new URI(uri))))(cleanUp).use { fs =>
+      val filesStatuses = fs.listStatus(new Path(uri))
+      val filePaths = filesStatuses.map(_.getPath())
+      val io = IO.effect {
+        import collection.JavaConverters._
+        filePaths.length -> new SequenceInputStream(
+          asJavaEnumerationConverter(filePaths.toIterator.map(f => fs.open(f))).asJavaEnumeration
+        )
+      }
+      io.map { case (i, _) => i -> ZStream.fromInputStreamManaged {
+        ZManaged.make(io.map(_._2))(i => IO.effectTotal(i.close()))
+          .mapError(e => new IOException(e))
+      }}
+    }
+  }.map { case (filesRead, stream) =>
+    filesRead -> stream.transduce(ZTransducer.utf8Decode).transduce(ZTransducer.splitLines).filter(_.trim.nonEmpty)
   }
-
 }

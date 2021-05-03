@@ -17,14 +17,23 @@
 
 package com.actionml.router.http.routes
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
-import scaldi.Injector
+import akka.stream.ActorMaterializer
+import com.actionml.core.config.AppConfig
+
+import scala.concurrent.ExecutionContext
 
 /**
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   */
-class CheckRouter(implicit inj: Injector) extends BaseRouter {
+class CheckRouter(
+  implicit val actorSystem: ActorSystem,
+  implicit protected val executor: ExecutionContext,
+  implicit protected val materializer: ActorMaterializer,
+  implicit val config: AppConfig
+) extends BaseRouter {
   override val route: Route = pathSingleSlash {
     get {
       complete(StatusCodes.OK)

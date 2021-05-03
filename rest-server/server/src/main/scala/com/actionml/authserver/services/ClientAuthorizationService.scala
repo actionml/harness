@@ -26,22 +26,19 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.authserver.{AccessToken, AuthorizationCheckRequest, ResourceId, RoleId}
-import com.actionml.circe.CirceSupport
-import com.actionml.core.config.AppConfig
+import com.actionml.core.config.AuthConfig
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.generic.auto._
 import io.circe.syntax._
-import scaldi.{Injectable, Injector}
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
-class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationService with CirceSupport
-  with Injectable with LazyLogging {
-  private val config = inject[AppConfig]
-  private implicit val ec = inject[ExecutionContext]
-  private implicit val actorSystem = inject[ActorSystem]
-  private implicit val materializer = inject[Materializer]
+trait ClientAuthorizationService extends AuthorizationService with LazyLogging {
+  val authConfig: AuthConfig
+  implicit val ec: ExecutionContext
+  implicit val actorSystem: ActorSystem
+  implicit val materializer: Materializer
 
   override def authorize(accessToken: AccessToken, role: RoleId, resourceId: ResourceId): Future[Boolean] = {
     val request = mkAuthorizeRequest(accessToken, role, resourceId)
@@ -66,6 +63,6 @@ class ClientAuthorizationService(implicit inj: Injector) extends AuthorizationSe
     )
   }
 
-  private val authServerRoot = Uri(config.auth.serverUrl)
-  private val authorizationHeader: HttpHeader = Authorization(BasicHttpCredentials.apply(config.auth.clientId, config.auth.clientSecret))
+  private val authServerRoot = Uri(authConfig.serverUrl)
+  private val authorizationHeader: HttpHeader = Authorization(BasicHttpCredentials.apply(authConfig.clientId, authConfig.clientSecret))
 }

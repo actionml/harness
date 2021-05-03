@@ -20,16 +20,18 @@ package com.actionml.core.engine
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
-import com.actionml.core.backup.{FSMirror, HDFSMirror, Mirror}
-import com.actionml.core.jobs.{JobManager, JobStatuses}
+import com.actionml.core.backup._
+import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
-import zio.IO
+import zio.duration._
+import zio.stream.ZSink
+import zio.{Exit, IO, Task, UIO, ZIO}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.Try
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
   * and sent the correct case class E extending Event of the extending
@@ -53,8 +55,13 @@ abstract class Engine extends LazyLogging with JsonSupport {
   def initAndGet(json: String, update: Boolean): Engine
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
-  def destroy(): Unit = {
-    Await.result(JobManager.removeAllJobs(engineId), 5.minutes)
+  def destroy(): Unit = zio.Runtime.default.unsafeRunAsync {
+    IO.fromFuture(_ => JobManager.removeAllJobs(engineId))
+      .zipPar(mirroring.cleanup())
+      .timeoutFail()(5.minutes)
+  } {
+    case Exit.Success(_) => logger.debug(s"Successfully destroyed engine $engineId")
+    case Exit.Failure(_) => logger.warn(s"Engine $engineId failed to destroy")
   }
 
   /** Every query is processed by the Engine, which may result in a call to an Algorithm, must be overridden.
@@ -82,19 +89,15 @@ abstract class Engine extends LazyLogging with JsonSupport {
       Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
-      val mType = params.mirrorType.get
-      mType.toLowerCase match {
-        case "localfs" | "local_fs" =>
+      params.mirrorType.get match {
+        case MirrorTypes.localfs =>
           mirroring = new FSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
           Valid(Comment("Mirror to localfs"))
-        case "hdfs" =>
+        case MirrorTypes.hdfs =>
           mirroring = new HDFSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} HDFS mirroring")
           Valid(Comment("Mirror to HDFS"))
-        case mt =>
-          logger.info(s"Engine-id: ${engineId} bad mirrorType in engine config")
-          Invalid(WrongParams(jsonComment(s"mirror type $mt is not implemented")))
       }
     } else {
       Invalid(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
@@ -134,23 +137,49 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param json Input defined by each engine
     * @return Validated[ValidateError, Response] status with error message
     */
-  def input(json: String): Validated[ValidateError, Response] = {
-    // flatten the event into one string per line as per Spark json collection spec
-    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
-      .andThen(_ => Valid(Comment("Input processed by base Engine")))
-  }
+  def input(json: String): Validated[ValidateError, Response] =
+    Await.result(inputAsync(json)(ExecutionContext.Implicits.global), FiniteDuration(5, SECONDS))
 
   def inputAsync(json: String)(implicit ec: ExecutionContext): Future[Validated[ValidateError, Response]] = {
-    Future.successful(Invalid(NotImplemented()))
+    val p = Promise[Validated[ValidateError, Response]]()
+    zio.Runtime.default.unsafeRunAsync(inputIO(json)) { _ =>
+      p.complete(Try(Valid(Comment("Input processed by base Engine"))))
+    }
+    p.future
   }
 
-  def inputMany(data: Seq[String]): Unit = {}
+  def inputIO(json: String): Task[Unit] = {
+    mirroring.mirrorEvent(json.replace("\n", " ") + "\n")
+  }
 
-  def batchInput(inputPath: String): Validated[ValidateError, Response] = {
-    val jobDescription = JobManager.addJob(engineId, comment = "batch import, non-Spark job", status = JobStatuses.executing)
-    Future(mirroring.importEvents(this, inputPath))
-      .onComplete(_ => JobManager.finishJob(jobDescription.jobId))
-    Valid(jobDescription)
+  def inputMany(data: Seq[String]): Task[Unit] = ZIO.foldLeft(data)(())((_, d) => this.inputIO(d))
+
+  def batchInputIO(path: String): HIO[Response] = {
+    logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")
+    for {
+      r <- Importer.importEvents(path).flatMapError { e =>
+        logger.error("Import error", e)
+        UIO.die(e)
+      }
+      (filesRead, stream) = r
+      f = stream.chunkN(512)
+          .run {
+            ZSink.foldChunksM(0L)(_ => true)((n, c) =>
+              inputMany(c).as(n + c.length)
+            )
+          }.bimap(
+              e => {
+                logger.error(s"Import error for $engineId from path $path - ${e.getMessage}", e)
+                ValidRequestExecutionError(s"Import error. Engine id: $engineId, path: $path")
+              },
+              eventsProcessed =>
+                if(filesRead == 0 || eventsProcessed == 0)
+                  logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $path?")
+                else
+                  logger.info(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")
+            )
+      jobDescription <- JobManager.addJob(engineId, f, comment = "batch import, non-Spark job")
+    } yield jobDescription
   }
 
   /** train is only used in Lambda offline learners */
