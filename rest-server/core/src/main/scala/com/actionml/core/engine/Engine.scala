@@ -25,10 +25,12 @@ import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 import zio.duration._
 import zio.stream.ZSink
 import zio.{Exit, IO, Task, UIO, ZIO}
 
+import java.net.URI
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -154,14 +156,17 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def inputMany(data: Seq[String]): Task[Unit] = ZIO.foldLeft(data)(())((_, d) => this.inputIO(d))
 
-  def batchInputIO(path: String): HIO[Response] = {
+  final def batchInputIO(path: String): HIO[Response] = {
     logger.trace(s"Engine-id: ${engineId}. Reading files from directory: $path")
     for {
-      r <- Importer.importEvents(path).flatMapError { e =>
+      mirrorPath <- IO.effect(new Path(mirroring.containerName)).mapError(_ => ValidRequestExecutionError())
+      inputPath <- IO.effect(new Path(path)).mapError(_ => ValidRequestExecutionError())
+      _ <- if (mirrorPath.equals(inputPath)) IO.fail(WrongParams("Import path can't be a mirror path")) else IO.unit
+      filesAndStream <- Importer.importEvents(inputPath.toUri).mapError { e =>
         logger.error("Import error", e)
-        UIO.die(e)
+        ValidRequestExecutionError("Import error")
       }
-      (filesRead, stream) = r
+      (filesRead, stream) = filesAndStream
       f = stream.chunkN(512)
           .run {
             ZSink.foldChunksM(0L)(_ => true)((n, c) =>
@@ -173,7 +178,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
                 ValidRequestExecutionError(s"Import error. Engine id: $engineId, path: $path")
               },
               eventsProcessed =>
-                if(filesRead == 0 || eventsProcessed == 0)
+                if (filesRead == 0 || eventsProcessed == 0)
                   logger.warn(s"Engine-id: ${engineId}. No events were processed, did you mean to import JSON events from directory $path?")
                 else
                   logger.info(s"Engine-id: ${engineId}. Import read $filesRead files and processed $eventsProcessed events.")

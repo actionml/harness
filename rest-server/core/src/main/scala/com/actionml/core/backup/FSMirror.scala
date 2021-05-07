@@ -37,7 +37,7 @@ class FSMirror(override val mirrorContainer: String, override val engineId: Stri
       dir = new File(containerName)
       _ = if (!dir.exists()) dir.mkdirs()
       _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $containerName")
-      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$containerName/$batchName.json", true)), StandardCharsets.UTF_8))
+      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$containerName${File.separator}$batchName.json", true)), StandardCharsets.UTF_8))
       _ <- ZIO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).fork
       _ <- q.take.map(out.append(_)).forever
     } yield ()).retryUntil {
