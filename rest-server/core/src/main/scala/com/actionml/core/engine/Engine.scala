@@ -161,7 +161,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     for {
       mirrorPath <- IO.effect(new Path(mirroring.containerName)).mapError(_ => ValidRequestExecutionError())
       inputPath <- IO.effect(new Path(path)).mapError(_ => ValidRequestExecutionError())
-      _ <- if (mirrorPath.equals(inputPath)) IO.fail(WrongParams("Import path can't be a mirror path")) else IO.unit
+      _ <- if (mirrorPath.equals(inputPath) || mirrorPath.equals(inputPath.getParent)) IO.fail(WrongParams("Import path can't be a mirror path")) else IO.unit
       filesAndStream <- Importer.importEvents(inputPath.toUri).mapError { e =>
         logger.error("Import error", e)
         ValidRequestExecutionError("Import error")
