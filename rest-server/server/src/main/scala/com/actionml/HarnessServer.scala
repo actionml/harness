@@ -23,6 +23,7 @@ import com.actionml.admin.Administrator
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.services.{AuthServerProxyServiceImpl, CachedAuthorizationService}
 import com.actionml.core.config.AppConfig
+import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
@@ -44,6 +45,7 @@ object HarnessServer extends App with LazyLogging {
 
   def start() = {
     implicit val config: AppConfig = AppConfig.apply
+    ElasticSearchClient.esNodes
 
     implicit val actorSystem: ActorSystem = ActorSystem(config.actorSystem.name)
     actorSystem.whenTerminated.onComplete { t =>
