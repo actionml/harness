@@ -58,19 +58,12 @@ jobs:
           echo "SHORT_GIT_HASH $SHORT_GIT_HASH"
           echo "DATE_BUILD $DATE_BUILD"
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops|experimental)
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            *)
-            ;;
-          esac
+          docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+
     - run:
         name: Test docker image
         command: |
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops)
               cd docker && \
               mv envs .env &&\
               docker-compose up -d --build
@@ -93,13 +86,8 @@ jobs:
               echo "harness-cli simple-integration-test finished"
 
               echo "export RESULT=$RESULT" >> $SHELL_ENV
-            ;;
-            *)
-              echo "export RESULT=1" >> $SHELL_ENV
-            ;;
-          esac
           
-          source $SHELL_ENV
+              source $SHELL_ENV
     - run:
         name: Publish docker image
         command: |
@@ -122,7 +110,7 @@ jobs:
                 docker tag actionml/harness:latest actionml/harness:$HARNESS_VERSION
                 docker image push actionml/harness:$HARNESS_VERSION
               ;;
-              develop|devops|experimental)
+              develop|devops)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 docker tag actionml/harness:latest actionml/harness:$BRANCH
                 docker image push actionml/harness:$BRANCH
