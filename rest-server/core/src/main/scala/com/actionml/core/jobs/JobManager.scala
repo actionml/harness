@@ -17,6 +17,8 @@
 
 package com.actionml.core.jobs
 
+import com.actionml.core.config.AppConfig
+import com.actionml.core.config.AppConfig.{hostName, hostname}
 import com.actionml.core.{HEnv, HIO, harnessRuntime}
 
 import java.util.{Date, UUID}
@@ -41,7 +43,8 @@ import scala.util.control.NonFatal
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
-import zio.{Exit, IO, Queue, Ref, Schedule, Task, ZIO}
+import zio.logging.Logging
+import zio.{Exit, IO, Queue, RIO, Ref, Schedule, Task, URIO, ZIO, system}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -100,7 +103,8 @@ object JobManager extends JobManagerInterface with LazyLogging {
     (for {
       q <- Queue.unbounded[HIO[Any]]
       _ = logger.info("Starting Job Manager's execution queue")
-      description <- Ref.make(JobDescription.create)
+      jd <- JobDescription.create
+      description <- Ref.make(jd)
       _ = putJobToQueue = (f, d) => mkCancellable.flatMap { case (p, c) =>
         description.set(d) *> q.offer(f.race(p.await)).as(c)
       }
@@ -116,8 +120,9 @@ object JobManager extends JobManagerInterface with LazyLogging {
     } yield ()).retry(Schedule.fibonacci(5.seconds))
   } (_ => logger.error(""))
 
+  @deprecated
   override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
-    val description = JobDescription.create(status = status, comment = comment)
+    val description = JobDescription.create(status = status, node = hostname, comment = comment)
     jobsStore.insert(JobRecord(engineId, description))
     jobDescriptions.put(engineId,
       (c -> description) :: jobDescriptions.getOrElse(engineId, Nil)
@@ -125,17 +130,16 @@ object JobManager extends JobManagerInterface with LazyLogging {
     description
   }
 
-  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = {
-    (for {
-      description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, comment = comment))
-      _ = jobsStore.insert(JobRecord(engineId, description))
-      c <- putJobToQueue(f, description)
-      _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
-    } yield description).mapError { e =>
-      val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
-      logger.error(msg, e)
-      ValidRequestExecutionError(msg)
-    }
+  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = (for {
+    node <- AppConfig.hostName
+    description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, node = node, comment = comment))
+    _ = jobsStore.insert(JobRecord(engineId, description))
+    c <- putJobToQueue(f, description)
+    _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
+  } yield description).mapError { e =>
+    val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
+    logger.error(msg, e)
+    ValidRequestExecutionError(msg)
   }
 
   override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
@@ -239,17 +243,18 @@ final case class JobManagerConfig(expireAfter: Option[FiniteDuration])
 final case class JobRecord(
   engineId: String,
   jobId: String,
+  node: Option[String],
   status: JobStatuses.JobStatus,
   comment: String,
   createdAt: Option[Date],
   completedAt: Option[Date],
   expireAt: Option[Date]
 ) {
-  def toJobDescription = {
+  def toJobDescription: JobDescription = {
     val newStatus = expireAt.collect {
       case d if (Seq(JobStatuses.executing, JobStatuses.queued).contains(status)) && (d.compareTo(new Date) <= 0) => JobStatuses.expired
     }.getOrElse(status)
-    JobDescription(jobId, newStatus, comment, createdAt, completedAt)
+    JobDescription(jobId, node.getOrElse("unknown"), newStatus, comment, createdAt, completedAt)
   }
 }
 object JobRecord {
@@ -261,7 +266,7 @@ object JobRecord {
   }
 
   def apply(engineId: String, jd: JobDescription): JobRecord =
-    JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
+    JobRecord(engineId, jd.jobId, Option(jd.node), jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
 
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
@@ -313,6 +318,7 @@ object Cancellable {
 
 case class JobDescription (
   jobId: String,
+  node: String,
   status: JobStatus = JobStatuses.queued,
   comment: String = "",
   createdAt: Option[Date] = Option(new Date),
@@ -320,9 +326,15 @@ case class JobDescription (
 ) extends Response
 
 object JobDescription {
-  def create: JobDescription = JobDescription(UUID.randomUUID().toString)
-  def create(status: JobStatuses.JobStatus, comment: String): JobDescription =
-    JobDescription(UUID.randomUUID().toString, status = status, comment = comment)
+  def create: RIO[system.System with Logging, JobDescription] = for {
+    id <- IO.effect(UUID.randomUUID().toString)
+    node <- AppConfig.hostName
+  } yield JobDescription(id, node)
+
+  def createSync: JobDescription = harnessRuntime.unsafeRun(create)
+
+  def create(status: JobStatuses.JobStatus, node: String, comment: String): JobDescription =
+    JobDescription(UUID.randomUUID().toString, node = node, status = status, comment = comment)
 }
 
 object JobStatuses extends Enumeration {

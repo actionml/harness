@@ -78,7 +78,7 @@ package object core  extends LazyLogging {
 
   case class BadParamsException(message: String) extends Exception(message)
 
-  type HEnv = EnginesBackend with Clock with Logging with Blocking
+  type HEnv = EnginesBackend with Clock with Logging with Blocking with zio.system.System
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
 
@@ -99,6 +99,7 @@ package object core  extends LazyLogging {
     Slf4jLogger.make((c, s) => s) ++
     Clock.live ++
     Blocking.live ++
+    zio.system.System.live ++
     enginesBackend
   }
 }
