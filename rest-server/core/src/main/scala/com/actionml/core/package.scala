@@ -20,6 +20,7 @@ package com.actionml
 import com.actionml.core.config.{AppConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
+import com.actionml.core.utils.HttpClient
 import com.actionml.core.validate.ValidateError
 import com.typesafe.scalalogging.LazyLogging
 import zio.blocking.Blocking
@@ -27,7 +28,7 @@ import zio.clock.Clock
 import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 import zio.stream.ZStream
-import zio.{IO, Layer, Runtime, ZIO, ZLayer, ZManaged}
+import zio.{Has, IO, Layer, Runtime, ZIO, ZLayer, ZManaged}
 
 package object core  extends LazyLogging {
 
@@ -78,7 +79,7 @@ package object core  extends LazyLogging {
 
   case class BadParamsException(message: String) extends Exception(message)
 
-  type HEnv = EnginesBackend with Clock with Logging with Blocking with zio.system.System
+  type HEnv = EnginesBackend with HttpClient with Clock with Logging with Blocking with zio.system.System
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
 
@@ -95,11 +96,13 @@ package object core  extends LazyLogging {
       }
     }
   }
+
   val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer {
-    Slf4jLogger.make((c, s) => s) ++
+    enginesBackend ++
+    Slf4jLogger.make((_, s) => s) ++
     Clock.live ++
     Blocking.live ++
     zio.system.System.live ++
-    enginesBackend
+    HttpClient.live
   }
 }

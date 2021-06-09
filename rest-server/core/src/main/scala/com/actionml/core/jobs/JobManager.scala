@@ -109,12 +109,14 @@ object JobManager extends JobManagerInterface with LazyLogging {
         description.set(d) *> q.offer(f.race(p.await)).as(c)
       }
       _ <- q.take.flatMap { job =>
-        description.get.flatMap { d => setJobStatus(d.jobId, JobStatuses.executing) *>
-          job *> setJobStatus(d.jobId, JobStatuses.successful)
-          .flatMapError { e =>
-            logger.error(s"Job ${d.jobId} error", e)
-            setJobStatus(d.jobId, JobStatuses.failed).ignore
-          }
+        description.get.flatMap { d =>
+          setJobStatus(d.jobId, JobStatuses.executing) *>
+          job *>
+          setJobStatus(d.jobId, JobStatuses.successful)
+            .flatMapError { e =>
+              logger.error(s"Job ${d.jobId} error", e)
+              setJobStatus(d.jobId, JobStatuses.failed).ignore
+            }
         }
       }.forever
     } yield ()).retry(Schedule.fibonacci(5.seconds))

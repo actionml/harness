@@ -63,7 +63,7 @@ case class EtcdConfig(endpoints: Seq[String], timeout: FiniteDuration)
 object AppConfig {
   private lazy val config = ConfigFactory.load()
 
-  def apply: AppConfig = {
+  def apply(): AppConfig = {
     val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))
     val backend: StoreBackend = Try(StoreBackend.withName(sys.env("HARNESS_ENGINES_BACKEND")))
       .getOrElse(StoreBackend.mongo)

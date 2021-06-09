@@ -32,7 +32,7 @@ import org.json4s
 import org.json4s.JsonAST.JString
 import org.json4s.ext.JodaTimeSerializers
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Formats, JObject, JValue, MappingException, Reader}
+import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, Extraction, Formats, JObject, JValue, MappingException, Reader, TypeInfo}
 import zio.IO
 
 import scala.reflect.ClassTag
@@ -122,9 +122,9 @@ trait JsonSupport extends LazyLogging {
                            (implicit tag: TypeTag[T], ct: ClassTag[T], mf: Manifest[T]): HIO[T] = {
     lazy val msg = if (errorMsg.isEmpty) {
       tag.tpe match {
-        case TypeRef(_, _, args) =>
-          s"Error $args from JSON:"
-        case _ => "JSON parse error"
+        case TypeRef(t, s, args) =>
+          s"Error converting to $mf from JSON:"
+        case _ => "JSON parse error: "
       }
     } else { errorMsg }
     def handleError: Throwable => ValidateError = {
@@ -132,7 +132,7 @@ trait JsonSupport extends LazyLogging {
         logger.error(s"$msg $json", e)
         ParseError(s"""{"comment":"$msg $json"}""")
       case NonFatal(e) =>
-        logger.error(msg + s"$json", e)
+        logger.error(s"msg + $json", e)
         ValidRequestExecutionError(msg)
     }
 

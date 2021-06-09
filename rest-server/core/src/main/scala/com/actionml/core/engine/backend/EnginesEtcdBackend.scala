@@ -20,8 +20,9 @@ package com.actionml.core.engine.backend
 import com.actionml.core.config.AppConfig
 import com.actionml.core.engine._
 import com.actionml.core.engine.ActionNames._
+import com.actionml.core.utils.HttpClient
 import com.actionml.core.validate._
-import com.actionml.core.{HEnv, HIO, harnessRuntime}
+import com.actionml.core.{HEnv, HIO}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
@@ -35,8 +36,9 @@ import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
-import zio.{Cause, IO, Queue, Schedule, ZIO}
+import zio.{Cause, IO, Queue, ZIO}
 
+import java.net.URL
 import java.nio.charset.Charset
 import java.time.Instant
 import scala.collection.JavaConverters._
@@ -57,7 +59,6 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   private def registerHarnessIds(leaseIdQueue: Queue[Long]): HIO[Unit] = for {
     leaseId <- lease.grant(5).toIO.map(_.getID)
     _ <- leaseIdQueue.offer(leaseId)
-    _ <- log.info(s"Got harnessId=$leaseId")
     instanceKey <- mkServiceKey
       .mapError(_ => ValidRequestExecutionError())
     kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
@@ -99,10 +100,11 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   private def watchEngines(leaseQ: Queue[Long], callback: Action => Unit): HIO[Unit] = for {
     leaseId <- leaseQ.take
+    r <- ZIO.runtime[HEnv]
     _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb =>
       Try {
         lazy val w: Watcher = watch.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Watch.Listener with LazyLogging {
-          override def onNext(response: WatchResponse): Unit = harnessRuntime.unsafeRun { for {
+          override def onNext(response: WatchResponse): Unit = r.unsafeRun { for {
             nodeKey <- mkServiceKey
             _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
           } yield response.getEvents.asScala
@@ -112,12 +114,12 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
               kv.put(nodeKey, encode(a), PutOption.newBuilder().withLeaseId(leaseId).build())
             }
           }
-          override def onError(e: Throwable): Unit = cb(log.error("Actions watch error", Cause.fail(e)) *> ZIO.fail(w))
-          override def onCompleted(): Unit = cb(log.info("Actions watcher completed") *> ZIO.fail(w))
+          override def onError(e: Throwable): Unit = cb(log.error("Actions watch error", Cause.fail(e)) *> leaseQ.shutdown)
+          override def onCompleted(): Unit = cb(log.info("Actions watcher completed") *> leaseQ.shutdown)
         })
         w
       }
-    }.onError(_.failureOption.fold(IO.unit)(w => IO.effect(Try(w.close())).ignore))
+    }.onError(_.failureOption.fold(IO.unit)(w => IO.effect(w.close()).ignore))
       .mapErrorCause(_ => Cause.fail(ValidRequestExecutionError()))
   } yield ()
 
@@ -150,6 +152,19 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   override def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = updateEtcdEngine(Update(data)) >>= findUpdated
 
   override def deleteEngine(id: String): HIO[Unit] = updateEtcdEngine(Delete(EngineMetadata(id, "", ""))) >>= findUpdated
+
+  override def listNodes: HIO[List[NodeDescription]] = {
+    def parseHostName: String => String = { case ServiceKeyPattern(host) => s"http://$host" }
+    for {
+      instanceKeys <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
+      descriptions <- ZIO.foreach(instanceKeys.getKvs.asScala.toList) { i =>
+        val hostName = parseHostName(i.getKey)
+        HttpClient.send(new URL(s"$hostName/engines"))
+          .flatMap(parseAndValidateIO[List[EngineStatus]](_))
+          .map(engines => NodeDescription(hostName, engines))
+      }
+    } yield descriptions
+  }
 
 
   private val updateEtcdEngine: Action => HIO[String] = a => { a match {
@@ -228,7 +243,9 @@ object EnginesEtcdBackend {
   private val enginesPrefix = "/harness_meta_store/engines/"
   private def mkEngineKey(engineId: String): ByteSequence = toByteSequence(s"$enginesPrefix$engineId")
   private val servicesPrefix = "/services/harness/instances/"
-  private def mkServiceKey = AppConfig.hostName.map(n => s"${servicesPrefix}harness-$n")
+  private val port = AppConfig().restServer.port
+  private def mkServiceKey = AppConfig.hostName.map(n => s"${servicesPrefix}harness-$n:${port}")
+  private val ServiceKeyPattern = s"${servicesPrefix}harness-([a-zA-Z0-9-\\.:]*)".r
   private val etcdCharset = Charset.forName("UTF-8")
   private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build
   private def watchPrefixOpt(prefix: String) =

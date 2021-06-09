@@ -95,9 +95,6 @@ class EnginesRouter(
           }
         }
       }
-    } ~
-    (pathPrefix("system") & extractLog) { implicit log =>
-      getSystemInfo
     }
   }
 

@@ -50,6 +50,7 @@ class RestServer(
   events: EventsRouter,
   engines: EnginesRouter,
   queries: QueriesRouter,
+  info: InfoRouter,
   authProxy: AuthServerProxyRouter) extends CorsSupport with LoggingSupport with LazyLogging {
 
   implicit private val _as: ActorSystem = actorSystem
@@ -61,7 +62,7 @@ class RestServer(
       check.route
     } ~
     (DebuggingDirectives.logRequest("Harness Server", Logging.InfoLevel) & DebuggingDirectives.logRequestResult("Harness Server", Logging.InfoLevel)) {
-      authProxy.route ~ events.route ~ engines.route ~ queries.route ~ commands.route
+      authProxy.route ~ events.route ~ engines.route ~ queries.route ~ commands.route ~ info.route
     }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {
