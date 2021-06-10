@@ -49,7 +49,7 @@ trait Mirror {
     *
     * @return directory name
     */
-  protected val containerName: String = s"$mirrorContainer${File.separator}$engineId${File.separator}"
+  val containerName: String = s"$mirrorContainer${File.separator}$engineId"
 
 
   def mirrorEvent(event: String): Task[Unit]
