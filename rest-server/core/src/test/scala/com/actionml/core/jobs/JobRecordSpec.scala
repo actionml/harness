@@ -22,7 +22,7 @@ import JobStatuses._
 
 import org.scalatest.{FlatSpec, Matchers}
 
-class JobRecordSpec  extends FlatSpec with Matchers {
+class JobRecordSpec extends FlatSpec with Matchers {
   import JobRecord.defaultExpireMillis
   def jobRecord(createdAt: Date) = JobRecord("", JobDescription("", createdAt = Option(createdAt)))
   def now(delta: Long = 0): Date = new Date(System.currentTimeMillis() + delta)

@@ -17,10 +17,6 @@
 
 package com.actionml.core.search.elasticsearch
 
-import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
-import java.net.{URI, URLEncoder}
-import java.time.Instant
-
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
@@ -35,13 +31,16 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
-import org.elasticsearch.client.{Request, Response, ResponseListener, RestClient}
+import org.elasticsearch.client._
 import org.json4s.DefaultReaders._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
+import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
+import java.net.URLEncoder
+import java.time.Instant
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
@@ -588,13 +587,7 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
 
   def apply(aliasName: String): ElasticSearchClient = {
     val client: RestClient = {
-      val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
-
-      val builder = RestClient.builder(
-        new HttpHost(
-          uri.getHost,
-          uri.getPort,
-          uri.getScheme))
+      val builder = RestClient.builder(esNodes: _*)
       if (config.hasPath("elasticsearch.auth")) {
         val authConfig = config.getConfig("elasticsearch.auth")
         builder.setHttpClientConfigCallback(new BasicAuthProvider(
@@ -608,14 +601,35 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   }
 
 
+  /*
+    ELASTICSEARCH_URI supports format http[s]://localhost:9200[,anotherhost:9200,thirdone:9100]
+   */
+  private val uri: String = Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200")
+  private val EsNodesPattern = """http(s?)://(.*)""".r
+  private val NodePattern = """(.+):(\d{2,5})""".r
+  private[elasticsearch] val parseNodes: String => List[Node] = {
+    case EsNodesPattern(https, nodesString) =>
+      val scheme = if (https.nonEmpty) "https" else "http"
+      nodesString.split(',').toList.foldRight(List.empty[Node]) { (nodeString, acc) =>
+        (nodeString match {
+          case NodePattern(host, port) => new Node(new HttpHost(host, port.toInt, scheme))
+          case _ => throw new RuntimeException("Wrong Elasticsearch node")
+        }) :: acc
+      }
+    case _ => throw new RuntimeException("Wrong Elasticsearch config")
+  }
+  val esNodes = parseNodes(uri)
+
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
   private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private object ESVersions extends Enumeration {
-    val v5 = Value(5)
-    val v6 = Value(6)
-    val v7 = Value(7)
+    type ESVersion = Value
+
+    val v5: ESVersion = Value(5)
+    val v6: ESVersion = Value(6)
+    val v7: ESVersion = Value(7)
   }
 
   private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
