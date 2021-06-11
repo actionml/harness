@@ -2,7 +2,6 @@
 
 ## Requirements
 - Repository Account like Github, Bitbucket or others.
-- kubernetes cluster.
 - CircleCi Account.
 
 To learn how to set up a cluster, see:
@@ -37,28 +36,17 @@ After creating your repoository in docker hub, follow these steps:
 Click on setting icon on the right top of the page and go to *Project Settings*.
 Click `Environment Variables` in the left and `Add Variables` in the right page and add the following variables:
 
-* **DOCKER_PASSWORD** 
+* **DOCKER_PASSWORD**
 Password to login to Docker Hub
 
-* **DOCKER_USERNAME** 
+* **DOCKER_USERNAME**
 User to login to Docker Hub.
 
-* **DOCKER_REPOSITORY** 
+* **DOCKER_REPOSITORY**
 Image Repository on Docker Hub eg.: `actionml/harness`
-
-* **K8S_ADMIN_PASS**
-K8s cluster administrator user.
-
-* **K8S_ADMIN_USER**
-K8s cluster administrator password.
-
-* **K8S_SERVER**
-Kubernetes cluster api endpoint.
-
-![5](https://user-images.githubusercontent.com/17029741/68024690-95798900-fc89-11e9-92ef-e187201409bf.png)
 
 Change your previous config.yml file with this [config.yml](https://github.com/actionml/harness/blob/develop/.circleci/config.yml) file.
 
 Commit and push again.
 
-Now your circleci is ready to watch changes in your repository, build, push new image version and update kubernetes.
+Now your circleci is ready to watch changes in your repository, build and push new image version.

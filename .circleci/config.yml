@@ -38,7 +38,7 @@ jobs:
     - attach_workspace:
         at: /root/project/dist
     - run:
-        name: Install Docker Compose and Kubectl
+        name: Install Docker Compose
         command: |
           set -x
           chmod +x docker/config-dependencies.sh
@@ -58,54 +58,40 @@ jobs:
           echo "SHORT_GIT_HASH $SHORT_GIT_HASH"
           echo "DATE_BUILD $DATE_BUILD"
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops|experimental)
-              docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
-            ;;
-            *)
-            ;;
-          esac
+          docker image build -f docker/Dockerfile --build-arg version=ci --build-arg GIT_HASH=$SHORT_GIT_HASH --build-arg DATE_BUILD=$DATE_BUILD --build-arg BRANCH=${CIRCLE_BRANCH} -t actionml/harness:latest ./
+
     - run:
         name: Test docker image
         command: |
 
-          case "${CIRCLE_BRANCH}" in
-            master|develop|devops)
               cd docker && \
               mv envs .env &&\
               docker-compose up -d --build
               docker-compose ps
 
               sleep 45
-                         
+
               docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
               docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
-     
+
               docker-compose logs harness
 
               docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
               docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
-              
+
               docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
-                            
+
               echo "harness-cli simple-integration-test finished"
 
               echo "export RESULT=$RESULT" >> $SHELL_ENV
-            ;;
-            *)
-              echo "export RESULT=1" >> $SHELL_ENV
-            ;;
-          esac
-          
-          source $SHELL_ENV
+
+              source $SHELL_ENV
     - run:
         name: Publish docker image
         command: |
-          # TODO: Enable integration test after test fixed
-          echo "export RESULT=0" >> $SHELL_ENV
-          
+
           source $SHELL_ENV
           echo "Result is ${RESULT}"
 
@@ -114,42 +100,17 @@ jobs:
             case "${CIRCLE_BRANCH}" in
               "master")
                 docker image push actionml/harness:latest
-
-                docker tag actionml/harness:latest actionml/harness:master-$SHORT_GIT_HASH
-                docker image push actionml/harness:master-$SHORT_GIT_HASH
-
-                HARNESS_VERSION=$(git describe --tags)
-                docker tag actionml/harness:latest actionml/harness:$HARNESS_VERSION
-                docker image push actionml/harness:$HARNESS_VERSION
               ;;
-              develop|devops|experimental)
+              develop|devops)
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 docker tag actionml/harness:latest actionml/harness:$BRANCH
                 docker image push actionml/harness:$BRANCH
-                
+
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
                 docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
-                
+
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
                 docker image push actionml/harness:$BRANCH-$DATE_BUILD
-              ;;
-              *)
-              ;;
-            esac
-          fi
-    - run:
-        name: Update kubernetes Deployment
-        command: | 
-          source $SHELL_ENV
-
-          if [ $RESULT -eq 0 ] 
-          then
-           case "${CIRCLE_BRANCH}" in
-              "develop")
-                BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
-                kubectl patch statefulset harness --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"actionml/harness:'$BRANCH'"}]'
-              
-                kubectl delete pod harness-0
               ;;
               *)
               ;;
