@@ -17,9 +17,17 @@
 
 package com.actionml.router.service
 
+import cats.data.Validated
+import cats.data.Validated.Invalid
 import com.actionml.admin.Administrator
+import com.actionml.core.model.Response
+import com.actionml.core.spark.SparkContextSupport.jsonComment
+import com.actionml.core.validate.{NotImplemented, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.router.ActorInjectable
 import scaldi.Injector
+
+import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
   *
@@ -69,6 +77,30 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
     case CancelJob(engineId, jobId) =>
       log.info(s"Cancel job $jobId for engine $engineId")
       sender() ! admin.cancelJob(engineId = engineId, jobId = jobId)
+
+    case GetUserData(engineId, userId, num, from) =>
+      admin.getEngine(engineId).fold {
+        sender() ! Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
+      } { engine =>
+        sender() ! (try {
+          engine.getUserData(userId, num, from)
+        } catch {
+          case _: NotImplementedError => Invalid(NotImplemented)
+          case NonFatal(_) => Invalid(ValidRequestExecutionError)
+        })
+      }
+
+    case DeleteUserData(engineId, userId) =>
+      admin.getEngine(engineId).fold {
+        sender() ! Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
+      } { engine =>
+        sender() ! (try {
+          engine.deleteUserData(userId)
+        } catch {
+          case _: NotImplementedError => Invalid(NotImplemented)
+          case NonFatal(_) => Invalid(ValidRequestExecutionError)
+        })
+      }
   }
 }
 
@@ -81,6 +113,8 @@ case class UpdateEngine(engineJson: String) extends EngineAction
 case class UpdateEngineWithTrain(engineId: String) extends EngineAction
 case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
 case class CancelJob(engineId: String, jobId: String) extends EngineAction
+case class GetUserData(engineId: String, userId: String, num: Int, from: Int) extends EngineAction
+case class DeleteUserData(engineId: String, userId: String) extends EngineAction
 
 // keeping update simple, only allow sending new json config
 //case class UpdateEngineWithConfig(engineId: String, engineJson: String, dataDelete: Boolean, force: Boolean, input: String) extends EngineAction

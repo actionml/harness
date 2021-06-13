@@ -152,6 +152,12 @@ class CBEngine extends Engine with JsonSupport {
     """.stripMargin
   }
 */
+
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
+    throw new NotImplementedError
+
+  override def deleteUserData(userId: String): Validated[ValidateError, Response] =
+    throw new NotImplementedError
 }
 
 /*

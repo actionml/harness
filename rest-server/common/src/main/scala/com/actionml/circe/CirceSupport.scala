@@ -23,5 +23,5 @@ import io.circe.Printer
 
 trait CirceSupport extends FailFastCirceSupport {
 
-  implicit val jsonPrinter: Printer = Printer.spaces2.copy(dropNullKeys = true)
+  implicit val jsonPrinter: Printer = Printer.spaces2
 }
