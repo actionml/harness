@@ -14,14 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.actionml.core
 
-package com.actionml.circe
+import com.actionml.core.HealthCheckStatus.HealthCheckStatus
+import com.actionml.core.model.Response
 
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
-import io.circe.Printer
+object HealthCheckStatus extends Enumeration {
+  type HealthCheckStatus = Value
 
+  val green: HealthCheckStatus = Value("green")
+  val yellow: HealthCheckStatus = Value("yellow")
+  val red: HealthCheckStatus = Value("red")
+}
 
-trait CirceSupport extends FailFastCirceSupport {
-
-  implicit val jsonPrinter: Printer = Printer.spaces2
+//case class HealthCheckResponse(mongo: HealthCheckStatus, elasticsearch: HealthCheckStatus) extends Response
+case class HealthCheckResponse(mongoStatus: String, elasticsearchStatus: String) extends Response
+object HealthCheckResponse {
+  def apply(mongo: HealthCheckStatus, es: HealthCheckStatus) = HealthCheckResponse(mongo.toString, es.toString)
 }

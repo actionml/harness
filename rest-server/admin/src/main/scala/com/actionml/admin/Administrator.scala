@@ -24,6 +24,8 @@ import com.actionml.core.validate.ValidateError
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.{ExecutionContext, Future}
+
 /** Handles commands or Rest requests that are system-wide, not the concern of a single Engine */
 abstract class Administrator extends LazyLogging {
 
@@ -41,4 +43,5 @@ abstract class Administrator extends LazyLogging {
   def systemInfo(): Validated[ValidateError, Response]
   def init(): Administrator = this
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response]
+  def healthCheck(implicit ec: ExecutionContext): Future[Response]
 }

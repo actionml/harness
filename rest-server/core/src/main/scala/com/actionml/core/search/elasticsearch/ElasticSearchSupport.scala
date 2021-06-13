@@ -17,15 +17,16 @@
 
 package com.actionml.core.search.elasticsearch
 
+import com.actionml.core.{HealthCheckResponse, HealthCheckStatus}
+import com.actionml.core.HealthCheckStatus.HealthCheckStatus
+
 import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
 import java.net.{URI, URLEncoder}
 import java.time.Instant
-import java.util.Scanner
-
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
-import com.actionml.core.search.elasticsearch.ElasticSearchSupport.EsDocument
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport.{EsDocument, mkClient}
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
@@ -56,6 +57,47 @@ trait ElasticSearchSupport extends SearchSupport[Hit, EsDocument] {
 
 object ElasticSearchSupport {
   type EsDocument = (String, Map[String, List[String]])
+
+  def healthCheck(): Future[HealthCheckStatus] = {
+    val p = Promise[HealthCheckStatus]()
+    healthCheckClient.performRequestAsync(new Request("GET", healthCheckClient.getNodes.get(0).getHost.toURI), new ResponseListener {
+      override def onSuccess(response: Response): Unit = response.getStatusLine.getStatusCode match {
+        case 200 => p.success(HealthCheckStatus.green)
+        case _ => p.success(HealthCheckStatus.red)
+      }
+      override def onFailure(e: Exception): Unit = p.success(HealthCheckStatus.red)
+    })
+    p.future
+  }
+
+
+  private lazy val config: Config = ConfigFactory.load()
+  private[elasticsearch] def mkClient: RestClient = {
+    val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
+
+    val builder = RestClient.builder(
+      new HttpHost(
+        uri.getHost,
+        uri.getPort,
+        uri.getScheme))
+    if (config.hasPath("elasticsearch.auth")) {
+      val authConfig = config.getConfig("elasticsearch.auth")
+      builder.setHttpClientConfigCallback(new BasicAuthProvider(
+        authConfig.getString("username"),
+        authConfig.getString("password")
+      ))
+    }
+    builder.build
+  }
+  private lazy val healthCheckClient = mkClient
+  private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
+    private val credentialsProvider = new BasicCredentialsProvider()
+    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password))
+
+    override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder = {
+      httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
+    }
+  }
 }
 
 trait JsonSearchResultTransformation[T] {
@@ -587,43 +629,17 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
   }
 
   def apply(aliasName: String): ElasticSearchClient = {
-    val client: RestClient = {
-      val uri = new URI(Properties.envOrElse("ELASTICSEARCH_URI", "http://localhost:9200" ))
 
-      val builder = RestClient.builder(
-        new HttpHost(
-          uri.getHost,
-          uri.getPort,
-          uri.getScheme))
-      if (config.hasPath("elasticsearch.auth")) {
-        val authConfig = config.getConfig("elasticsearch.auth")
-        builder.setHttpClientConfigCallback(new BasicAuthProvider(
-          authConfig.getString("username"),
-          authConfig.getString("password")
-        ))
-      }
-      builder.build
-    }
-    new ElasticSearchClient(aliasName, client) with ElasticSearchResultTransformation
+    new ElasticSearchClient(aliasName, mkClient) with ElasticSearchResultTransformation
   }
 
 
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 
-  private lazy val config: Config = ConfigFactory.load() // todo: use ficus or something
 
   private object ESVersions extends Enumeration {
     val v5 = Value(5)
     val v6 = Value(6)
     val v7 = Value(7)
-  }
-
-  private class BasicAuthProvider(username: String, password: String) extends HttpClientConfigCallback {
-    private val credentialsProvider = new BasicCredentialsProvider()
-    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password))
-
-    override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder = {
-      httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
-    }
   }
 }
