@@ -4,16 +4,11 @@ Harness is a complete end-to-end mature Machine Learning server tested in live p
 
 # Harness
 
-## harness-0.7.0-SNAPSHOT (unstable work in progress)
-
- - System status check enhancements (`hctl status system`)for microservice connections and multi-node status.
- - GDPR support: support of the "Right of Erasure" and "Right of Access". See [GDPR and Harness](/gdpr-harness)
-
 ## harness-0.6.2 (current stable)
 
 Bug fix release:
 
- - Fixes a bug where under some conditions users with a large history can have the most recent user history truncated. This in turn affects making personalized recs. This only affects personalized recs and is fairly rare.
+ - Fixes a bug where under some conditions (users with a large history) the most recent user history is truncated when making personalized recs. This only affects personalized recs and is fairly rare.
  - Fixes a problem with dropping unused Elasticsearch indexes after training. This can cause disk to fill with unreachable indexes. Only affects deployments with ES 7.6+, earlier versions of ES do not have this problem.
 
 ## harness-0.6.1
