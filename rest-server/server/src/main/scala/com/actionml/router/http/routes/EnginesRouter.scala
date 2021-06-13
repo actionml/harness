@@ -23,6 +23,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import cats.data.Validated
+import cats.data.Validated.Valid
+import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -67,6 +69,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private val engineService = inject[ActorRef]('EngineService)
   override val authorizationService = inject[AuthorizationService]
   private val config = inject[AppConfig]
+  private val admin = inject[Administrator]
   override val authEnabled = config.auth.enabled
 
   override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
@@ -93,7 +96,15 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
       }
     } ~
     (pathPrefix("system") & extractLog) { implicit log =>
-      getSystemInfo
+      path("health")(healthCheck) ~
+      pathEndOrSingleSlash(getSystemInfo)
+    }
+  }
+
+
+  private def healthCheck: Route = get {
+    completeByValidated(StatusCodes.OK) {
+      admin.healthCheck.map(Valid(_))
     }
   }
 

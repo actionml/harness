@@ -24,11 +24,12 @@ import com.actionml.core._
 import com.actionml.core.engine.Engine
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.DaoQuery
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Properties
 
 class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSupport {
@@ -183,6 +184,14 @@ class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSup
     }
   }
 
+  def healthCheck(implicit ec: ExecutionContext): Future[HealthCheckResponse] = {
+    val mongoCheck = MongoStorage.healthCheck
+    val esCheck = ElasticSearchSupport.healthCheck
+    for {
+      mongoStatus <- mongoCheck
+      esStatus <- esCheck
+    } yield HealthCheckResponse(mongoStatus, esStatus)
+  }
 }
 
 case class EnginesStatuses(statuses: List[Response]) extends Response
