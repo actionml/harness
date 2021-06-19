@@ -33,7 +33,7 @@ trait LambdaAlgorithm[T] extends LazyLogging {
     * @param datum The input Event type defined by the parmeterized type
     * @return
     */
-  def input(datum: T): Validated[ValidateError, Response] = Valid(new Response)
+  def input(datum: T): Validated[ValidateError, Response] = Valid(new Response {})
 
   /** May train or queue up to execute the process method, such as when using a Spark compute engine
     * Override to use the queuing method to create the model

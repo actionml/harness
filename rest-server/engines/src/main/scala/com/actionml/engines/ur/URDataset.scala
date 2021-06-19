@@ -17,15 +17,12 @@
 
 package com.actionml.engines.ur
 
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Date
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.Dataset
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
+import com.actionml.core.store.DaoQuery.syntax._
 import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
@@ -34,6 +31,9 @@ import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Date
 import scala.concurrent.Future
 import scala.language.reflectiveCalls
 import scala.util.control.NonFatal
@@ -217,6 +217,15 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       f.flatMap(_ => insertProperty(item))
     )
   }
+
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] = {
+    Valid(eventsDao.findMany(limit = num, offset = from)("entityType"=== "user", "entityId" === userId).toList)
+  }
+
+  override def deleteUserData(userId: String): Unit = {
+    eventsDao.removeMany("entityType"=== "user", "entityId" === userId)
+  }
+
 
   private def insertProperty(event: UREvent): Future[Unit] = {
     val updateMongo =

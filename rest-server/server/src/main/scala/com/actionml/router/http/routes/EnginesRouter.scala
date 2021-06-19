@@ -80,7 +80,7 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
       } ~
       pathPrefix(Segment) { engineId ⇒
         hasAccess(engine.read, engineId).apply {
-          getEngine(engineId)
+          pathEndOrSingleSlash(getEngine(engineId))
         } ~
         hasAccess(engine.modify, engineId).apply {
           (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
@@ -90,6 +90,12 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
             (pathEndOrSingleSlash & post)(updateEngineWithTrain(engineId)) ~
             (path(Segment) & delete) { jobId =>
               cancelJob(engineId, jobId)
+            }
+          } ~
+          pathPrefix("entities") {
+            path(Segment) { userId =>
+              get (getUserData(engineId, userId)) ~
+              delete (deleteUserData(engineId, userId))
             }
           }
         }
@@ -171,4 +177,18 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
       (engineService ? CancelJob(engineId, jobId)).mapTo[Validated[ValidateError, Response]]
     }
   }
+
+  private def getUserData(engineId: String, userId: String) = parameters('num.as[Int].?, 'from.as[Int].?) { (num, from) =>
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? GetUserData(engineId, userId, num = num.getOrElse(100), from = from.getOrElse(0)))
+        .mapTo[Validated[ValidateError, Response]]
+    }
+  }
+
+  private def deleteUserData(engineId: String, userId: String) = {
+    completeByValidated(StatusCodes.OK) {
+      (engineService ? DeleteUserData(engineId, userId)).mapTo[Validated[ValidateError, Response]]
+    }
+  }
+
 }
