@@ -81,7 +81,7 @@ class EnginesRouter(
       } ~
       pathPrefix(Segment) { engineId ⇒
         hasAccess(engine.read, engineId).apply {
-          getEngine(engineId)
+          pathEndOrSingleSlash(getEngine(engineId))
         } ~
         hasAccess(engine.modify, engineId).apply {
           (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
@@ -91,6 +91,12 @@ class EnginesRouter(
             (pathEndOrSingleSlash & post)(updateEngineWithTrain(engineId)) ~
             (path(Segment) & delete) { jobId =>
               cancelJob(engineId, jobId)
+            }
+          } ~
+          pathPrefix("entities") {
+            path(Segment) { userId =>
+              get (getUserData(engineId, userId)) ~
+              delete (deleteUserData(engineId, userId))
             }
           }
         }
@@ -165,4 +171,17 @@ class EnginesRouter(
       engineService.cancelJob(engineId, jobId)
     }
   }
+
+  private def getUserData(engineId: String, userId: String) = parameters('num.as[Int].?, 'from.as[Int].?) { (num, from) =>
+    completeByValidated(StatusCodes.OK) {
+      engineService.getUserData(engineId, userId, num.getOrElse(100), from.getOrElse(0))
+    }
+  }
+
+  private def deleteUserData(engineId: String, userId: String) = {
+    completeByValidated(StatusCodes.OK) {
+      engineService.deleteUserData(engineId, userId)
+    }
+  }
+
 }

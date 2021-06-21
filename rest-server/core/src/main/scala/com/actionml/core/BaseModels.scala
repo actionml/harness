@@ -103,7 +103,7 @@ trait QueryResult
 trait Event
 trait EngineParams
 trait Query
-class Response
+trait Response
 object Response {
   import org.json4s.jackson.Serialization
   import org.json4s.{Extraction, JValue, NoTypeHints}

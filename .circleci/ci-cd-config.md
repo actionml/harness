@@ -36,13 +36,13 @@ After creating your repoository in docker hub, follow these steps:
 Click on setting icon on the right top of the page and go to *Project Settings*.
 Click `Environment Variables` in the left and `Add Variables` in the right page and add the following variables:
 
-* **DOCKER_PASSWORD** 
+* **DOCKER_PASSWORD**
 Password to login to Docker Hub
 
-* **DOCKER_USERNAME** 
+* **DOCKER_USERNAME**
 User to login to Docker Hub.
 
-* **DOCKER_REPOSITORY** 
+* **DOCKER_REPOSITORY**
 Image Repository on Docker Hub eg.: `actionml/harness`
 
 Change your previous config.yml file with this [config.yml](https://github.com/actionml/harness/blob/develop/.circleci/config.yml) file.
@@ -50,3 +50,4 @@ Change your previous config.yml file with this [config.yml](https://github.com/a
 Commit and push again.
 
 Now your circleci is ready to watch changes in your repository, build and push new image version.
+

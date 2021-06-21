@@ -23,7 +23,7 @@ import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{EngineParams, Event, Query, Response}
+import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
@@ -188,6 +188,13 @@ class UREngine extends Engine with JsonSupport {
     algo.cancelJob(engineId, jobId)
   }
 
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
+    dataset.getUserData(userId, num, from)
+
+  override def deleteUserData(userId: String): Validated[ValidateError, Response] = {
+    dataset.deleteUserData(userId)
+    Valid(Comment("All data deleted"))
+  }
 }
 
 object UREngine extends JsonSupport {
@@ -230,7 +237,7 @@ object UREngine extends JsonSupport {
       floatProps: Map[String, Float] = Map.empty,
       booleanProps: Map[String, Boolean] = Map.empty,
       @SingleIndex(order = desc, isTtl = true) eventTime: Date)
-    extends Event with Serializable
+    extends Event with Serializable with Response
 
   case class URItemProperties (
     @SingleIndex(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model

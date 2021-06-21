@@ -37,6 +37,8 @@ abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport
     data.foldLeft[Validated[ValidateError, Event]](Valid(new Event {})) { (acc, e) =>
       acc.andThen(_ => input(e))
     }
+  def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]]
+  def deleteUserData(userId: String): Unit
 
   // start and stop may be ignored by Engines if not applicable
   def start(): Dataset[T] = {logger.trace(s"Engine-id: ${engineId}. Starting base Dataset"); this}

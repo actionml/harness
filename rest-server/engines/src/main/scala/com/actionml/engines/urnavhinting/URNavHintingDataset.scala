@@ -163,5 +163,11 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
   }
 
   override def inputAsync(datum: String): Validated[ValidateError, Future[Response]] = Invalid(NotImplemented())
+
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
+    throw new NotImplementedError
+
+  override def deleteUserData(userId: String): Unit =
+    throw new NotImplementedError
 }
 

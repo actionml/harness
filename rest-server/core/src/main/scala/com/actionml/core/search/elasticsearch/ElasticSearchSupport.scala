@@ -210,14 +210,13 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       .getStatusLine
       .getStatusCode match {
         case 200 =>
-          // logger.info(s"Query JSON:\n${prettify(mkElasticQueryString(query))}")
           val aliasResponse = client.performRequest(new Request("GET", s"/_alias/$alias"))
           val responseJValue = parse(EntityUtils.toString(aliasResponse.getEntity))
           val indexSet = responseJValue.extract[Map[String, JValue]].keys
           indexSet.headOption.fold(Seq.empty[Hit]) { actualIndexName =>
             logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
             val request = new Request("POST", s"/$actualIndexName/_search")
-            request.setJsonEntity(mkElasticQueryString(query))
+            request.setJsonEntity(mkQueryString(query))
             val response = client.performRequest(request)
             response.getStatusLine.getStatusCode match {
               case 200 =>
@@ -238,7 +237,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       val actualIndexName = alias
       logger.debug(s"Query for alias $alias and index $actualIndexName:\n$query")
       val request = new Request("POST", s"/$actualIndexName/_search")
-      request.setJsonEntity(mkElasticQueryString(query))
+      request.setJsonEntity(mkQueryString(query))
 
       val searchListener = new ResponseListener {
         override def onSuccess(response: Response): Unit = {
@@ -325,6 +324,20 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
       }
     }
     client.performRequestAsync(request, listener)
+    promise.future
+  }
+
+  override def deleteDoc(query: SearchQuery): Future[Unit] = {
+    val request = new Request("DELETE", s"/$alias/_delete_by_query")
+    request.setJsonEntity(mkQueryString(query))
+    val promise = Promise[Unit]()
+    client.performRequestAsync(request, new ResponseListener {
+      override def onSuccess(response: Response): Unit = response.getStatusLine.getStatusCode match {
+        case 200 | 202 => promise.success ()
+        case _ => promise.failure(new RuntimeException("Delete error. Query: $query"))
+      }
+      override def onFailure(e: Exception): Unit = promise.failure(e)
+    })
     promise.future
   }
 
@@ -487,7 +500,7 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
     client.performRequest(new Request("POST", s"/$indexName/_refresh"))
   }
 
-  private[elasticsearch] def mkElasticQueryString(query: SearchQuery): String = {
+  private[elasticsearch] def mkQueryString(query: SearchQuery): String = {
     import org.json4s.jackson.JsonMethods._
     var clauses = JObject()
     val mustIsEmpty = query.must.flatMap(_.values).isEmpty

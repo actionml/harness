@@ -17,11 +17,19 @@
 
 package com.actionml.router.service
 
+import cats.data.Validated
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.admin.Administrator
 import com.actionml.core.HIO
-import com.actionml.core.model.Response
+import com.actionml.core.model.{Comment, Response}
+import com.actionml.core.spark.SparkContextSupport.jsonComment
 import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
+import com.actionml.core.validate.WrongParams
 import com.typesafe.scalalogging.LazyLogging
+import zio.IO
+
+import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
   *
@@ -40,6 +48,8 @@ trait EngineService {
   def importFromPath(engineId: String, importPath: String): HIO[Response]
   def deleteEngine(engineId: String): HIO[Response]
   def cancelJob(engineId: String, jobId: String): HIO[Response]
+  def getUserData(engineId: String, userId: String, num: Int, from: Int): HIO[List[Response]]
+  def deleteUserData(engineId: String, userId: String): HIO[Response]
 }
 
 class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLogging {
@@ -52,4 +62,48 @@ class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLog
   override def importFromPath(engineId: String, importPath: String): HIO[Response] = admin.updateEngineWithImport(engineId, importPath)
   override def deleteEngine(engineId: String): HIO[Response] = admin.removeEngine(engineId)
   override def cancelJob(engineId: String, jobId: String): HIO[Response] = admin.cancelJob(engineId = engineId, jobId = jobId)
+  /*
+    case DeleteUserData(engineId, userId) =>
+      admin.getEngine(engineId).fold {
+        sender() ! Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
+      } { engine =>
+        sender() ! (try {
+          engine.deleteUserData(userId)
+        } catch {
+          case _: NotImplementedError => Invalid(NotImplemented)
+          case NonFatal(_) => Invalid(ValidRequestExecutionError)
+        })
+      }
+   */
+  override def getUserData(engineId: String, userId: String, num: Int, from: Int): HIO[List[Response]] = {
+    admin.getEngine(engineId).fold[HIO[List[Response]]](IO.fail(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))) { engine =>
+      engine.getUserData(userId, num, from) match {
+        case Valid(r) => IO.succeed(r)
+        case Invalid(e) => IO.fail(e)
+      }
+    }
+  }
+  override def deleteUserData(engineId: String, userId: String): HIO[Response] = {
+    admin.getEngine(engineId).fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))) { engine =>
+      engine.deleteUserData(userId) match {
+        case Valid(r) => IO.succeed(r)
+        case Invalid(e) => IO.fail(e)
+      }
+    }
+  }
 }
+
+
+sealed trait EngineAction
+case class GetSystemInfo() extends EngineAction
+case class GetEngine(engineId: String) extends EngineAction
+case object GetEngines extends EngineAction
+case class CreateEngine(engineJson: String) extends EngineAction
+case class UpdateEngine(engineJson: String) extends EngineAction
+case class UpdateEngineWithTrain(engineId: String) extends EngineAction
+case class UpdateEngineWithImport(engineId: String, inputPath: String) extends EngineAction
+case class CancelJob(engineId: String, jobId: String) extends EngineAction
+case class GetUserData(engineId: String, userId: String, num: Int, from: Int) extends EngineAction
+case class DeleteUserData(engineId: String, userId: String) extends EngineAction
+
+case class DeleteEngine(engineId: String) extends EngineAction

@@ -70,23 +70,23 @@ jobs:
               docker-compose ps
 
               sleep 45
-                         
+
               docker-compose exec harness-cli bash -c 'curl elasticsearch:9200'
 
 
               docker-compose exec harness-cli bash -c 'sed -i "s|training_sleep_seconds=40|training_sleep_seconds=90|g" /harness-cli/examples/ur/simple-integration-test.sh'
-     
+
               docker-compose logs harness
 
               docker-compose exec harness-cli bash -c 'harness-cli status'; RESULT=$?
               docker-compose exec harness-cli bash -c 'harness-cli status system'; RESULT=$?
-              
+
               docker-compose exec harness-cli bash -c 'cd harness-cli && ./examples/ur/simple-integration-test.sh dc'; RESULT=$?
-                            
+
               echo "harness-cli simple-integration-test finished"
 
               echo "export RESULT=$RESULT" >> $SHELL_ENV
-          
+
               source $SHELL_ENV
     - run:
         name: Publish docker image
@@ -105,10 +105,10 @@ jobs:
                 BRANCH=`echo "${CIRCLE_BRANCH}" | sed s/'\/'/-/g`
                 docker tag actionml/harness:latest actionml/harness:$BRANCH
                 docker image push actionml/harness:$BRANCH
-                
+
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$SHORT_GIT_HASH
                 docker image push actionml/harness:$BRANCH-$SHORT_GIT_HASH
-                
+
                 docker tag actionml/harness:latest actionml/harness:$BRANCH-$DATE_BUILD
                 docker image push actionml/harness:$BRANCH-$DATE_BUILD
               ;;

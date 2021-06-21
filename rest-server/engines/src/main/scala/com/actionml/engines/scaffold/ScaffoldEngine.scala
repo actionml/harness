@@ -134,6 +134,10 @@ class ScaffoldEngine extends Engine with JsonSupport {
 
   override def queryAsync(json: String)(implicit ec: ExecutionContext): Future[Response] = Future.failed(new NotImplementedError())
 
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
+    throw new NotImplementedError
+
+  override def deleteUserData(userId: String): Validated[ValidateError, Response] = throw new NotImplementedError
 }
 
 object ScaffoldEngine {

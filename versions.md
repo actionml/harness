@@ -6,12 +6,25 @@ Harness is a complete end-to-end mature Machine Learning server tested in live p
 
 In the "develop" branch of the git repo this will be somewhat unstable at first due to some fundamental changes to synchronizing multiple Harness Servers behind a load balancer. We are also adding the ability to push the "Spark Driver" process into the Spark cluster. These changes are primarily to support very large datasets and very heavy load environments.
 
-## harness-0.6.0 (current stable)
+## harness-0.6.2 (current stable)
+
+Bug fix release:
+
+ - Fixes a bug where under some conditions (users with a large history) the most recent user history is truncated when making personalized recs. This only affects personalized recs and is fairly rare.
+ - Fixes a problem with dropping unused Elasticsearch indexes after training. This can cause disk to fill with unreachable indexes. Only affects deployments with ES 7.6+, earlier versions of ES do not have this problem.
+
+## harness-0.6.1
+
+Bug fix release:
+
+ - Fixes a bug where moore than 30 items in an itemset query will cause spurious clauses in the ES query and return a server error from Harness/UR
+ - Fixes cases where Spark jobs are not marked with the correct status when they abort
+
+## harness-0.6.0
 
 New features include:  
 
  - Realtime changes to item properties via modifying the model during the $set of properties.
- - 
 
 ## harness-0.5.1 (containerized)
 

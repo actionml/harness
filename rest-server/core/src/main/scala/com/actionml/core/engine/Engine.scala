@@ -192,6 +192,10 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def cancelJob(engineId: String, jobId: String): Validated[ValidateError, Response] = notImplemented(s"Cancel is not a valid operation for engineId: $engineId")
 
+  def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]]
+
+  def deleteUserData(userId: String): Validated[ValidateError, Response]
+
 
   private def notImplemented(message: String) = {
     logger.warn(message)
