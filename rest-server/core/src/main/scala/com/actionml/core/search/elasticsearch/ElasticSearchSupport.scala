@@ -79,7 +79,7 @@ trait ElasticSearchResultTransformation extends JsonSearchResultTransformation[H
   }
 }
 
-class ElasticSearchClient private (alias: String, client: RestClient)(implicit w: Writer[EsDocument])
+class ElasticSearchClient private (alias: String, client: RestClient)
   extends SearchClient[Hit, EsDocument] with LazyLogging with WriteToEsSupport with JsonSupport {
   this: JsonSearchResultTransformation[Hit] =>
   import ElasticSearchClient.ESVersions._
@@ -590,30 +590,6 @@ class ElasticSearchClient private (alias: String, client: RestClient)(implicit w
 
 
 object ElasticSearchClient extends LazyLogging with JsonSupport {
-  private implicit val _: Writer[EsDocument] = new Writer[EsDocument] {
-    override def write(doc: EsDocument): JValue = JObject(
-      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
-        JField(key, JArray(values.map(JString))) :: acc
-      }
-    )
-  }
-
-  def apply(aliasName: String): ElasticSearchClient = {
-    val client: RestClient = {
-      val builder = RestClient.builder(esNodes: _*)
-      if (config.hasPath("elasticsearch.auth")) {
-        val authConfig = config.getConfig("elasticsearch.auth")
-        builder.setHttpClientConfigCallback(new BasicAuthProvider(
-          authConfig.getString("username"),
-          authConfig.getString("password")
-        ))
-      }
-      builder.build
-    }
-    new ElasticSearchClient(aliasName, client) with ElasticSearchResultTransformation
-  }
-
-
   /*
     ELASTICSEARCH_URI supports format http[s]://localhost:9200[,anotherhost:9200,thirdone:9100]
    */
@@ -631,7 +607,31 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
       }
     case _ => throw new RuntimeException("Wrong Elasticsearch config")
   }
-  val esNodes = parseNodes(uri)
+  val esNodes: Seq[Node] = parseNodes(uri)
+
+  private implicit val documentWriter: Writer[EsDocument] = new Writer[EsDocument] {
+    override def write(doc: EsDocument): JValue = JObject(
+      doc._2.foldLeft[List[JField]](List.empty[JField]) { case (acc, (key, values)) =>
+        JField(key, JArray(values.map(JString))) :: acc
+      }
+    )
+  }
+
+  def apply(aliasName: String): ElasticSearchClient = {
+    def client: RestClient = {
+      val builder = RestClient.builder(esNodes: _*)
+      if (config.hasPath("elasticsearch.auth")) {
+        val authConfig = config.getConfig("elasticsearch.auth")
+        builder.setHttpClientConfigCallback(new BasicAuthProvider(
+          authConfig.getString("username"),
+          authConfig.getString("password")
+        ))
+      }
+      builder.build
+    }
+    new ElasticSearchClient(aliasName, client) with ElasticSearchResultTransformation
+  }
+
 
   private def createIndexName(alias: String) = alias + "_" + Instant.now().toEpochMilli.toString
 

@@ -29,11 +29,11 @@ import java.nio.charset.StandardCharsets
   */
 class FSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
-  private var putEventToQueue: String => Task[Unit] = _
+  private var putEventToQueue: Option[String => Task[Unit]] = None
   if (mirrorContainer.nonEmpty) zio.Runtime.default.unsafeRunAsync {
     (for {
       q <- Queue.unbounded[String]
-      _ = putEventToQueue = s => q.offer(s).unit
+      _ = putEventToQueue = Some(s => q.offer(s).unit)
       dir = new File(containerName)
       _ = if (!dir.exists()) dir.mkdirs()
       _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $containerName")
@@ -50,11 +50,13 @@ class FSMirror(override val mirrorContainer: String, override val engineId: Stri
   }
 
   override def mirrorEvent(event: String): Task[Unit] =
-    putEventToQueue(event)
-      .onError { c =>
-        c.failures.foreach(e => logger.error("Problem mirroring while input", e))
-        IO.unit
-      }
+    putEventToQueue.fold[Task[Unit]](IO.unit) {
+      _.apply(event)
+        .onError { c =>
+          c.failures.foreach(e => logger.error("Problem mirroring while input", e))
+          IO.unit
+        }
+    }
 
   override def cleanup(): Task[Unit] = IO.unit
 }

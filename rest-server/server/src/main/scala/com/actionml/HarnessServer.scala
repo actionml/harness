@@ -45,7 +45,7 @@ object HarnessServer extends App with LazyLogging {
 
   def start() = {
     implicit val config: AppConfig = AppConfig.apply
-    ElasticSearchClient.esNodes
+    assert(ElasticSearchClient.esNodes.nonEmpty)
 
     implicit val actorSystem: ActorSystem = ActorSystem(config.actorSystem.name)
     actorSystem.whenTerminated.onComplete { t =>
