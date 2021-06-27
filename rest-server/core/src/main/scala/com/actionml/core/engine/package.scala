@@ -18,6 +18,8 @@
 package com.actionml.core
 
 import com.actionml.core.engine.backend.EngineMetadata
+import com.actionml.core.jobs.JobDescription
+import com.actionml.core.model.{EngineParams, Response}
 import zio.{Has, ZIO}
 
 import java.time.Instant
@@ -34,12 +36,14 @@ package object engine {
       def updateEngine(id: String, data: EngineMetadata): HIO[Unit]
       def deleteEngine(id: String): HIO[Unit]
       def watchActions(callback: Action => Unit): HIO[Unit]
+      def listNodes: HIO[List[NodeDescription]]
     }
 
     def addEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.addEngine(id, data))
     def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.updateEngine(id, data))
     def deleteEngine(id: String): HIO[Unit] = ZIO.accessM(_.get.deleteEngine(id))
     def watchActions(callback: Action => Unit): HIO[Unit] = ZIO.accessM(_.get.watchActions(callback))
+    def listNodes: HIO[List[NodeDescription]] = ZIO.accessM(_.get.listNodes)
   }
 
 
@@ -55,8 +59,13 @@ package object engine {
   object ActionNames extends Enumeration {
     type ActionName = Value
 
-    val add = Value("add")
-    val update = Value("update")
-    val delete = Value("delete")
+    val add: ActionName = Value("add")
+    val update: ActionName = Value("update")
+    val delete: ActionName = Value("delete")
   }
+
+  case class NodeDescription(
+    node: String,
+    engines: Seq[_ <: EngineStatus]
+  ) extends Response
 }

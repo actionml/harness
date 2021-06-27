@@ -17,9 +17,10 @@
 
 package com.actionml.core.spark
 
+import com.actionml.core.config.AppConfig.hostname
+
 import java.io.File
 import java.net.URI
-
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.jobs.{Cancellable, JobDescription, JobStatuses}
 import com.typesafe.config.ConfigFactory
@@ -54,7 +55,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   private val livyUrl = config.getString("spark.job-server-url")
 
   override def submit[T](initParams: String, engineId: String, job: SparkContext => T): JobDescription = {
-    val jobDescription = JobDescription.create
+    val jobDescription = JobDescription.createSync
     val id = ContextId(initParams = initParams, engineId = engineId, jobId = jobDescription.jobId)
     try {
       val ContextApi(client, handlers) =
@@ -83,7 +84,7 @@ object LivyJobServerSupport extends SparkJobServerSupport with LazyLogging {
   override def status(engineId: String): Iterable[JobDescription] = {
     contexts.flatMap {
       case (ContextId(_, eId, jobId), api) if eId == engineId =>
-        api.handlers.flatMap(handler => state2Status(handler.getState).map(s => JobDescription(jobId, s)))
+        api.handlers.flatMap(handler => state2Status(handler.getState).map(s => JobDescription(jobId, hostname, s)))
     }
   }
 

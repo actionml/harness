@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.Path
 import zio.Task
 
 import java.io.File
+import scala.util.Try
 
 /**
   * Trait for JSON back up. Every json sent to POST /engines/engine-id/events will be mirrored by
@@ -61,4 +62,6 @@ object MirrorTypes extends Enumeration {
 
   val localfs: MirrorType = Value("localfs")
   val hdfs: MirrorType = Value("hdfs")
+
+  def withNameOpt(s: String): Option[MirrorType] = Try(withName(s)).toOption
 }

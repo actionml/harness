@@ -65,6 +65,7 @@ object HarnessServer extends App with LazyLogging {
     val authService = new CachedAuthorizationService(config.auth)
     val authServerProxy = new AuthServerProxyServiceImpl(config, actorSystem, actorMaterializer)
     val queryService = new QueryServiceImpl(administrator, actorSystem)
+    val infoService = new InfoService(administrator)
 
     val checkRouter = new CheckRouter
     val queriesRouter = new QueriesRouter(authService, queryService)
@@ -75,6 +76,7 @@ object HarnessServer extends App with LazyLogging {
     val engineService = new EngineServiceImpl(administrator)
     val eventsRouter = new EventsRouter(eventService, authService)
     val engineRouter = new EnginesRouter(engineService, authService)
+    val infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, config, infoService)
 
     new RestServer(
       actorSystem,
@@ -85,6 +87,7 @@ object HarnessServer extends App with LazyLogging {
       eventsRouter,
       engineRouter,
       queriesRouter,
+      infoRouter,
       authServerProxyRouter
     ).run()
   }

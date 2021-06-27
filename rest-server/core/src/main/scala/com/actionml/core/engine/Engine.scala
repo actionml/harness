@@ -21,7 +21,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.HIO
 import com.actionml.core.backup._
-import com.actionml.core.jobs.JobManager
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
@@ -33,6 +33,7 @@ import zio.{Exit, IO, Task, UIO, ZIO}
 import java.net.URI
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.language.implicitConversions
 import scala.util.Try
 
 /** Forms the Engine contract. Engines parse and validate input strings, probably JSON,
@@ -131,7 +132,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     */
   def status(): HIO[Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
-    IO.succeed(EngineStatus(engineId, "This Engine does not implement the status API"))
+    IO.succeed(Comment("This Engine does not implement the status API"))
   }
 
   /** Every input is processed by the Engine first, which may pass on to an Algorithm and/or Dataset for further
@@ -203,4 +204,4 @@ abstract class Engine extends LazyLogging with JsonSupport {
   }
 }
 
-case class EngineStatus(engineId: String, comment: String) extends Response
+case class EngineStatus(engineParams: GenericEngineParams, jobStatuses: List[JobDescription]) extends Response
