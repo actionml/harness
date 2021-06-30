@@ -21,14 +21,16 @@ import com.actionml.core.config.{AppConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
 import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
 import com.actionml.core.utils.HttpClient
-import com.actionml.core.validate.ValidateError
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import zio.blocking.Blocking
 import zio.clock.Clock
-import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
+import zio.logging.{Logging, log}
 import zio.stream.ZStream
-import zio.{Has, IO, Layer, Runtime, ZIO, ZLayer, ZManaged}
+import zio.{Cause, IO, Layer, Runtime, Task, ZIO, ZLayer, ZManaged}
+
+import scala.language.implicitConversions
 
 package object core  extends LazyLogging {
 
@@ -104,5 +106,11 @@ package object core  extends LazyLogging {
     Blocking.live ++
     zio.system.System.live ++
     HttpClient.live
+  }
+
+  object ValidateErrorImplicits {
+    implicit def task2Hio[A](t: Task[A]): HIO[A] = t.flatMapError { e =>
+      log.error("Task error", Cause.die(e)).as(ValidRequestExecutionError())
+    }
   }
 }

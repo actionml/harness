@@ -17,36 +17,33 @@
 
 package com.actionml.core.jobs
 
+import com.actionml.core.ValidateErrorImplicits._
 import com.actionml.core.config.AppConfig
-import com.actionml.core.config.AppConfig.{hostName, hostname}
-import com.actionml.core.{HEnv, HIO, harnessRuntime}
-
-import java.util.{Date, UUID}
+import com.actionml.core.config.AppConfig.hostname
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.ValidRequestExecutionError
+import com.actionml.core.{HIO, harnessRuntime}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import net.ceedubs.ficus.Ficus._
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
+import zio.{Exit, IO, Queue, Ref, Schedule, Task, ZIO}
 
+import java.util.{Date, UUID}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
-import zio.logging.Logging
-import zio.{Exit, IO, Queue, RIO, Ref, Schedule, Task, URIO, ZIO, system}
-
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 
 trait JobManagerInterface {
@@ -260,6 +257,7 @@ final case class JobRecord(
   }
 }
 object JobRecord {
+  import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
   private val config = ConfigFactory.load
   private val jobsConfig = config.as[JobManagerConfig]("jobs")
   private[jobs] val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(throw new RuntimeException("Environment variable JOBS_EXPIRE_AFTER must be set"))
@@ -328,9 +326,9 @@ case class JobDescription (
 ) extends Response
 
 object JobDescription {
-  def create: RIO[system.System with Logging, JobDescription] = for {
-    id <- IO.effect(UUID.randomUUID().toString)
+  def create: HIO[JobDescription] = for {
     node <- AppConfig.hostName
+    id <- IO.effect(UUID.randomUUID().toString)
   } yield JobDescription(id, node)
 
   def createSync: JobDescription = harnessRuntime.unsafeRun(create)

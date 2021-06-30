@@ -19,7 +19,7 @@ package com.actionml.core.config
 
 import java.net.{InetAddress, URI}
 import com.actionml.core.config.StoreBackend.StoreBackend
-import com.actionml.core.harnessRuntime
+import com.actionml.core.{HIO, harnessRuntime}
 import com.actionml.core.jobs.JobManagerConfig
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
@@ -96,7 +96,7 @@ object AppConfig {
     )
   }
 
-  val hostName: RIO[zio.system.System with zio.logging.Logging, String] = {
+  val hostName: HIO[String] = {
     env("HOSTNAME").map(_.getOrElse(InetAddress.getLocalHost.getHostName))
       .catchAll(e => log.error("Get $HOSTNAME error", Cause.fail(e)).as("unknown"))
   }

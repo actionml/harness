@@ -16,10 +16,13 @@
  */
 package com.actionml.core.backup
 
+import com.actionml.core.HIO
+import com.actionml.core.config.AppConfig
+
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import org.apache.hadoop.fs.Path
-import zio.Task
+import zio.{RIO, Task, UIO}
 
 import java.io.File
 import scala.util.Try
@@ -50,7 +53,9 @@ trait Mirror {
     *
     * @return directory name
     */
-  val containerName: String = s"$mirrorContainer${File.separator}$engineId"
+  val containerName: HIO[String] = AppConfig.hostName.map { hostname =>
+    s"$mirrorContainer${File.separator}$hostname${File.separator}$engineId"
+  }
 
 
   def mirrorEvent(event: String): Task[Unit]
