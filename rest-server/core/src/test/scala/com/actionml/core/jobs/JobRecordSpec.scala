@@ -24,7 +24,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class JobRecordSpec extends FlatSpec with Matchers {
   import JobRecord.defaultExpireMillis
-  def jobRecord(createdAt: Date) = JobRecord("", JobDescription("", createdAt = Option(createdAt)))
+  def jobRecord(createdAt: Date) = JobRecord("", JobDescription("", createdAt = Option(createdAt), node = ""))
   def now(delta: Long = 0): Date = new Date(System.currentTimeMillis() + delta)
 
   "expiredStatus" should "be set only for expired 'queued' or 'executing' statuses" in {
@@ -34,7 +34,7 @@ class JobRecordSpec extends FlatSpec with Matchers {
 
     jobRecord(now(-defaultExpireMillis + 1000))
       .toJobDescription
-      .status shouldEqual JobDescription.create.status
+      .status shouldEqual JobDescription.createSync.status
   }
 
   it should "not be set for failed or successful statuses" in {

@@ -17,7 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.HIO
+import com.actionml.core.{HIO, engine}
 import com.actionml.core.engine.{Action, Add, Delete, EnginesBackend, Update}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
@@ -112,6 +112,8 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
         })
     }
   }
+
+  override def listNodes: HIO[List[engine.NodeDescription]] = IO.succeed(Nil)
 
 
   private def mkEvent(engineId: String, eventName: String) = Document(

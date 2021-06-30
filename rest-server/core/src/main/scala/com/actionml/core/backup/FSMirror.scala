@@ -17,6 +17,7 @@
 
 package com.actionml.core.backup
 
+import com.actionml.core.harnessRuntime
 import com.actionml.core.validate.JsonSupport
 import zio.duration._
 import zio.{Exit, IO, Queue, Schedule, Task, ZIO}
@@ -30,14 +31,15 @@ import java.nio.charset.StandardCharsets
 class FSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
   private var putEventToQueue: Option[String => Task[Unit]] = None
-  if (mirrorContainer.nonEmpty) zio.Runtime.default.unsafeRunAsync {
+  if (mirrorContainer.nonEmpty) harnessRuntime.unsafeRunAsync {
     (for {
+      container <- containerName
       q <- Queue.unbounded[String]
       _ = putEventToQueue = Some(s => q.offer(s).unit)
-      dir = new File(containerName)
+      dir = new File(container)
       _ = if (!dir.exists()) dir.mkdirs()
-      _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $containerName")
-      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$containerName${File.separator}$batchName.json", true)), StandardCharsets.UTF_8))
+      _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $container")
+      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$container${File.separator}$batchName.json", true)), StandardCharsets.UTF_8))
       _ <- ZIO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).fork
       _ <- q.take.map(out.append(_)).forever
     } yield ()).retryUntil {
