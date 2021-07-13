@@ -27,7 +27,7 @@ import com.actionml.core.store.{DaoQuery, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
-import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
+import com.actionml.engines.ur.UREngine.{UREvent, UREventOriginal, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
 
@@ -219,7 +219,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   }
 
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] = {
-    Valid(eventsDao.findMany(limit = num, offset = from)("entityType"=== "user", "entityId" === userId).toList)
+    Valid(eventsDao.findMany(limit = num, offset = from)("entityType"=== "user", "entityId" === userId).toList.map(UREventOriginal.fromUREvent))
   }
 
   override def deleteUserData(userId: String): Unit = {
