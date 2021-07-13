@@ -19,7 +19,9 @@ package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.actionml.core.engine.Dataset
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.DaoQuery.syntax._
@@ -30,6 +32,7 @@ import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREvent, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
+import zio.IO
 
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -222,8 +225,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     Valid(eventsDao.findMany(limit = num, offset = from)("entityType"=== "user", "entityId" === userId).toList)
   }
 
-  override def deleteUserData(userId: String): Unit = {
-    eventsDao.removeMany("entityType"=== "user", "entityId" === userId)
+  override def deleteUserData(userId: String): HIO[JobDescription] = {
+    JobManager.addJob(engineId, HIO.fromFuture(eventsDao.removeManyAsync("entityType"=== "user", "entityId" === userId)),
+      s"Delete data for user $userId in engine $engineId")
   }
 
 

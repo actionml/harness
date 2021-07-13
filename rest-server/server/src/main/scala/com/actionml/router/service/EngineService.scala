@@ -85,10 +85,7 @@ class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLog
   }
   override def deleteUserData(engineId: String, userId: String): HIO[Response] = {
     admin.getEngine(engineId).fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))) { engine =>
-      engine.deleteUserData(userId) match {
-        case Valid(r) => IO.succeed(r)
-        case Invalid(e) => IO.fail(e)
-      }
+      engine.deleteUserData(userId)
     }
   }
 }

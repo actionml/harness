@@ -19,7 +19,7 @@ package com.actionml
 
 import com.actionml.core.config.{AppConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
+import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, EtcdSupport, MongoStorageHelper}
 import com.actionml.core.utils.HttpClient
 import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
@@ -28,9 +28,11 @@ import zio.clock.Clock
 import zio.logging.slf4j.Slf4jLogger
 import zio.logging.{Logging, log}
 import zio.stream.ZStream
-import zio.{Cause, IO, Layer, Runtime, Task, ZIO, ZLayer, ZManaged}
+import zio.{Cause, Fiber, IO, Layer, Runtime, Task, ZIO, ZLayer, ZManaged}
 
+import scala.concurrent.Future
 import scala.language.implicitConversions
+import scala.util.{Failure, Success}
 
 package object core  extends LazyLogging {
 
@@ -85,19 +87,24 @@ package object core  extends LazyLogging {
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
 
-  val enginesBackend: Layer[Throwable, EnginesBackend] = {
-    val config = AppConfig.apply
-    ZLayer.fromManaged {
-      {
-        ZManaged.make {
-          config.enginesBackend match {
-            case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
-            case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
-          }
-        }(_ => IO.unit)
-      }
+  object HIO {
+    def fromFuture[A](f: => Future[A]): HIO[A] = {
+      Fiber.fromFuture(f).join
+        .flatMapError { e =>
+          log.error("Error in Future", Cause.die(e)).as(ValidRequestExecutionError())
+        }
     }
   }
+
+  val enginesBackend: Layer[Any, EnginesBackend] =
+    ZLayer.fromManaged {
+      ZManaged.make {
+        AppConfig().enginesBackend match {
+          case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
+          case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
+        }
+      }(_ => IO.unit)
+    }
 
   val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer {
     enginesBackend ++

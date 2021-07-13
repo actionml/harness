@@ -39,13 +39,16 @@ object ZIOUtil extends LazyLogging {
       }).flatten
     }
   }
-  object ZioImplicits {
+  object HioImplicits {
     implicit class CompletableFuture2IO[T](f: CompletableFuture[T]) {
       def toIO: HIO[T] = completableFuture2HIO(f)
       def toTask: Task[T] = ZIO.fromCompletionStage(f)
     }
     implicit def completableFuture2HIO[T](f: CompletableFuture[T]): HIO[T] =
       mapError(ZIO.fromCompletionStage(f))
+  }
+  object ZioImplicits {
+    implicit def completableFuture2Task[T](f: CompletableFuture[T]): Task[T] = ZIO.fromCompletionStage(f)
   }
 
 

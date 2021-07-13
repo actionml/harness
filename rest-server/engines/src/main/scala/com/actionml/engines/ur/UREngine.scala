@@ -191,9 +191,8 @@ class UREngine extends Engine with JsonSupport {
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     dataset.getUserData(userId, num, from)
 
-  override def deleteUserData(userId: String): Validated[ValidateError, Response] = {
+  override def deleteUserData(userId: String): HIO[Response] = {
     dataset.deleteUserData(userId)
-    Valid(Comment("All data deleted"))
   }
 }
 

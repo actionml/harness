@@ -196,7 +196,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
 
   def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]]
 
-  def deleteUserData(userId: String): Validated[ValidateError, Response]
+  def deleteUserData(userId: String): HIO[Response]
 
 
   private def notImplemented(message: String) = {

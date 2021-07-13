@@ -48,9 +48,8 @@ import scala.util.Try
 class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   import EnginesEtcdBackend._
-  import com.actionml.core.utils.ZIOUtil.ZioImplicits._
+  import com.actionml.core.utils.ZIOUtil.HioImplicits._
 
-  private val config = AppConfig.apply
   private val etcdClient = Client.builder.endpoints(config.etcdConfig.endpoints: _*).build
   private val kv = etcdClient.getKVClient
   private val watch = etcdClient.getWatchClient
@@ -60,9 +59,10 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     leaseId <- lease.grant(5).toIO.map(_.getID)
     _ <- leaseIdQueue.offer(leaseId)
     instanceKey <- mkServiceKey
-      .mapError(_ => ValidRequestExecutionError())
     kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
     _ <- kv.put(instanceKey, "", kOpt)
+    _ <- if (config.jobs.jobControllerEnabled) hostPort.flatMap(h => kv.put(jcKey, h, kOpt))
+         else IO.unit
     _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb => Try {
       lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
         override def onCompleted(): Unit = {
@@ -243,8 +243,12 @@ object EnginesEtcdBackend {
   private val enginesPrefix = "/harness_meta_store/engines/"
   private def mkEngineKey(engineId: String): ByteSequence = toByteSequence(s"$enginesPrefix$engineId")
   private val servicesPrefix = "/services/harness/instances/"
-  private val port = AppConfig().restServer.port
-  private def mkServiceKey = AppConfig.hostName.map(n => s"${servicesPrefix}harness-$n:${port}")
+  private val config = AppConfig()
+  private val port = config.restServer.port
+  private val hostPort = AppConfig.hostName.map(n => s"$n:${port}")
+  private val mkServiceKey = hostPort.map(n => s"${servicesPrefix}harness-$n")
+    .mapError(_ => ValidRequestExecutionError())
+  private def jcKey = s"${servicesPrefix}job-controller"
   private val ServiceKeyPattern = s"${servicesPrefix}harness-([a-zA-Z0-9-\\.:]*)".r
   private val etcdCharset = Charset.forName("UTF-8")
   private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build

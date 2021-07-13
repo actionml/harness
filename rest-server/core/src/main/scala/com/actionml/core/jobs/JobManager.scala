@@ -237,7 +237,7 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 }
 
-final case class JobManagerConfig(expireAfter: Option[FiniteDuration])
+final case class JobManagerConfig(expireAfter: Option[FiniteDuration], jobControllerEnabled: Boolean)
 
 final case class JobRecord(
   engineId: String,
