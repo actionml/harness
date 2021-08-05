@@ -23,7 +23,6 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import cats.data.Validated
-import cats.data.Validated.Valid
 import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
@@ -36,6 +35,8 @@ import com.actionml.router.service._
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import scaldi.Injector
+
+import scala.concurrent.ExecutionContext
 
 /**
   *
@@ -102,22 +103,15 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
       }
     } ~
     (pathPrefix("system") & extractLog) { implicit log =>
-      path("health")(healthCheck) ~
       pathEndOrSingleSlash(getSystemInfo)
     }
   }
 
 
-  private def healthCheck: Route = get {
-    completeByValidated(StatusCodes.OK) {
-      admin.healthCheck.map(Valid(_))
-    }
-  }
-
   private def getSystemInfo(implicit log: LoggingAdapter): Route = get {
     log.info("Get system info")
     completeByValidated(StatusCodes.OK) {
-      (engineService ? GetSystemInfo()).mapTo[Validated[ValidateError, Response]]
+      admin.systemInfo(ExecutionContext.Implicits.global)
     }
   }
 

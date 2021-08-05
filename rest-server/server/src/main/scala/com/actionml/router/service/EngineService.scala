@@ -26,6 +26,7 @@ import com.actionml.core.validate.{NotImplemented, ValidRequestExecutionError, V
 import com.actionml.router.ActorInjectable
 import scaldi.Injector
 
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -44,7 +45,8 @@ class EngineServiceImpl(implicit inj: Injector) extends EngineService{
 
   override def receive: Receive = {
     case GetSystemInfo() =>
-      sender() ! admin.systemInfo()
+      log.info("Get system info")
+      sender() ! admin.systemInfo(ExecutionContext.Implicits.global)
 
     case GetEngine(engineId) =>
       log.info("Get engine, {}", engineId)

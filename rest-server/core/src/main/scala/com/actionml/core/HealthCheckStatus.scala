@@ -26,9 +26,3 @@ object HealthCheckStatus extends Enumeration {
   val yellow: HealthCheckStatus = Value("yellow")
   val red: HealthCheckStatus = Value("red")
 }
-
-//case class HealthCheckResponse(mongo: HealthCheckStatus, elasticsearch: HealthCheckStatus) extends Response
-case class HealthCheckResponse(mongoStatus: String, elasticsearchStatus: String) extends Response
-object HealthCheckResponse {
-  def apply(mongo: HealthCheckStatus, es: HealthCheckStatus): HealthCheckResponse = HealthCheckResponse(mongo.toString, es.toString)
-}

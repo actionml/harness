@@ -31,6 +31,7 @@ import com.actionml.core.validate._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Properties
+import scala.util.control.NonFatal
 
 class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSupport {
   import DaoQuery.syntax._
@@ -144,17 +145,27 @@ class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSup
     }
   }
 
-  override def systemInfo(): Validated[ValidateError, Response] = {
+  override def systemInfo(implicit ec: ExecutionContext): Future[Validated[ValidateError, SystemInfo]] = {
     logger.trace("Getting Harness system info")
-    // todo: do we want to check connectons to services here?
-    Valid(SystemInfo(
+    val mongoCheck = MongoStorage.healthCheck
+    val esCheck = ElasticSearchSupport.healthCheck
+    (for {
+      mongoStatus <- mongoCheck
+      esStatus <- esCheck
+    } yield Valid(SystemInfo(
       buildVersion = com.actionml.admin.BuildInfo.version,
       gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
       gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
       harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
       mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
-      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" )
-    ))
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol"),
+      mongoStatus = mongoStatus.toString,
+      elasticsearchStatus = esStatus.toString
+    ))).recover {
+      case NonFatal(e) =>
+        logger.error("System info error", e)
+        Invalid(ValidRequestExecutionError("System info error"))
+    }
   }
 
   override def statuses(): Validated[ValidateError, List[Response]] = {
@@ -183,15 +194,6 @@ class MongoAdministrator(system: ActorSystem) extends Administrator with JsonSup
       Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
     }
   }
-
-  def healthCheck(implicit ec: ExecutionContext): Future[HealthCheckResponse] = {
-    val mongoCheck = MongoStorage.healthCheck
-    val esCheck = ElasticSearchSupport.healthCheck
-    for {
-      mongoStatus <- mongoCheck
-      esStatus <- esCheck
-    } yield HealthCheckResponse(mongoStatus, esStatus)
-  }
 }
 
 case class EnginesStatuses(statuses: List[Response]) extends Response
@@ -207,6 +209,7 @@ case class SystemInfo(
     gitHash: String,
     harnessURI: String,
     mongoURI: String,
-    elasticsearchURI: String
-)
-  extends Response
+    mongoStatus: String,
+    elasticsearchURI: String,
+    elasticsearchStatus: String
+) extends Response
