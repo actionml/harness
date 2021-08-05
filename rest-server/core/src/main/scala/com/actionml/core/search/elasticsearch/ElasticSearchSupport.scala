@@ -17,12 +17,8 @@
 
 package com.actionml.core.search.elasticsearch
 
-import com.actionml.core.{HealthCheckResponse, HealthCheckStatus}
+import com.actionml.core.HealthCheckStatus
 import com.actionml.core.HealthCheckStatus.HealthCheckStatus
-
-import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
-import java.net.{URI, URLEncoder}
-import java.time.Instant
 import com.actionml.core.model.Comment
 import com.actionml.core.search.Filter.{Conditions, Types}
 import com.actionml.core.search._
@@ -44,6 +40,9 @@ import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 import org.json4s.{DefaultFormats, JValue, _}
 
+import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncodingException}
+import java.net.{URI, URLEncoder}
+import java.time.Instant
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
