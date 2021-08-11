@@ -30,7 +30,7 @@ import zio.{IO, Task, ZIO}
 object ZIOUtil extends LazyLogging {
 
   object ValidatedImplicits {
-    implicit def validated2IO(v: => Validated[ValidateError, Response]): HIO[Response] = {
+    implicit def validated2IO[A](v: => Validated[ValidateError, A]): HIO[A] = {
       mapError(IO.effect {
         v match {
           case Valid(resp) => IO.succeed(resp)

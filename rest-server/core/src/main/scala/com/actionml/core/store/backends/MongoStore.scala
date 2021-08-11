@@ -17,16 +17,17 @@
 
 package com.actionml.core.store.backends
 
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.Date
-
+import com.actionml.core.HealthCheckStatus
+import com.actionml.core.HealthCheckStatus.HealthCheckStatus
 import com.actionml.core.store.{DAO, Store}
+import com.mongodb.BasicDBObject
 import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistries}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonReader, BsonWriter}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -101,6 +102,16 @@ object MongoStorage extends LazyLogging {
       CodecRegistries.fromCodecs(new InstantCodec, new OffsetDateTimeCodec),
       DEFAULT_CODEC_REGISTRY
     )
+  }
+
+  def healthCheck(implicit ec: ExecutionContext): Future[HealthCheckStatus] = {
+    val ping = new BasicDBObject("ping", "1")
+    mongoClient
+      .getDatabase("harness_meta_store")
+      .runCommand(ping)
+      .toFuture()
+      .map(_ => HealthCheckStatus.green)
+      .recover { case _ => HealthCheckStatus.red }
   }
 }
 

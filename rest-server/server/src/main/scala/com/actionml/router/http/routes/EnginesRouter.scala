@@ -22,6 +22,7 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
+import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -64,7 +65,8 @@ import scala.language.implicitConversions
   */
 class EnginesRouter(
   engineService: EngineServiceImpl,
-  override val authorizationService: AuthorizationService)(
+  override val authorizationService: AuthorizationService,
+  admin: Administrator)(
   implicit val actorSystem: ActorSystem,
   implicit protected val executor: ExecutionContext,
   implicit protected val materializer: ActorMaterializer,
@@ -103,7 +105,7 @@ class EnginesRouter(
       }
     } ~
     (pathPrefix("system") & extractLog) { implicit log =>
-      getSystemInfo
+      pathEndOrSingleSlash(getSystemInfo)
     }
   }
 
@@ -111,7 +113,7 @@ class EnginesRouter(
   private def getSystemInfo(implicit log: LoggingAdapter): Route = get {
     log.info("Get system info")
     completeByValidated(StatusCodes.OK) {
-      engineService.getSystemInfo
+      admin.systemInfo(ExecutionContext.Implicits.global)
     }
   }
 
