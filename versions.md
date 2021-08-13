@@ -6,6 +6,13 @@ Harness is a complete end-to-end mature Machine Learning server tested in live p
 
 In the "develop" branch of the git repo this will be somewhat unstable at first due to some fundamental changes to synchronizing multiple Harness Servers behind a load balancer. We are also adding the ability to push the "Spark Driver" process into the Spark cluster. These changes are primarily to support very large datasets and very heavy load environments.
 
+## harness-0.7.0 (current stable)
+
+ - Adds features to comply with European GDPR user data privacy laws.
+ - Read data for any entity via GET http://<harness-address>/engines/<some-engine-id>/entities/<some-entity-id> This returns date ordered data collected for any entity, which are users in the Universal Recommender.
+ - Delete data for any entity via DELETE http://<harness-address>/engines/<some-engine-id>/entities/<some-entity-id> This deletes all data collected for any entity, which are users in the Universal Recommender.
+ - Enhanced system status reporting "red" or "green" as well as microservice connection status.
+
 ## harness-0.6.2 (current stable)
 
 Bug fix release:

@@ -19,19 +19,22 @@ package com.actionml.admin
 
 import akka.actor.ActorSystem
 import cats.data.Validated
-import cats.data.Validated.Invalid
+import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.engine.backend.EngineMetadata
 import com.actionml.core.engine.{Add, Delete, Engine, Update}
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
+import com.actionml.core.search.elasticsearch.ElasticSearchSupport
+import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
 import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
 import zio.duration._
 import zio.{IO, Schedule, ZIO}
 
-import scala.concurrent.ExecutionContext
 import scala.util.Properties
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 
 trait Administrator extends LazyLogging with JsonSupport {
@@ -154,21 +157,29 @@ trait Administrator extends LazyLogging with JsonSupport {
     }
   }
 
-  def systemInfo(): HIO[Response] = {
+  def systemInfo(implicit ec: ExecutionContext): Future[Validated[ValidateError, SystemInfo]] = {
     logger.trace("Getting Harness system info")
-    // todo: do we want to check connectons to services here?
-    IO.effect(SystemInfo(
+    val mongoCheck = MongoStorage.healthCheck
+    val esCheck = ElasticSearchSupport.healthCheck()
+    (for {
+      mongoStatus <- mongoCheck
+      esStatus <- esCheck
+    } yield Valid(SystemInfo(
       buildVersion = com.actionml.admin.BuildInfo.version,
       gitBranch = Properties.envOrElse("BRANCH", "No git branch (BRANCH) detected in env." ),
       gitHash = Properties.envOrElse("GIT_HASH", "No git short commit number (GIT_HASH) detected in env." ),
       harnessURI = Properties.envOrElse("HARNESS_URI", "No HARNESS_URI set, using host and port" ),
       mongoURI = Properties.envOrElse("MONGO_URI", "ERROR: No URI set" ),
-      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol" )
-    )).mapError { e =>
-      logger.error("Get system info error", e)
-      ValidRequestExecutionError("Get system info error")
+      elasticsearchURI = Properties.envOrElse("ELASTICSEARCH_URI", "No URI set,using host, port and protocol"),
+      mongoStatus = mongoStatus.toString,
+      elasticsearchStatus = esStatus.toString
+    ))).recover {
+      case NonFatal(e) =>
+        logger.error("System info error", e)
+        Invalid(ValidRequestExecutionError("System info error"))
     }
   }
+
 
   def statuses(): HIO[List[Response]] = {
     logger.trace("Getting status for all Engines")
@@ -204,5 +215,7 @@ case class SystemInfo(
   gitHash: String,
   harnessURI: String,
   mongoURI: String,
-  elasticsearchURI: String
+  mongoStatus: String,
+  elasticsearchURI: String,
+  elasticsearchStatus: String
 ) extends Response

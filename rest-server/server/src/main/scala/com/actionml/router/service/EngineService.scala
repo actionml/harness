@@ -19,15 +19,16 @@ package com.actionml.router.service
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.admin.Administrator
+import com.actionml.admin.{Administrator, SystemInfo}
 import com.actionml.core.HIO
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.spark.SparkContextSupport.jsonComment
 import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
-import com.actionml.core.validate.WrongParams
+import com.actionml.core.validate.{ValidRequestExecutionError, WrongParams}
 import com.typesafe.scalalogging.LazyLogging
-import zio.IO
+import zio.{Fiber, IO}
 
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -39,7 +40,6 @@ import scala.util.control.NonFatal
   */
 
 trait EngineService {
-  def getSystemInfo: HIO[Response]
   def status(engineId: String): HIO[Response]
   def statuses(): HIO[List[Response]]
   def addEngine(engineJson: String): HIO[Response]
@@ -53,7 +53,6 @@ trait EngineService {
 }
 
 class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLogging {
-  override def getSystemInfo: HIO[Response] = admin.systemInfo()
   override def status(engineId: String): HIO[Response] = admin.status(engineId)
   override def statuses(): HIO[List[Response]] =  admin.statuses()
   override def addEngine(engineJson: String): HIO[Response] = admin.addEngine(engineJson)
@@ -63,6 +62,63 @@ class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLog
   override def deleteEngine(engineId: String): HIO[Response] = admin.removeEngine(engineId)
   override def cancelJob(engineId: String, jobId: String): HIO[Response] = admin.cancelJob(engineId = engineId, jobId = jobId)
   /*
+=======
+trait EngineService extends ActorInjectable
+
+class EngineServiceImpl(implicit inj: Injector) extends EngineService{
+
+  private val admin = inject[Administrator]('Administrator)
+
+  override def receive: Receive = {
+    case GetSystemInfo() =>
+      log.info("Get system info")
+      sender() ! admin.systemInfo(ExecutionContext.Implicits.global)
+
+    case GetEngine(engineId) =>
+      log.info("Get engine, {}", engineId)
+      sender() ! admin.status(engineId)
+
+    case GetEngines =>
+      log.info("Get one or all engine status")
+      sender() ! admin.statuses()
+
+    case CreateEngine(engineJson) =>
+      log.info("Create new engine, {}", engineJson)
+      sender() ! admin.addEngine(engineJson)
+
+    case UpdateEngine(engineJson) =>
+      log.info(s"Update existing engine, $engineJson")
+      sender() ! admin.updateEngine(engineJson)
+
+    case UpdateEngineWithTrain(engineId) =>
+      log.info(s"Update existing engine, $engineId")
+      sender() ! admin.updateEngineWithTrain(engineId)
+
+    case UpdateEngineWithImport(engineId, inputPath) =>
+      log.info(s"Update existing engine by importing, $inputPath")
+      sender() ! admin.updateEngineWithImport(engineId, inputPath)
+
+    case DeleteEngine(engineId) =>
+      log.info("Delete existing engine, {}", engineId)
+      sender() ! admin.removeEngine(engineId)
+
+    case CancelJob(engineId, jobId) =>
+      log.info(s"Cancel job $jobId for engine $engineId")
+      sender() ! admin.cancelJob(engineId = engineId, jobId = jobId)
+
+    case GetUserData(engineId, userId, num, from) =>
+      admin.getEngine(engineId).fold {
+        sender() ! Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
+      } { engine =>
+        sender() ! (try {
+          engine.getUserData(userId, num, from)
+        } catch {
+          case _: NotImplementedError => Invalid(NotImplemented)
+          case NonFatal(_) => Invalid(ValidRequestExecutionError)
+        })
+      }
+
+>>>>>>> feature/add-system-health-to-status
     case DeleteUserData(engineId, userId) =>
       admin.getEngine(engineId).fold {
         sender() ! Invalid(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))
@@ -74,6 +130,7 @@ class EngineServiceImpl(admin: Administrator) extends EngineService with LazyLog
           case NonFatal(_) => Invalid(ValidRequestExecutionError)
         })
       }
+<<<<<<< HEAD
    */
   override def getUserData(engineId: String, userId: String, num: Int, from: Int): HIO[List[Response]] = {
     admin.getEngine(engineId).fold[HIO[List[Response]]](IO.fail(WrongParams(jsonComment(s"Non-existent engine-id: $engineId")))) { engine =>

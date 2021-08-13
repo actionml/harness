@@ -14,25 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.actionml.router.service
+package com.actionml.core
 
-import cats.data.Validated.{Invalid, Valid}
-import com.actionml.admin.Administrator
-import com.actionml.core.HIO
-import com.actionml.core.engine.EnginesBackend
+import com.actionml.core.HealthCheckStatus.HealthCheckStatus
 import com.actionml.core.model.Response
-import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError}
-import zio.{IO, ZIO}
 
-class InfoService(admin: Administrator) extends JsonSupport {
-  def getSystemInfo: HIO[Response] =
-    ZIO.fromFuture(admin.systemInfo(_))
-      .flatMap {
-        case Valid(a) => IO.succeed(a)
-        case Invalid(e) => IO.fail(e)
-      }.mapError(_ => ValidRequestExecutionError())
+object HealthCheckStatus extends Enumeration {
+  type HealthCheckStatus = Value
 
-  def getClusterInfo: HIO[List[Response]] = {
-    EnginesBackend.listNodes
-  }
+  val green: HealthCheckStatus = Value("green")
+  val yellow: HealthCheckStatus = Value("yellow")
+  val red: HealthCheckStatus = Value("red")
 }

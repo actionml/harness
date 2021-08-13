@@ -238,6 +238,29 @@ object UREngine extends JsonSupport {
       @SingleIndex(order = desc, isTtl = true) eventTime: Date)
     extends Event with Serializable with Response
 
+  case class UREventOriginal(
+    eventId: Option[String],
+    event: String,
+    entityType: String,
+    entityId: String,
+    targetEntityId: Option[String],
+    targetEntityType: String = "item",
+    properties: Map[String, Any],
+    eventTime: Date
+  ) extends Response
+  object UREventOriginal {
+    def fromUREvent(e: UREvent): UREventOriginal =
+      UREventOriginal(
+        e.eventId,
+        e.event,
+        e.entityType,
+        e.entityId,
+        e.targetEntityId,
+        properties = e.dateProps ++ e.floatProps ++ e.booleanProps ++ e.categoricalProps,
+        eventTime = e.eventTime
+      )
+  }
+
   case class URItemProperties (
     @SingleIndex(order = asc, isTtl = false) _id: String, // must be the same as the targetEntityId for the $set event that changes properties in the model
     dateProps: Map[String, Date] = Map.empty, // properties to be written to the model, this is saved in the input dataset
