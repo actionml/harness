@@ -25,8 +25,8 @@ import akka.pattern.ask
 import cats.data.Validated
 import cats.data.Validated.Valid
 import com.actionml.admin.Administrator
-import com.actionml.authserver.ResourceId
-import com.actionml.authserver.Roles.engine
+import com.actionml.authserver.{AccessToken, ResourceId}
+import com.actionml.authserver.Roles.{engine, system}
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.core.model.Response
@@ -72,40 +72,42 @@ class EnginesRouter(implicit inj: Injector) extends BaseRouter with Authorizatio
   private val admin = inject[Administrator]
   override val authEnabled = config.auth.enabled
 
-  override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
-    (pathPrefix("engines") & extractLog) { implicit log =>
+  override val route: Route = (rejectEmptyResponse & extractAccessToken & extractLog) { (accessToken, log) => {
+    implicit val l: LoggingAdapter = log
+    implicit val at: Option[AccessToken] = accessToken
+    pathPrefix("engines") {
       (pathEndOrSingleSlash & hasAccess(engine.create, ResourceId.*)) {
         getEngines ~
-        createEngine
+          createEngine
       } ~
-      pathPrefix(Segment) { engineId ⇒
-        hasAccess(engine.read, engineId).apply {
-          pathEndOrSingleSlash(getEngine(engineId))
-        } ~
-        hasAccess(engine.modify, engineId).apply {
-          (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
-          (path("imports") & post) (updateEngineWithImport(engineId)) ~
-          (path("configs") & post) (updateEngineWithConfig(engineId)) ~
-          pathPrefix("jobs") {
-            (pathEndOrSingleSlash & post)(updateEngineWithTrain(engineId)) ~
-            (path(Segment) & delete) { jobId =>
-              cancelJob(engineId, jobId)
-            }
+        pathPrefix(Segment) { engineId ⇒
+          hasAccess(engine.read, engineId).apply {
+            pathEndOrSingleSlash(getEngine(engineId))
           } ~
-          pathPrefix("entities") {
-            path(Segment) { userId =>
-              get (getUserData(engineId, userId)) ~
-              delete (deleteUserData(engineId, userId))
+            hasAccess(engine.modify, engineId).apply {
+              (pathEndOrSingleSlash & delete) (deleteEngine(engineId)) ~
+                (path("imports") & post) (updateEngineWithImport(engineId)) ~
+                (path("configs") & post) (updateEngineWithConfig(engineId)) ~
+                pathPrefix("jobs") {
+                  (pathEndOrSingleSlash & post) (updateEngineWithTrain(engineId)) ~
+                    (path(Segment) & delete) { jobId =>
+                      cancelJob(engineId, jobId)
+                    }
+                } ~
+                pathPrefix("entities") {
+                  path(Segment) { userId =>
+                    get(getUserData(engineId, userId)) ~
+                      delete(deleteUserData(engineId, userId))
+                  }
+                }
             }
-          }
         }
-      }
     } ~
-    (pathPrefix("system") & extractLog) { implicit log =>
+    (pathPrefix("system") & hasAccess(system.info)) {
       path("health")(healthCheck) ~
       pathEndOrSingleSlash(getSystemInfo)
     }
-  }
+  }}
 
 
   private def healthCheck: Route = get {
