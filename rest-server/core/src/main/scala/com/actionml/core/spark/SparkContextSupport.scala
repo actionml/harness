@@ -17,20 +17,19 @@
 
 package com.actionml.core.spark
 
-import java.io.File
-import java.util.concurrent.atomic.AtomicReference
-
-import com.actionml.core.jobs.{Cancellable, JobDescription, JobManager, JobManagerInterface, JobStatuses}
+import com.actionml.core.jobs._
 import com.actionml.core.validate.JsonSupport
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd, SparkListenerEvent}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s._
 
+import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 
 object SparkContextSupport extends LazyLogging with JsonSupport {

@@ -20,6 +20,7 @@ package com.actionml.admin
 import akka.actor.ActorSystem
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.config.AppConfig
 import com.actionml.core.engine.backend.EngineMetadata
 import com.actionml.core.engine.{Add, Delete, Engine, Update}
 import com.actionml.core.jobs.JobManager
@@ -39,6 +40,7 @@ import scala.util.control.NonFatal
 
 trait Administrator extends LazyLogging with JsonSupport {
   def system: ActorSystem
+  def config: AppConfig
   private var engines = Map.empty[EngineMetadata, Engine]
   private val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
   import com.actionml.core.engine.EnginesBackend
@@ -133,11 +135,11 @@ trait Administrator extends LazyLogging with JsonSupport {
   }
 
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
-    val eid = getEngine(engineId)
-    if (eid.isDefined) {
-      eid.get.train(trainEC)
-    } else {
+    getEngine(engineId).fold[Validated[ValidateError, Response]] {
       Invalid(WrongParams(jsonComment(s"Unable to train Engine: $engineId, the engine does not exist")))
+    } { engine =>
+      if (config.jobs.jobControllerEnabled) engine.train(trainEC)
+      else Invalid(WrongParams("Train error"))
     }
   }
 
