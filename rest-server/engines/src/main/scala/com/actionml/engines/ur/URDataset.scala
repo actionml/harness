@@ -221,7 +221,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     )
   }
 
-  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] = {
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     Validated.catchNonFatal(
       eventsDao
         .findMany(limit = num, offset = from, orderBy = Some(OrderBy(Ordering.desc, "eventTime")))("entityType" === "user", "entityId" === userId)
@@ -231,7 +231,6 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       logger.error("Get user data error", e)
       ValidRequestExecutionError()
     }
-  }
 
   override def deleteUserData(userId: String): HIO[JobDescription] = {
     JobManager.addJob(engineId, HIO.fromFuture(eventsDao.removeManyAsync("entityType"=== "user", "entityId" === userId)),

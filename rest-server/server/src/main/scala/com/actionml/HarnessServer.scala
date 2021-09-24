@@ -44,10 +44,10 @@ object HarnessServer extends App with LazyLogging {
   }
 
   def start() = {
-    implicit val config: AppConfig = AppConfig.apply
+    implicit val appConfig: AppConfig = AppConfig.apply
     assert(ElasticSearchClient.esNodes.nonEmpty)
 
-    implicit val actorSystem: ActorSystem = ActorSystem(config.actorSystem.name)
+    implicit val actorSystem: ActorSystem = ActorSystem(appConfig.actorSystem.name)
     actorSystem.whenTerminated.onComplete { t =>
       logger.info(s"Actor system terminated: $t")
     }(scala.concurrent.ExecutionContext.Implicits.global)
@@ -57,13 +57,14 @@ object HarnessServer extends App with LazyLogging {
     val administrator = {
       val a = new Administrator {
         override def system: ActorSystem = actorSystem
+        override def config: AppConfig = appConfig
       }
       a.init
       a
     }
 
-    val authService = new CachedAuthorizationService(config.auth)
-    val authServerProxy = new AuthServerProxyServiceImpl(config, actorSystem, actorMaterializer)
+    val authService = new CachedAuthorizationService(appConfig.auth)
+    val authServerProxy = new AuthServerProxyServiceImpl(appConfig, actorSystem, actorMaterializer)
     val queryService = new QueryServiceImpl(administrator, actorSystem)
     val infoService = new InfoService(administrator)
 
@@ -75,13 +76,13 @@ object HarnessServer extends App with LazyLogging {
     val eventService = new EventServiceImpl(administrator)
     val engineService = new EngineServiceImpl(administrator)
     val eventsRouter = new EventsRouter(eventService, authService)
-    val infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, config, infoService)
+    val infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, appConfig, infoService)
     val engineRouter = new EnginesRouter(engineService, authService, administrator)
 
     new RestServer(
       actorSystem,
       actorMaterializer,
-      config.restServer,
+      appConfig.restServer,
       checkRouter,
       commandsRouter,
       eventsRouter,
