@@ -67,7 +67,7 @@ abstract class BaseRouter extends Json4sSupport with Directives {
 
   protected implicit def io2future[A](io: HIO[A]): Future[Validated[ValidateError, A]] = {
     val promise = Promise[Validated[ValidateError, A]]()
-    harnessRuntime.unsafeRunAsync{ io.bimap(e => Invalid(e), { a => Valid(a) })} {
+    harnessRuntime.unsafeRunAsync{ io.mapBoth(e => Invalid(e), { a => Valid(a) })} {
       case zio.Exit.Success(a) => promise.success(a)
       case zio.Exit.Failure(e) => promise.success(e.failureOption.getOrElse(Invalid(ValidRequestExecutionError())))
     }

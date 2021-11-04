@@ -17,13 +17,16 @@
 
 package com.actionml.core.backup
 
-import com.actionml.core.harnessRuntime
-import com.actionml.core.validate.JsonSupport
+import com.actionml.core.HIO
+import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError}
+import com.typesafe.scalalogging.LazyLogging
+import zio.blocking.{effectBlocking, effectBlockingInterrupt}
 import zio.duration._
-import zio.{Exit, IO, Queue, Schedule, Task, ZIO}
+import zio.{IO, Queue, Schedule, Task, ZIO, ZManaged}
 
 import java.io._
 import java.nio.charset.StandardCharsets
+import scala.util.Try
 
 /**
   * Mirror implementation for local FS.
@@ -31,34 +34,39 @@ import java.nio.charset.StandardCharsets
 class FSMirror(override val mirrorContainer: String, override val engineId: String) extends Mirror with JsonSupport {
 
   private var putEventToQueue: Option[String => Task[Unit]] = None
-  if (mirrorContainer.nonEmpty) harnessRuntime.unsafeRunAsync {
-    (for {
-      container <- containerName
+
+  private def init(): HIO[Unit] = if (mirrorContainer.nonEmpty) {
+    for {
       q <- Queue.unbounded[String]
       _ = putEventToQueue = Some(s => q.offer(s).unit)
+      container <- containerName
       dir = new File(container)
       _ = if (!dir.exists()) dir.mkdirs()
       _ = logger.info(s"Engine-id: ${engineId}; Mirror raw un-validated events to $container")
-      out <- ZIO.effect(new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(s"$container${File.separator}$batchName.json", true)), StandardCharsets.UTF_8))
-      _ <- ZIO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).fork
-      _ <- q.take.map(out.append(_)).forever
-    } yield ()).retryUntil {
-      case _: IOException => false
-      case _ => true
-    }
-  } {
-    case Exit.Success(_) => logger.error("FS mirror write error")
-    case Exit.Failure(e) => logger.error(s"FS mirror write error $e")
-  }
+      path = s"$container${File.separator}$batchName.json"
+      out = new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(path, true)), StandardCharsets.UTF_8)
+      _ <- IO.effect(out.flush()).repeat(Schedule.linear(2.seconds)).forkDaemon
+      _ <- q.take.map(out.append(_)).forever.forkDaemon
+    } yield ()
+  } else IO.unit
 
   override def mirrorEvent(event: String): Task[Unit] =
-    putEventToQueue.fold[Task[Unit]](IO.unit) {
-      _.apply(event)
-        .onError { c =>
-          c.failures.foreach(e => logger.error("Problem mirroring while input", e))
-          IO.unit
-        }
+    putEventToQueue.fold[Task[Unit]](IO.unit) { _.apply(event)
+      .catchAll(e => IO.effect(logger.error("Problem mirroring while input", e)))
     }
 
   override def cleanup(): Task[Unit] = IO.unit
+}
+
+object FSMirror extends LazyLogging {
+  def create(mirrorContainer: String, engineId: String): HIO[FSMirror] = {
+    for {
+      m <- IO.effect(new FSMirror(mirrorContainer, engineId))
+        .mapError { e =>
+          logger.error(s"Engine create error $engineId", e)
+          ParseError(s"Error creating engine $engineId with such configuration")
+        }
+      _ <- m.init()
+    } yield m
+  }
 }

@@ -36,7 +36,7 @@ import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
-import zio.{Cause, IO, Queue, ZIO}
+import zio.{Cause, IO, Queue, Task, ZIO}
 
 import java.net.URL
 import java.nio.charset.Charset
@@ -84,35 +84,37 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     }
   } yield ()
 
-  override def watchActions(callback: Action => Unit): HIO[Unit] = for {
+  override def watchActions(callback: Action => HIO[Unit]): HIO[Unit] = for {
     leaseIdQ <- Queue.bounded[Long](1)
     actions <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
       .map(_.getKvs.asScala.flatMap(s => decode(s.getValue)))
-    _ = actions.foreach {
-        case a: Add => callback(a)
-        case u: Update => callback(u)
-        case _ =>
-      }
+    _ <- ZIO.foreach_(actions.toList) {
+        case a: Add => callback(a).ignore
+        case u: Update => callback(u).ignore
+        case _ => IO.unit
+      }.fork
     _ <- registerHarnessIds(leaseIdQ).fork
     _ <- watchEngines(leaseIdQ, callback)
   } yield ()
 
-
-  private def watchEngines(leaseQ: Queue[Long], callback: Action => Unit): HIO[Unit] = for {
+  private def watchEngines(leaseQ: Queue[Long], callback: Action => HIO[Unit]): HIO[Unit] = for {
     leaseId <- leaseQ.take
     r <- ZIO.runtime[HEnv]
     _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb =>
       Try {
         lazy val w: Watcher = watch.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Watch.Listener with LazyLogging {
-          override def onNext(response: WatchResponse): Unit = r.unsafeRun { for {
-            nodeKey <- mkServiceKey
-            _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
-          } yield response.getEvents.asScala
-            .flatMap(event => decode(event.getKeyValue.getValue.toString(etcdCharset)))
-            .foreach { a =>
-              callback(a)
-              kv.put(nodeKey, encode(a), PutOption.newBuilder().withLeaseId(leaseId).build())
-            }
+          override def onNext(response: WatchResponse): Unit = r.unsafeRun {
+            for {
+              nodeKey <- mkServiceKey
+              _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
+              events = response.getEvents.asScala.flatMap { event =>
+                decode(event.getKeyValue.getValue.toString(etcdCharset))
+              }.toList
+              _ <- ZIO.foreach(events) { a =>
+                callback(a) *>
+                kv.put(nodeKey, encode(a), PutOption.newBuilder().withLeaseId(leaseId).build())
+              }
+            } yield ()
           }
           override def onError(e: Throwable): Unit = cb(log.error("Actions watch error", Cause.fail(e)) *> leaseQ.shutdown)
           override def onCompleted(): Unit = cb(log.info("Actions watcher completed") *> leaseQ.shutdown)
@@ -227,8 +229,10 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     for {
       // fetch all registered harness instances
       instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
+      me <- mkServiceKey.map(toByteSequence)
       // wait for them to update
-      _ <- ZIO.foreachPar_(instances.getKvs.asScala)(i => waitForAction(i.getKey, now, timeout))
+      _ <- ZIO.foreachPar_(instances.getKvs.asScala.filterNot(i => i.getKey == me || i.getKey == toByteSequence(jcKey)))
+           { i => waitForAction(i.getKey, now, timeout) }
     } yield ()
   }
 }

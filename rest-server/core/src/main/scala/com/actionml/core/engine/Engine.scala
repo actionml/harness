@@ -28,9 +28,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import zio.duration._
 import zio.stream.ZSink
-import zio.{Exit, IO, Task, UIO, ZIO}
+import zio.{Exit, IO, Task, ZIO}
 
-import java.net.URI
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.language.implicitConversions
@@ -41,13 +40,10 @@ import scala.util.Try
   * Engine. Queries work in a similar way. The Engine is a "Controller" in the MVC sense
   */
 abstract class Engine extends LazyLogging with JsonSupport {
-
   var engineId: String = _
   private var mirroring: Mirror = _
-  val serverHome = sys.env("HARNESS_HOME")
+  private val serverHome = sys.env("HARNESS_HOME")
   var modelContainer: String = _ // path to directory or place we can put a model file, not a file name.
-
-  // Methods that must be overridden in extending Engines
 
   /** This is the Engine factory method called only when creating a new Engine, and named in the engine-config.json file
     * the contents of which are passed in as a string.
@@ -55,7 +51,7 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @return The extending Engine instance, initialized and ready for input and/or queries etc.
     */
   @deprecated("Companion factory objects should be used instead of this old factory method", "0.3.0")
-  def initAndGet(json: String, update: Boolean): Engine
+  def initAndGet(json: String, update: Boolean): HIO[Engine]
 
   /** This is to destroy a running Engine, such as when executing the CLI `harness delete engine-id` */
   def destroy(): Unit = zio.Runtime.default.unsafeRunAsync {
@@ -84,34 +80,42 @@ abstract class Engine extends LazyLogging with JsonSupport {
     * @param params parsed for common params like mirroring location
     * @return may return a ValidateError if the parameters are n
     */
-  private def createResources(params: GenericEngineParams): Validated[ValidateError, Response] = {
+  private def createResources(params: GenericEngineParams): HIO[Response] = {
     engineId = params.engineId
-    if (params.mirrorContainer.isEmpty || params.mirrorType.isEmpty) {
+    if (params.mirrorContainer.isEmpty || params.mirrorType.isEmpty) FSMirror.create("", engineId).map { mirror => // must create because Mirror is also used for import Todo: decouple these for Lambda
       logger.info(s"Engine-id: ${engineId}. No mirrorContainer defined for this engine so no event mirroring will be done.")
-      mirroring = new FSMirror("", engineId) // must create because Mirror is also used for import Todo: decouple these for Lambda
-      Valid(Comment("Mirror type and container not defined so falling back to localfs mirroring"))
+      mirroring = mirror
+      Comment("Mirror type and container not defined so falling back to localfs mirroring")
+    }.mapError { e =>
+      logger.error("FS mirror error", e)
+      ValidRequestExecutionError("FS mirror error")
     } else if (params.mirrorContainer.isDefined && params.mirrorType.isDefined) {
       val container = params.mirrorContainer.get
       params.mirrorType.get match {
-        case MirrorTypes.localfs =>
-          mirroring = new FSMirror(container, engineId)
+        case MirrorTypes.localfs => FSMirror.create(container, engineId).map { mirror =>
+          mirroring = mirror
           logger.info(s"Engine-id: ${engineId} localfs mirroring")
-          Valid(Comment("Mirror to localfs"))
-        case MirrorTypes.hdfs =>
+          Comment("Mirror to localfs")
+        }
+        case MirrorTypes.hdfs => IO.effect {
           mirroring = new HDFSMirror(container, engineId)
           logger.info(s"Engine-id: ${engineId} HDFS mirroring")
-          Valid(Comment("Mirror to HDFS"))
+          Comment("Mirror to HDFS")
+        }
       }
+    }.mapError { e =>
+      logger.error("FS mirror error", e)
+      ValidRequestExecutionError("FS mirror error")
     } else {
-      Invalid(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
+      IO.fail(WrongParams(jsonComment(s"MirrorContainer is set but mirrorType is not, no mirroring will be done.")))
     }
   }
 
   /** This is called any time we are initializing a new Engine Object, after the factory has constructed it. The flag
     * update means to update an existing object, it is set to false when creating a new Engine. So this method handles
     * C(reate) and U(pdate) of CRUD */
-  def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    parseAndValidate[GenericEngineParams](json).andThen { p =>
+  def init(json: String, update: Boolean = false): HIO[Response] = {
+    parseAndValidateIO[GenericEngineParams](json).flatMap { p =>
       if (!update) { // if not updating then must be creating
         val container = if (serverHome.tail == "/") serverHome else serverHome + "/"
         modelContainer = p.modelContainer.getOrElse(container)
@@ -169,12 +173,13 @@ abstract class Engine extends LazyLogging with JsonSupport {
         ValidRequestExecutionError("Import error")
       }
       (filesRead, stream) = filesAndStream
-      f = stream.chunkN(512)
+      f = stream
+          .chunkN(512)
           .run {
             ZSink.foldChunksM(0L)(_ => true)((n, c) =>
               inputMany(c).as(n + c.length)
             )
-          }.bimap(
+          }.mapBoth(
               e => {
                 logger.error(s"Import error for $engineId from path $path - ${e.getMessage}", e)
                 ValidRequestExecutionError(s"Import error. Engine id: $engineId, path: $path")

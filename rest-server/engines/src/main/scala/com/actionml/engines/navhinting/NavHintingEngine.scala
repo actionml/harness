@@ -23,7 +23,7 @@ import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.engine._
-import com.actionml.core.validate.{JsonSupport, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
 import zio.IO
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,44 +35,35 @@ class NavHintingEngine extends Engine with JsonSupport {
   var algo: NavHintingAlgorithm = _
   var params: GenericEngineParams = _
 
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        params = p
-        engineId = params.engineId
-        import scala.concurrent.ExecutionContext.Implicits.global
-        dataset = new NavHintingDataset(engineId, MongoStorage.getStorage(engineId, MongoStorageHelper.codecs))
-        drawInfo("Navigation Hinting Init", Seq(
+  override def init(json: String, update: Boolean = false): HIO[Response] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    for {
+      _ <- super.init(json)
+      params <- parseAndValidateIO[GenericEngineParams](json)
+      engineId = params.engineId
+      _ = dataset = new NavHintingDataset(engineId, MongoStorage.getStorage(engineId, MongoStorageHelper.codecs))
+      _ = drawInfo("Navigation Hinting Init", Seq(
           ("════════════════════════════════════════", "══════════════════════════════════════"),
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
           ("Mirror Container: ", params.mirrorContainer),
           ("All Parameters:", params)))
-
-        Valid(jsonComment("NavHintingEngine initialized"))
-      }.andThen { _ =>
-        dataset.init(json).andThen { _ =>
-          if (!update) { // do this when creating rather than updating
-            algo = new NavHintingAlgorithm(json, dataset)
-            algo.init(this)
-          } else Valid(Comment("NavHintingAlgorithm updated"))
-        }
-      }
-    }
+      _ = dataset.init(json)
+      response = if (!update) { // do this when creating rather than updating
+        algo = new NavHintingAlgorithm(json, dataset)
+        algo.init(this).toOption.get
+      } else Comment("NavHintingAlgorithm updated")
+    } yield response
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String, update: Boolean): NavHintingEngine = {
-   val response = init(json, update)
-    if (response.isValid) {
+  override def initAndGet(json: String, update: Boolean): HIO[NavHintingEngine] = {
+    this.init(json, update).as {
       logger.trace(s"Initialized with Engine's JSON: $json")
       this
-    } else {
-      logger.error(s"Parse error with Engine's JSON: $json")
-      null.asInstanceOf[NavHintingEngine] // todo: ugly, replace
     }
   }
 
@@ -161,8 +152,7 @@ case class NavHintingStatus(
   extends Response
 
 object NavHintingEngine {
-  def apply(json: String, isNew: Boolean): NavHintingEngine = {
-    val engine = new NavHintingEngine()
-    engine.initAndGet(json, update = isNew)
-  }
+  def apply(json: String, isNew: Boolean): HIO[NavHintingEngine] = IO.effect {new NavHintingEngine()}
+    .mapError { e => ValidRequestExecutionError(s"NavHinting engine error. Failed to create engine with config $json")}
+    .flatMap(_.initAndGet(json, update = isNew))
 }

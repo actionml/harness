@@ -77,7 +77,7 @@ object HarnessServer extends App with LazyLogging {
     val engineService = new EngineServiceImpl(administrator)
     val eventsRouter = new EventsRouter(eventService, authService)
     val infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, appConfig, infoService)
-    val engineRouter = new EnginesRouter(engineService, authService, administrator)
+    val engineRouter = new EnginesRouter(engineService, authService)
 
     new RestServer(
       actorSystem,

@@ -20,7 +20,7 @@ package com.actionml.core
 import com.actionml.core.engine.backend.EngineMetadata
 import com.actionml.core.jobs.JobDescription
 import com.actionml.core.model.{EngineParams, Response}
-import zio.{Has, ZIO}
+import zio.{Has, Task, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -35,14 +35,14 @@ package object engine {
       def addEngine(id: String, data: EngineMetadata): HIO[Unit]
       def updateEngine(id: String, data: EngineMetadata): HIO[Unit]
       def deleteEngine(id: String): HIO[Unit]
-      def watchActions(callback: Action => Unit): HIO[Unit]
+      def watchActions(callback: Action => HIO[Unit]): HIO[Unit]
       def listNodes: HIO[List[NodeDescription]]
     }
 
     def addEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.addEngine(id, data))
     def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = ZIO.accessM(_.get.updateEngine(id, data))
     def deleteEngine(id: String): HIO[Unit] = ZIO.accessM(_.get.deleteEngine(id))
-    def watchActions(callback: Action => Unit): HIO[Unit] = ZIO.accessM(_.get.watchActions(callback))
+    def watchActions(callback: Action => HIO[Unit]): HIO[Unit] = ZIO.accessM(_.get.watchActions(callback))
     def listNodes: HIO[List[NodeDescription]] = ZIO.accessM(_.get.listNodes)
   }
 

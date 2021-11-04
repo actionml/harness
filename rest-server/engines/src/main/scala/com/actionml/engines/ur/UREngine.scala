@@ -17,23 +17,23 @@
 
 package com.actionml.engines.ur
 
-import java.util.Date
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine.{Engine, QueryResult}
 import com.actionml.core.jobs.{JobDescription, JobManager}
-import com.actionml.core.model.{Comment, EngineParams, Event, Query, Response}
+import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.{CompoundIndex, SingleIndex}
 import com.actionml.core.validate.{JsonSupport, ParseError, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.{HIO, drawInfo, harnessRuntime}
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREngineParams, UREvent, URQuery}
 import org.json4s.JValue
-import zio.{IO, Task, ZIO}
+import zio.{IO, Task}
 
+import java.util.Date
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -46,9 +46,12 @@ class UREngine extends Engine with JsonSupport {
   private var params: UREngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    super.init(jsonConfig).andThen { _ =>
-      parseAndValidate[UREngineParams](jsonConfig).andThen { p =>
+  override def init(jsonConfig: String, update: Boolean = false): HIO[Response] = {
+    import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
+    for {
+      _ <- super.init(jsonConfig)
+      p <- parseAndValidateIO[UREngineParams](jsonConfig)
+      resp <- {
         import ExecutionContext.Implicits.global
         params = p
         engineId = params.engineId
@@ -59,14 +62,15 @@ class UREngine extends Engine with JsonSupport {
           errorMsg = s"Error in the Dataset part pf the JSON config for engineId: $engineId, which is: " +
             s"$jsonConfig",
           transform = _ \ "dataset"
-        ).foreach { p =>
+        ).foreach { datasetParams =>
           def eventsDao = dataset.store.createDao[UREvent](dataset.getEventsCollectionName)
-          p.ttl.fold[Validated[ValidateError, _]] {
+
+          datasetParams.ttl.fold[Validated[ValidateError, _]] {
             eventsDao.createIndexesAsync(365.days).onComplete {
               case Success(_) => logger.info("Indexes created successfully with default ttl")
               case Failure(e) => logger.error("Create index error (with default ttl)", e)
             }
-            Valid(p)
+            Valid(datasetParams)
           } { ttlString =>
             Try(Duration(ttlString)).toOption.map { ttl =>
               // We assume the DAO will check to see if this is a change and no do the reindex if not needed
@@ -87,7 +91,7 @@ class UREngine extends Engine with JsonSupport {
           algo.init(this)
         }
       }
-    }
+    } yield resp
   }
 
   def logStatus(p: UREngineParams) = {
@@ -103,14 +107,10 @@ class UREngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String, update: Boolean): UREngine = {
-    val response = init(jsonConfig, update)
-    if (response.isValid) {
+  override def initAndGet(jsonConfig: String, update: Boolean): HIO[UREngine] = {
+    this.init(jsonConfig, update).map { _ =>
       logger.info(s"Engine-id: ${engineId}. Initialized with JSON: $jsonConfig")
       this
-    } else {
-      logger.error(s"Engine-id: ${engineId}. Parse error with JSON: $jsonConfig")
-      null.asInstanceOf[UREngine] // todo: ugly, replace
     }
   }
 
@@ -197,9 +197,9 @@ class UREngine extends Engine with JsonSupport {
 }
 
 object UREngine extends JsonSupport {
-  def apply(jsonConfig: String, isNew: Boolean): UREngine = {
+  def apply(jsonConfig: String, update: Boolean): UREngine = harnessRuntime.unsafeRun {
     val engine = new UREngine()
-    engine.initAndGet(jsonConfig, update = isNew)
+    engine.initAndGet(jsonConfig, update = update)
   }
 
   case class UREngineParams(

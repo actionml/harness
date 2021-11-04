@@ -22,7 +22,6 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
-import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
 import com.actionml.authserver.directives.AuthorizationDirectives
@@ -65,8 +64,7 @@ import scala.language.implicitConversions
   */
 class EnginesRouter(
   engineService: EngineServiceImpl,
-  override val authorizationService: AuthorizationService,
-  admin: Administrator)(
+  override val authorizationService: AuthorizationService)(
   implicit val actorSystem: ActorSystem,
   implicit protected val executor: ExecutionContext,
   implicit protected val materializer: ActorMaterializer,
@@ -122,7 +120,6 @@ class EnginesRouter(
   }
 
   private def createEngine(implicit log: LoggingAdapter): Route = entity(as[JValue]) { engineConfig =>
-
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
       engineService.addEngine(JsonMethods.compact(engineConfig))

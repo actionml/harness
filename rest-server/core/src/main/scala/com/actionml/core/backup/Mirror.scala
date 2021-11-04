@@ -53,8 +53,9 @@ trait Mirror {
     *
     * @return directory name
     */
-  val containerName: HIO[String] = AppConfig.hostName.map { hostname =>
-    s"$mirrorContainer${File.separator}$hostname${File.separator}$engineId"
+  lazy val containerName: HIO[String] = AppConfig.hostName.map { hostname =>
+    import File.separator
+    s"${if (mirrorContainer.endsWith(separator)) mirrorContainer else s"$mirrorContainer$separator"}$hostname${separator}$engineId"
   }
 
 

@@ -23,8 +23,8 @@ import com.actionml.core.{HIO, drawInfo}
 import com.actionml.core.engine._
 import com.actionml.core.model.{Comment, GenericEngineParams, Query, Response}
 import com.actionml.core.store.backends.MongoStorage
-import com.actionml.core.validate.{JsonSupport, ValidateError, WrongParams}
-import zio.IO
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
+import zio.{IO, Task}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +36,7 @@ class CBEngine extends Engine with JsonSupport {
   private var algo: CBAlgorithm = _
   private var params: GenericEngineParams = _
 
-  private def createResources(p: GenericEngineParams): Validated[ValidateError, String] = {
+  private def createResources(p: GenericEngineParams): Task[String] = IO.effect {
     params = p
     engineId = params.engineId
     val storage = MongoStorage.getStorage(engineId, MongoStorageHelper.codecs)
@@ -48,35 +48,32 @@ class CBEngine extends Engine with JsonSupport {
       ("Mirror Type: ", params.mirrorType),
       ("Mirror Container: ", params.mirrorContainer),
       ("Model Container: ", modelContainer)))
-    Valid(jsonComment("CBEngine resources created"))
+    jsonComment("CBEngine resources created")
   }
 
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    super.init(json, update).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
-        createResources(p).andThen{ _ =>
-          dataset.init(json, update).andThen { _ =>
-            if (!update) { // !update means creating
-              algo = new CBAlgorithm(json ,p.engineId, dataset)
-              algo.init(this)
-            } else Valid(Comment("Init processed"))
-          }
-        }
+  override def init(json: String, update: Boolean = false): HIO[Response] = {
+    for {
+      _ <- super.init(json, update)
+      p <- parseAndValidateIO[GenericEngineParams](json)
+      _ <- createResources(p).mapError { e =>
+        logger.error(s"Resources can't be created for engine $json", e)
+        ValidRequestExecutionError("Resources error")
       }
-    }
+    } yield dataset.init(json, update).andThen { _ =>
+      if (!update) { // !update means creating
+        algo = new CBAlgorithm(json ,p.engineId, dataset)
+        algo.init(this)
+      } else Valid(Comment("Init processed"))
+    }.toOption.getOrElse(Comment("Engine init error"))
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
-  override def initAndGet(json: String, update: Boolean): CBEngine = {
-   val response = init(json, update)
-    if (response.isValid) {
+  override def initAndGet(json: String, update: Boolean): HIO[CBEngine] = {
+    init(json, update).as {
       logger.trace(s"Initialized with JSON: $json")
       this
-    } else {
-      logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[CBEngine] // todo: ugly, replace
     }
   }
 
@@ -211,8 +208,11 @@ case class CBStatus(
 }
 
 object CBEngine {
-  def apply(json: String, isNew: Boolean): CBEngine = {
-    val engine = new CBEngine()
-    engine.initAndGet(json, update = isNew)
+  def apply(json: String, isNew: Boolean): HIO[CBEngine] = {
+    IO.effect(new CBEngine()).mapError { e =>
+      WrongParams("")
+    }.flatMap { engine =>
+      engine.initAndGet(json, update = isNew)
+    }
   }
 }
