@@ -46,7 +46,6 @@ class RestServer(
   actorMaterializer: ActorMaterializer,
   config: RestServerConfig,
   check: CheckRouter,
-  commands: CommandsRouter,
   events: EventsRouter,
   engines: EnginesRouter,
   queries: QueriesRouter,
@@ -62,7 +61,7 @@ class RestServer(
       check.route
     } ~
     (DebuggingDirectives.logRequest("Harness Server", Logging.InfoLevel) & DebuggingDirectives.logRequestResult("Harness Server", Logging.InfoLevel)) {
-      authProxy.route ~ events.route ~ engines.route ~ queries.route ~ commands.route ~ info.route
+      authProxy.route ~ events.route ~ engines.route ~ queries.route ~ info.route
     }
 
   def run(host: String = config.host, port: Int = config.port): Future[Http.ServerBinding] = {

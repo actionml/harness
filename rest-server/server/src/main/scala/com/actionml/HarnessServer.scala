@@ -28,70 +28,60 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.ExecutionContext
+import zio._
+import zio.logging.{Logging, log}
 
 
 /**
   * @author The ActionML Team (<a href="http://actionml.com">http://actionml.com</a>)
   * 28.01.17 11:54
   */
-object HarnessServer extends App with LazyLogging {
-  sys.addShutdownHook {
-    logger.info("Shutting down Harness Server")
-    MongoStorage.close
-  }
+object HarnessServer extends App {
 
-  def start() = {
-    implicit val appConfig: AppConfig = AppConfig.apply
-    assert(ElasticSearchClient.esNodes.nonEmpty)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    (for {
+      appConfig <- Managed.fromFunction { _: Any => AppConfig.apply() }
+      actorSystem <- Managed.make(IO(ActorSystem(appConfig.actorSystem.name)).orDie)(system => Fiber.fromFuture(system.terminate()).join.ignore)
+    } yield (appConfig, actorSystem)).use { case (appConfig, actorSystem) =>
+      (for {
+        _ <- IO.effect(assert(ElasticSearchClient.esNodes.nonEmpty))
+        actorMaterializer = ActorMaterializer()(actorSystem)
+        administrator = new Administrator {
+          override def system: ActorSystem = actorSystem
+          override def config: AppConfig = appConfig
+        }.init()
+        ec = actorSystem.dispatcher
+        authService = new CachedAuthorizationService(appConfig.auth)(actorSystem, actorMaterializer, ec)
+        authServerProxy = new AuthServerProxyServiceImpl(appConfig, actorSystem, actorMaterializer)
+        queryService = new QueryServiceImpl(administrator, actorSystem)
+        infoService = new InfoService(administrator)
 
-    implicit val actorSystem: ActorSystem = ActorSystem(appConfig.actorSystem.name)
-    actorSystem.whenTerminated.onComplete { t =>
-      logger.info(s"Actor system terminated: $t")
-    }(scala.concurrent.ExecutionContext.Implicits.global)
-    implicit val actorMaterializer = ActorMaterializer()(actorSystem)
-    implicit val ec: ExecutionContext = actorSystem.dispatcher
+        checkRouter = new CheckRouter()(actorSystem, ec, actorMaterializer, appConfig)
+        queriesRouter = new QueriesRouter(authService, queryService)(actorSystem, ec, actorMaterializer, appConfig)
+        authServerProxyRouter = new AuthServerProxyRouter(authServerProxy)(actorSystem, ec, actorMaterializer, appConfig)
 
-    val administrator = {
-      val a = new Administrator {
-        override def system: ActorSystem = actorSystem
-        override def config: AppConfig = appConfig
-      }
-      a.init
-      a
+        eventService = new EventServiceImpl(administrator)
+        engineService = new EngineServiceImpl(administrator)
+        eventsRouter = new EventsRouter(eventService, authService)(actorSystem, ec, actorMaterializer, appConfig)
+        infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, appConfig, infoService)
+        engineRouter = new EnginesRouter(engineService, authService)(actorSystem, ec, actorMaterializer, appConfig)
+
+        restServer = new RestServer(
+          actorSystem,
+          actorMaterializer,
+          appConfig.restServer,
+          checkRouter,
+          eventsRouter,
+          engineRouter,
+          queriesRouter,
+          infoRouter,
+          authServerProxyRouter
+        )
+        _ <- Fiber.fromFuture(restServer.run()).join.forever
+        _ <- log.info("Shutting down Harness Server")
+        _ <- IO.effect(MongoStorage.close())
+      } yield ()).provideLayer(Logging.console() ++ ZEnv.live).exitCode
     }
-
-    val authService = new CachedAuthorizationService(appConfig.auth)
-    val authServerProxy = new AuthServerProxyServiceImpl(appConfig, actorSystem, actorMaterializer)
-    val queryService = new QueryServiceImpl(administrator, actorSystem)
-    val infoService = new InfoService(administrator)
-
-    val checkRouter = new CheckRouter
-    val queriesRouter = new QueriesRouter(authService, queryService)
-    val commandsRouter = new CommandsRouter
-    val authServerProxyRouter = new AuthServerProxyRouter(authServerProxy)
-
-    val eventService = new EventServiceImpl(administrator)
-    val engineService = new EngineServiceImpl(administrator)
-    val eventsRouter = new EventsRouter(eventService, authService)
-    val infoRouter = new InfoRouter(actorSystem, ec, actorMaterializer, appConfig, infoService)
-    val engineRouter = new EnginesRouter(engineService, authService)
-
-    new RestServer(
-      actorSystem,
-      actorMaterializer,
-      appConfig.restServer,
-      checkRouter,
-      commandsRouter,
-      eventsRouter,
-      engineRouter,
-      queriesRouter,
-      infoRouter,
-      authServerProxyRouter
-    ).run()
   }
-
-  start()
 }

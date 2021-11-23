@@ -22,7 +22,7 @@ import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.config.AppConfig
 import com.actionml.core.engine.backend.EngineMetadata
-import com.actionml.core.engine.{Add, Delete, Engine, Update}
+import com.actionml.core.engine.{Add, Delete, Engine, EnginesBackend, Update}
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
@@ -44,14 +44,12 @@ trait Administrator extends LazyLogging with JsonSupport {
   def config: AppConfig
   private var engines = Map.empty[EngineMetadata, Engine]
   private val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
-  import com.actionml.core.engine.EnginesBackend
-  import com.actionml.core.engine.EnginesBackend._
 
   harnessRuntime.unsafeRunAsync {
     def update(meta: EngineMetadata): HIO[Unit] = newEngineInstanceIO(meta.engineFactory, meta.params).map { e =>
       engines = engines + (meta -> e)
     }
-    watchActions {
+    EnginesBackend.watchActions {
       case Add(meta, _) => update(meta)
       case Update(meta, _) => update(meta)
       case Delete(meta, _) => IO.effect {
@@ -140,7 +138,7 @@ trait Administrator extends LazyLogging with JsonSupport {
     } { deadEngine =>
       logger.info(s"Stopped and removed engine and all data for id: $engineId")
       for {
-        result <- deleteEngine(engineId).as(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
+        result <- EnginesBackend.deleteEngine(engineId).as(Comment(s"Engine instance for engineId: $engineId deleted and all its data"))
         _ <- IO.effect(deadEngine.destroy()).onError(log.error("Destroy engine error", _)).ignore
       } yield result
     }
