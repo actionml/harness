@@ -28,9 +28,10 @@ import com.actionml.core.store.backends.MongoStorage
 import com.actionml.router.http.RestServer
 import com.actionml.router.http.routes._
 import com.actionml.router.service._
-
 import zio._
 import zio.logging.{Logging, log}
+
+import java.time.Duration
 
 
 /**
@@ -47,7 +48,7 @@ object HarnessServer extends App {
       (for {
         _ <- IO.effect(assert(ElasticSearchClient.esNodes.nonEmpty))
         actorMaterializer = ActorMaterializer()(actorSystem)
-        administrator = new Administrator {
+        administrator <- new Administrator {
           override def system: ActorSystem = actorSystem
           override def config: AppConfig = appConfig
         }.init()
@@ -78,7 +79,7 @@ object HarnessServer extends App {
           infoRouter,
           authServerProxyRouter
         )
-        _ <- Fiber.fromFuture(restServer.run()).join.forever
+        _ <- IO.fromFuture(_ => restServer.run()) *> IO.never
         _ <- log.info("Shutting down Harness Server")
         _ <- IO.effect(MongoStorage.close())
       } yield ()).provideLayer(Logging.console() ++ ZEnv.live).exitCode

@@ -32,7 +32,7 @@ import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
 import zio.duration._
 import zio.logging.log
-import zio.{IO, Schedule, ZIO}
+import zio.{Fiber, IO, Schedule, Task, ZIO}
 
 import scala.util.{Properties, Try}
 import scala.concurrent.{ExecutionContext, Future}
@@ -73,15 +73,14 @@ trait Administrator extends LazyLogging with JsonSupport {
   }.flatMap(_.initAndGet(json, update = false))
 
   // instantiates all stored engine instances with restored state
-  def init() = {
-    // ask engines to init
-    JobManager.abortExecutingJobs
-    drawInfo("Harness Administrator initialized", Seq(
-      ("════════════════════════════════════════", "══════════════════════════════════════"),
-      ("Number of Engines: ", engines.size),
-      ("Engines: ", engines.keys)))
-    this
-  }
+  def init(): Task[Administrator] =
+    for {
+      _ <- Fiber.fromFuture(JobManager.abortExecutingJobs).join.ignore
+      _ <- IO(drawInfo("Harness Administrator initialized", Seq(
+                      ("════════════════════════════════════════", "══════════════════════════════════════"),
+                      ("Number of Engines: ", engines.size),
+                      ("Engines: ", engines.keys))))
+    } yield this
 
   def getEngine(engineId: String): Option[Engine] = engines.collectFirst {
     case (meta, e) if meta.engineId == engineId => e
