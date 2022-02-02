@@ -24,6 +24,8 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
+import com.actionml.authserver.{AccessToken, ResourceId}
+import com.actionml.authserver.Roles.{engine, system}
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.core.config.AppConfig
@@ -73,8 +75,10 @@ class EnginesRouter(
 
   override val authEnabled: Boolean = config.auth.enabled
 
-  override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
-    (pathPrefix("engines") & extractLog) { implicit log =>
+  override val route: Route = (rejectEmptyResponse & extractAccessToken & extractLog) { (accessToken, log) => {
+    implicit val l: LoggingAdapter = log
+    implicit val at: Option[AccessToken] = accessToken
+    pathPrefix("engines") {
       (pathEndOrSingleSlash & hasAccess(engine.create, ResourceId.*)) {
         getEngines ~
         createEngine
@@ -102,7 +106,7 @@ class EnginesRouter(
         }
       }
     }
-  }
+  }}
 
 
   private def getEngine(engineId: String)(implicit log: LoggingAdapter): Route = get {
