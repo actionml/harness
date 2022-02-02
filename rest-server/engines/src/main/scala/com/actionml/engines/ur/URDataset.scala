@@ -25,14 +25,13 @@ import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.DaoQuery.syntax._
-import com.actionml.core.store.{DaoQuery, OrderBy, Ordering, Store}
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
 import com.actionml.engines.ur.UREngine.{UREvent, UREventOriginal, URItemProperties}
 import org.json4s.JsonAST._
 import org.json4s.{JArray, JObject}
-import zio.IO
 
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -58,9 +57,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private val writeFormat = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneId.of("UTC"))
   private val es = createSearchClient(engineId)
 
-  def getItemsDao = itemsDao
+  def getItemsDao: DAO[URItemProperties] = itemsDao
 
-  def getIndicatorsDao = eventsDao
+  def getIndicatorsDao: DAO[UREvent] = eventsDao
 
   private def getItemsCollectionName = "items"
 

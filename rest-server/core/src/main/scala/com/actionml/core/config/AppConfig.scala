@@ -19,7 +19,7 @@ package com.actionml.core.config
 
 import java.net.{InetAddress, URI}
 import com.actionml.core.config.StoreBackend.StoreBackend
-import com.actionml.core.{HIO, harnessRuntime}
+import com.actionml.core.{HIO, config, harnessRuntime}
 import com.actionml.core.jobs.JobManagerConfig
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
@@ -74,7 +74,7 @@ object AppConfig {
         .map(s => EtcdConfig(s.split(",").map(_.trim).filter(_.nonEmpty), defaultTimeout))
         .getOrElse(EtcdConfig(Seq("http://localhost:2379"), defaultTimeout))
       if (backend == StoreBackend.etcd && config.endpoints.isEmpty)
-      throw new RuntimeException("ERROR: no HARNESS_ETCD_ENDPOINTS set")
+        throw new RuntimeException("ERROR: no HARNESS_ETCD_ENDPOINTS set")
       config
     }
     AppConfig(
@@ -108,6 +108,6 @@ object AppConfig {
 object StoreBackend extends Enumeration {
   type StoreBackend = Value
 
-  val mongo = Value("mongo")
-  val etcd = Value("etcd")
+  val mongo: StoreBackend = Value("mongo")
+  val etcd: StoreBackend = Value("etcd")
 }

@@ -22,6 +22,7 @@ import akka.stream.ActorMaterializer
 import com.actionml.admin.Administrator
 import com.actionml.authserver.router.AuthServerProxyRouter
 import com.actionml.authserver.services.{AuthServerProxyServiceImpl, CachedAuthorizationService}
+import com.actionml.core.HEnv
 import com.actionml.core.config.AppConfig
 import com.actionml.core.search.elasticsearch.ElasticSearchClient
 import com.actionml.core.store.backends.MongoStorage
@@ -30,8 +31,6 @@ import com.actionml.router.http.routes._
 import com.actionml.router.service._
 import zio._
 import zio.logging.{Logging, log}
-
-import java.time.Duration
 
 
 /**
@@ -82,7 +81,7 @@ object HarnessServer extends App {
         _ <- IO.fromFuture(_ => restServer.run()) *> IO.never
         _ <- log.info("Shutting down Harness Server")
         _ <- IO.effect(MongoStorage.close())
-      } yield ()).provideLayer(Logging.console() ++ ZEnv.live).exitCode
+      } yield ()).provideLayer(HEnv.live).exitCode
     }
   }
 }

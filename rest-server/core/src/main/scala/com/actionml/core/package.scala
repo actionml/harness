@@ -25,10 +25,11 @@ import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import zio.blocking.Blocking
 import zio.clock.Clock
+import zio.console.Console
 import zio.logging.slf4j.Slf4jLogger
-import zio.logging.{Logging, log}
+import zio.logging.{LogFormat, LogLevel, Logging, log}
 import zio.stream.ZStream
-import zio.{Cause, Fiber, IO, Layer, Runtime, Task, ZIO, ZLayer, ZManaged}
+import zio.{CanFail, Cause, Fiber, IO, Layer, Runtime, Task, ZEnv, ZIO, ZLayer, ZManaged, logging, system}
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -97,23 +98,29 @@ package object core  extends LazyLogging {
   }
 
   val enginesBackend: Layer[Any, EnginesBackend] =
-    ZLayer.fromManaged {
-      ZManaged.make {
-        AppConfig().enginesBackend match {
+    ZLayer.fromEffect {
+      for {
+        config <- IO.effect(AppConfig())
+        backend <- config.enginesBackend match {
           case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
           case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
         }
-      }(_ => IO.unit)
+      } yield backend
     }
 
-  val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer {
-    enginesBackend ++
-    Slf4jLogger.make((_, s) => s) ++
-    Clock.live ++
-    Blocking.live ++
-    zio.system.System.live ++
-    HttpClient.live
+ val loggerEnv = Logging.console().catchAll {
+   Slf4jLogger.make((_, s) => s)
+ }
+
+  object HEnv {
+    lazy val live =
+      enginesBackend ++
+      HttpClient.live ++
+      zio.ZEnv.live >+>
+      loggerEnv
   }
+
+  val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer(HEnv.live)
 
   object ValidateErrorImplicits {
     implicit def task2Hio[A](t: Task[A]): HIO[A] = t.flatMapError { e =>

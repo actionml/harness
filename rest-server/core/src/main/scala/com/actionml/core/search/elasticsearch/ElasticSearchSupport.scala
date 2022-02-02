@@ -45,6 +45,7 @@ import java.io.{BufferedReader, IOException, InputStreamReader, UnsupportedEncod
 import java.net.URLEncoder
 import java.time.Instant
 import scala.collection.JavaConversions._
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
@@ -655,8 +656,13 @@ object ElasticSearchClient extends LazyLogging with JsonSupport {
     )
   }
 
+  private val clientCache = TrieMap.empty[String, ElasticSearchClient]
+
   def apply(aliasName: String): ElasticSearchClient = {
-    new ElasticSearchClient(aliasName, mkClient) with ElasticSearchResultTransformation
+    clientCache.getOrElseUpdate(
+      aliasName,
+      new ElasticSearchClient(aliasName, mkClient) with ElasticSearchResultTransformation
+    )
   }
 
 

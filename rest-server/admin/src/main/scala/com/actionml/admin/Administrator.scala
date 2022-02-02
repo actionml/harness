@@ -20,49 +20,29 @@ package com.actionml.admin
 import akka.actor.ActorSystem
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core._
 import com.actionml.core.config.AppConfig
-import com.actionml.core.engine.backend.EngineMetadata
-import com.actionml.core.engine.{Add, Delete, Engine, EnginesBackend, Update}
+import com.actionml.core.engine._
 import com.actionml.core.jobs.JobManager
 import com.actionml.core.model.{Comment, GenericEngineParams, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.validate._
-import com.actionml.core.{HIO, drawActionML, _}
 import com.typesafe.scalalogging.LazyLogging
 import zio.duration._
 import zio.logging.log
-import zio.{Fiber, IO, Schedule, Task, ZIO}
+import zio.{Fiber, IO, Schedule, ZIO}
 
-import scala.util.{Properties, Try}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Properties
 import scala.util.control.NonFatal
 
 
 trait Administrator extends LazyLogging with JsonSupport {
   def system: ActorSystem
   def config: AppConfig
-  private var engines = Map.empty[EngineMetadata, Engine]
+  private var engines = Map.empty[String, Engine]
   private val trainEC: ExecutionContext = system.dispatchers.lookup("train-dispatcher")
-
-  harnessRuntime.unsafeRunAsync {
-    def update(meta: EngineMetadata): HIO[Unit] = newEngineInstanceIO(meta.engineFactory, meta.params).map { e =>
-      engines = engines + (meta -> e)
-    }
-    EnginesBackend.watchActions {
-      case Add(meta, _) => update(meta)
-      case Update(meta, _) => update(meta)
-      case Delete(meta, _) => IO.effect {
-        val deletedEngine = engines.filter { case (EngineMetadata(id, _, _), _) => meta.engineId == id }
-        Try(deletedEngine.foreach { case (_, e) =>
-          e.destroy()
-        })
-        engines = engines -- deletedEngine.keys
-      }.ignore
-    }.retry(Schedule.linear(2.seconds)).forever
-  }(_ => logger.error("Engines updates stopped"))
-
-  drawActionML()
 
   private def newEngineInstanceIO(engineFactory: String, json: String): HIO[Engine] = IO.effect {
     Class.forName(engineFactory).getMethod("apply", classOf[String], classOf[Boolean]).invoke(null, json, java.lang.Boolean.FALSE).asInstanceOf[Engine]
@@ -73,18 +53,38 @@ trait Administrator extends LazyLogging with JsonSupport {
   }.flatMap(_.initAndGet(json, update = false))
 
   // instantiates all stored engine instances with restored state
-  def init(): Task[Administrator] =
-    for {
-      _ <- Fiber.fromFuture(JobManager.abortExecutingJobs).join.ignore
-      _ <- IO(drawInfo("Harness Administrator initialized", Seq(
-                      ("════════════════════════════════════════", "══════════════════════════════════════"),
-                      ("Number of Engines: ", engines.size),
-                      ("Engines: ", engines.keys))))
-    } yield this
+  def init(): HIO[Administrator] = {
+    def update(meta: com.actionml.core.engine.backend.EngineMetadata): HIO[Unit] =
+      newEngineInstanceIO(meta.engineFactory, meta.params)
+        .map(e => engines = engines + (meta.engineId -> e))
+        .unit
 
-  def getEngine(engineId: String): Option[Engine] = engines.collectFirst {
-    case (meta, e) if meta.engineId == engineId => e
+    for {
+      _ <- IO.effect(drawActionML()).ignore
+      _ <- Fiber.fromFuture(JobManager.abortExecutingJobs).join.ignore
+      _ <- EnginesBackend.watchActions {
+        case Add(meta, _) => update(meta)
+        case Update(meta, _) => update(meta)
+        case Delete(meta, _) => IO.effect {
+          val deletedEngine = engines.get(meta.engineId)
+          deletedEngine.foreach { e =>
+            e.destroy()
+            engines = engines - e.engineId
+          }
+        }.flatMapError { e =>
+          log.error(e.getMessage, zio.Cause.die(e)).map { _ =>
+            ValidRequestExecutionError()
+          }
+        }
+      }.retry(Schedule.linear(2.seconds)).forkDaemon
+      _ <- IO(drawInfo("Harness Administrator initialized", Seq(
+        ("════════════════════════════════════════", "══════════════════════════════════════"),
+                      ("Number of Engines: ", engines.size),
+                      ("Engines: ", engines.keys)))).ignore
+    } yield this
   }
+
+  def getEngine(engineId: String): Option[Engine] = engines.get(engineId)
 
   def addEngine(json: String): HIO[Response] = {
     for {
@@ -92,7 +92,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       result <- getEngine(params.engineId).fold {
         newEngineInstanceIO(params.engineFactory, json) *> {
           for {
-            _ <- EnginesBackend.addEngine(params.engineId, EngineMetadata(params.engineId, params.engineFactory, json))
+            _ <- EnginesBackend.addEngine(params.engineId, com.actionml.core.engine.backend.EngineMetadata(params.engineId, params.engineFactory, json))
             _ = logger.info(s"Engine for resource-id: ${params.engineId} with params $json initialized successfully")
           } yield Comment(s"EngineId: ${params.engineId} created")
         }
@@ -109,7 +109,7 @@ trait Administrator extends LazyLogging with JsonSupport {
       result <- getEngine(params.engineId)
         .fold[HIO[Response]](IO.fail(WrongParams(jsonComment(s"Unable to update Engine: ${params.engineId}, the engine does not exist")))) { existingEngine =>
           EnginesBackend
-            .updateEngine(existingEngine.engineId, EngineMetadata(params.engineId, params.engineFactory, json))
+            .updateEngine(existingEngine.engineId, com.actionml.core.engine.backend.EngineMetadata(params.engineId, params.engineFactory, json))
             .flatMap(_ => existingEngine.init(json, update = true))
         }
     } yield result
@@ -124,10 +124,7 @@ trait Administrator extends LazyLogging with JsonSupport {
   def updateEngineWithTrain(engineId: String): Validated[ValidateError, Response] = {
     getEngine(engineId).fold[Validated[ValidateError, Response]] {
       Invalid(WrongParams(jsonComment(s"Unable to train Engine: $engineId, the engine does not exist")))
-    } { engine =>
-      if (config.jobs.jobControllerEnabled) engine.train(trainEC)
-      else Invalid(WrongParams("Train error"))
-    }
+    } { _.train(trainEC) }
   }
 
   def removeEngine(engineId: String): HIO[Response] = {
@@ -174,7 +171,7 @@ trait Administrator extends LazyLogging with JsonSupport {
 
   def status(resourceId: String): HIO[Response] = {
     engines.collectFirst {
-      case (meta, e) if meta.engineId == resourceId =>
+      case (id, e) if id == resourceId =>
         logger.trace(s"Getting status for $resourceId")
         e.status()
     }.getOrElse {
