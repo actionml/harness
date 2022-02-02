@@ -17,8 +17,7 @@
 
 package com.actionml.core.engine
 
-import com.actionml.core.validate.{ExternalServiceError, ValidateError}
-import io.etcd.jetcd.{Client, KV, Lease, Watch}
+import io.etcd.jetcd.{Client, KV, Lease, Lock, Watch}
 import zio._
 
 package object backend {
@@ -30,21 +29,22 @@ package object backend {
       def getKV: Task[KV]
       def getLease: Task[Lease]
       def getWatch: Task[Watch]
+      def getLock: Task[Lock]
     }
 
-    def getEtcd(endpoints: Seq[String]): Layer[Any, EtcdSupport] = ZLayer.succeed {
+    def getEtcd(endpoints: Seq[String]): Layer[Throwable, EtcdSupport] = ZLayer.succeed {
       new Service {
         private val client: Task[Client] = IO.effect(Client.builder.endpoints(endpoints: _*).build)
-        override def getKV = client.map(_.getKVClient)
-        override def getLease = client.map(_.getLeaseClient)
-        override def getWatch = client.map(_.getWatchClient)
+        override def getKV: Task[KV] = client.map(_.getKVClient)
+        override def getLease: Task[Lease] = client.map(_.getLeaseClient)
+        override def getWatch: Task[Watch] = client.map(_.getWatchClient)
+        override def getLock: Task[Lock] = client.map(_.getLockClient)
       }
     }
 
-    def getKV: ZIO[EtcdSupport,ValidateError,KV] = (ZIO.accessM(_.get.getKV): ZIO[EtcdSupport,Throwable,KV])
-      .orElseFail(ExternalServiceError("Etcd error"))
-    def getLease: ZIO[EtcdSupport,ValidateError,Lease] = (ZIO.accessM(a => a.get.getLease): ZIO[EtcdSupport, Throwable,Lease])
-      .orElseFail(ExternalServiceError("Etcd error"))
-    def getWatch: ZIO[EtcdSupport,Throwable,Watch] = ZIO.accessM(_.get.getWatch)
+    def getKV: ZIO[EtcdSupport, Throwable, KV] = ZIO.accessM(_.get.getKV)
+    def getLease: ZIO[EtcdSupport, Throwable, Lease] = ZIO.accessM(a => a.get.getLease)
+    def getWatch: ZIO[EtcdSupport, Throwable, Watch] = ZIO.accessM(_.get.getWatch)
+    def getLock: ZIO[EtcdSupport, Throwable, Lock] = ZIO.accessM(_.get.getLock)
   }
 }

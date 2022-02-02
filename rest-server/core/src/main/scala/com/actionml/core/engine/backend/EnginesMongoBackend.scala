@@ -17,7 +17,7 @@
 
 package com.actionml.core.engine.backend
 
-import com.actionml.core.HIO
+import com.actionml.core.{HIO, engine, harnessRuntime}
 import com.actionml.core.engine.{Action, Add, Delete, EnginesBackend, Update}
 import com.actionml.core.store.backends.{MongoAsyncDao, MongoStorage}
 import com.actionml.core.store.{DAO, DaoQuery}
@@ -28,7 +28,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.bson.codecs.configuration.CodecProvider
 import org.mongodb.scala.model.CreateCollectionOptions
 import org.mongodb.scala.{Document, Observer, SingleObservable}
-import zio.{IO, ZIO}
+import zio.{IO, Task, ZIO}
 
 import java.time.Instant
 import scala.concurrent.Future
@@ -80,7 +80,8 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
     } yield ()
   }
 
-  override def watchActions(callback: Action => Unit): HIO[Unit] = {
+  override def watchActions(cb: Action => HIO[Unit]): HIO[Unit] = {
+    def callback(a: Action): Unit = harnessRuntime.unsafeRun(cb(a))
     import DaoQuery.syntax._
     enginesCollection.findMany().foreach(e => callback(Add(e)))
     IO.effectAsync { cb =>
@@ -112,6 +113,8 @@ abstract class EnginesMongoBackend(codecs: List[CodecProvider]) extends EnginesB
         })
     }
   }
+
+  override def listNodes: HIO[List[engine.NodeDescription]] = IO.succeed(Nil)
 
 
   private def mkEvent(engineId: String, eventName: String) = Document(

@@ -39,9 +39,12 @@ class ScaffoldEngine extends Engine with JsonSupport {
   var params: GenericEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(json: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    super.init(json).andThen { _ =>
-      parseAndValidate[GenericEngineParams](json).andThen { p =>
+  override def init(json: String, update: Boolean = false): HIO[Response] = {
+    import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
+    for {
+      _ <- super.init(json)
+      p <- parseAndValidateIO[GenericEngineParams](json)
+      resp <- {
         params = p
         engineId = params.engineId
         dataset = new ScaffoldDataset(engineId)
@@ -51,31 +54,23 @@ class ScaffoldEngine extends Engine with JsonSupport {
           ("EngineId: ", engineId),
           ("Mirror Type: ", params.mirrorType),
           ("Mirror Container: ", params.mirrorContainer)))
-
-        Valid(p)
-      }.andThen { p =>
         dataset.init(json).andThen { r =>
           // handle C(reate) and U(pdate) of CRUD
           if (!update) algo.init(this) else Valid(Comment("ScaffoldAlgorithm updated"))
         }
       }
-    }
+    } yield resp
   }
 
   // Used starting Harness and adding new engines, persisted means initializing a pre-existing engine. Only called from
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(json: String, update: Boolean): ScaffoldEngine = {
-    val response = init(json, update)
-    if (response.isValid) {
+  override def initAndGet(json: String, update: Boolean): HIO[ScaffoldEngine] =
+    init(json, update).as {
       logger.trace(s"Initialized with JSON: $json")
       this
-    } else {
-      logger.error(s"Parse error with JSON: $json")
-      null.asInstanceOf[ScaffoldEngine] // todo: ugly, replace
     }
-  }
 
   override def status(): HIO[Response] = {
     logger.trace(s"Status of base Engine with engineId:$engineId")
@@ -96,15 +91,10 @@ class ScaffoldEngine extends Engine with JsonSupport {
 
   /** Triggers parse, validation, and persistence of event encoded in the json */
   override def input(json: String): Validated[ValidateError, Response] = {
-    super.init(json).andThen { _ =>
-      logger.trace("Got JSON body: " + json)
-      // validation happens as the input goes to the dataset
-      if (super.input(json).isValid)
-        dataset.input(json).andThen(process).map(_ => Comment("ScaffoldEngine input processed"))
-      else
-        Invalid(ValidRequestExecutionError(jsonComment("Some error like an ExecutionError in super.input happened")))
-      // todo: pass back indication of deeper error
-    }
+    if (super.input(json).isValid)
+      dataset.input(json).andThen(process).map(_ => Comment("ScaffoldEngine input processed"))
+    else
+      Invalid(ValidRequestExecutionError(jsonComment("Some error like an ExecutionError in super.input happened")))
   }
 
   /** Triggers Algorithm processes. We can assume the event is fully validated and transformed into
@@ -137,11 +127,11 @@ class ScaffoldEngine extends Engine with JsonSupport {
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     throw new NotImplementedError
 
-  override def deleteUserData(userId: String): Validated[ValidateError, Response] = throw new NotImplementedError
+  override def deleteUserData(userId: String): HIO[Response] = throw new NotImplementedError
 }
 
 object ScaffoldEngine {
-  def apply(json: String, isNew: Boolean): ScaffoldEngine = {
+  def apply(json: String, isNew: Boolean): HIO[ScaffoldEngine] = {
     val engine = new ScaffoldEngine()
     engine.initAndGet(json, update = isNew)
   }

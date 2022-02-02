@@ -19,11 +19,13 @@ package com.actionml.engines.ur
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.actionml.core.engine.Dataset
+import com.actionml.core.jobs.{JobDescription, JobManager}
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.search.elasticsearch.ElasticSearchSupport
 import com.actionml.core.store.DaoQuery.syntax._
-import com.actionml.core.store.{DaoQuery, OrderBy, Ordering, Store}
+import com.actionml.core.store.{DAO, DaoQuery, OrderBy, Ordering, Store}
 import com.actionml.core.validate._
 import com.actionml.engines.ur.URAlgorithm.URAlgorithmParams
 import com.actionml.engines.ur.URDataset.URDatasetParams
@@ -55,9 +57,9 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
   private val writeFormat = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneId.of("UTC"))
   private val es = createSearchClient(engineId)
 
-  def getItemsDao = itemsDao
+  def getItemsDao: DAO[URItemProperties] = itemsDao
 
-  def getIndicatorsDao = eventsDao
+  def getIndicatorsDao: DAO[UREvent] = eventsDao
 
   private def getItemsCollectionName = "items"
 
@@ -218,7 +220,7 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
     )
   }
 
-  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] = {
+  override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     Validated.catchNonFatal(
       eventsDao
         .findMany(limit = num, offset = from, orderBy = Some(OrderBy(Ordering.desc, "eventTime")))("entityType" === "user", "entityId" === userId)
@@ -228,10 +230,10 @@ class URDataset(engineId: String, val store: Store) extends Dataset[UREvent](eng
       logger.error("Get user data error", e)
       ValidRequestExecutionError()
     }
-  }
 
-  override def deleteUserData(userId: String): Unit = {
-    eventsDao.removeMany("entityType"=== "user", "entityId" === userId)
+  override def deleteUserData(userId: String): HIO[JobDescription] = {
+    JobManager.addJob(engineId, HIO.fromFuture(eventsDao.removeManyAsync("entityType"=== "user", "entityId" === userId)),
+      s"Delete data for user $userId in engine $engineId")
   }
 
 

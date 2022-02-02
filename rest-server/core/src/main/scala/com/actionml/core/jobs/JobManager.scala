@@ -17,33 +17,33 @@
 
 package com.actionml.core.jobs
 
-import com.actionml.core.{HEnv, HIO, harnessRuntime}
-
-import java.util.{Date, UUID}
+import com.actionml.core.ValidateErrorImplicits._
+import com.actionml.core.config.AppConfig
+import com.actionml.core.config.AppConfig.hostname
 import com.actionml.core.jobs.JobStatuses.JobStatus
 import com.actionml.core.model.Response
 import com.actionml.core.spark.LivyJobServerSupport
 import com.actionml.core.store.Ordering.desc
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.{DAO, OrderBy}
-import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.ValidRequestExecutionError
+import com.actionml.core.{HIO, harnessRuntime}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import net.ceedubs.ficus.Ficus._
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import org.bson.codecs.configuration.{CodecProvider, CodecRegistry}
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonInvalidOperationException, BsonReader, BsonWriter}
-
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 import zio.{Exit, IO, Queue, Ref, Schedule, Task, ZIO}
 
+import java.util.{Date, UUID}
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 
 trait JobManagerInterface {
@@ -100,24 +100,28 @@ object JobManager extends JobManagerInterface with LazyLogging {
     (for {
       q <- Queue.unbounded[HIO[Any]]
       _ = logger.info("Starting Job Manager's execution queue")
-      description <- Ref.make(JobDescription.create)
+      jd <- JobDescription.create
+      description <- Ref.make(jd)
       _ = putJobToQueue = (f, d) => mkCancellable.flatMap { case (p, c) =>
         description.set(d) *> q.offer(f.race(p.await)).as(c)
       }
       _ <- q.take.flatMap { job =>
-        description.get.flatMap { d => setJobStatus(d.jobId, JobStatuses.executing) *>
-          job *> setJobStatus(d.jobId, JobStatuses.successful)
-          .flatMapError { e =>
-            logger.error(s"Job ${d.jobId} error", e)
-            setJobStatus(d.jobId, JobStatuses.failed).ignore
-          }
+        description.get.flatMap { d =>
+          setJobStatus(d.jobId, JobStatuses.executing) *>
+          job *>
+          setJobStatus(d.jobId, JobStatuses.successful)
+            .flatMapError { e =>
+              logger.error(s"Job ${d.jobId} error", e)
+              setJobStatus(d.jobId, JobStatuses.failed).ignore
+            }
         }
       }.forever
     } yield ()).retry(Schedule.fibonacci(5.seconds))
   } (_ => logger.error(""))
 
+  @deprecated
   override def addJob(engineId: String, c: Cancellable, comment: String, status: JobStatus): JobDescription = {
-    val description = JobDescription.create(status = status, comment = comment)
+    val description = JobDescription.create(status = status, node = hostname, comment = comment)
     jobsStore.insert(JobRecord(engineId, description))
     jobDescriptions.put(engineId,
       (c -> description) :: jobDescriptions.getOrElse(engineId, Nil)
@@ -125,17 +129,16 @@ object JobManager extends JobManagerInterface with LazyLogging {
     description
   }
 
-  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = {
-    (for {
-      description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, comment = comment))
-      _ = jobsStore.insert(JobRecord(engineId, description))
-      c <- putJobToQueue(f, description)
-      _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
-    } yield description).mapError { e =>
-      val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
-      logger.error(msg, e)
-      ValidRequestExecutionError(msg)
-    }
+  override def addJob(engineId: String, f: HIO[Any], comment: String): HIO[JobDescription] = (for {
+    node <- AppConfig.hostName
+    description <- ZIO.effect(JobDescription.create(status = JobStatuses.queued, node = node, comment = comment))
+    _ = jobsStore.insert(JobRecord(engineId, description))
+    c <- putJobToQueue(f, description)
+    _ = jobDescriptions.put(engineId, (c -> description) :: jobDescriptions.getOrElse(engineId, Nil))
+  } yield description).mapError { e =>
+    val msg = s"Job error. Can't accept job with comment '$comment' for engine $engineId"
+    logger.error(msg, e)
+    ValidRequestExecutionError(msg)
   }
 
   override def updateJob(engineId: String, jobId: String, status: JobStatuses.JobStatus, c: Cancellable): Unit = {
@@ -234,25 +237,27 @@ object JobManager extends JobManagerInterface with LazyLogging {
   }
 }
 
-final case class JobManagerConfig(expireAfter: Option[FiniteDuration])
+final case class JobManagerConfig(expireAfter: Option[FiniteDuration], jobControllerEnabled: Boolean)
 
 final case class JobRecord(
   engineId: String,
   jobId: String,
+  node: Option[String],
   status: JobStatuses.JobStatus,
   comment: String,
   createdAt: Option[Date],
   completedAt: Option[Date],
   expireAt: Option[Date]
 ) {
-  def toJobDescription = {
+  def toJobDescription: JobDescription = {
     val newStatus = expireAt.collect {
       case d if (Seq(JobStatuses.executing, JobStatuses.queued).contains(status)) && (d.compareTo(new Date) <= 0) => JobStatuses.expired
     }.getOrElse(status)
-    JobDescription(jobId, newStatus, comment, createdAt, completedAt)
+    JobDescription(jobId, node.getOrElse("unknown"), newStatus, comment, createdAt, completedAt)
   }
 }
 object JobRecord {
+  import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
   private val config = ConfigFactory.load
   private val jobsConfig = config.as[JobManagerConfig]("jobs")
   private[jobs] val defaultExpireMillis: Long = jobsConfig.expireAfter.map(_.toMillis).getOrElse(throw new RuntimeException("Environment variable JOBS_EXPIRE_AFTER must be set"))
@@ -261,7 +266,7 @@ object JobRecord {
   }
 
   def apply(engineId: String, jd: JobDescription): JobRecord =
-    JobRecord(engineId, jd.jobId, jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
+    JobRecord(engineId, jd.jobId, Option(jd.node), jd.status, jd.comment, jd.createdAt, jd.completedAt, expireAt(jd.createdAt))
 
   val mongoCodecs: List[CodecProvider] = {
     import org.mongodb.scala.bson.codecs.Macros._
@@ -313,6 +318,7 @@ object Cancellable {
 
 case class JobDescription (
   jobId: String,
+  node: String,
   status: JobStatus = JobStatuses.queued,
   comment: String = "",
   createdAt: Option[Date] = Option(new Date),
@@ -320,9 +326,15 @@ case class JobDescription (
 ) extends Response
 
 object JobDescription {
-  def create: JobDescription = JobDescription(UUID.randomUUID().toString)
-  def create(status: JobStatuses.JobStatus, comment: String): JobDescription =
-    JobDescription(UUID.randomUUID().toString, status = status, comment = comment)
+  def create: HIO[JobDescription] = for {
+    node <- AppConfig.hostName
+    id <- IO.effect(UUID.randomUUID().toString)
+  } yield JobDescription(id, node)
+
+  def createSync: JobDescription = harnessRuntime.unsafeRun(create)
+
+  def create(status: JobStatuses.JobStatus, node: String, comment: String): JobDescription =
+    JobDescription(UUID.randomUUID().toString, node = node, status = status, comment = comment)
 }
 
 object JobStatuses extends Enumeration {

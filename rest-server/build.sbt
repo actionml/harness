@@ -6,7 +6,7 @@ version in ThisBuild := "0.7.0-SNAPSHOT"
 
 scalaVersion := "2.11.12"
 
-lazy val harnessAuthLibVersion = "0.3.0"
+lazy val harnessAuthLibVersion = "0.3.1"
 lazy val akkaVersion = "2.4.18"
 lazy val akkaHttpVersion = "10.0.9"
 lazy val circeVersion = "0.8.0"
@@ -39,6 +39,8 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-hdfs" % hdfsVersion,
     "org.apache.hadoop" % "hadoop-common" % hdfsVersion,
+    "org.slf4j" % "slf4j-api" % "1.7.32",
+    "ch.qos.logback" % "logback-core" % "1.2.3",
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
 
@@ -92,13 +94,16 @@ lazy val core = (project in file("core")).
       "org.elasticsearch.client" % "elasticsearch-rest-client" % "7.11.2",
       "org.elasticsearch" %% "elasticsearch-spark-20" % "7.10.2",
 
-      "dev.zio" %% "zio" % "1.0.9",
-      "dev.zio" %% "zio-streams" % "1.0.9",
-      "dev.zio" %% "zio-logging" % "0.5.11",
-      "dev.zio" %% "zio-logging-slf4j" % "0.5.11",
+      "dev.zio" %% "zio" % "1.0.12",
+      "dev.zio" %% "zio-streams" % "1.0.12",
+      "dev.zio" %% "zio-logging" % "0.5.14",
+      "dev.zio" %% "zio-logging-slf4j" % "0.5.14",
+      "dev.zio" %% "zio-logging-slf4j-bridge" % "0.5.14",
+      "dev.zio" %% "zio-config" % "1.0.10",
       "com.vladkopanev" %% "zio-saga-core" % "0.4.0",
 
       "io.etcd" % "jetcd-core" % "0.5.3",
+      "org.ehcache" % "ehcache" % "3.4.0",
 
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
@@ -113,7 +118,7 @@ lazy val common = (project in file("common")).dependsOn(core).
     commonSettings,
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-http" % akkaHttpVersion
     ),
     excludeDependencies ++= Seq(
       ExclusionRule("org.slf4j", "log4j-over-slf4j"),
@@ -178,8 +183,7 @@ lazy val server = (project in file("server")).dependsOn(core, common, engines, a
   commonSettings,
   libraryDependencies ++= Seq(
     "com.actionml" %% "harness-auth-common" % harnessAuthLibVersion,
-    "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
-    "org.ehcache" % "ehcache" % "3.4.0"
+    "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion
   ),
   excludeDependencies ++= Seq(
     ExclusionRule("org.slf4j", "log4j-over-slf4j"),

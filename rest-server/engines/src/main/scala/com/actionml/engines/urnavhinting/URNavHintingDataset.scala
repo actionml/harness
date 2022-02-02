@@ -19,8 +19,9 @@ package com.actionml.engines.urnavhinting
 
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-import com.actionml.core.BadParamsException
+import com.actionml.core.{BadParamsException, HIO}
 import com.actionml.core.engine.Dataset
+import com.actionml.core.jobs.JobDescription
 import com.actionml.core.model.{Comment, Response}
 import com.actionml.core.store.{DAO, DaoQuery, Store}
 import com.actionml.core.validate._
@@ -167,7 +168,7 @@ class URNavHintingDataset(engineId: String, val store: Store, val noSharedDb: Bo
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     throw new NotImplementedError
 
-  override def deleteUserData(userId: String): Unit =
+  override def deleteUserData(userId: String): HIO[JobDescription] =
     throw new NotImplementedError
 }
 

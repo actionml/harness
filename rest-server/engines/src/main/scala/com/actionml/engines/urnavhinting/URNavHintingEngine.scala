@@ -26,10 +26,12 @@ import com.actionml.core.model.{EngineParams, Event, Query, Response}
 import com.actionml.core.store.Ordering._
 import com.actionml.core.store.backends.MongoStorage
 import com.actionml.core.store.indexes.annotations.SingleIndex
-import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError}
+import com.actionml.core.validate.{JsonSupport, ValidRequestExecutionError, ValidateError, WrongParams}
 import com.actionml.engines.urnavhinting.URNavHintingEngine.{URNavHintingEngineParams, URNavHintingEvent, URNavHintingQuery}
 import org.json4s.JValue
 import zio.IO
+import zio.logging.LogAnnotation.Cause
+import zio.logging.log
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,9 +43,10 @@ class URNavHintingEngine extends Engine with JsonSupport {
   private var params: URNavHintingEngineParams = _
 
   /** Initializing the Engine sets up all needed objects */
-  override def init(jsonConfig: String, update: Boolean = false): Validated[ValidateError, Response] = {
-    super.init(jsonConfig).andThen { _ =>
-      parseAndValidate[URNavHintingEngineParams](jsonConfig).andThen { p =>
+  override def init(jsonConfig: String, update: Boolean = false): HIO[Response] = {
+    import com.actionml.core.utils.ZIOUtil.ValidatedImplicits._
+    super.init(jsonConfig).flatMap { _ =>
+      parseAndValidateIO[URNavHintingEngineParams](jsonConfig).map { p =>
         params = p
         engineId = params.engineId
         val dbName = p.sharedDBName.getOrElse(engineId)
@@ -55,10 +58,10 @@ class URNavHintingEngine extends Engine with JsonSupport {
         algo = URNavHintingAlgorithm(this, jsonConfig, dataset, eventsDao)
         logStatus(p)
         Valid(p)
-      }.andThen { p =>
-        dataset.init(jsonConfig).andThen { r =>
+      }.flatMap { _ =>
+        validated2IO(dataset.init(jsonConfig).andThen { r =>
           algo.init(this)
-        }
+        })
       }
     }
   }
@@ -76,16 +79,11 @@ class URNavHintingEngine extends Engine with JsonSupport {
   // the administrator.
   // Todo: This method for re-init or new init needs to be refactored, seem ugly
   // Todo: should return null for bad init
-  override def initAndGet(jsonConfig: String, update: Boolean): URNavHintingEngine = {
-    val response = init(jsonConfig, update)
-    if (response.isValid) {
+  override def initAndGet(jsonConfig: String, update: Boolean): HIO[URNavHintingEngine] =
+    init(jsonConfig, update).as {
       logger.trace(s"Initialized with JSON: $jsonConfig")
       this
-    } else {
-      logger.error(s"Parse error with JSON: $jsonConfig")
-      null.asInstanceOf[URNavHintingEngine] // todo: ugly, replace
     }
-  }
 
   override def input(jsonEvent: String): Validated[ValidateError, Response] = {
     logger.trace("Got JSON body: " + jsonEvent)
@@ -132,14 +130,20 @@ class URNavHintingEngine extends Engine with JsonSupport {
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     throw new NotImplementedError
 
-  override def deleteUserData(userId: String): Validated[ValidateError, Response] =
-    throw new NotImplementedError
+  override def deleteUserData(userId: String): HIO[Response] = throw new NotImplementedError
 }
 
 object URNavHintingEngine {
-  def apply(jsonConfig: String, isNew: Boolean): URNavHintingEngine = {
-    val engine = new URNavHintingEngine()
-    engine.initAndGet(jsonConfig, isNew)
+  def apply(jsonConfig: String, isNew: Boolean): HIO[URNavHintingEngine] = {
+    for {
+      engine <- IO.effect(new URNavHintingEngine())
+        .flatMapError { _ =>
+          log.error("URNavHintingEngine create error").as {
+            WrongParams("URNavHintingEngine create error")
+          }
+        }
+      _ <- engine.initAndGet(jsonConfig, isNew)
+    } yield engine
   }
 
   case class URNavHintingEngineParams(

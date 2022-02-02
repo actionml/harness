@@ -19,12 +19,13 @@ package com.actionml.engines.navhinting
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.actionml.core.model.{Comment, Event, GenericEngineParams, Response}
 import com.actionml.core.store.Store
 import com.actionml.core.engine.Dataset
+import com.actionml.core.jobs.JobDescription
 import com.actionml.core.utils.DateTimeUtil
 import com.actionml.core.validate._
 import org.mongodb.scala.MongoCollection
@@ -168,7 +169,7 @@ class NavHintingDataset(engineId: String, store: Store)(implicit ec: ExecutionCo
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]]  =
     throw new NotImplementedError
 
-  override def deleteUserData(userId: String): Unit = throw new NotImplementedError
+  override def deleteUserData(userId: String): HIO[JobDescription] = throw new NotImplementedError
 }
 
 //case class CBGroupInitProperties( p: Map[String, Seq[String]])

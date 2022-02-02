@@ -50,8 +50,8 @@ class CachedAuthorizationService(override val authConfig: AuthConfig)(
 
 
 object CachedAuthorizationService {
-  val cacheTtl = Duration.of(30, TimeUnit.MINUTES)
-  val cacheSize = 1000
+  private val cacheTtl = Duration.of(30, TimeUnit.MINUTES)
+  private val cacheSize = 1000
   private class CacheExpiry[K,V] extends Expiry[K,V] {
     def getExpiryForUpdate(key: K, oldValue: ValueSupplier[_ <: V], newValue: V): Duration = cacheTtl
     def getExpiryForCreation(key: K, value: V): Duration = cacheTtl

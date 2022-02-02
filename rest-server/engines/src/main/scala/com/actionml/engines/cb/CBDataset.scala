@@ -18,10 +18,11 @@
 package com.actionml.engines.cb
 
 import java.time.OffsetDateTime
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
+import com.actionml.core.HIO
 import com.actionml.core.engine.SharedUserDataset
+import com.actionml.core.jobs.JobDescription
 import com.actionml.core.model._
 import com.actionml.core.store.{DAO, Store}
 import com.actionml.core.utils.DateTimeUtil
@@ -240,7 +241,7 @@ class CBDataset(engineId: String, storage: Store, usersStorage: Store) extends S
   override def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]] =
     throw new NotImplementedError
 
-  override def deleteUserData(userId: String): Unit =
+  override def deleteUserData(userId: String): HIO[JobDescription] =
     throw new NotImplementedError
 }
 

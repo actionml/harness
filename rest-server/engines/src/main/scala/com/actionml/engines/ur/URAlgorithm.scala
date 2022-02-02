@@ -19,7 +19,6 @@ package com.actionml.engines.ur
 
 import java.io.Serializable
 import java.util.Date
-
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
 import com.actionml.core.drawInfo
@@ -42,6 +41,7 @@ import org.apache.spark.rdd.RDD
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.util.Try
 import scala.util.control.NonFatal
 
 
@@ -253,7 +253,7 @@ class URAlgorithm private (
     }
   }
 
-  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = {
+  override def train(implicit ec: ExecutionContext): Validated[ValidateError, Response] = Try {
     val (f, jobDescription) = SparkContextSupport.getSparkContext(initParams, engineId, kryoClasses = Array(classOf[UREvent]))
     f.map { implicit sc =>
       logger.info(s"Engine-id: ${engineId}. Spark context spark.submit.deployMode: ${sc.deployMode}")
@@ -308,7 +308,7 @@ class URAlgorithm private (
     }
     logger.trace(s"Engine-id: ${engineId}. Starting train with spark")
     Valid(TrainResponse(jobDescription, "Started train Job on Spark"))
-  }
+  }.getOrElse(Invalid(ValidRequestExecutionError(s"Engine's $engineId train failed")))
 
   /*
   def getIndicators(

@@ -19,15 +19,21 @@ package com.actionml
 
 import com.actionml.core.config.{AppConfig, StoreBackend}
 import com.actionml.core.engine.EnginesBackend
-import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, MongoStorageHelper}
-import com.actionml.core.validate.ValidateError
+import com.actionml.core.engine.backend.{EnginesEtcdBackend, EnginesMongoBackend, EtcdSupport, MongoStorageHelper}
+import com.actionml.core.utils.HttpClient
+import com.actionml.core.validate.{ValidRequestExecutionError, ValidateError}
 import com.typesafe.scalalogging.LazyLogging
 import zio.blocking.Blocking
 import zio.clock.Clock
-import zio.logging.Logging
+import zio.console.Console
 import zio.logging.slf4j.Slf4jLogger
+import zio.logging.{LogFormat, LogLevel, Logging, log}
 import zio.stream.ZStream
-import zio.{IO, Layer, Runtime, ZIO, ZLayer, ZManaged}
+import zio.{CanFail, Cause, Fiber, IO, Layer, Runtime, Task, ZEnv, ZIO, ZLayer, ZManaged, logging, system}
+
+import scala.concurrent.Future
+import scala.language.implicitConversions
+import scala.util.{Failure, Success}
 
 package object core  extends LazyLogging {
 
@@ -78,27 +84,47 @@ package object core  extends LazyLogging {
 
   case class BadParamsException(message: String) extends Exception(message)
 
-  type HEnv = EnginesBackend with Clock with Logging with Blocking
+  type HEnv = EnginesBackend with HttpClient with Clock with Logging with Blocking with zio.system.System
   type HIO[A] = ZIO[HEnv, ValidateError, A]
   type HStream[A] = ZStream[HEnv, ValidateError, A]
 
-  val enginesBackend: Layer[Throwable, EnginesBackend] = {
-    val config = AppConfig.apply
-    ZLayer.fromManaged {
-      {
-        ZManaged.make {
-          config.enginesBackend match {
-            case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
-            case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
-          }
-        }(_ => IO.unit)
-      }
+  object HIO {
+    def fromFuture[A](f: => Future[A]): HIO[A] = {
+      Fiber.fromFuture(f).join
+        .flatMapError { e =>
+          log.error("Error in Future", Cause.die(e)).as(ValidRequestExecutionError())
+        }
     }
   }
-  val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer {
-    Slf4jLogger.make((c, s) => s) ++
-    Clock.live ++
-    Blocking.live ++
-    enginesBackend
+
+  val enginesBackend: Layer[Any, EnginesBackend] =
+    ZLayer.fromEffect {
+      for {
+        config <- IO.effect(AppConfig())
+        backend <- config.enginesBackend match {
+          case StoreBackend.etcd => IO.effect(new EnginesEtcdBackend)
+          case _ => ZIO.effect(new EnginesMongoBackend(MongoStorageHelper.codecs){})
+        }
+      } yield backend
+    }
+
+ val loggerEnv = Logging.console().catchAll {
+   Slf4jLogger.make((_, s) => s)
+ }
+
+  object HEnv {
+    lazy val live =
+      enginesBackend ++
+      HttpClient.live ++
+      zio.ZEnv.live >+>
+      loggerEnv
+  }
+
+  val harnessRuntime: Runtime.Managed[HEnv] = zio.Runtime.unsafeFromLayer(HEnv.live)
+
+  object ValidateErrorImplicits {
+    implicit def task2Hio[A](t: Task[A]): HIO[A] = t.flatMapError { e =>
+      log.error("Task error", Cause.die(e)).as(ValidRequestExecutionError())
+    }
   }
 }

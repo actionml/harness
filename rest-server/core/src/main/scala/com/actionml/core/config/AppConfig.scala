@@ -17,14 +17,17 @@
 
 package com.actionml.core.config
 
-import java.net.URI
-
+import java.net.{InetAddress, URI}
 import com.actionml.core.config.StoreBackend.StoreBackend
+import com.actionml.core.{HIO, config, harnessRuntime}
 import com.actionml.core.jobs.JobManagerConfig
 import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+import zio.{Cause, RIO}
+import zio.logging.log
+import zio.system.env
 
 import scala.concurrent.duration._
 import scala.util.{Properties, Try}
@@ -60,7 +63,7 @@ case class EtcdConfig(endpoints: Seq[String], timeout: FiniteDuration)
 object AppConfig {
   private lazy val config = ConfigFactory.load()
 
-  def apply: AppConfig = {
+  def apply(): AppConfig = {
     val uri = new URI(Properties.envOrElse("HARNESS_URI", "ERROR: no HARNESS_URI set" ))
     val backend: StoreBackend = Try(StoreBackend.withName(sys.env("HARNESS_ENGINES_BACKEND")))
       .getOrElse(StoreBackend.mongo)
@@ -71,7 +74,7 @@ object AppConfig {
         .map(s => EtcdConfig(s.split(",").map(_.trim).filter(_.nonEmpty), defaultTimeout))
         .getOrElse(EtcdConfig(Seq("http://localhost:2379"), defaultTimeout))
       if (backend == StoreBackend.etcd && config.endpoints.isEmpty)
-      throw new RuntimeException("ERROR: no HARNESS_ETCD_ENDPOINTS set")
+        throw new RuntimeException("ERROR: no HARNESS_ETCD_ENDPOINTS set")
       config
     }
     AppConfig(
@@ -92,15 +95,19 @@ object AppConfig {
       backend
     )
   }
-}
 
-trait ConfigurationComponent {
-  def config: AppConfig
+  val hostName: HIO[String] = {
+    env("HOSTNAME").map(_.getOrElse(InetAddress.getLocalHost.getHostName))
+      .catchAll(e => log.error("Get $HOSTNAME error", Cause.fail(e)).as("unknown"))
+  }
+
+  @deprecated
+  def hostname: String = harnessRuntime.unsafeRun(hostName)
 }
 
 object StoreBackend extends Enumeration {
   type StoreBackend = Value
 
-  val mongo = Value("mongo")
-  val etcd = Value("etcd")
+  val mongo: StoreBackend = Value("mongo")
+  val etcd: StoreBackend = Value("etcd")
 }

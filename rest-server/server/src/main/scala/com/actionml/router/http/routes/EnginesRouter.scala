@@ -22,9 +22,10 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
-import com.actionml.admin.Administrator
 import com.actionml.authserver.ResourceId
 import com.actionml.authserver.Roles.engine
+import com.actionml.authserver.{AccessToken, ResourceId}
+import com.actionml.authserver.Roles.{engine, system}
 import com.actionml.authserver.directives.AuthorizationDirectives
 import com.actionml.authserver.service.AuthorizationService
 import com.actionml.core.config.AppConfig
@@ -65,8 +66,7 @@ import scala.language.implicitConversions
   */
 class EnginesRouter(
   engineService: EngineServiceImpl,
-  override val authorizationService: AuthorizationService,
-  admin: Administrator)(
+  override val authorizationService: AuthorizationService)(
   implicit val actorSystem: ActorSystem,
   implicit protected val executor: ExecutionContext,
   implicit protected val materializer: ActorMaterializer,
@@ -75,8 +75,10 @@ class EnginesRouter(
 
   override val authEnabled: Boolean = config.auth.enabled
 
-  override val route: Route = (rejectEmptyResponse & extractAccessToken) { implicit accessToken =>
-    (pathPrefix("engines") & extractLog) { implicit log =>
+  override val route: Route = (rejectEmptyResponse & extractAccessToken & extractLog) { (accessToken, log) => {
+    implicit val l: LoggingAdapter = log
+    implicit val at: Option[AccessToken] = accessToken
+    pathPrefix("engines") {
       (pathEndOrSingleSlash & hasAccess(engine.create, ResourceId.*)) {
         getEngines ~
         createEngine
@@ -103,19 +105,9 @@ class EnginesRouter(
           }
         }
       }
-    } ~
-    (pathPrefix("system") & extractLog) { implicit log =>
-      pathEndOrSingleSlash(getSystemInfo)
     }
-  }
+  }}
 
-
-  private def getSystemInfo(implicit log: LoggingAdapter): Route = get {
-    log.info("Get system info")
-    completeByValidated(StatusCodes.OK) {
-      admin.systemInfo(ExecutionContext.Implicits.global)
-    }
-  }
 
   private def getEngine(engineId: String)(implicit log: LoggingAdapter): Route = get {
     log.info("Get engine: {}", engineId)
@@ -132,7 +124,6 @@ class EnginesRouter(
   }
 
   private def createEngine(implicit log: LoggingAdapter): Route = entity(as[JValue]) { engineConfig =>
-
     log.info("Create engine: {}", engineConfig)
     completeByValidated(StatusCodes.Created) {
       engineService.addEngine(JsonMethods.compact(engineConfig))

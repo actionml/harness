@@ -20,6 +20,7 @@ package com.actionml.core.engine.backend
 import com.actionml.core.config.AppConfig
 import com.actionml.core.engine._
 import com.actionml.core.engine.ActionNames._
+import com.actionml.core.utils.HttpClient
 import com.actionml.core.validate._
 import com.actionml.core.{HEnv, HIO}
 import com.typesafe.scalalogging.LazyLogging
@@ -35,8 +36,9 @@ import io.etcd.jetcd.watch.WatchResponse
 import io.grpc.stub.StreamObserver
 import zio.duration._
 import zio.logging._
-import zio.{Cause, IO, Queue, Schedule, ZIO}
+import zio.{Cause, IO, Queue, Task, ZIO}
 
+import java.net.URL
 import java.nio.charset.Charset
 import java.time.Instant
 import scala.collection.JavaConverters._
@@ -46,98 +48,82 @@ import scala.util.Try
 class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
 
   import EnginesEtcdBackend._
-  import com.actionml.core.utils.ZIOUtil.ZioImplicits._
+  import com.actionml.core.utils.ZIOUtil.HioImplicits._
 
-  private val config = AppConfig.apply
   private val etcdClient = Client.builder.endpoints(config.etcdConfig.endpoints: _*).build
   private val kv = etcdClient.getKVClient
   private val watch = etcdClient.getWatchClient
   private val lease = etcdClient.getLeaseClient
 
-  private def registerHarnessIds(harnessIdQueue: Queue[Long]): HIO[Unit] = {
-    for {
-      leaseId <- lease.grant(5).toIO.map(_.getID)
-      _ <- harnessIdQueue.offer(leaseId)
-      _ <- log.info(s"Got harnessId=$leaseId")
-      instanceKey = mkServiceKey(leaseId)
-      kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
-      _ <- kv.put(instanceKey, "", kOpt)
-      _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb =>
-        Try {
-          lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
-            override def onCompleted(): Unit = {
-              logger.warn(s"Keep-alive completed for harness-$leaseId")
-              cb(ZIO.effect(ka.close()).ignore *> harnessIdQueue.shutdown)
-            }
-            override def onNext(resp: LeaseKeepAliveResponse): Unit = {
-              logger.debug(s"NEXT ${resp.getID} (ttl=${resp.getTTL})")
-            }
-            override def onError(e: Throwable): Unit = {
-              logger.error("Etcd keep-alive error", e)
-              cb(ZIO.effect(ka.close()).ignore *> harnessIdQueue.shutdown)
-            }
-          })
-          ka
+  private def registerHarnessIds(leaseIdQueue: Queue[Long]): HIO[Unit] = for {
+    leaseId <- lease.grant(5).toIO.map(_.getID)
+    _ <- leaseIdQueue.offer(leaseId)
+    instanceKey <- mkServiceKey
+    kOpt = PutOption.newBuilder().withLeaseId(leaseId).build()
+    _ <- kv.put(instanceKey, "", kOpt)
+    _ <- if (config.jobs.jobControllerEnabled) hostPort.flatMap(h => kv.put(jcKey, h, kOpt))
+         else IO.unit
+    _ <- ZIO.effectAsync[HEnv, CloseableClient, Unit] { cb => Try {
+      lazy val ka: CloseableClient = lease.keepAlive(leaseId, new StreamObserver[LeaseKeepAliveResponse] with LazyLogging {
+        override def onCompleted(): Unit = {
+          logger.warn(s"Keep-alive completed for harness-$leaseId")
+          cb(ZIO.effect(ka.close()).ignore *> leaseIdQueue.shutdown)
         }
-      }.mapError { ka =>
-        Try(ka.close())
-        ValidRequestExecutionError()
-      }
-    } yield ()
-  }
-
-  override def watchActions(callback: Action => Unit): HIO[Unit] = {
-    for {
-      harnessIdQ <- Queue.bounded[Long](1)
-      actions <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
-                   .map(_.getKvs.asScala.flatMap(s => decode(s.getValue)))
-      _ = actions.foreach {
-        case a: Add => callback(a)
-        case u: Update => callback(u)
-        case _ =>
-      }
-      _ <- registerHarnessIds(harnessIdQ).fork
-      _ <- watchEngines(harnessIdQ, callback)
-    } yield ()
-  }
-
-
-  private def watchEngines(harnessIdQ: Queue[Long], callback: Action => Unit): HIO[Unit] = {
-    for {
-      harnessId <- harnessIdQ.take
-      _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb =>
-        Try {
-          lazy val w: Watcher = watch.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Watch.Listener with LazyLogging {
-            override def onNext(response: WatchResponse): Unit = {
-              logger.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
-              response.getEvents.asScala
-                .flatMap(event => decode(event.getKeyValue.getValue.toString(etcdCharset)))
-                .foreach { a =>
-                  callback(a)
-                  kv.put(mkServiceKey(harnessId), encode(a), PutOption.newBuilder().withLeaseId(harnessId).build())
-                }
-            }
-            override def onError(e: Throwable): Unit = cb {
-              for {
-                _ <- log.error("Actions watch error", Cause.fail(e))
-                _ <- harnessIdQ.shutdown
-                _ <- ZIO.fail(w)
-              } yield ()
-            }
-            override def onCompleted(): Unit = cb {
-              for {
-                _ <- log.info("Actions watcher completed")
-                _ <- harnessIdQ.shutdown
-                _ <- ZIO.fail(w)
-              } yield ()
-            }
-          })
-          w
+        override def onNext(resp: LeaseKeepAliveResponse): Unit = {
+          logger.debug(s"NEXT ${resp.getID} (ttl=${resp.getTTL})")
         }
-      }.onError(_.failureOption.fold(IO.unit)(w => IO.effect(Try(w.close())).ignore))
-        .mapErrorCause(_ => Cause.fail(ValidRequestExecutionError()))
-    } yield ()
-  }
+        override def onError(e: Throwable): Unit = {
+          logger.error("Etcd keep-alive error", e)
+          cb(ZIO.effect(ka.close()).ignore *> leaseIdQueue.shutdown)
+        }
+      })
+      ka
+    }}.mapError { ka =>
+      Try(ka.close())
+      ValidRequestExecutionError()
+    }
+  } yield ()
+
+  override def watchActions(callback: Action => HIO[Unit]): HIO[Unit] = for {
+    leaseIdQ <- Queue.bounded[Long](1)
+    actions <- kv.get(enginesPrefix, kvPrefixOpt(enginesPrefix))
+      .map(_.getKvs.asScala.flatMap(s => decode(s.getValue)))
+    _ <- ZIO.foreach_(actions.toList) {
+        case a: Add => callback(a).ignore
+        case u: Update => callback(u).ignore
+        case _ => IO.unit
+      }.fork
+    _ <- registerHarnessIds(leaseIdQ).fork
+    _ <- watchEngines(leaseIdQ, callback)
+  } yield ()
+
+  private def watchEngines(leaseQ: Queue[Long], callback: Action => HIO[Unit]): HIO[Unit] = for {
+    leaseId <- leaseQ.take
+    r <- ZIO.runtime[HEnv]
+    _ <- ZIO.effectAsync[HEnv, Watcher, Unit] { cb =>
+      Try {
+        lazy val w: Watcher = watch.watch(enginesPrefix, watchPrefixOpt(enginesPrefix), new Watch.Listener with LazyLogging {
+          override def onNext(response: WatchResponse): Unit = r.unsafeRun {
+            for {
+              nodeKey <- mkServiceKey
+              _ <- log.info(s"Engines actions detected ${response.getEvents.asScala.map(a => a.getKeyValue.getValue.toString(etcdCharset))}")
+              events = response.getEvents.asScala.flatMap { event =>
+                decode(event.getKeyValue.getValue.toString(etcdCharset))
+              }.toList
+              _ <- ZIO.foreach(events) { a =>
+                callback(a) *>
+                kv.put(nodeKey, encode(a), PutOption.newBuilder().withLeaseId(leaseId).build())
+              }
+            } yield ()
+          }
+          override def onError(e: Throwable): Unit = cb(log.error("Actions watch error", Cause.fail(e)) *> leaseQ.shutdown)
+          override def onCompleted(): Unit = cb(log.info("Actions watcher completed") *> leaseQ.shutdown)
+        })
+        w
+      }
+    }.onError(_.failureOption.fold(IO.unit)(w => IO.effect(w.close()).ignore))
+      .mapErrorCause(_ => Cause.fail(ValidRequestExecutionError()))
+  } yield ()
 
   private def encode(a: Action): String = a match {
     case Add(meta, id) => actionToJsonString(add, id, meta, a.timestamp)
@@ -168,6 +154,19 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
   override def updateEngine(id: String, data: EngineMetadata): HIO[Unit] = updateEtcdEngine(Update(data)) >>= findUpdated
 
   override def deleteEngine(id: String): HIO[Unit] = updateEtcdEngine(Delete(EngineMetadata(id, "", ""))) >>= findUpdated
+
+  override def listNodes: HIO[List[NodeDescription]] = {
+    def parseHostName: String => String = { case ServiceKeyPattern(host) => s"http://$host" }
+    for {
+      instanceKeys <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
+      descriptions <- ZIO.foreach(instanceKeys.getKvs.asScala.toList) { i =>
+        val hostName = parseHostName(i.getKey)
+        HttpClient.send(new URL(s"$hostName/engines"))
+          .flatMap(parseAndValidateIO[List[EngineStatus]](_))
+          .map(engines => NodeDescription(hostName, engines))
+      }
+    } yield descriptions
+  }
 
 
   private val updateEtcdEngine: Action => HIO[String] = a => { a match {
@@ -230,8 +229,10 @@ class EnginesEtcdBackend extends EnginesBackend.Service with JsonSupport {
     for {
       // fetch all registered harness instances
       instances <- kv.get(servicesPrefix, kvPrefixOpt(servicesPrefix))
+      me <- mkServiceKey.map(toByteSequence)
       // wait for them to update
-      _ <- ZIO.foreachPar_(instances.getKvs.asScala)(i => waitForAction(i.getKey, now, timeout))
+      _ <- ZIO.foreachPar_(instances.getKvs.asScala.filterNot(i => i.getKey == me || i.getKey == toByteSequence(jcKey)))
+           { i => waitForAction(i.getKey, now, timeout) }
     } yield ()
   }
 }
@@ -246,7 +247,13 @@ object EnginesEtcdBackend {
   private val enginesPrefix = "/harness_meta_store/engines/"
   private def mkEngineKey(engineId: String): ByteSequence = toByteSequence(s"$enginesPrefix$engineId")
   private val servicesPrefix = "/services/harness/instances/"
-  private def mkServiceKey(harnessId: Long) = s"${servicesPrefix}harness-$harnessId"
+  private val config = AppConfig()
+  private val port = config.restServer.port
+  private val hostPort = AppConfig.hostName.map(n => s"$n:${port}")
+  private val mkServiceKey = hostPort.map(n => s"${servicesPrefix}harness-$n")
+    .mapError(_ => ValidRequestExecutionError())
+  private def jcKey = s"${servicesPrefix}job-controller"
+  private val ServiceKeyPattern = s"${servicesPrefix}harness-([a-zA-Z0-9-\\.:]*)".r
   private val etcdCharset = Charset.forName("UTF-8")
   private def kvPrefixOpt(prefix: String) = GetOption.newBuilder().withPrefix(prefix).build
   private def watchPrefixOpt(prefix: String) =

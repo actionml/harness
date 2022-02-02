@@ -19,6 +19,8 @@ package com.actionml.core.engine
 
 import cats.data.Validated
 import cats.data.Validated.Valid
+import com.actionml.core.HIO
+import com.actionml.core.jobs.JobDescription
 import com.actionml.core.model._
 import com.actionml.core.store.Store
 import com.actionml.core.validate.{JsonSupport, ValidateError}
@@ -38,7 +40,7 @@ abstract class Dataset[T](engineId: String) extends LazyLogging with JsonSupport
       acc.andThen(_ => input(e))
     }
   def getUserData(userId: String, num: Int, from: Int): Validated[ValidateError, List[Response]]
-  def deleteUserData(userId: String): Unit
+  def deleteUserData(userId: String): HIO[JobDescription]
 
   // start and stop may be ignored by Engines if not applicable
   def start(): Dataset[T] = {logger.trace(s"Engine-id: ${engineId}. Starting base Dataset"); this}
