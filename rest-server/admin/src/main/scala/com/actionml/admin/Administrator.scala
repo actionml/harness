@@ -31,7 +31,7 @@ import com.actionml.core.validate._
 import com.typesafe.scalalogging.LazyLogging
 import zio.duration._
 import zio.logging.log
-import zio.{Fiber, IO, Schedule, ZIO}
+import zio.{Fiber, IO, Schedule, Task, ZIO}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Properties
@@ -65,16 +65,11 @@ trait Administrator extends LazyLogging with JsonSupport {
       _ <- EnginesBackend.watchActions {
         case Add(meta, _) => update(meta)
         case Update(meta, _) => update(meta)
-        case Delete(meta, _) => IO.effect {
-          val deletedEngine = engines.get(meta.engineId)
-          deletedEngine.foreach { e =>
-            e.destroy()
-            engines = engines - e.engineId
-          }
+        case Delete(meta, _) => engines.get(meta.engineId).fold[Task[Unit]](IO.unit) { engine =>
+          engines = engines - engine.engineId
+          IO.effect(engine.destroy())
         }.flatMapError { e =>
-          log.error(e.getMessage, zio.Cause.die(e)).map { _ =>
-            ValidRequestExecutionError()
-          }
+          log.error(e.getMessage, zio.Cause.die(e)).as(ValidRequestExecutionError())
         }
       }.retry(Schedule.linear(2.seconds)).forkDaemon
       _ <- IO(drawInfo("Harness Administrator initialized", Seq(
